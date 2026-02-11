@@ -6,14 +6,13 @@ import {
   Calendar, 
   ChevronRight, 
   Plus,
-  MapPin,
   Clock,
   ArrowRight
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import VehicleCard from '@/components/VehicleCard';
 import OrderCard from '@/components/OrderCard';
-import CounterCard from '@/components/CounterCard';
+
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
@@ -55,11 +54,7 @@ const DashboardPage: React.FC = () => {
     .filter(b => ['Delivered', 'Completed'].includes(b.status))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const activeBookingsCount = bookings.filter(b => !['Delivered', 'Cancelled', 'Completed'].includes(b.status)).length;
-  const servicesDoneCount = bookings.filter(b => ['Delivered', 'Completed'].includes(b.status)).length;
-  const totalSpent = bookings
-    .filter(b => ['Delivered', 'Completed'].includes(b.status))
-    .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+
 
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
@@ -112,34 +107,7 @@ const DashboardPage: React.FC = () => {
         </Link>
       </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <CounterCard
-          label="Total Vehicles"
-          value={vehicles.length}
-          icon={<Car className="w-5 h-5 text-primary" />}
-          delay={0}
-        />
-        <CounterCard
-          label="Active Bookings"
-          value={activeBookingsCount}
-          icon={<Calendar className="w-5 h-5 text-primary" />}
-          delay={1}
-        />
-        <CounterCard
-          label="Services Done"
-          value={servicesDoneCount}
-          icon={<Clock className="w-5 h-5 text-primary" />}
-          // trend={{ value: 15, isPositive: true }} // Removed trend as we don't calculate it dynamically yet
-          delay={2}
-        />
-        <CounterCard
-          label="Total Spent"
-          value={`$${totalSpent}`}
-          icon={<MapPin className="w-5 h-5 text-primary" />}
-          delay={3}
-        />
-      </div>
+
 
       {/* Upcoming Booking */}
       {upcomingBooking && (
@@ -187,6 +155,7 @@ const DashboardPage: React.FC = () => {
       )}
 
       {/* My Vehicles */}
+      {vehicles.length === 0 && (
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">My Vehicles</h2>
@@ -198,43 +167,27 @@ const DashboardPage: React.FC = () => {
           ref={vehiclesRef}
           className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0"
         >
-          {vehicles.map((vehicle, index) => (
+          {vehicles.length === 0 && (
             <motion.div
-              key={vehicle._id}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: vehicles.length * 0.1 }}
             >
-              <VehicleCard
-                id={vehicle._id}
-                make={vehicle.make}
-                model={vehicle.model}
-                year={vehicle.year}
-                licensePlate={vehicle.licensePlate}
-                image={vehicle.image}
-                status={vehicle.status}
-                onClick={() => {}}
-              />
+              <Link
+                to="/add-vehicle"
+                className="flex flex-col items-center justify-center min-w-[280px] h-[230px] bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                  <Plus className="w-6 h-6 text-primary" />
+                </div>
+                <p className="font-medium text-foreground">Add Vehicle</p>
+                <p className="text-sm text-muted-foreground">Register a new vehicle</p>
+              </Link>
             </motion.div>
-          ))}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: vehicles.length * 0.1 }}
-          >
-            <Link
-              to="/add-vehicle"
-              className="flex flex-col items-center justify-center min-w-[280px] h-[230px] bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <Plus className="w-6 h-6 text-primary" />
-              </div>
-              <p className="font-medium text-foreground">Add Vehicle</p>
-              <p className="text-sm text-muted-foreground">Register a new vehicle</p>
-            </Link>
-          </motion.div>
+          )}
         </div>
       </div>
+      )}
 
       {/* Quick Services */}
       <div>

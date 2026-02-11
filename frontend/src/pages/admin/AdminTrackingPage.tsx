@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getLiveLocations, LiveData, TrackedStaff, TrackedVehicle } from '@/services/trackingService';
+import { socketService } from '@/services/socket';
+import { routingService } from '@/services/routingService';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { distance, point } from '@turf/turf';
+import { SmoothMarker } from '@/components/SmoothMarker';
 import { 
   Car, 
   Bike, 
@@ -11,129 +20,285 @@ import {
   MapPin, 
   Clock,
   MoreVertical,
-  Maximize2
+  Maximize2,
+  Store
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
-// Mock map coordinates for the simulated map (Hyderabad area approx)
+// Fix for default marker icon in Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
 // Center: 17.3850, 78.4867
-// Range: +/- 0.05
-const MAP_CENTER = { lat: 17.3850, lng: 78.4867 };
-const MAP_ZOOM = 14;
+const MAP_CENTER: [number, number] = [17.3850, 78.4867];
+const MAP_ZOOM = 13;
+
+const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
+const MapController = ({ onMapReady }: { onMapReady: (map: L.Map) => void }) => {
+  const map = useMap();
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
+  return null;
+};
 
 const AdminTrackingPage: React.FC = () => {
-  const [liveData, setLiveData] = useState<LiveData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'vehicles' | 'staff'>('all');
+  const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<'all' | 'vehicles' | 'staff' | 'merchants'>('all');
   const [selectedItem, setSelectedItem] = useState<TrackedStaff | TrackedVehicle | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number, airDistance?: number } | null>(null);
+  const [destination, setDestination] = useState<[number, number] | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
-  // Simulated Map State
-  const mapRef = useRef<HTMLDivElement>(null);
+  // Use React Query for fetching data
+  const { data: liveData, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['tracking'],
+    queryFn: getLiveLocations,
+    refetchInterval: 60000, // Fallback polling every 1 minute
+    staleTime: 10000, // Data is fresh for 10 seconds
+  });
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Poll every 30s
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchData = async () => {
-    setIsRefreshing(true);
-    try {
-      const data = await getLiveLocations();
-      
-      // If no data, simulate some for demonstration
-      if (data.staff.length === 0 && data.vehicles.length === 0) {
-        setLiveData(generateMockData());
-      } else {
-        setLiveData(data);
-      }
-    } catch (error) {
-      toast.error('Failed to load live tracking data');
-      // Fallback to mock data for demo if API fails/is empty
-      setLiveData(generateMockData());
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  };
-
-  // Helper to convert lat/lng to percentage positions for the div map
-  const getPosition = (lat: number, lng: number) => {
-    // Simple linear projection relative to a fixed bounding box around center
-    const range = 0.08; // Roughly 8-10km span
-    const y = ((MAP_CENTER.lat + range/2 - lat) / range) * 100;
-    const x = ((lng - (MAP_CENTER.lng - range/2)) / range) * 100;
+    // Socket.IO Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
     
-    // Clamp to 0-100 to stay in box
-    return {
-      top: `${Math.max(5, Math.min(95, y))}%`,
-      left: `${Math.max(5, Math.min(95, x))}%`
+    socketService.on('liveLocation', (data) => {
+       // data: { userId, role, subRole, lat, lng, timestamp }
+       queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
+         if (!prev) return prev;
+         
+         const newStaff = prev.staff.map(s => {
+           if (s._id === data.userId) {
+             return { ...s, location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+           }
+           return s;
+         });
+
+         const newMerchants = prev.merchants ? prev.merchants.map(m => {
+           if (m._id === data.userId) {
+             return { ...m, location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+           }
+           return m;
+         }) : [];
+
+         const newVehicles = prev.vehicles.map(v => {
+           if (v.user?._id === data.userId || v.user === data.userId) { // Assuming vehicle linked to user
+             return { ...v, location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+           }
+           return v;
+         });
+
+         return { staff: newStaff, vehicles: newVehicles, merchants: newMerchants, timestamp: new Date().toISOString() };
+       });
+    });
+
+    socketService.on('userStatusUpdate', (data) => {
+       // Handle Shop Open/Close status
+       if (typeof data.isShopOpen !== 'undefined') {
+         queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
+           if (!prev) return prev;
+           
+           const newMerchants = prev.merchants ? prev.merchants.map(m => {
+              if (m._id === data.userId) {
+                return { ...m, isShopOpen: data.isShopOpen, isOnline: data.isOnline, lastSeen: data.lastSeen };
+              }
+              return m;
+           }) : [];
+
+           return { ...prev, merchants: newMerchants };
+         });
+         return;
+       }
+
+       queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
+         if (!prev) return prev;
+         
+         const newStaff = prev.staff.map(s => {
+           if (s._id === data.userId) {
+             return { ...s, isOnline: data.isOnline, lastSeen: data.lastSeen };
+           }
+           return s;
+         });
+
+         const newMerchants = prev.merchants ? prev.merchants.map(m => {
+            if (m._id === data.userId) {
+              return { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen };
+            }
+            return m;
+          }) : [];
+         
+         return { ...prev, staff: newStaff, merchants: newMerchants };
+       });
+    });
+
+    socketService.on('bookingUpdated', (updatedBooking: any) => {
+        queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
+            if (!prev) return prev;
+            
+            const newStaff = prev.staff.map(s => {
+                // Check if staff is involved in this booking
+                const isDriver = typeof updatedBooking.pickupDriver === 'object' 
+                    ? updatedBooking.pickupDriver?._id === s._id 
+                    : updatedBooking.pickupDriver === s._id;
+                    
+                const isTechnician = typeof updatedBooking.technician === 'object'
+                    ? updatedBooking.technician?._id === s._id
+                    : updatedBooking.technician === s._id;
+                
+                if (isDriver || isTechnician) {
+                    // Update current job status
+                    return {
+                        ...s,
+                        currentJob: s.currentJob && s.currentJob._id === updatedBooking._id
+                            ? { ...s.currentJob, status: updatedBooking.status }
+                            : s.currentJob
+                    };
+                }
+                return s;
+            });
+            
+            return { ...prev, staff: newStaff };
+        });
+    });
+
+    return () => {
+        socketService.leaveRoom('admin');
+        socketService.off('liveLocation');
+        socketService.off('userStatusUpdate');
+        socketService.off('bookingUpdated');
+        socketService.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (selectedItem && 'currentJob' in selectedItem && selectedItem.currentJob?.location) {
+      // Handle both string and object location
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const loc = selectedItem.currentJob.location as any;
+      let jobLat: number | undefined;
+      let jobLng: number | undefined;
+
+      if (typeof loc === 'object' && loc.lat && loc.lng) {
+        jobLat = loc.lat;
+        jobLng = loc.lng;
+      } else if (typeof loc === 'string') {
+        // Try to parse location if it's coordinates "lat,lng"
+        const parts = loc.split(',').map((p: string) => parseFloat(p.trim()));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          jobLat = parts[0];
+          jobLng = parts[1];
+        }
+      }
+      
+      if (jobLat !== undefined && jobLng !== undefined) {
+        // Auto-route
+        setDestination([jobLat, jobLng]);
+        
+        const fetchRoute = async () => {
+             try {
+                const start = [selectedItem.location.lat, selectedItem.location.lng] as [number, number];
+                const end = [jobLat, jobLng] as [number, number];
+                
+                // Calculate air distance using Turf.js
+                const from = point([start[1], start[0]]);
+                const to = point([end[1], end[0]]);
+                const airDist = distance(from, to, { units: 'kilometers' });
+
+                const response = await routingService.getRoute(start, end);
+                if (response.routes && response.routes.length > 0) {
+                    const route = response.routes[0];
+                    const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+                    
+                    setRouteGeometry(coordinates);
+                    setRouteInfo({
+                        distance: route.distance,
+                        duration: route.duration,
+                        airDistance: airDist
+                    });
+                    toast.success('Showing route to active job');
+                }
+            } catch (error) {
+                console.error('Auto-route failed', error);
+            }
+        };
+        
+        fetchRoute();
+      }
+    }
+  }, [selectedItem]);
+
+  // Removed old fetchData function as we use useQuery now
+
+  const createCustomIcon = (type: 'staff' | 'vehicle' | 'merchant', status?: string, isShopOpen?: boolean) => {
+    let color = '';
+    if (type === 'staff') color = '#3b82f6';
+    else if (type === 'merchant') color = isShopOpen === false ? '#ef4444' : '#6366f1'; // Red if closed, Indigo if open
+    else color = status === 'On Route' ? '#22c55e' : '#f97316';
+
+    const iconChar = type === 'staff' ? '👤' : (type === 'merchant' ? '🏪' : '🚗');
+    
+    return L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="
+        background-color: ${color}; 
+        width: 36px; 
+        height: 36px; 
+        border-radius: 50%; 
+        border: 2px solid white; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        font-size: 18px;
+      ">${iconChar}</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -18]
+    });
   };
 
-  const generateMockData = (): LiveData => {
-    return {
-      timestamp: new Date().toISOString(),
-      staff: [
-        {
-          _id: 's1',
-          name: 'Rajesh Kumar',
-          subRole: 'Driver',
-          email: 'rajesh@driveflow.com',
-          phone: '9876543210',
-          location: { lat: 17.3950, lng: 78.4967, updatedAt: new Date().toISOString() }
-        },
-        {
-          _id: 's2',
-          name: 'Suresh Tech',
-          subRole: 'Technician',
-          email: 'suresh@driveflow.com',
-          location: { lat: 17.3750, lng: 78.4767, updatedAt: new Date().toISOString() }
-        }
-      ],
-      vehicles: [
-        {
-          _id: 'v1',
-          make: 'Honda',
-          model: 'City',
-          licensePlate: 'TS08AB1234',
-          status: 'On Route',
-          type: 'Car',
-          location: { lat: 17.3880, lng: 78.4800, updatedAt: new Date().toISOString() },
-          user: { name: 'Customer A' }
-        },
-        {
-          _id: 'v2',
-          make: 'Royal Enfield',
-          model: 'Classic 350',
-          licensePlate: 'TS09XY9876',
-          status: 'In Service',
-          type: 'Bike',
-          location: { lat: 17.3820, lng: 78.4950, updatedAt: new Date().toISOString() },
-          user: { name: 'Customer B' }
-        }
-      ]
-    };
-  };
+
 
   const getIcon = (item: TrackedStaff | TrackedVehicle) => {
-    if ('subRole' in item) {
-      // It's staff
-      return <User className="w-5 h-5 text-white" />;
-    } else {
+    if ('role' in item && item.role === 'merchant') {
+       return <Store className="w-5 h-5 text-white" />;
+    }
+    if ('type' in item) {
       // It's vehicle
       return item.type === 'Bike' 
         ? <Bike className="w-5 h-5 text-white" /> 
         : <Car className="w-5 h-5 text-white" />;
     }
+    // It's staff
+    return <User className="w-5 h-5 text-white" />;
   };
 
   const getColor = (item: TrackedStaff | TrackedVehicle) => {
-    if ('subRole' in item) return 'bg-blue-500'; // Staff
-    if (item.status === 'On Route') return 'bg-green-500'; // Active Vehicle
-    return 'bg-orange-500'; // In Service/Other
+    if ('role' in item && item.role === 'merchant') return 'bg-indigo-500';
+    if ('type' in item) { // Vehicle
+      if (item.status === 'On Route') return 'bg-green-500'; // Active Vehicle
+      return 'bg-orange-500'; // In Service/Other
+    }
+    return 'bg-blue-500'; // Staff
   };
 
   const filteredItems = () => {
@@ -141,7 +306,51 @@ const AdminTrackingPage: React.FC = () => {
     let items: (TrackedStaff | TrackedVehicle)[] = [];
     if (filter === 'all' || filter === 'staff') items = [...items, ...liveData.staff];
     if (filter === 'all' || filter === 'vehicles') items = [...items, ...liveData.vehicles];
+    if (filter === 'all' || filter === 'merchants') items = [...items, ...(liveData.merchants || [])];
     return items;
+  };
+
+  const handleAssetClick = (item: TrackedStaff | TrackedVehicle) => {
+    setSelectedItem(item);
+    if (mapInstance) {
+      mapInstance.flyTo([item.location.lat, item.location.lng], 16, { duration: 1.5 });
+    }
+  };
+
+  const handleMapClick = async (lat: number, lng: number) => {
+    if (!selectedItem) {
+        // Just set destination marker if no item selected, or do nothing
+        return;
+    }
+    
+    setDestination([lat, lng]);
+    setRouteGeometry(null);
+    setRouteInfo(null);
+    
+    const loadingToast = toast.loading('Calculating route...');
+    
+    try {
+        const start = [selectedItem.location.lat, selectedItem.location.lng] as [number, number];
+        const end = [lat, lng] as [number, number];
+        
+        const response = await routingService.getRoute(start, end);
+        if (response.routes && response.routes.length > 0) {
+            const route = response.routes[0];
+            // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
+            const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+            
+            setRouteGeometry(coordinates);
+            setRouteInfo({
+                distance: route.distance,
+                duration: route.duration
+            });
+            toast.dismiss(loadingToast);
+            toast.success(`Route found: ${(route.distance / 1000).toFixed(1)} km, ${Math.round(route.duration / 60)} min`);
+        }
+    } catch (error) {
+        toast.dismiss(loadingToast);
+        toast.error('Failed to calculate route');
+    }
   };
 
   return (
@@ -181,14 +390,22 @@ const AdminTrackingPage: React.FC = () => {
           >
             Staff
           </button>
+          <button
+            onClick={() => setFilter('merchants')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              filter === 'merchants' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
+            }`}
+          >
+            Merchants
+          </button>
           <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
           <button
-            onClick={fetchData}
-            disabled={isRefreshing}
+            onClick={() => refetch()}
+            disabled={isFetching}
             className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -218,7 +435,7 @@ const AdminTrackingPage: React.FC = () => {
               filteredItems().map((item) => (
                 <div
                   key={item._id}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => handleAssetClick(item)}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
                     selectedItem?._id === item._id
                       ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
@@ -226,22 +443,52 @@ const AdminTrackingPage: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${getColor(item)} bg-opacity-10 dark:bg-opacity-20`}>
+                    <div className={`p-2 rounded-lg ${getColor(item)} bg-opacity-10 dark:bg-opacity-20 relative`}>
                       {React.cloneElement(getIcon(item), { className: `w-4 h-4 ${getColor(item).replace('bg-', 'text-')}` })}
+                      {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
+                        <span className={`absolute -top-1 -right-1 w-3 h-3 border-2 border-white dark:border-gray-800 rounded-full ${
+                            ('role' in item && item.role === 'merchant')
+                                ? (item.isShopOpen !== false ? 'bg-green-500' : 'bg-red-500') // Treat undefined as Open
+                                : (item.isOnline ? 'bg-green-500' : 'bg-gray-300')
+                        }`} title={
+                            ('role' in item && item.role === 'merchant')
+                                ? (item.isShopOpen ? 'Shop Open' : 'Shop Closed')
+                                : (item.isOnline ? 'Online' : 'Offline')
+                        } />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {'name' in item ? item.name : `${item.make} ${item.model}`}
-                      </h3>
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {'name' in item ? item.name : `${item.make} ${item.model}`}
+                        </h3>
+                        {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                ('role' in item && item.role === 'merchant') 
+                                    ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
+                                    : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
+                            }`}>
+                                {('role' in item && item.role === 'merchant') 
+                                    ? (item.isShopOpen !== false ? 'Open' : 'Closed') 
+                                    : (item.isOnline ? 'Online' : 'Offline')}
+                            </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {'subRole' in item ? item.subRole : item.licensePlate}
+                        {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}
                       </p>
                       <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                        <MapPin className="w-3 h-3" />
-                        <span>1.2km away</span>
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[120px]" title={item.location.address || `${item.location.lat}, ${item.location.lng}`}>
+                          {item.location.address || `${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}`}
+                        </span>
                         <span className="mx-1">•</span>
-                        <Clock className="w-3 h-3" />
-                        <span>Just now</span>
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        <span className="whitespace-nowrap">
+                          {item.location.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
+                            ? formatDistanceToNow(new Date(item.location.updatedAt), { addSuffix: true })
+                            : 'Unknown time'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -251,82 +498,93 @@ const AdminTrackingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Map Area (Simulated) */}
-        <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden group">
-          {/* Map Placeholder Grid Background */}
-          <div 
-            className="absolute inset-0 opacity-10 dark:opacity-20 pointer-events-none"
-            style={{
-              backgroundImage: 'linear-gradient(#808080 1px, transparent 1px), linear-gradient(90deg, #808080 1px, transparent 1px)',
-              backgroundSize: '40px 40px'
-            }}
-          ></div>
-          
-          {/* Streets/Roads simulation (Static SVGs for visuals) */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20 dark:opacity-10" xmlns="http://www.w3.org/2000/svg">
-             <path d="M0 200 Q 400 250 800 200 T 1600 300" stroke="currentColor" strokeWidth="20" fill="none" className="text-gray-400" />
-             <path d="M200 0 Q 250 400 200 800" stroke="currentColor" strokeWidth="15" fill="none" className="text-gray-400" />
-             <path d="M600 0 L 600 800" stroke="currentColor" strokeWidth="10" fill="none" className="text-gray-400" />
-             <path d="M0 500 L 1200 500" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-400" />
-          </svg>
+        {/* Map Area */}
+        <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden shadow-inner z-0">
+           <MapContainer 
+            center={MAP_CENTER} 
+             zoom={MAP_ZOOM} 
+             style={{ height: '100%', width: '100%' }}
+           >
+             <MapClickHandler onMapClick={handleMapClick} />
+             <MapController onMapReady={setMapInstance} />
+             <TileLayer
+               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+             />
+             
+             {routeGeometry && (
+                <Polyline 
+                  positions={routeGeometry} 
+                  color="blue" 
+                  weight={4} 
+                  opacity={0.6}
+                />
+             )}
 
-          {/* Map Items */}
-          <AnimatePresence>
-            {filteredItems().map((item) => {
-              const pos = getPosition(item.location.lat, item.location.lng);
-              const isSelected = selectedItem?._id === item._id;
-
-              return (
-                <motion.div
-                  key={item._id}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1, top: pos.top, left: pos.left }}
-                  exit={{ opacity: 0, scale: 0 }}
-                  transition={{ type: 'spring', damping: 20 }}
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 ${isSelected ? 'z-20' : ''}`}
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <div className="relative group/marker">
-                    {/* Ripple effect for selected/active */}
-                    {isSelected && (
-                      <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${getColor(item)}`}></div>
-                    )}
-                    
-                    {/* Marker Icon */}
-                    <div className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center border-2 border-white dark:border-gray-800 ${getColor(item)} text-white transition-transform hover:scale-110`}>
-                      {getIcon(item)}
-                    </div>
-
-                    {/* Tooltip */}
-                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] bg-white dark:bg-gray-800 p-2 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 text-xs transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover/marker:opacity-100'} pointer-events-none`}>
-                      <div className="font-bold text-gray-900 dark:text-white">
-                        {'name' in item ? item.name : item.licensePlate}
-                      </div>
-                      <div className="text-gray-500">
-                        {'status' in item ? item.status : item.subRole}
-                      </div>
-                      <div className="mt-1 text-gray-400 text-[10px]">
+             {destination && (
+               <Marker position={destination} icon={L.divIcon({ className: 'bg-transparent', html: '📍', iconSize: [24, 24] })}>
+                 <Popup>Destination</Popup>
+               </Marker>
+             )}
+             
+             {filteredItems().map((item) => (
+               <SmoothMarker 
+                 key={item._id}
+                 position={[item.location.lat, item.location.lng]}
+                 icon={createCustomIcon(
+                    'role' in item && item.role === 'merchant' ? 'merchant' : 
+                    ('type' in item ? 'vehicle' : 'staff'), 
+                    'status' in item ? item.status : undefined,
+                    'isShopOpen' in item ? item.isShopOpen : undefined
+                 )}
+                 eventHandlers={{
+                   click: () => handleAssetClick(item),
+                 }}
+               >
+                 <Popup>
+                   <div className="p-1">
+                     <h3 className="font-bold text-sm">{'name' in item ? item.name : `${item.make} ${item.model}`}</h3>
+                     <p className="text-xs text-gray-600">{'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}</p>
+                     {'currentJob' in item && item.currentJob && (
+                       <div className="mt-1 pt-1 border-t border-gray-200">
+                         <p className="text-xs font-semibold text-blue-600">Active Job</p>
+                         <p className="text-xs text-gray-500">{item.currentJob.status}</p>
+                       </div>
+                     )}
+                     <p className="text-xs text-gray-500 mt-1">
                         {new Date(item.location.updatedAt).toLocaleTimeString()}
-                      </div>
-                      {/* Arrow */}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white dark:border-t-gray-800"></div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-          
-          {/* Controls Overlay */}
-          <div className="absolute bottom-6 right-6 flex flex-col gap-2">
-             <button className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-               <Maximize2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-             </button>
-          </div>
-          
-          <div className="absolute top-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-500">
-            Lat: {MAP_CENTER.lat.toFixed(4)} | Lng: {MAP_CENTER.lng.toFixed(4)}
-          </div>
+                     </p>
+                   </div>
+                 </Popup>
+               </SmoothMarker>
+             ))}
+           </MapContainer>
+           
+           <div className="absolute top-4 right-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-500">
+              Live Data {isFetching && '• Updating...'}
+           </div>
+           
+           {routeInfo && (
+             <div className="absolute bottom-4 left-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-w-sm">
+               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Route Details</h3>
+               <div className="flex gap-4">
+                 <div>
+                    <p className="text-xs text-gray-500">Road Dist.</p>
+                    <p className="font-mono font-medium">{(routeInfo.distance / 1000).toFixed(1)} km</p>
+                 </div>
+                 {routeInfo.airDistance && (
+                   <div>
+                      <p className="text-xs text-gray-500">Air Dist.</p>
+                      <p className="font-mono font-medium">{routeInfo.airDistance.toFixed(1)} km</p>
+                   </div>
+                 )}
+                 <div>
+                    <p className="text-xs text-gray-500">Est. Time</p>
+                    <p className="font-mono font-medium">{Math.round(routeInfo.duration / 60)} min</p>
+                 </div>
+               </div>
+             </div>
+           )}
         </div>
       </div>
     </div>

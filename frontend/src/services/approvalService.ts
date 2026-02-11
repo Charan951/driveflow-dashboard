@@ -6,7 +6,7 @@ export interface ApprovalRequest {
   status: 'Pending' | 'Approved' | 'Rejected';
   relatedId: string | Record<string, unknown>; // Populated object
   relatedModel: 'User' | 'Booking';
-  data?: Record<string, unknown>;
+  data?: any;
   requestedBy: { _id: string; name: string; email: string; role: string };
   adminComment?: string;
   createdAt: string;
@@ -14,6 +14,11 @@ export interface ApprovalRequest {
 
 export const getApprovals = async () => {
   const response = await api.get('/approvals');
+  return response.data;
+};
+
+export const getMyApprovals = async () => {
+  const response = await api.get('/approvals/my-approvals');
   return response.data;
 };
 

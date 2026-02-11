@@ -30,6 +30,17 @@ const userSchema = new mongoose.Schema({
     enum: ['Active', 'Inactive', 'On Leave'],
     default: 'Active',
   },
+  isOnline: {
+    type: Boolean,
+    default: false,
+  },
+  isShopOpen: {
+    type: Boolean,
+    default: true,
+  },
+  lastSeen: {
+    type: Date,
+  },
   isApproved: {
     type: Boolean,
     default: false,
@@ -44,7 +55,19 @@ const userSchema = new mongoose.Schema({
   location: {
     lat: { type: Number },
     lng: { type: Number },
+    address: { type: String },
     updatedAt: { type: Date }
+  },
+  geo: {
+    type: {
+      type: String,
+      default: 'Point',
+      enum: ['Point']
+    },
+    coordinates: {
+      type: [Number],
+      index: '2dsphere'
+    }
   },
   createdAt: {
     type: Date,

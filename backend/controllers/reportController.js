@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Vehicle from '../models/Vehicle.js';
 import Service from '../models/Service.js';
 import Product from '../models/Product.js';
+import ApprovalRequest from '../models/ApprovalRequest.js';
 
 // @desc    Get dashboard summary stats
 // @route   GET /api/reports/dashboard
@@ -18,7 +19,13 @@ export const getDashboardStats = async (req, res) => {
       totalBookings,
       todaysBookings,
       pendingBookings,
-      totalRevenue,
+      revenueToday,
+      vehiclesOnRoad,
+      vehiclesInService,
+      waitingPickup,
+      waitingDelivery,
+      pendingBills,
+      pendingApprovals,
     ] = await Promise.all([
       User.countDocuments({ role: 'customer' }),
       Vehicle.countDocuments(),
@@ -26,9 +33,15 @@ export const getDashboardStats = async (req, res) => {
       Booking.countDocuments({ createdAt: { $gte: today } }),
       Booking.countDocuments({ status: 'Pending' }),
       Booking.aggregate([
-        { $match: { paymentStatus: 'Paid' } },
+        { $match: { paymentStatus: 'paid', createdAt: { $gte: today } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
+      Vehicle.countDocuments({ status: 'On Route' }),
+      Vehicle.countDocuments({ status: 'In Service' }),
+      Booking.countDocuments({ status: { $in: ['CREATED', 'ASSIGNED'] } }),
+      Booking.countDocuments({ status: 'SERVICE_COMPLETED' }),
+      Booking.countDocuments({ paymentStatus: 'pending', status: { $ne: 'CANCELLED' } }),
+      ApprovalRequest.countDocuments({ status: 'Pending', type: { $ne: 'UserRegistration' } }),
     ]);
 
     res.json({
@@ -37,7 +50,13 @@ export const getDashboardStats = async (req, res) => {
       totalBookings,
       todaysBookings,
       pendingBookings,
-      totalRevenue: totalRevenue[0]?.total || 0,
+      revenueToday: revenueToday[0]?.total || 0,
+      vehiclesOnRoad,
+      vehiclesInService,
+      waitingPickup,
+      waitingDelivery,
+      pendingBills,
+      pendingApprovals,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -55,7 +74,7 @@ export const getRevenueAnalytics = async (req, res) => {
     const revenue = await Booking.aggregate([
       {
         $match: {
-          paymentStatus: 'Paid',
+          paymentStatus: 'paid',
           createdAt: { $gte: sevenDaysAgo },
         },
       },

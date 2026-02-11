@@ -30,11 +30,12 @@ const LoginPage: React.FC = () => {
       const data = await authService.login({ email, password });
       
       login({
-        id: data._id,
+        _id: data._id,
         name: data.name,
         email: data.email,
         phone: data.phone,
         role: data.role,
+        subRole: data.subRole,
       });
 
       toast.success('Welcome back!');

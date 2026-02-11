@@ -48,6 +48,7 @@ import SupportPage from "./pages/customer/SupportPage";
 // Staff Pages
 import StaffDashboardPage from "./pages/staff/StaffDashboardPage";
 import StaffOrderPage from "./pages/staff/StaffOrderPage";
+import StaffOrdersPage from "./pages/staff/StaffOrdersPage";
 import StaffLoginPage from "./pages/staff/StaffLoginPage";
 
 import AdminLayout from "./layouts/AdminLayout";
@@ -60,6 +61,7 @@ import MerchantOrders from "./pages/merchant/Orders";
 import MerchantOrderDetail from "./pages/merchant/OrderDetail";
 import MerchantStock from "./pages/merchant/Stock";
 import MerchantFeedback from "./pages/merchant/Feedback";
+import MerchantProfilePage from "./pages/merchant/MerchantProfilePage";
 
 // Admin Pages (Legacy/Shared)
 import AdminServicesPage from "./pages/admin/AdminServicesPage";
@@ -145,9 +147,9 @@ const App = () => (
           <Route element={<PrivateRoute allowedRoles={['staff']} />}>
             <Route element={<StaffLayout />}>
               <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
-              <Route path="/staff/order/:id" element={<StaffOrderPage />} />
-              <Route path="/staff/orders" element={<StaffDashboardPage />} />
-            </Route>
+          <Route path="/staff/order/:id" element={<StaffOrderPage />} />
+          <Route path="/staff/orders" element={<StaffOrdersPage />} />
+        </Route>
           </Route>
 
           {/* Admin Routes - Protected */}
@@ -189,6 +191,7 @@ const App = () => (
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />
               <Route path="/merchant/stock" element={<MerchantStock />} />
               <Route path="/merchant/feedback" element={<MerchantFeedback />} />
+              <Route path="/merchant/profile" element={<MerchantProfilePage />} />
               
               <Route path="/merchant/services" element={<AdminServicesPage />} />
               <Route path="/merchant/bookings" element={<AdminBookingsPage />} />

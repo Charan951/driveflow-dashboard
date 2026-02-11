@@ -19,9 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import CounterCard from '@/components/CounterCard';
 import { staggerContainer, staggerItem } from '@/animations/variants';
-import { bookingService, Booking } from '@/services/bookingService';
-import { userService } from '@/services/userService';
-import { vehicleService } from '@/services/vehicleService';
+import { reportService } from '@/services/reportService';
 import { toast } from 'sonner';
 
 const AdminDashboard: React.FC = () => {
@@ -30,9 +28,9 @@ const AdminDashboard: React.FC = () => {
     activeVehicles: 0,
     todaysBookings: 0,
     revenueToday: 0,
-    pendingApprovals: 5, // Mock
-    pendingBills: 12,    // Mock
-    vehiclesOnRoad: 8,   // Mock
+    pendingApprovals: 0,
+    pendingBills: 0,
+    vehiclesOnRoad: 0,
     vehiclesInService: 0,
     waitingPickup: 0,
     waitingDelivery: 0
@@ -42,34 +40,20 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsData, usersData, vehiclesData] = await Promise.all([
-          bookingService.getAllBookings(),
-          userService.getAllUsers(),
-          vehicleService.getAllVehicles()
-        ]);
-
-        const today = new Date().toISOString().split('T')[0];
-        const todaysBookings = bookingsData.filter((b: Booking) => b.date.startsWith(today));
-        const revenueToday = todaysBookings.reduce((acc: number, curr: Booking) => acc + (curr.totalAmount || 0), 0);
+        const dashboardStats = await reportService.getDashboardStats();
         
-        const inService = bookingsData.filter((b: Booking) => ['In Garage', 'Servicing'].includes(b.status)).length;
-        const waitingPickup = bookingsData.filter((b: Booking) => b.status === 'Pickup Assigned').length;
-        const waitingDelivery = bookingsData.filter((b: Booking) => b.status === 'Ready').length;
-        
-        // Pending bills: Payment status pending and not cancelled
-        const pendingBillsCount = bookingsData.filter((b: Booking) => b.paymentStatus === 'pending' && b.status !== 'Cancelled').length;
-
-        setStats(prev => ({
-          ...prev,
-          totalCustomers: usersData.length,
-          activeVehicles: vehiclesData.length,
-          todaysBookings: todaysBookings.length,
-          revenueToday: revenueToday,
-          pendingBills: pendingBillsCount,
-          vehiclesInService: inService,
-          waitingPickup: waitingPickup,
-          waitingDelivery: waitingDelivery
-        }));
+        setStats({
+          totalCustomers: dashboardStats.totalCustomers || 0,
+          activeVehicles: dashboardStats.totalVehicles || 0, // Mapping totalVehicles to activeVehicles based on UI label
+          todaysBookings: dashboardStats.todaysBookings || 0,
+          revenueToday: dashboardStats.revenueToday || 0,
+          pendingApprovals: dashboardStats.pendingApprovals || 0,
+          pendingBills: dashboardStats.pendingBills || 0,
+          vehiclesOnRoad: dashboardStats.vehiclesOnRoad || 0,
+          vehiclesInService: dashboardStats.vehiclesInService || 0,
+          waitingPickup: dashboardStats.waitingPickup || 0,
+          waitingDelivery: dashboardStats.waitingDelivery || 0
+        });
 
       } catch (error) {
         console.error('Failed to fetch admin dashboard data', error);

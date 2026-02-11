@@ -1,5 +1,4 @@
 import User from '../models/User.js';
-import ApprovalRequest from '../models/ApprovalRequest.js';
 import jwt from 'jsonwebtoken';
 
 const generateToken = (id) => {
@@ -22,25 +21,12 @@ export const registerUser = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'customer',
+      role: 'customer', // Force role to be customer for public registration
       phone,
-      isApproved: role === 'admin' || role === 'customer', // Customers auto-approved
+      isApproved: true, // Customers auto-approved
     });
 
-    if (role === 'merchant' || role === 'staff') {
-      await ApprovalRequest.create({
-        type: 'UserRegistration',
-        relatedId: user._id,
-        relatedModel: 'User',
-        requestedBy: user._id,
-        status: 'Pending',
-        data: {
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      });
-    }
+    // Removed ApprovalRequest logic as only customers register here now
 
     if (user) {
       res.status(201).json({
@@ -48,6 +34,7 @@ export const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        subRole: user.subRole,
         phone: user.phone,
         token: generateToken(user._id),
       });
@@ -75,7 +62,11 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        subRole: user.subRole,
         phone: user.phone,
+        isShopOpen: user.isShopOpen,
+        location: user.location,
+        isOnline: user.isOnline,
         token: generateToken(user._id),
       });
     } else {

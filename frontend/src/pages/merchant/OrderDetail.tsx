@@ -1,15 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User as UserIcon, Calendar, Wrench, CheckCircle, Car } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapPin, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
-import { serviceService, Service } from '@/services/serviceService';
-import { vehicleService, Vehicle } from '@/services/vehicleService';
-import { userService, User } from '@/services/userService';
-import ChatPanel from '../../components/merchant/ChatPanel';
-import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
+import { socketService } from '@/services/socket';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icon in Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+import { Service } from '@/services/serviceService';
+import { Vehicle } from '@/services/vehicleService';
+import { User } from '@/services/userService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+// Panels
+import StatusControlPanel from '../../components/merchant/StatusControlPanel';
+import InspectionPanel from '../../components/merchant/InspectionPanel';
+import ServiceExecutionPanel from '../../components/merchant/ServiceExecutionPanel';
+import QCPanel from '../../components/merchant/QCPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
+import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
+import ChatPanel from '../../components/merchant/ChatPanel';
 
 // Animation variants
 const containerVariants = {
@@ -35,53 +59,48 @@ const OrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mediaUploaded, setMediaUploaded] = useState(false);
-  const [billUploaded, setBillUploaded] = useState(false);
-  const [completing, setCompleting] = useState(false);
+  const [staffLocation, setStaffLocation] = useState<{lat: number, lng: number} | null>(null);
 
-  useEffect(() => {
-    const fetchBooking = async () => {
-      if (!id) return;
-      try {
-        const data = await bookingService.getBookingById(id);
-        setBooking(data);
-        // Check if already uploaded (mock check based on status or existing fields if they existed)
-        if (data.status === 'Ready' || data.status === 'Delivered') {
-            setMediaUploaded(true);
-            setBillUploaded(true);
-        }
-      } catch (error) {
-        toast.error('Failed to load order details');
-        navigate('/merchant/orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBooking();
-  }, [id, navigate]);
-
-  const handleMarkComplete = async () => {
-    if (!mediaUploaded || !billUploaded) {
-        toast.error('Please upload both service media and bill before completing');
-        return;
-    }
-
-    setCompleting(true);
+  const fetchBooking = async () => {
+    if (!id) return;
     try {
-        if (!id) return;
-        console.log('Marking order as complete:', id);
-        await bookingService.updateBookingStatus(id, 'Ready');
-        toast.success('Order marked as complete!');
-        navigate('/merchant/orders');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error marking complete:', error);
-        toast.error(error.response?.data?.message || 'Failed to update status');
+      const data = await bookingService.getBookingById(id);
+      setBooking(data);
+    } catch (error) {
+      toast.error('Failed to load order details');
+      navigate('/merchant/orders');
     } finally {
-        setCompleting(false);
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchBooking();
+
+    // Socket Connection for Live Tracking
+    if (id) {
+      socketService.connect();
+      socketService.joinRoom(`booking_${id}`);
+
+      socketService.on('liveLocation', (data) => {
+        if (data.lat && data.lng) {
+          setStaffLocation({ lat: data.lat, lng: data.lng });
+        }
+      });
+
+      socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+        if (updatedBooking._id === id) {
+             setBooking(updatedBooking);
+        }
+      });
+
+      return () => {
+        socketService.leaveRoom(`booking_${id}`);
+        socketService.off('liveLocation');
+        socketService.off('bookingUpdated');
+      };
+    }
+  }, [id, navigate]);
 
   if (loading) {
     return (
@@ -98,7 +117,7 @@ const OrderDetail: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="max-w-7xl mx-auto space-y-6"
+      className="max-w-7xl mx-auto space-y-6 pb-10"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center gap-4">
@@ -111,127 +130,193 @@ const OrderDetail: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Order #{booking._id?.slice(-6).toUpperCase()}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                booking.status === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-            }`}>
-                {booking.status}
-            </span>
-            <span>•</span>
             <span>{new Date(booking.date).toLocaleDateString()}</span>
+            <span>•</span>
+            <span className="font-medium text-primary">{booking.status}</span>
           </div>
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Details & Chat */}
-        <div className="lg:col-span-2 space-y-6">
-            {/* Order Info Card */}
-            <motion.div variants={itemVariants} className="bg-card border border-border rounded-xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">Order Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <Car className="w-5 h-5 text-blue-600" />
+      {/* Status & Workflow Control */}
+      <motion.div variants={itemVariants}>
+        <StatusControlPanel booking={booking} onUpdate={fetchBooking} />
+      </motion.div>
+
+      {/* Main Content Tabs */}
+      <motion.div variants={itemVariants}>
+        <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="inspection">Inspection</TabsTrigger>
+                <TabsTrigger value="service">Service</TabsTrigger>
+                <TabsTrigger value="qc">QC Check</TabsTrigger>
+                <TabsTrigger value="billing">Billing</TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Order Info Card */}
+                        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                            <h2 className="text-lg font-semibold mb-4">Order Information</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-blue-50 rounded-lg">
+                                        <Car className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-muted-foreground">Vehicle Details</p>
+                                        <p className="font-medium">{(booking.vehicle as unknown as Vehicle)?.registrationNumber || 'N/A'}</p>
+                                        <p className="text-sm text-gray-500">{(booking.vehicle as unknown as Vehicle)?.make} {(booking.vehicle as unknown as Vehicle)?.model}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-purple-50 rounded-lg">
+                                        <UserIcon className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-muted-foreground">Customer</p>
+                                        <p className="font-medium">{(booking.user as unknown as User)?.name || 'Guest User'}</p>
+                                        <p className="text-xs text-muted-foreground italic">Contact hidden (Privacy)</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-orange-50 rounded-lg">
+                                        <Wrench className="w-5 h-5 text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-muted-foreground">Service Category</p>
+                                        <p className="font-medium">
+                                            {Array.isArray(booking.services) 
+                                                ? (booking.services as unknown as Service[]).map((s) => s.name).join(', ') 
+                                                : 'General Service'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-green-50 rounded-lg">
+                                        <Calendar className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-muted-foreground">Scheduled Date</p>
+                                        <p className="font-medium">{new Date(booking.date).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                {booking.location && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="p-2 bg-indigo-50 rounded-lg">
+                                          <MapPin className="w-5 h-5 text-indigo-600" />
+                                      </div>
+                                      <div>
+                                          <p className="text-sm font-medium text-muted-foreground">Pickup Location</p>
+                                          {typeof booking.location === 'string' ? (
+                                              <p className="font-medium text-sm">{booking.location}</p>
+                                          ) : (
+                                              <div>
+                                                  <p className="font-medium text-sm">{booking.location.address}</p>
+                                                  {booking.location.lat && booking.location.lng && (
+                                                      <a 
+                                                          href={`https://www.google.com/maps?q=${booking.location.lat},${booking.location.lng}`} 
+                                                          target="_blank" 
+                                                          rel="noreferrer"
+                                                          className="text-xs text-blue-600 hover:underline"
+                                                      >
+                                                          View on Map
+                                                      </a>
+                                                  )}
+                                              </div>
+                                          )}
+                                      </div>
+                                  </div>
+                                )}
+                            </div>
+                            
+                            {booking.notes && (
+                                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                                    <p className="text-sm font-medium text-muted-foreground mb-1">Customer Notes / Issue</p>
+                                    <p className="text-sm">{booking.notes}</p>
+                                </div>
+                            )}
+
+                            {booking.revisit?.isRevisit && (
+                                <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                                    <div>
+                                        <p className="font-semibold text-red-800">Revisit Order</p>
+                                        <p className="text-sm text-red-700">This is a revisit for a previous service. Please prioritize.</p>
+                                        <p className="text-xs text-red-600 mt-1">Reason: {booking.revisit.reason}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Vehicle Details</p>
-                            <p className="font-medium">{(booking.vehicle as unknown as Vehicle)?.registrationNumber || 'N/A'}</p>
-                            <p className="text-sm text-gray-500">{(booking.vehicle as unknown as Vehicle)?.make} {(booking.vehicle as unknown as Vehicle)?.model}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                            <UserIcon className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Customer</p>
-                            <p className="font-medium">{(booking.user as unknown as User)?.name || 'Guest User'}</p>
-                            {/* Phone number hidden as per guardrails */}
-                            <p className="text-xs text-muted-foreground italic">Contact hidden (Privacy)</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 bg-orange-50 rounded-lg">
-                            <Wrench className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Service Category</p>
-                            <p className="font-medium">
-                                {Array.isArray(booking.services) 
-                                    ? (booking.services as unknown as Service[]).map((s) => s.name).join(', ') 
-                                    : 'General Service'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 bg-green-50 rounded-lg">
-                            <UserIcon className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Assigned Staff</p>
-                            <p className="font-medium">Rahul Kumar</p>
-                            <p className="text-xs text-muted-foreground">Head Mechanic</p>
-                        </div>
+
+                        {/* Live Tracking Map */}
+                        {(['Pickup Assigned', 'In Garage', 'On Route'].includes(booking.status) || staffLocation) && (
+                          <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                            <div className="p-4 border-b border-border flex justify-between items-center">
+                              <h3 className="font-semibold flex items-center gap-2">
+                                <Navigation className="w-5 h-5 text-primary" />
+                                Live Staff Tracking
+                              </h3>
+                              {staffLocation && <span className="text-xs text-green-600 font-medium animate-pulse">● Live</span>}
+                            </div>
+                            <div className="h-64 w-full relative bg-muted">
+                               {staffLocation ? (
+                                 <MapContainer 
+                                    center={[staffLocation.lat, staffLocation.lng]} 
+                                    zoom={15} 
+                                    style={{ height: '100%', width: '100%' }}
+                                    zoomControl={false}
+                                 >
+                                    <TileLayer
+                                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                    />
+                                    <Marker position={[staffLocation.lat, staffLocation.lng]}>
+                                      <Popup>
+                                        Staff is here
+                                      </Popup>
+                                    </Marker>
+                                 </MapContainer>
+                               ) : (
+                                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                   <MapPin className="w-8 h-8 mb-2 opacity-50" />
+                                   <p className="text-sm">Waiting for live location...</p>
+                                 </div>
+                               )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Chat */}
+                        <ChatPanel bookingId={booking._id} />
                     </div>
                 </div>
-            </motion.div>
+            </TabsContent>
 
-            {/* Media Upload */}
-            <motion.div variants={itemVariants}>
-                <MediaUploadPanel 
-                    bookingId={booking._id} 
-                    onUploadComplete={() => setMediaUploaded(true)} 
-                />
-            </motion.div>
+            {/* Inspection Tab */}
+            <TabsContent value="inspection" className="mt-6">
+                <InspectionPanel booking={booking} onUpdate={fetchBooking} />
+            </TabsContent>
 
-            {/* Communication Panel */}
-            <motion.div variants={itemVariants}>
-                <ChatPanel bookingId={booking._id} />
-            </motion.div>
-        </div>
+            {/* Service Tab */}
+            <TabsContent value="service" className="space-y-6 mt-6">
+                <ServiceExecutionPanel booking={booking} onUpdate={fetchBooking} />
+                <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
+            </TabsContent>
 
-        {/* Right Column - Actions & Bill */}
-        <div className="space-y-6">
-            {/* Action Card */}
-            <motion.div variants={itemVariants} className="bg-card border border-border rounded-xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">Actions</h2>
-                <button
-                    onClick={handleMarkComplete}
-                    disabled={!mediaUploaded || !billUploaded || completing || ['Ready', 'Delivered', 'Completed'].includes(booking.status)}
-                    className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-300 ${
-                        ['Ready', 'Delivered', 'Completed'].includes(booking.status)
-                            ? 'bg-green-100 text-green-700 cursor-default'
-                            : mediaUploaded && billUploaded 
-                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-green-500/30' 
-                                : 'bg-muted text-muted-foreground cursor-not-allowed'
-                    }`}
-                >
-                    {completing ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                    ) : ['Ready', 'Delivered', 'Completed'].includes(booking.status) ? (
-                        <CheckCircle className="w-5 h-5" />
-                    ) : (
-                        <CheckCircle className="w-5 h-5" />
-                    )}
-                    {['Ready', 'Delivered', 'Completed'].includes(booking.status) ? 'Service Completed' : 'Mark Service Complete'}
-                </button>
-                {!mediaUploaded && !['Ready', 'Delivered', 'Completed'].includes(booking.status) && (
-                    <p className="text-xs text-red-500 mt-2 text-center">* Upload Service Media (Before/After) required</p>
-                )}
-                {!billUploaded && !['Ready', 'Delivered', 'Completed'].includes(booking.status) && (
-                    <p className="text-xs text-red-500 mt-1 text-center">* Bill Upload required</p>
-                )}
-            </motion.div>
+            {/* QC Tab */}
+            <TabsContent value="qc" className="mt-6">
+                <QCPanel booking={booking} onUpdate={fetchBooking} />
+            </TabsContent>
 
-            {/* Bill Upload */}
-            <motion.div variants={itemVariants}>
-                <BillUploadPanel 
-                    bookingId={booking._id} 
-                    onUploadComplete={() => setBillUploaded(true)} 
-                />
-            </motion.div>
-        </div>
-      </div>
+            {/* Billing Tab */}
+            <TabsContent value="billing" className="mt-6">
+                <BillUploadPanel booking={booking} onUploadComplete={fetchBooking} />
+            </TabsContent>
+        </Tabs>
+      </motion.div>
     </motion.div>
   );
 };

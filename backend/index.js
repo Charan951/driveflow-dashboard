@@ -2,6 +2,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import http from 'http';
+import { initSocket } from './socket.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import serviceRoutes from './routes/serviceRoutes.js';
@@ -19,10 +21,15 @@ import reportRoutes from './routes/reportRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+// Initialize Socket.IO
+initSocket(server);
+
 const PORT = process.env.PORT || 5000;
 
 console.log('Mongo URI:', process.env.MONGO_URI);
@@ -49,6 +56,11 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/audit', auditRoutes);
+// app.use('/api/upload', uploadRoutes); // already added above
+app.use('/api/upload', uploadRoutes);
+
+// Static files (removed as we are using Cloudinary)
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -60,6 +72,6 @@ app.get('/', (req, res) => {
   res.send('DriveFlow API is running');
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

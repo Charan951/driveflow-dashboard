@@ -2,9 +2,6 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: 'http://localhost:5000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 api.interceptors.request.use((config) => {
@@ -25,7 +22,14 @@ api.interceptors.response.use(
       if (!isAuthRequest) {
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('auth-storage'); // Clear zustand store
-        window.location.href = '/login';
+        
+        if (window.location.pathname.startsWith('/merchant')) {
+            window.location.href = '/merchant/login';
+        } else if (window.location.pathname.startsWith('/staff')) {
+            window.location.href = '/staff/login';
+        } else {
+            window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

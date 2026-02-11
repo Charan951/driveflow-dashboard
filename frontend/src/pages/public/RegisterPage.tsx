@@ -44,37 +44,25 @@ const RegisterPage: React.FC = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        role: formData.role as any,
+        role: 'customer',
         phone: formData.phone
       });
 
-      if (formData.role === 'customer') {
-        login({
-          id: data._id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          role: data.role,
-        });
-        toast.success('Account created successfully!');
-        
-        const from = locationState?.from?.pathname || (typeof locationState?.from === 'string' ? locationState.from : '/dashboard');
-        const serviceState = locationState?.service ? { service: locationState.service } : undefined;
-        
-        navigate(from, { replace: true, state: serviceState });
-      } else {
-        // For merchant and staff, don't auto-login to dashboard.
-        // The backend might return a token, but we should clear it or not use it
-        // because they need approval.
-        authService.logout(); // Clear any session data
-        toast.success('Registration successful! Please wait for admin approval.');
-        if (formData.role === 'merchant') {
-            navigate('/merchant/login');
-        } else {
-            navigate('/staff/login');
-        }
-      }
+      login({
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        subRole: data.subRole,
+      });
+      toast.success('Account created successfully!');
+      
+      const from = locationState?.from?.pathname || (typeof locationState?.from === 'string' ? locationState.from : '/dashboard');
+      const serviceState = locationState?.service ? { service: locationState.service } : undefined;
+      
+      navigate(from, { replace: true, state: serviceState });
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed');
@@ -118,21 +106,6 @@ const RegisterPage: React.FC = () => {
                 required
                 className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
-            </div>
-
-            {/* Role Selection */}
-            <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none"
-              >
-                <option value="customer">Customer</option>
-                <option value="merchant">Merchant</option>
-                <option value="staff">Staff</option>
-              </select>
             </div>
 
             {/* Email Field */}

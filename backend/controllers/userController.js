@@ -1,12 +1,106 @@
 import User from '../models/User.js';
+import { sendEmail } from '../utils/emailService.js';
+import { getIO } from '../socket.js';
 
-// @desc    Get all users
+// @desc    Get all users (with optional filtering)
 // @route   GET /api/users
 // @access  Private/Admin
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({});
+    const query = {};
+    if (req.query.role) query.role = req.query.role;
+    if (req.query.subRole) query.subRole = req.query.subRole;
+
+    const users = await User.find(query);
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+      await user.deleteOne();
+      res.json({ message: 'User removed' });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      user.name = req.body.name || user.name;
+      user.email = req.body.email || user.email;
+      if (req.body.password) {
+        user.password = req.body.password;
+      }
+      if (req.body.phone) {
+        user.phone = req.body.phone;
+      }
+      if (typeof req.body.isShopOpen !== 'undefined') {
+        user.isShopOpen = req.body.isShopOpen;
+
+        // Emit status update
+        try {
+          const io = getIO();
+          io.to('admin').emit('userStatusUpdate', {
+            userId: user._id,
+            isOnline: user.isOnline,
+            lastSeen: user.lastSeen,
+            isShopOpen: user.isShopOpen
+          });
+        } catch (err) {
+          console.error('Socket emit error:', err);
+        }
+      }
+      if (req.body.location) {
+        user.location = req.body.location;
+        
+        // Emit liveLocation event for real-time map update
+        try {
+          const io = getIO();
+          io.to('admin').emit('liveLocation', {
+            userId: user._id,
+            role: user.role,
+            subRole: user.subRole,
+            lat: req.body.location.lat,
+            lng: req.body.location.lng,
+            timestamp: new Date().toISOString()
+          });
+        } catch (err) {
+          console.error('Socket emit error:', err);
+        }
+      }
+
+      const updatedUser = await user.save();
+
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        location: updatedUser.location,
+        token: req.body.token, // Usually we don't return token on update, but preserving if needed
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -88,15 +182,14 @@ export const updateUserRole = async (req, res) => {
   }
 };
 
-// @desc    Add new staff member
-// @route   POST /api/users/staff
+// @desc    Create new user (Admin only)
+// @route   POST /api/users
 // @access  Private/Admin
-export const addStaff = async (req, res) => {
-  const { name, email, password, role, subRole, phone } = req.body;
-
+export const createUser = async (req, res) => {
+  const { name, email, password, role, subRole, phone, location } = req.body;
+  
   try {
     const userExists = await User.findOne({ email });
-
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -105,10 +198,11 @@ export const addStaff = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'staff',
+      role,
       subRole,
       phone,
-      isApproved: true,
+      location,
+      isApproved: true // Admin created users are auto-approved
     });
 
     if (user) {
@@ -117,7 +211,6 @@ export const addStaff = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        subRole: user.subRole,
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -127,31 +220,39 @@ export const addStaff = async (req, res) => {
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/users/profile
+// @desc    Update online status
+// @route   PUT /api/users/online-status
 // @access  Private
-export const updateUserProfile = async (req, res) => {
+export const updateOnlineStatus = async (req, res) => {
+  const { isOnline } = req.body;
+  
   try {
     const user = await User.findById(req.user._id);
-
+    
     if (user) {
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
-      if (req.body.password) {
-        user.password = req.body.password;
+      user.isOnline = isOnline;
+      if (isOnline) {
+        user.lastSeen = Date.now();
       }
-      // Add other fields if necessary, e.g. phone
-      if (req.body.phone) user.phone = req.body.phone;
+      
+      await user.save();
 
-      const updatedUser = await user.save();
+      // Emit socket event for real-time status update
+      try {
+        const io = getIO();
+        io.to('admin').emit('userStatusUpdate', {
+            userId: user._id,
+            isOnline: user.isOnline,
+            lastSeen: user.lastSeen
+        });
+      } catch (err) {
+        console.error('Socket emit error:', err);
+      }
 
-      res.json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        phone: updatedUser.phone,
-        token: req.headers.authorization.split(' ')[1], // Return existing token or generate new one if needed
+      res.json({ 
+        message: 'Status updated', 
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen 
       });
     } else {
       res.status(404).json({ message: 'User not found' });

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { userService, User } from '@/services/userService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -15,7 +16,8 @@ import {
   CheckCircle,
   XCircle,
   MapPin,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,6 +41,24 @@ const AdminStaffPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+
+    // Socket Listener for Real-time Status
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    socketService.on('userStatusUpdate', (data) => {
+       setUsers(prevUsers => prevUsers.map(u => {
+         if (u._id === data.userId) {
+           return { ...u, isOnline: data.isOnline, lastSeen: data.lastSeen };
+         }
+         return u;
+       }));
+    });
+
+    return () => {
+       socketService.off('userStatusUpdate');
+       socketService.leaveRoom('admin');
+    };
   }, []);
 
   useEffect(() => {
@@ -93,6 +113,19 @@ const AdminStaffPage: React.FC = () => {
       fetchUsers();
     } catch (error) {
       toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to add staff');
+    }
+  };
+
+  const handleDeleteStaff = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        await userService.deleteUser(id);
+        toast.success('Staff member deleted successfully');
+        setUsers(users.filter(u => u._id !== id));
+      } catch (error) {
+        toast.error('Failed to delete staff member');
+      }
     }
   };
 
@@ -161,18 +194,38 @@ const AdminStaffPage: React.FC = () => {
           {filteredStaff.map((staff) => (
             <div 
               key={staff._id} 
-              className="bg-card rounded-2xl border border-border p-5 hover:shadow-md transition-all cursor-pointer group"
+              className="bg-card rounded-2xl border border-border p-5 hover:shadow-md transition-all cursor-pointer group relative"
               onClick={() => navigate(`/admin/users/${staff._id}`)} // Reusing User Detail for now, maybe specialized later
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="p-3 bg-muted rounded-xl group-hover:bg-primary/10 transition-colors">
                   {getRoleIcon(staff.subRole || undefined, staff.role)}
                 </div>
-                <div className={`px-2 py-1 rounded-full text-xs font-medium 
-                  ${staff.status === 'Inactive' ? 'bg-red-100 text-red-800' : 
-                    staff.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' : 
-                    'bg-green-100 text-green-800'}`}>
-                  {staff.status || 'Active'}
+                
+                <div className="flex gap-3">
+                  <div className="flex flex-col items-end gap-1">
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium 
+                      ${staff.status === 'Inactive' ? 'bg-red-100 text-red-800' : 
+                        staff.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-green-100 text-green-800'}`}>
+                      {staff.status || 'Active'}
+                    </div>
+                    {/* Online Status Indicator */}
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${staff.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {staff.isOnline ? 'Online' : staff.lastSeen ? `Seen ${new Date(staff.lastSeen).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : 'Offline'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleDeleteStaff(staff._id, e)}
+                    className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete Staff"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
               
@@ -193,10 +246,16 @@ const AdminStaffPage: React.FC = () => {
                   <span>{staff.phone || 'No phone'}</span>
                 </div>
                 {staff.subRole === 'Driver' && (
-                   <div className="flex items-center gap-2 text-blue-600">
+                   <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/tracking');
+                      }}
+                      className="flex items-center gap-2 text-blue-600 hover:underline bg-transparent border-0 p-0 cursor-pointer"
+                   >
                       <MapPin className="w-4 h-4" />
                       <span>Live Tracking Available</span>
-                   </div>
+                   </button>
                 )}
               </div>
             </div>

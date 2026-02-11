@@ -2,23 +2,38 @@ import React, { useState } from 'react';
 import { Upload, X, FileText, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { bookingService } from '../../services/bookingService';
+import { uploadService } from '../../services/uploadService';
 
 interface BillUploadPanelProps {
-  bookingId: string;
+  booking: any;
   onUploadComplete: () => void;
 }
 
-const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ bookingId, onUploadComplete }) => {
+const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComplete }) => {
   const [formData, setFormData] = useState({
-    invoiceNumber: '',
-    invoiceDate: new Date().toISOString().split('T')[0],
-    partsCost: '',
-    labourCost: '',
-    gst: '',
-    totalAmount: '',
+    invoiceNumber: booking.billing?.invoiceNumber || '',
+    invoiceDate: booking.billing?.invoiceDate ? new Date(booking.billing.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    partsCost: booking.billing?.partsTotal || '',
+    labourCost: booking.billing?.labourCost || '',
+    gst: booking.billing?.gst || '',
+    totalAmount: booking.billing?.total || '',
   });
   const [file, setFile] = useState<File | null>(null);
-  const [isUploaded, setIsUploaded] = useState(false);
+  const [isUploaded, setIsUploaded] = useState(!!booking.billing?.fileUrl);
+  const [loading, setLoading] = useState(false);
+
+  // Sync form data with booking prop changes (e.g. when parts are added in Inspection)
+  React.useEffect(() => {
+    setFormData(prev => ({
+        ...prev,
+        partsCost: booking.billing?.partsTotal || prev.partsCost, // Update parts cost if backend updated it
+        // Only update total if we are taking the new parts cost
+        totalAmount: (parseFloat(booking.billing?.partsTotal || prev.partsCost || 0) + 
+                      parseFloat(prev.labourCost || 0) + 
+                      parseFloat(prev.gst || 0)).toString()
+    }));
+  }, [booking.billing?.partsTotal]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -41,30 +56,69 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ bookingId, onUploadCo
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
+    if (!file && !isUploaded) {
       toast.error('Please upload a bill image or PDF');
       return;
     }
-    // Mock upload
-    setTimeout(() => {
-      setIsUploaded(true);
-      onUploadComplete();
-      toast.success('Bill uploaded successfully');
-    }, 1000);
+    
+    setLoading(true);
+    try {
+        let fileUrl = booking.billing?.fileUrl || '';
+
+        if (file) {
+            const res = await uploadService.uploadFile(file);
+            fileUrl = res.url;
+        }
+
+        await bookingService.updateBookingDetails(booking._id, {
+            billing: {
+                invoiceNumber: formData.invoiceNumber,
+                invoiceDate: formData.invoiceDate,
+                partsTotal: parseFloat(formData.partsCost) || 0,
+                labourCost: parseFloat(formData.labourCost) || 0,
+                gst: parseFloat(formData.gst) || 0,
+                total: parseFloat(formData.totalAmount) || 0,
+                fileUrl: fileUrl
+            }
+        });
+
+        setIsUploaded(true);
+        onUploadComplete();
+        toast.success('Bill uploaded and details saved');
+    } catch (error) {
+        console.error(error);
+        toast.error('Failed to save bill details');
+    } finally {
+        setLoading(false);
+    }
   };
 
-  if (isUploaded) {
+  if (isUploaded && !file) { // Show uploaded state if already uploaded (and not currently editing with new file)
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FileText className="w-6 h-6 text-green-600" />
         </div>
         <h3 className="text-lg font-semibold text-green-800">Bill Uploaded</h3>
+        {booking.billing?.fileUrl && (
+            <a 
+                href={booking.billing.fileUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-700 underline text-sm mb-2 block hover:text-green-900"
+            >
+                View Uploaded Document
+            </a>
+        )}
         <p className="text-green-600 mb-4">Invoice #{formData.invoiceNumber}</p>
-        <button className="text-sm text-muted-foreground underline cursor-not-allowed" title="Admin Approval Required to Edit">
-            Edit Bill (Admin Approval Required)
+        <p className="text-sm text-green-700">Total: ₹{formData.totalAmount}</p>
+        <button 
+            onClick={() => setIsUploaded(false)} // Allow edit
+            className="text-sm text-primary underline"
+        >
+            Edit Bill Details
         </button>
       </div>
     );
@@ -171,9 +225,10 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ bookingId, onUploadCo
 
         <button
           type="submit"
+          disabled={loading}
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
         >
-          Upload Bill & Submit
+          {loading ? 'Saving...' : 'Upload Bill & Submit'}
         </button>
       </form>
     </div>

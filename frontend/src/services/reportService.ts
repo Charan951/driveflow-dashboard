@@ -1,11 +1,4 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/reports';
-
-const getAuthHeader = () => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  return { headers: { Authorization: `Bearer ${user.token}` } };
-};
+import api from './api';
 
 export const reportService = {
   getDashboardStats: async () => {

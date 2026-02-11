@@ -6,8 +6,7 @@ import {
   XCircle, 
   Clock, 
   FileText, 
-  UserPlus, 
-  Wrench, 
+  Wrench,  
   DollarSign, 
   AlertCircle,
   Filter,
@@ -50,6 +49,9 @@ const AdminApprovalsPage: React.FC = () => {
   const filterData = () => {
     let result = approvals;
 
+    // Filter out UserRegistration
+    result = result.filter(item => item.type !== 'UserRegistration');
+
     if (filterStatus !== 'all') {
       result = result.filter(item => item.status === filterStatus);
     }
@@ -57,8 +59,6 @@ const AdminApprovalsPage: React.FC = () => {
     if (filterType !== 'all') {
       if (filterType === 'financial') {
         result = result.filter(item => ['BillEdit', 'ExtraCost'].includes(item.type));
-      } else if (filterType === 'registration') {
-        result = result.filter(item => item.type === 'UserRegistration');
       } else if (filterType === 'operational') {
         result = result.filter(item => item.type === 'PartReplacement');
       }
@@ -131,7 +131,6 @@ const AdminApprovalsPage: React.FC = () => {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'UserRegistration': return <UserPlus className="w-5 h-5 text-blue-500" />;
       case 'PartReplacement': return <Wrench className="w-5 h-5 text-orange-500" />;
       case 'BillEdit': return <FileText className="w-5 h-5 text-purple-500" />;
       case 'ExtraCost': return <DollarSign className="w-5 h-5 text-green-500" />;
@@ -141,7 +140,6 @@ const AdminApprovalsPage: React.FC = () => {
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case 'UserRegistration': return 'Registration Request';
       case 'PartReplacement': return 'Part Replacement';
       case 'BillEdit': return 'Bill Modification';
       case 'ExtraCost': return 'Extra Cost Approval';
@@ -179,16 +177,6 @@ const AdminApprovalsPage: React.FC = () => {
             }`}
           >
             All Requests
-          </button>
-          <button
-            onClick={() => setFilterType('registration')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-              filterType === 'registration' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            Registrations
           </button>
           <button
             onClick={() => setFilterType('financial')}

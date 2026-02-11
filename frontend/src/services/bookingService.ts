@@ -8,15 +8,29 @@ export interface Booking {
   vehicle: Vehicle | string;
   services: Service[] | string[];
   date: string;
-  status: 'Booked' | 'Pickup Assigned' | 'In Garage' | 'Servicing' | 'Ready' | 'Delivered' | 'Cancelled';
+  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'VEHICLE_AT_MERCHANT' | 'JOB_CARD' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
   totalAmount: number;
   notes?: string;
-  location?: string;
+  location?: {
+    address: string;
+    lat?: number;
+    lng?: number;
+  };
   pickupRequired: boolean;
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentId?: string;
   createdAt: string;
-  merchant?: { _id: string; name: string; email: string; phone?: string };
+  merchant?: { 
+    _id: string; 
+    name: string; 
+    email: string; 
+    phone?: string;
+    location?: {
+      lat?: number;
+      lng?: number;
+      address?: string;
+    };
+  };
   pickupDriver?: { _id: string; name: string; email: string; phone?: string };
   technician?: { _id: string; name: string; email: string; phone?: string };
   media?: string[];
@@ -26,6 +40,48 @@ export interface Booking {
     quantity: number;
     price: number;
   }[];
+  inspection?: {
+    photos?: string[];
+    damageReport?: string;
+    additionalParts?: { name: string; price: number; quantity: number; approved: boolean }[];
+  };
+  delay?: {
+    isDelayed: boolean;
+    reason: string;
+    note?: string;
+    startTime?: string;
+  };
+  serviceExecution?: {
+    jobStartTime?: string;
+    jobEndTime?: string;
+    beforePhotos?: string[];
+    duringPhotos?: string[];
+    afterPhotos?: string[];
+  };
+  qc?: {
+    testRide: boolean;
+    safetyChecks: boolean;
+    noLeaks: boolean;
+    noErrorLights: boolean;
+    checklist?: Record<string, boolean>;
+    notes?: string;
+    completedAt?: string;
+    completedBy?: string;
+  };
+  billing?: {
+    invoiceNumber: string;
+    invoiceDate: string;
+    fileUrl: string;
+    labourCost: number;
+    gst: number;
+    partsTotal: number;
+    total: number;
+  };
+  revisit?: {
+    isRevisit: boolean;
+    originalBookingId: string;
+    reason: string;
+  };
 }
 
 export const bookingService = {
@@ -34,7 +90,11 @@ export const bookingService = {
     serviceIds: string[];
     date: string;
     notes?: string;
-    location?: string;
+    location?: {
+      address: string;
+      lat?: number;
+      lng?: number;
+    };
     pickupRequired: boolean;
   }) => {
     const response = await api.post('/bookings', data);
@@ -83,7 +143,17 @@ export const bookingService = {
   },
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  updateBookingDetails: async (id: string, data: { media?: string[]; parts?: any[]; notes?: string }) => {
+  updateBookingDetails: async (id: string, data: { 
+    media?: string[]; 
+    parts?: any[]; 
+    notes?: string;
+    inspection?: any;
+    delay?: any;
+    serviceExecution?: any;
+    qc?: any;
+    billing?: any;
+    revisit?: any;
+  }) => {
     const response = await api.put(`/bookings/${id}/details`, data);
     return response.data;
   },

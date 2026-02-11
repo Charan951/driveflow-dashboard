@@ -15,8 +15,12 @@ export const getBookingInvoice = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Check if user is authorized (admin or owner)
-    if (booking.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    // Check if user is authorized (admin, owner, or assigned merchant)
+    const isOwner = booking.user._id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant.toString() === req.user._id.toString();
+
+    if (!isOwner && !isAdmin && !isAssignedMerchant) {
       return res.status(401).json({ message: 'Not authorized' });
     }
 

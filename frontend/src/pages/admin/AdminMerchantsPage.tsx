@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { userService, User } from '@/services/userService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -14,10 +15,13 @@ import {
   Store,
   DollarSign,
   Package,
-  Clock
+  Clock,
+  Trash2,
+  MapPin
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import LocationPicker from '@/components/LocationPicker';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +38,7 @@ const AdminMerchantsPage: React.FC = () => {
     email: '',
     password: '',
     phone: '',
+    location: { address: '', lat: 0, lng: 0 },
   });
 
   // Rejection Modal State
@@ -43,6 +48,25 @@ const AdminMerchantsPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+
+    // Socket Connection for Real-time Status
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    socketService.on('userStatusUpdate', (data: { userId: string, isOnline: boolean, lastSeen: string }) => {
+      setUsers(prevUsers => prevUsers.map(u => {
+        if (u._id === data.userId) {
+          return { ...u, isOnline: data.isOnline, lastSeen: data.lastSeen };
+        }
+        return u;
+      }));
+    });
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('userStatusUpdate');
+      // Don't disconnect here if other components need it, but safe to leave room
+    };
   }, []);
 
   useEffect(() => {
@@ -91,11 +115,12 @@ const AdminMerchantsPage: React.FC = () => {
     try {
       await userService.addStaff({
         ...newMerchant,
+        location: newMerchant.location,
         role: 'merchant' 
       });
       toast.success('Merchant added successfully');
       setShowAddModal(false);
-      setNewMerchant({ name: '', email: '', password: '', phone: '' });
+      setNewMerchant({ name: '', email: '', password: '', phone: '', location: { address: '', lat: 0, lng: 0 } });
       fetchUsers();
     } catch (error) {
       toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to add merchant');
@@ -134,6 +159,19 @@ const AdminMerchantsPage: React.FC = () => {
       setIsRejectModalOpen(false);
     } catch (error) {
       toast.error('Failed to reject merchant');
+    }
+  };
+
+  const handleDeleteMerchant = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this merchant?')) {
+      try {
+        await userService.deleteUser(id);
+        toast.success('Merchant deleted successfully');
+        setUsers(users.filter(u => u._id !== id));
+      } catch (error) {
+        toast.error('Failed to delete merchant');
+      }
     }
   };
 
@@ -193,7 +231,12 @@ const AdminMerchantsPage: React.FC = () => {
               onClick={() => navigate(`/admin/merchants/${merchant._id}`)}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer relative group"
             >
-              <div className="absolute top-4 right-4">
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${merchant.isOnline ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${merchant.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    {merchant.isOnline ? 'Online' : 'Offline'}
+                 </div>
+
                 {merchant.isApproved ? (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                     <CheckCircle className="w-3 h-3 mr-1" />
@@ -206,10 +249,17 @@ const AdminMerchantsPage: React.FC = () => {
                   </span>
                 ) : (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                    <Clock className="w-3 h-3 mr-1" /> // Clock icon not imported, let's fix imports or use simple circle
+                    <Clock className="w-3 h-3 mr-1" />
                     Pending
                   </span>
                 )}
+                <button
+                  onClick={(e) => handleDeleteMerchant(merchant._id, e)}
+                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
 
               <div className="flex items-center gap-4 mb-4">
@@ -249,6 +299,17 @@ const AdminMerchantsPage: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  <button
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       navigate('/admin/tracking');
+                     }}
+                     className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                     title="View Live Location"
+                  >
+                     <MapPin className="w-5 h-5" />
+                  </button>
+
                   {!merchant.isApproved && !merchant.rejectionReason && (
                     <>
                       <button
@@ -282,7 +343,7 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-xl font-bold mb-4 dark:text-white">Add New Merchant</h2>
               <form onSubmit={handleAddMerchant} className="space-y-4">
@@ -320,6 +381,16 @@ const AdminMerchantsPage: React.FC = () => {
                     value={newMerchant.phone}
                     onChange={(e) => setNewMerchant({ ...newMerchant, phone: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <LocationPicker
+                    value={newMerchant.location}
+                    onChange={(value) => setNewMerchant({ ...newMerchant, location: value })}
+                    mapClassName="h-[250px]"
                   />
                 </div>
                 <div>

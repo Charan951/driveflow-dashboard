@@ -12,6 +12,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
+import LiveTracker from '@/components/LiveTracker';
+import { TrackingProvider } from '@/context/TrackingContext';
 
 const staffMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
@@ -30,7 +32,8 @@ export const StaffLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <TrackingProvider>
+      <div className="min-h-screen flex w-full bg-background">
       {/* Overlay */}
       {sidebarOpen && (
         <motion.div
@@ -85,7 +88,9 @@ export const StaffLayout: React.FC = () => {
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t border-border mt-auto">
+        <div className="p-4 border-t border-border mt-auto space-y-4">
+          <LiveTracker className="bg-muted/50 border-none shadow-none" />
+          
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
@@ -123,6 +128,7 @@ export const StaffLayout: React.FC = () => {
         </main>
       </div>
     </div>
+    </TrackingProvider>
   );
 };
 

@@ -19,8 +19,14 @@ export const createOrder = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    // Check ownership (only user who made the booking can pay)
+    // Allow admin to create order too if needed, but primarily for user
+    if (booking.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+        return res.status(401).json({ message: 'Not authorized to pay for this booking' });
+    }
+
     const options = {
-      amount: booking.totalAmount * 100, // amount in smallest currency unit
+      amount: Math.round(booking.totalAmount * 100), // amount in smallest currency unit, ensure integer
       currency: 'INR',
       receipt: `receipt_order_${bookingId}`,
     };
@@ -48,6 +54,11 @@ export const verifyPayment = async (req, res) => {
     try {
         const booking = await Booking.findById(bookingId);
         if (booking) {
+        
+        if (booking.paymentStatus === 'paid') {
+            return res.json({ message: 'Payment verified successfully' });
+        }
+
         booking.paymentStatus = 'paid';
         booking.paymentId = razorpay_payment_id;
         

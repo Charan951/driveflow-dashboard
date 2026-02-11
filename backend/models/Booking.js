@@ -24,8 +24,74 @@ const bookingSchema = mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ['Booked', 'Pickup Assigned', 'In Garage', 'Servicing', 'Ready', 'Delivered', 'Cancelled'],
-      default: 'Booked',
+      enum: [
+        'CREATED', 
+        'ASSIGNED', 
+        'ACCEPTED',
+        'REACHED_CUSTOMER',
+        'VEHICLE_PICKED', 
+        'REACHED_MERCHANT', 
+        'VEHICLE_AT_MERCHANT', 
+        'JOB_CARD',
+        'SERVICE_STARTED', 
+        'SERVICE_COMPLETED', 
+        'OUT_FOR_DELIVERY', 
+        'DELIVERED', 
+        'CANCELLED'
+      ],
+      default: 'CREATED',
+    },
+    inspection: {
+      photos: [String],
+      damageReport: String,
+      additionalParts: [{
+        name: String,
+        price: Number,
+        quantity: { type: Number, default: 1 },
+        approved: { type: Boolean, default: false },
+        image: String,
+        oldImage: String
+      }]
+    },
+    delay: {
+      isDelayed: { type: Boolean, default: false },
+      reason: { 
+        type: String, 
+        enum: ['Waiting for parts', 'Technician unavailable', 'Customer approval pending', 'Other'] 
+      },
+      note: String,
+      startTime: Date
+    },
+    serviceExecution: {
+      jobStartTime: Date,
+      jobEndTime: Date,
+      beforePhotos: [String],
+      duringPhotos: [String],
+      afterPhotos: [String],
+    },
+    qc: {
+      testRide: { type: Boolean, default: false },
+      safetyChecks: { type: Boolean, default: false },
+      noLeaks: { type: Boolean, default: false },
+      noErrorLights: { type: Boolean, default: false },
+      checklist: { type: Map, of: Boolean }, // Flexible checklist
+      notes: String,
+      completedAt: Date,
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    },
+    billing: {
+      invoiceNumber: String,
+      invoiceDate: Date,
+      fileUrl: String, // Photo/PDF
+      labourCost: { type: Number, default: 0 },
+      gst: { type: Number, default: 0 },
+      partsTotal: { type: Number, default: 0 },
+      total: { type: Number, default: 0 }
+    },
+    revisit: {
+      isRevisit: { type: Boolean, default: false },
+      originalBookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
+      reason: String
     },
     totalAmount: {
       type: Number,
@@ -50,12 +116,15 @@ const bookingSchema = mongoose.Schema(
         type: Number, // Price at the time of usage
         required: true,
       },
+      image: String,
     }],
     notes: {
       type: String,
     },
     location: {
-      type: String, // Address or coordinates
+      address: { type: String },
+      lat: { type: Number },
+      lng: { type: Number }
     },
     pickupRequired: {
       type: Boolean,
@@ -68,10 +137,12 @@ const bookingSchema = mongoose.Schema(
     pickupDriver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
     technician: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
     paymentStatus: {
       type: String,

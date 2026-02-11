@@ -29,11 +29,12 @@ const StaffLoginPage: React.FC = () => {
       }
 
       login({
-        id: data._id,
+        _id: data._id,
         name: data.name,
         email: data.email,
         phone: data.phone,
         role: data.role,
+        subRole: data.subRole,
       });
 
       toast.success('Welcome to Staff Portal!');

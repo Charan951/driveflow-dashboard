@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '../../services/bookingService';
 import { reviewService } from '../../services/reviewService';
+import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '../../services/approvalService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -25,12 +26,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, Eye } from 'lucide-react';
+import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Review Dialog State
@@ -41,28 +43,53 @@ const MyBookingsPage = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
-    fetchBookings();
+    fetchData();
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchData = async () => {
     try {
-      const data = await bookingService.getMyBookings();
-      setBookings(data);
+      const [bookingsData, approvalsData] = await Promise.all([
+        bookingService.getMyBookings(),
+        getMyApprovals()
+      ]);
+      setBookings(bookingsData);
+      setApprovals(approvalsData.filter((a: ApprovalRequest) => a.status === 'Pending'));
     } catch (error) {
-      toast.error('Failed to fetch your bookings');
+      toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleApprovalAction = async (id: string, status: 'Approved' | 'Rejected') => {
+    try {
+        await updateApprovalStatus(id, status);
+        toast.success(`Request ${status}`);
+        fetchData(); // Refresh list
+    } catch (error) {
+        toast.error('Action failed');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Booked': return 'secondary';
-      case 'In Garage': return 'default';
-      case 'Servicing': return 'warning';
-      case 'Ready': return 'success';
-      case 'Delivered': return 'success';
-      case 'Cancelled': return 'destructive';
+      case 'Booked': 
+      case 'Accepted':
+      case 'Pickup Assigned':
+        return 'secondary';
+      case 'In Garage': 
+      case 'Inspection Started':
+      case 'Awaiting Parts':
+      case 'Repair In Progress':
+      case 'Servicing':
+      case 'QC Pending':
+        return 'warning';
+      case 'Completed':
+      case 'Ready': 
+      case 'Delivered': 
+        return 'success';
+      case 'Cancelled': 
+        return 'destructive';
       default: return 'secondary';
     }
   };
@@ -183,18 +210,81 @@ const MyBookingsPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">My Bookings</h1>
-        <Button onClick={() => navigate('/book-service')}>
-            New Booking
-        </Button>
+    <div className="container mx-auto px-4 py-8">
+      
+      {/* Pending Approvals Section */}
+      {approvals.length > 0 && (
+        <div className="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-4 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" />
+            Action Required
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {approvals.map(approval => (
+              <div key={approval._id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-amber-100 dark:border-gray-700">
+                <div className="flex justify-between items-start mb-2">
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">
+                    {approval.type === 'PartReplacement' ? 'Part Replacement' : 
+                     approval.type === 'ExtraCost' ? 'Extra Cost' : approval.type}
+                  </Badge>
+                  <span className="text-xs text-gray-500">
+                    {format(new Date(approval.createdAt), 'MMM d, yyyy')}
+                  </span>
+                </div>
+                
+                <div className="space-y-2 mb-4">
+                  {approval.data?.image && (
+                      <div className="mb-2">
+                          <img 
+                            src={approval.data.image as string} 
+                            alt="Part" 
+                            className="w-full h-32 object-cover rounded-md"
+                          />
+                      </div>
+                  )}
+                  {Object.entries(approval.data || {}).map(([key, value]) => {
+                      if (key === 'image') return null;
+                      return (
+                        <div key={key} className="flex justify-between text-sm">
+                          <span className="text-gray-500 capitalize">{key}:</span>
+                          <span className="font-medium">{String(value)}</span>
+                        </div>
+                      );
+                  })}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => handleApprovalAction(approval._id, 'Approved')}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive" 
+                    className="flex-1"
+                    onClick={() => handleApprovalAction(approval._id, 'Rejected')}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" /> Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Bookings</h1>
+        <Button onClick={() => navigate('/book-service')}>Book New Service</Button>
       </div>
       
       <Tabs defaultValue="live" className="w-full">

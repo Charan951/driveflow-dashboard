@@ -13,7 +13,8 @@ import {
   ClipboardList,
   Layers,
   MessageSquare,
-  Car
+  Car,
+  User
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ const merchantMenuItems = [
   { icon: Store, label: 'Services', path: '/merchant/services' },
   { icon: Car, label: 'Vehicles', path: '/merchant/vehicles' },
   { icon: Users, label: 'Users', path: '/merchant/users' },
+  { icon: User, label: 'Profile', path: '/merchant/profile' },
 ];
 
 export const MerchantLayout: React.FC = () => {

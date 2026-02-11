@@ -117,7 +117,11 @@ export const fetchVehicleDetails = async (req, res) => {
              return res.json(mappedData);
         }
       } catch (apiError) {
-        console.warn('RapidAPI request failed or returned error:', apiError.message);
+        if (apiError.response && apiError.response.status === 404) {
+          console.log(`Vehicle ${normalizedPlate} not found in RapidAPI (404). Using mock data.`);
+        } else {
+          console.warn('RapidAPI request failed or returned error:', apiError.message);
+        }
         // Fall through to mock logic
       }
     }

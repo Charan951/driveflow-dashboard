@@ -10,10 +10,20 @@ export interface LocationPoint {
 export interface TrackedStaff {
   _id: string;
   name: string;
-  subRole: string;
+  role?: string;
+  subRole?: string;
   phone?: string;
   email: string;
+  isOnline?: boolean;
+  isShopOpen?: boolean;
+  lastSeen?: string;
   location: LocationPoint;
+  currentJob?: {
+    _id: string;
+    location: string;
+    status: string;
+    date: string;
+  } | null;
 }
 
 export interface TrackedVehicle {
@@ -32,6 +42,7 @@ export interface TrackedVehicle {
 export interface LiveData {
   staff: TrackedStaff[];
   vehicles: TrackedVehicle[];
+  merchants: TrackedStaff[]; // Merchants share similar structure to Staff
   timestamp: string;
 }
 
@@ -40,7 +51,12 @@ export const getLiveLocations = async () => {
   return response.data;
 };
 
-export const updateMyLocation = async (lat: number, lng: number) => {
-  const response = await api.put('/tracking/user', { lat, lng });
+export const updateMyLocation = async (lat: number, lng: number, address?: string) => {
+  const response = await api.put('/tracking/user', { lat, lng, address });
+  return response.data;
+};
+
+export const updateOnlineStatus = async (isOnline: boolean) => {
+  const response = await api.put('/users/online-status', { isOnline });
   return response.data;
 };

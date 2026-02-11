@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, DollarSign, Users, TrendingUp, AlertTriangle, FileText, CheckCircle } from 'lucide-react';
+import { Package, DollarSign, Users, TrendingUp, AlertTriangle, FileText, CheckCircle, Store } from 'lucide-react';
 import CounterCard from '@/components/CounterCard';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { bookingService, Booking } from '@/services/bookingService';
@@ -10,9 +10,11 @@ import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { Link } from 'react-router-dom';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [stats, setStats] = useState({
     activeOrders: 0,
     completedOrders: 0,
@@ -21,6 +23,27 @@ const Dashboard: React.FC = () => {
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isShopOpen, setIsShopOpen] = useState(user?.isShopOpen ?? true);
+
+  const handleShopStatusToggle = async (checked: boolean) => {
+    const previousStatus = isShopOpen;
+    setIsShopOpen(checked); // Optimistic update
+    try {
+        await userService.updateProfile({ isShopOpen: checked });
+        updateUser({ isShopOpen: checked });
+        toast.success(checked ? 'Shop is now Open' : 'Shop is now Closed');
+    } catch (error) {
+        setIsShopOpen(previousStatus); // Revert
+        console.error('Failed to update shop status', error);
+        toast.error('Failed to update shop status');
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+        setIsShopOpen(user.isShopOpen ?? true);
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,12 +95,35 @@ const Dashboard: React.FC = () => {
       className="space-y-8"
     >
       <motion.div variants={staggerItem}>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">
-          {user?.role === 'admin' ? 'Admin Dashboard' : 'Merchant Dashboard'}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Overview of your workshop performance
-        </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight text-primary">
+                {user?.role === 'admin' ? 'Admin Dashboard' : 'Merchant Dashboard'}
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                Overview of your workshop performance
+                </p>
+            </div>
+            
+            <div className="flex items-center space-x-3 bg-card p-3 rounded-xl border border-border shadow-sm">
+                <div className={`p-2 rounded-full ${isShopOpen ? 'bg-green-100' : 'bg-gray-100'}`}>
+                    <Store className={`w-5 h-5 ${isShopOpen ? 'text-green-600' : 'text-gray-500'}`} />
+                </div>
+                <div className="flex flex-col mr-2">
+                    <Label htmlFor="shop-status" className="text-sm font-semibold cursor-pointer">
+                        {isShopOpen ? 'Shop Open' : 'Shop Closed'}
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                        {isShopOpen ? 'Accepting new orders' : 'Not accepting orders'}
+                    </span>
+                </div>
+                <Switch 
+                    id="shop-status" 
+                    checked={isShopOpen} 
+                    onCheckedChange={handleShopStatusToggle} 
+                />
+            </div>
+        </div>
       </motion.div>
 
       {/* Stats */}

@@ -7,19 +7,28 @@ export interface User {
   role: string;
   subRole?: 'Driver' | 'Technician' | 'Support' | 'Manager' | null;
   status?: 'Active' | 'Inactive' | 'On Leave';
+  isOnline?: boolean;
+  isShopOpen?: boolean;
+  lastSeen?: string;
   phone?: string;
+  location?: {
+    lat?: number;
+    lng?: number;
+    address?: string;
+  };
   isApproved?: boolean;
   rejectionReason?: string | null;
 }
 
 export const userService = {
-  getAllUsers: async () => {
-    const response = await api.get('/users');
+  getAllUsers: async (filters?: { role?: string; subRole?: string }) => {
+    const params = new URLSearchParams(filters as any).toString();
+    const response = await api.get(`/users?${params}`);
     return response.data;
   },
 
   addStaff: async (data: Partial<User> & { password?: string }) => {
-    const response = await api.post('/users/staff', data);
+    const response = await api.post('/users', data);
     return response.data;
   },
 
@@ -50,6 +59,11 @@ export const userService = {
 
   rejectUser: async (id: string, reason: string) => {
     const response = await api.put(`/users/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  deleteUser: async (id: string) => {
+    const response = await api.delete(`/users/${id}`);
     return response.data;
   },
 };

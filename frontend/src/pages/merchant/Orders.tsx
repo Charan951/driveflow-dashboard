@@ -44,10 +44,10 @@ const Orders: React.FC = () => {
 
     // Status filter
     if (filter === 'active') {
-      return ['Booked', 'Pickup Assigned', 'In Garage', 'Servicing'].includes(booking.status);
+      return ['Booked', 'Accepted', 'Pickup Assigned', 'In Garage', 'Inspection Started', 'Awaiting Parts', 'Repair In Progress', 'Servicing', 'QC Pending'].includes(booking.status);
     }
     if (filter === 'completed') {
-      return ['Ready', 'Delivered'].includes(booking.status);
+      return ['Completed', 'Ready', 'Delivered'].includes(booking.status);
     }
     if (filter === 'pending-bills') {
       return booking.paymentStatus === 'pending' && booking.status !== 'Cancelled';

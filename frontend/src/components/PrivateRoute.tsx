@@ -20,12 +20,9 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ allowedRoles }) => {
     if (isMerchantRoute) {
        return <Navigate to="/merchant/login" state={{ from: location }} replace />;
     }
-    // Staff login page might exist, but usually it's /login or /staff/login
-    // Based on file list, there is StaffLoginPage.tsx
+    
     if (isStaffRoute) {
-        // Assuming there is a staff login route, but I didn't see it explicitly in App.tsx routes list for /staff/login except maybe line 127??
-        // Wait, line 127 is StaffLayout. StaffLoginPage is imported but where is it used?
-        // Ah, looking at App.tsx again.
+       return <Navigate to="/staff/login" state={{ from: location }} replace />;
     }
     
     return <Navigate to="/login" state={{ from: location }} replace />;

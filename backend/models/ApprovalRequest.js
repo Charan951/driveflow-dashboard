@@ -4,7 +4,7 @@ const approvalRequestSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['UserRegistration', 'PartReplacement', 'ExtraCost', 'BillEdit'],
+    enum: ['PartReplacement', 'ExtraCost', 'BillEdit'],
   },
   status: {
     type: String,

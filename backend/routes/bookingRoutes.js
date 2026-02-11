@@ -32,7 +32,7 @@ router.route('/:id/assign').put(protect, admin, assignBooking); // Admin only
 
 router.route('/:id/status').put(protect, updateBookingStatus); // Permission handled in controller
 
-router.route('/:id/details').put(protect, merchant, updateBookingDetails);
+router.route('/:id/details').put(protect, updateBookingDetails);
 
 router.route('/:id/invoice').get(protect, getBookingInvoice);
 

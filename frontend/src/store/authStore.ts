@@ -2,14 +2,17 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type UserRole = 'customer' | 'staff' | 'merchant' | 'admin' | null;
+export type UserSubRole = 'Driver' | 'Technician' | 'Support' | 'Manager' | null;
 
 interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   phone: string;
   avatar?: string;
   role: UserRole;
+  subRole?: UserSubRole;
+  isShopOpen?: boolean;
 }
 
 interface AuthState {

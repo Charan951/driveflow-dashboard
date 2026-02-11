@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { bookingService, Booking } from '@/services/bookingService';
 import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, 
@@ -17,8 +18,10 @@ import {
   XCircle,
   Clock,
   Store,
-  Shield
+  Shield,
+  Signal
 } from 'lucide-react';
+import * as turf from '@turf/turf';
 
 const BookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,22 +47,76 @@ const BookingDetailPage: React.FC = () => {
         ]);
         setBooking(bookingData);
         
+        // Helper to sort staff by Online Status and Proximity
+        const sortStaff = (staffList: User[]) => {
+            const targetLat = typeof bookingData.location === 'object' ? bookingData.location.lat : null;
+            const targetLng = typeof bookingData.location === 'object' ? bookingData.location.lng : null;
+
+            return [...staffList].sort((a, b) => {
+                // 1. Online Priority
+                if (a.isOnline && !b.isOnline) return -1;
+                if (!a.isOnline && b.isOnline) return 1;
+
+                // 2. Proximity (if location available)
+                if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
+                     const from = turf.point([targetLng, targetLat]);
+                     const toA = turf.point([a.location.lng, a.location.lat]);
+                     const toB = turf.point([b.location.lng, b.location.lat]);
+                     return turf.distance(from, toA) - turf.distance(from, toB);
+                }
+                return 0;
+            });
+        };
+
+        // Helper to sort merchants by Open Status and Proximity
+        const sortMerchants = (merchantList: User[]) => {
+            const targetLat = typeof bookingData.location === 'object' ? bookingData.location.lat : null;
+            const targetLng = typeof bookingData.location === 'object' ? bookingData.location.lng : null;
+
+            return [...merchantList].sort((a, b) => {
+                // 1. Open Shop Priority (Active/Open shops first)
+                // Note: isShopOpen defaults to true usually, but check explicit false
+                const aOpen = a.isShopOpen !== false; 
+                const bOpen = b.isShopOpen !== false;
+                
+                if (aOpen && !bOpen) return -1;
+                if (!aOpen && bOpen) return 1;
+
+                // 2. Proximity (if location available)
+                if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
+                     const from = turf.point([targetLng, targetLat]);
+                     const toA = turf.point([a.location.lng, a.location.lat]);
+                     const toB = turf.point([b.location.lng, b.location.lat]);
+                     return turf.distance(from, toA) - turf.distance(from, toB);
+                }
+                return 0;
+            });
+        };
+
         // Populate lists for assignment
-        setMerchants(usersData.filter((u: User) => u.role === 'merchant'));
-        
-        // Filter staff based on subRole if available, otherwise show all staff
-        setDrivers(usersData.filter((u: User) => 
+        setMerchants(sortMerchants(usersData.filter((u: User) => u.role === 'merchant')));
+
+        setDrivers(sortStaff(usersData.filter((u: User) => 
           u.role === 'staff' && (!u.subRole || u.subRole === 'Driver')
-        )); 
+        )));
         
-        setTechnicians(usersData.filter((u: User) => 
+        setTechnicians(sortStaff(usersData.filter((u: User) => 
           u.role === 'staff' && (!u.subRole || u.subRole === 'Technician')
-        )); 
+        ))); 
+
+        // Helper to safely get ID
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const getResourceId = (resource: any) => {
+           if (!resource) return '';
+           if (typeof resource === 'string') return resource;
+           if (typeof resource === 'object' && resource._id) return resource._id;
+           return '';
+        };
 
         // Set initial values
-        if (bookingData.merchant) setSelectedMerchant(bookingData.merchant._id);
-        if (bookingData.pickupDriver) setSelectedDriver(bookingData.pickupDriver._id);
-        if (bookingData.technician) setSelectedTechnician(bookingData.technician._id);
+        if (bookingData.merchant) setSelectedMerchant(getResourceId(bookingData.merchant));
+        if (bookingData.pickupDriver) setSelectedDriver(getResourceId(bookingData.pickupDriver));
+        if (bookingData.technician) setSelectedTechnician(getResourceId(bookingData.technician));
 
       } catch (error) {
         console.error(error);
@@ -74,6 +131,26 @@ const BookingDetailPage: React.FC = () => {
       fetchData();
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (!id) return;
+    
+    // Socket Connection
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+      if (updatedBooking._id === id) {
+         setBooking(updatedBooking);
+         // toast.info(`Status updated: ${updatedBooking.status}`);
+      }
+    });
+
+    return () => {
+       socketService.leaveRoom('admin');
+       socketService.off('bookingUpdated');
+    };
+  }, [id]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!booking) return;
@@ -125,8 +202,8 @@ const BookingDetailPage: React.FC = () => {
           <h1 className="text-2xl font-bold flex items-center gap-3">
             Booking #{booking._id.slice(-6).toUpperCase()}
             <span className={`px-3 py-1 rounded-full text-xs font-medium 
-              ${booking.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 
+              ${booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
+                booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
                 'bg-blue-100 text-blue-800'}`}>
               {booking.status}
             </span>
@@ -228,6 +305,30 @@ const BookingDetailPage: React.FC = () => {
                       )}
                    </div>
                 </div>
+                {booking.location && (
+                  <div>
+                     <label className="text-xs text-muted-foreground uppercase font-medium">Pickup Location</label>
+                     <div className="mt-1">
+                        {typeof booking.location === 'string' ? (
+                           <span className="text-sm">{booking.location}</span>
+                        ) : (
+                           <div>
+                              <p className="text-sm">{booking.location.address}</p>
+                              {booking.location.lat && booking.location.lng && (
+                                 <a 
+                                    href={`https://www.google.com/maps?q=${booking.location.lat},${booking.location.lng}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                                 >
+                                    <MapPin className="w-3 h-3" /> View on Map
+                                 </a>
+                              )}
+                           </div>
+                        )}
+                     </div>
+                  </div>
+                )}
               </div>
             </div>
             {booking.notes && (
@@ -261,9 +362,25 @@ const BookingDetailPage: React.FC = () => {
                       onChange={(e) => setSelectedMerchant(e.target.value)}
                    >
                       <option value="">Select Merchant...</option>
-                      {merchants.map(m => (
-                         <option key={m._id} value={m._id}>{m.name}</option>
-                      ))}
+                      {merchants.map(m => {
+                         let label = m.name;
+                         // Add Open/Closed status
+                         if (m.isShopOpen === false) label += " (Closed 🔴)";
+                         else label += " (Open 🟢)";
+
+                         // Add Distance
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && m.location?.lat) {
+                            try {
+                               const from = turf.point([booking.location.lng!, booking.location.lat]);
+                               const to = turf.point([m.location.lng!, m.location.lat]);
+                               const distance = turf.distance(from, to);
+                               label += ` - ${distance.toFixed(1)} km`;
+                            } catch (e) {
+                               // ignore error
+                            }
+                         }
+                         return <option key={m._id} value={m._id}>{label}</option>
+                      })}
                    </select>
                 </div>
 
@@ -277,9 +394,19 @@ const BookingDetailPage: React.FC = () => {
                       onChange={(e) => setSelectedDriver(e.target.value)}
                    >
                       <option value="">Select Driver...</option>
-                      {drivers.map(d => (
-                         <option key={d._id} value={d._id}>{d.name}</option>
-                      ))}
+                      {drivers.map(d => {
+                        let label = d.name;
+                        if (d.isOnline) label += " 🟢 (Online)";
+                        if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                           try {
+                              const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                              const to = turf.point([d.location.lng!, d.location.lat!]);
+                              const dist = turf.distance(from, to, { units: 'kilometers' });
+                              label += ` - ${dist.toFixed(1)}km`;
+                           } catch (e) { /* ignore */ }
+                        }
+                        return <option key={d._id} value={d._id}>{label}</option>;
+                      })}
                    </select>
                 </div>
 
@@ -293,9 +420,19 @@ const BookingDetailPage: React.FC = () => {
                       onChange={(e) => setSelectedTechnician(e.target.value)}
                    >
                       <option value="">Select Technician...</option>
-                      {technicians.map(t => (
-                         <option key={t._id} value={t._id}>{t.name}</option>
-                      ))}
+                      {technicians.map(t => {
+                        let label = t.name;
+                        if (t.isOnline) label += " 🟢 (Online)";
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && t.location?.lat) {
+                           try {
+                              const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                              const to = turf.point([t.location.lng!, t.location.lat!]);
+                              const dist = turf.distance(from, to, { units: 'kilometers' });
+                              label += ` - ${dist.toFixed(1)}km`;
+                           } catch (e) { /* ignore */ }
+                        }
+                        return <option key={t._id} value={t._id}>{label}</option>;
+                      })}
                    </select>
                 </div>
              </div>
@@ -305,17 +442,30 @@ const BookingDetailPage: React.FC = () => {
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
              <div className="flex flex-wrap gap-2">
-                {['Booked', 'Pickup Assigned', 'In Garage', 'Servicing', 'Ready', 'Delivered', 'Cancelled'].map((status) => (
+                {[
+                  { label: 'Created', value: 'CREATED' },
+                  { label: 'Assigned', value: 'ASSIGNED' },
+                  { label: 'Accepted', value: 'ACCEPTED' },
+                  { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
+                  { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
+                  { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
+                  { label: 'Job Card Created', value: 'JOB_CARD' },
+                  { label: 'Service Started', value: 'SERVICE_STARTED' },
+                  { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
+                  { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
+                  { label: 'Delivered', value: 'DELIVERED' },
+                  { label: 'Cancelled', value: 'CANCELLED' }
+                ].map((item) => (
                    <button
-                      key={status}
-                      onClick={() => handleStatusUpdate(status)}
-                      disabled={booking.status === status}
+                      key={item.value}
+                      onClick={() => handleStatusUpdate(item.value)}
+                      disabled={booking.status === item.value}
                       className={`px-3 py-2 rounded-lg text-sm border transition-colors
-                         ${booking.status === status 
+                         ${booking.status === item.value 
                             ? 'bg-primary text-primary-foreground border-primary' 
                             : 'hover:bg-muted border-border'}`}
                    >
-                      {status}
+                      {item.label}
                    </button>
                 ))}
              </div>

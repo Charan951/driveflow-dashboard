@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '@/services/bookingService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -28,6 +29,19 @@ const AdminBookingsPage: React.FC = () => {
 
   useEffect(() => {
     fetchBookings();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+       setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
+    });
+
+    return () => {
+        socketService.leaveRoom('admin');
+        socketService.off('bookingUpdated');
+    };
   }, []);
 
   useEffect(() => {
@@ -73,12 +87,18 @@ const AdminBookingsPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       'Booked': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'Accepted': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
       'Pickup Assigned': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       'In Garage': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+      'Inspection Started': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+      'Awaiting Parts': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'Repair In Progress': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
       'Servicing': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      'Ready': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-      'Delivered': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      'Cancelled': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'QC Pending': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+      'Ready': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      'Delivered': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+      'Cancelled': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
@@ -159,10 +179,10 @@ const AdminBookingsPage: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col">
-                        <span className="font-medium">{(typeof booking.user === 'object' && booking.user.name) || 'Unknown User'}</span>
+                        <span className="font-medium">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                           <Car className="w-3 h-3" />
-                          {(typeof booking.vehicle === 'object' && booking.vehicle.model) || 'Unknown Vehicle'}
+                          {(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}
                         </div>
                       </div>
                     </td>
@@ -188,6 +208,9 @@ const AdminBookingsPage: React.FC = () => {
                            <Clock className="w-3 h-3" /> 10:00 AM {/* Mock slot for now */}
                         </span>
                       </div>
+                    </td>
+                    <td className="p-4 text-sm">
+                      {booking.technician?.name || booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>}
                     </td>
                     <td className="p-4">
                       {getStatusBadge(booking.status)}

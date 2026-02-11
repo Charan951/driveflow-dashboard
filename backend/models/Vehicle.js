@@ -23,6 +23,17 @@ const vehicleSchema = new mongoose.Schema({
     address: { type: String },
     updatedAt: { type: Date }
   },
+  geo: {
+    type: {
+      type: String,
+      default: 'Point',
+      enum: ['Point']
+    },
+    coordinates: {
+      type: [Number],
+      index: '2dsphere'
+    }
+  },
   lastService: { type: Date },
   nextService: { type: Date },
   documents: [{

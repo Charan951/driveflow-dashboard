@@ -20,6 +20,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
 import SlotPicker from '@/components/SlotPicker';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
 
 const steps = ['Vehicle', 'Category', 'Service', 'Schedule', 'Confirm'];
@@ -34,8 +35,9 @@ const BookServicePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [address, setAddress] = useState('');
+  const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
@@ -84,7 +86,7 @@ const BookServicePage: React.FC = () => {
       case 1: return selectedCategory !== null;
       case 2: return selectedServices.length > 0;
       case 3: return selectedDate !== null && selectedTime !== null;
-      case 4: return address.trim() !== '';
+      case 4: return pickupLocation.address.trim() !== '';
       default: return false;
     }
   };
@@ -109,6 +111,7 @@ const BookServicePage: React.FC = () => {
     if (!selectedVehicle || !selectedDate || !selectedTime) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       // Combine date and time
       const [timePart, modifier] = selectedTime.split(' ');
@@ -122,11 +125,22 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
+      const locationData: { address: string; lat?: number; lng?: number } = {
+        address: pickupLocation.address
+      };
+
+      if (typeof pickupLocation.lat === 'number' && !isNaN(pickupLocation.lat)) {
+        locationData.lat = pickupLocation.lat;
+      }
+      if (typeof pickupLocation.lng === 'number' && !isNaN(pickupLocation.lng)) {
+        locationData.lng = pickupLocation.lng;
+      }
+
       const bookingData = {
         vehicleId: selectedVehicle,
         serviceIds: selectedServices,
         date: bookingDate.toISOString(),
-        location: address,
+        location: locationData,
         pickupRequired: true, // Assuming pickup is required if address is provided in this flow
         notes: ""
       };
@@ -137,7 +151,9 @@ const BookServicePage: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Booking failed:', error);
-      toast.error(error.response?.data?.message || 'Failed to create booking. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Failed to create booking. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -154,6 +170,13 @@ const BookServicePage: React.FC = () => {
         <h1 className="text-2xl font-bold text-foreground">Book a Service</h1>
         <p className="text-muted-foreground">Schedule your vehicle service in a few steps</p>
       </div>
+
+      {error && (
+        <div className="bg-destructive/15 text-destructive p-4 rounded-xl border border-destructive/20">
+          <p className="font-medium">Booking Failed</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Progress Steps */}
       <div className="flex items-center justify-between bg-card rounded-2xl p-4 border border-border">
@@ -419,14 +442,11 @@ const BookServicePage: React.FC = () => {
               <label className="block text-sm font-medium text-foreground mb-2">
                 Pickup Address
               </label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-4 w-5 h-5 text-muted-foreground" />
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Enter your pickup address"
-                  rows={3}
-                  className="w-full pl-12 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <LocationPicker 
+                  value={pickupLocation} 
+                  onChange={setPickupLocation}
+                  mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
                 />
               </div>
             </div>
