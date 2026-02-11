@@ -5,10 +5,13 @@ import User from './models/User.js';
 let io;
 
 export const initSocket = (server) => {
+  const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : "*";
+  
   io = new Server(server, {
     cors: {
-      origin: "*", // Allow all origins for now, restrict in production
-      methods: ["GET", "POST"]
+      origin: allowedOrigins,
+      methods: ["GET", "POST"],
+      credentials: true
     }
   });
 

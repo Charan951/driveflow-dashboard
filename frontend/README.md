@@ -30,6 +30,14 @@ A comprehensive dashboard for managing vehicle services, bookings, and customer 
    npm install
    ```
 
+## Environment Variables
+
+Create a `.env` file in the root of the `frontend` directory with the following variables:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
 ### Development
 
 Start the development server:

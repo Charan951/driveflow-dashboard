@@ -72,7 +72,7 @@ const AdminPaymentsPage = () => {
   const handleDownloadInvoice = (bookingId: string) => {
     // Assuming the invoice URL pattern, or use a service method if needed
     // Ideally this should use a service to get a blob or redirect
-    window.open(`http://localhost:5000/api/bookings/${bookingId}/invoice`, '_blank');
+    window.open(`${import.meta.env.VITE_API_URL}/api/bookings/${bookingId}/invoice`, '_blank');
   };
 
   if (loading) {

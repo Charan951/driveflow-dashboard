@@ -39,7 +39,7 @@ const AdminDocumentsPage = () => {
         // If it's a relative path like /api/..., prepend backend URL if needed, 
         // but typically /api is proxied or absolute in dev.
         // Assuming relative paths work with proxy or absolute URL needed
-        const fullUrl = url.startsWith('http') ? url : `http://localhost:5000${url}`;
+        const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL}${url}`;
         window.open(fullUrl, '_blank');
     } else {
         toast.error('Invalid document URL');
