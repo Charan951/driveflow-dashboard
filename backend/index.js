@@ -37,11 +37,20 @@ console.log('Mongo URI:', process.env.MONGO_URI);
 // CORS Configuration
 const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : [];
 
+const isDev = process.env.NODE_ENV !== 'production';
+const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    const normalizedOrigin = origin.trim();
+    const allowedByEnv =
+      allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin);
+    const allowedByDevDefault =
+      isDev && devOriginPrefixes.some((prefix) => normalizedOrigin.startsWith(prefix));
+
+    if (allowedByEnv || allowedByDevDefault) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

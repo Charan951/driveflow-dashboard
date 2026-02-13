@@ -1,0 +1,51 @@
+import '../core/api_client.dart';
+import '../core/env.dart';
+import '../models/booking.dart';
+
+class BookingService {
+  final ApiClient _api = ApiClient();
+
+  Future<Booking> createBooking({
+    required String vehicleId,
+    required List<String> serviceIds,
+    required DateTime date,
+    String? notes,
+    bool pickupRequired = false,
+  }) async {
+    final res = await _api.postAny(
+      ApiEndpoints.bookings,
+      body: {
+        'vehicleId': vehicleId,
+        'serviceIds': serviceIds,
+        'date': date.toIso8601String(),
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        'pickupRequired': pickupRequired,
+      },
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<List<Booking>> listMyBookings() async {
+    final res = await _api.getAny(ApiEndpoints.myBookings);
+    final items = <Booking>[];
+    if (res is List) {
+      for (final e in res) {
+        if (e is Map<String, dynamic>) {
+          items.add(Booking.fromJson(e));
+        } else if (e is Map) {
+          items.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+        }
+      }
+    }
+    return items;
+  }
+
+  Future<Booking> getBooking(String id) async {
+    final res = await _api.getAny(ApiEndpoints.bookingById(id));
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+}
