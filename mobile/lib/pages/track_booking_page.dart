@@ -429,6 +429,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       TileLayer(
                         urlTemplate:
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.carb.app',
                       ),
                       MarkerLayer(
                         markers: [

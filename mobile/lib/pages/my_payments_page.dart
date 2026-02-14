@@ -28,7 +28,7 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
     await auth.loadMe();
     if (!mounted) return false;
     if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       return false;
     }
     return true;
@@ -58,7 +58,9 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
     try {
       final items = await _service.listMyBookings();
       // Filter for bookings that have payment info or are paid
-      final paidItems = items.where((b) => b.paymentStatus != 'pending' || b.totalAmount > 0).toList();
+      final paidItems = items
+          .where((b) => b.paymentStatus != 'pending' || b.totalAmount > 0)
+          .toList();
       paidItems.sort((a, b) => b.date.compareTo(a.date));
       if (mounted) setState(() => _payments = paidItems);
     } catch (e) {
@@ -67,7 +69,7 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
         if (!mounted) return;
         Navigator.of(
           context,
-        ).pushNamedAndRemoveUntil('/register', (route) => false);
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
         return;
       }
       if (mounted) setState(() => _error = e.toString());
@@ -225,7 +227,11 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
                                 onPressed: () {
                                   // In a real app, this would trigger payment gateway
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Payment gateway integration coming soon')),
+                                    const SnackBar(
+                                      content: Text(
+                                        'Payment gateway integration coming soon',
+                                      ),
+                                    ),
                                   );
                                 },
                                 child: const Text('Pay Now'),

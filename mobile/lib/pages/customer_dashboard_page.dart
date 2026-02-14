@@ -41,7 +41,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
     await auth.loadMe();
     if (!mounted) return false;
     if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       return false;
     }
     return true;
@@ -102,7 +102,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
       if (e is ApiException && e.statusCode == 401) {
         await auth.logout();
         if (!mounted) return;
-        navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+        navigator.pushNamedAndRemoveUntil('/login', (route) => false);
         return;
       }
       if (mounted) {

@@ -19,7 +19,7 @@ class _SupportPageState extends State<SupportPage> {
     await auth.loadMe();
     if (!mounted) return false;
     if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       return false;
     }
     return true;

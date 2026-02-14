@@ -52,15 +52,44 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
 
   Future<void> _bootstrap() async {
     final auth = context.read<AuthProvider>();
+
+    debugPrint('Splash: Starting bootstrap...');
+
+    // Start loading session immediately in background
+    final loadMeFuture = auth.loadMe();
+
+    // Wait for at least 2.5 seconds to show splash animation nicely
+    await Future.delayed(const Duration(milliseconds: 2500));
+
+    debugPrint('Splash: Animation delay finished, waiting for loadMe...');
+
+    // Ensure data is loaded
+    await loadMeFuture;
+
+    debugPrint(
+      'Splash: loadMe finished. isAuthenticated: ${auth.isAuthenticated}',
+    );
+
+    if (!mounted) {
+      debugPrint('Splash: Widget not mounted, aborting navigation');
+      return;
+    }
+    if (_navigated) {
+      debugPrint('Splash: Already navigated, aborting');
+      return;
+    }
+
     final navigator = Navigator.of(context);
-    auth.loadMe().then((_) {
-      if (_navigated) return;
-      if (!mounted) return;
-      if (auth.isAuthenticated) {
-        _navigated = true;
-        navigator.pushReplacementNamed(auth.homeRoute);
-      }
-    });
+
+    if (auth.isAuthenticated) {
+      debugPrint('Splash: Navigating to homeRoute: ${auth.homeRoute}');
+      _navigated = true;
+      navigator.pushReplacementNamed(auth.homeRoute);
+    } else {
+      debugPrint('Splash: Not authenticated, navigating to /login');
+      _navigated = true;
+      navigator.pushReplacementNamed('/login');
+    }
   }
 
   void _goRegister() {

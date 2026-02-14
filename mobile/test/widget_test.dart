@@ -17,9 +17,10 @@ void main() {
   testWidgets('Login page renders and can navigate to register', (
     tester,
   ) async {
+    final auth = AuthProvider();
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => AuthProvider(),
+      ChangeNotifierProvider.value(
+        value: auth,
         child: MaterialApp(
           initialRoute: '/login',
           routes: {

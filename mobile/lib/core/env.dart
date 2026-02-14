@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = false;
+  static const bool useProduction = true;
 
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
@@ -23,7 +23,8 @@ class Env {
   static String get apiBaseUrl =>
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
 
-  static String get razorpayKey => 'rzp_test_YourKeyHere'; // TODO: Replace with real key
+  static String get razorpayKey =>
+      'rzp_test_YourKeyHere'; // TODO: Replace with real key
 }
 
 class ApiEndpoints {

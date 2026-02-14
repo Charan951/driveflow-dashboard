@@ -13,17 +13,28 @@ import 'pages/main_navigation_page.dart';
 import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final authProvider = AuthProvider();
+  debugPrint('Main: Initializing AuthProvider...');
+  await authProvider.loadMe();
+  debugPrint(
+    'Main: AuthProvider initialized. isAuthenticated: ${authProvider.isAuthenticated}',
+  );
+
+  runApp(MyApp(authProvider: authProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AuthProvider authProvider;
+  const MyApp({super.key, required this.authProvider});
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: MaterialApp(
@@ -38,7 +49,9 @@ class MyApp extends StatelessWidget {
             surfaceTintColor: Colors.white,
           ),
         ),
-        initialRoute: '/',
+        initialRoute: authProvider.isAuthenticated
+            ? authProvider.homeRoute
+            : '/',
         routes: {
           '/': (_) => const SplashPage(),
           '/login': (_) => const LoginPage(),
@@ -139,7 +152,7 @@ class _RoleHomeScaffold extends StatelessWidget {
               if (!context.mounted) return;
               Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/register',
+                '/login',
                 (route) => false,
               );
             },

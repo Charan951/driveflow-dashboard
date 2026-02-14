@@ -18,7 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
     await auth.loadMe();
     if (!mounted) return false;
     if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       return false;
     }
     return true;
@@ -115,7 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (!context.mounted) return;
                     Navigator.pushNamedAndRemoveUntil(
                       context,
-                      '/register',
+                      '/login',
                       (route) => false,
                     );
                   },

@@ -27,7 +27,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     await auth.loadMe();
     if (!mounted) return false;
     if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/register', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       return false;
     }
     return true;
@@ -64,7 +64,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         if (!mounted) return;
         Navigator.of(
           context,
-        ).pushNamedAndRemoveUntil('/register', (route) => false);
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
         return;
       }
       if (mounted) setState(() => _error = e.toString());
