@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
-import 'pages/service_list_page.dart';
-import 'pages/splash_page.dart';
-import 'pages/customer_dashboard_page.dart';
 import 'pages/track_booking_page.dart';
+import 'pages/my_payments_page.dart';
+import 'pages/insurance_page.dart';
+import 'pages/documents_page.dart';
+import 'pages/support_page.dart';
+import 'pages/main_navigation_page.dart';
 import 'state/auth_provider.dart';
+import 'state/navigation_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +22,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
+      ],
       child: MaterialApp(
         title: 'App',
         debugShowCheckedModeBanner: false,
@@ -35,8 +43,15 @@ class MyApp extends StatelessWidget {
           '/': (_) => const SplashPage(),
           '/login': (_) => const LoginPage(),
           '/register': (_) => const RegisterPage(),
-          '/services': (_) => const ServiceListPage(),
-          '/customer': (_) => const CustomerDashboardPage(),
+          '/services': (_) => const _TabRedirect(index: 1),
+          '/customer': (_) => const MainNavigationPage(),
+          '/bookings': (_) => const _TabRedirect(index: 3),
+          '/payments': (_) => const MyPaymentsPage(),
+          '/vehicles': (_) => const _TabRedirect(index: 0),
+          '/insurance': (_) => const InsurancePage(),
+          '/documents': (_) => const DocumentsPage(),
+          '/support': (_) => const SupportPage(),
+          '/profile': (_) => const _TabRedirect(index: 4),
           '/track': (_) => const TrackBookingPage(),
           '/merchant': (_) => const MerchantHomePage(),
           '/staff': (_) => const StaffHomePage(),
@@ -59,6 +74,22 @@ class MyApp extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _TabRedirect extends StatelessWidget {
+  final int index;
+  const _TabRedirect({required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    // Use addPostFrameCallback to avoid calling notifyListeners during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final nav = context.read<NavigationProvider>();
+      final args = ModalRoute.of(context)?.settings.arguments;
+      nav.setTab(index, arguments: args as Map<String, dynamic>?);
+    });
+    return const MainNavigationPage();
   }
 }
 

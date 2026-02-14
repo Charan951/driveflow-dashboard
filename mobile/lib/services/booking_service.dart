@@ -10,6 +10,7 @@ class BookingService {
     required List<String> serviceIds,
     required DateTime date,
     String? notes,
+    BookingLocation? location,
     bool pickupRequired = false,
   }) async {
     final res = await _api.postAny(
@@ -19,6 +20,7 @@ class BookingService {
         'serviceIds': serviceIds,
         'date': date.toIso8601String(),
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        if (location != null) 'location': location.toJson(),
         'pickupRequired': pickupRequired,
       },
     );
@@ -47,5 +49,25 @@ class BookingService {
     if (res is Map<String, dynamic>) return Booking.fromJson(res);
     if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Map<String, dynamic>> createRazorpayOrder(String bookingId) async {
+    return await _api.postJson(ApiEndpoints.createOrder(bookingId));
+  }
+
+  Future<Map<String, dynamic>> verifyPayment({
+    required String bookingId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    return await _api.postJson(
+      ApiEndpoints.verifyPayment(bookingId),
+      body: {
+        'razorpay_order_id': razorpayOrderId,
+        'razorpay_payment_id': razorpayPaymentId,
+        'razorpay_signature': razorpaySignature,
+      },
+    );
   }
 }

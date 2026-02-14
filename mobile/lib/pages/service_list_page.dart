@@ -1,5 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import '../state/navigation_provider.dart';
+import '../models/booking.dart';
 import '../services/catalog_service.dart';
 import '../services/booking_service.dart';
 import '../services/vehicle_service.dart';
@@ -18,7 +26,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   late Future<List<ServiceItem>> _future;
-  bool _handledInitialService = false;
+  String? _title;
+  String? _filterKey;
 
   @override
   void initState() {
@@ -29,18 +38,60 @@ class _ServiceListPageState extends State<ServiceListPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_handledInitialService) return;
-    final args = ModalRoute.of(context)?.settings.arguments;
+    final nav = context.watch<NavigationProvider>();
+    final args = nav.arguments;
+
     if (args is ServiceItem) {
-      _handledInitialService = true;
       Future.microtask(() async {
         try {
           final services = await _future;
           if (!mounted) return;
           await _openBookServiceFlow(initialService: args, services: services);
+          nav.clearArguments();
         } catch (_) {}
       });
+    } else if (args is Map) {
+      final nextTitle = args['title']?.toString();
+      final nextFilter = args['filter']?.toString();
+      if (nextTitle != null && nextTitle.isNotEmpty) {
+        setState(() => _title = nextTitle);
+      }
+      if (nextFilter != null && nextFilter.isNotEmpty) {
+        setState(() => _filterKey = nextFilter);
+      }
+      final openBookHint = args['openBookHint'] == true;
+      if (openBookHint) {
+        Future.microtask(() {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Select a service to book')),
+          );
+          nav.clearArguments();
+        });
+      }
     }
+  }
+
+  List<ServiceItem> _applyFilter(List<ServiceItem> services) {
+    final key = _filterKey;
+    if (key == null || key.isEmpty) return services;
+    final needle = key.toLowerCase();
+    bool matches(ServiceItem s) {
+      final name = s.name.toLowerCase();
+      if (needle == 'car_wash') {
+        return name.contains('wash') ||
+            name.contains('polish') ||
+            name.contains('detail');
+      }
+      if (needle == 'tires_battery') {
+        return name.contains('tire') ||
+            name.contains('tyre') ||
+            name.contains('battery');
+      }
+      return name.contains(needle);
+    }
+
+    return services.where(matches).toList();
   }
 
   Future<void> _openBookServiceFlow({
@@ -87,6 +138,11 @@ class _ServiceListPageState extends State<ServiceListPage> {
               : null;
           var selectedDateTime = DateTime.now().add(const Duration(days: 1));
           var pickupRequired = false;
+          LatLng? selectedLatLng;
+          String? selectedAddress;
+          var locating = false;
+          var resolvingAddress = false;
+          final mapController = MapController();
           final selectedServiceIds = <String>{initialService.id};
 
           num totalForSelected() {
@@ -142,6 +198,90 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
           return StatefulBuilder(
             builder: (sheetContext, setModalState) {
+              Future<String?> reverseGeocode(LatLng v) async {
+                try {
+                  final uri =
+                      Uri.https('nominatim.openstreetmap.org', '/reverse', {
+                        'format': 'jsonv2',
+                        'lat': v.latitude.toString(),
+                        'lon': v.longitude.toString(),
+                      });
+                  final res = await http.get(
+                    uri,
+                    headers: const {'User-Agent': 'DriveFlowMobile/1.0'},
+                  );
+                  if (res.statusCode != 200) return null;
+                  final decoded = jsonDecode(res.body);
+                  if (decoded is Map<String, dynamic>) {
+                    final name = decoded['display_name'];
+                    if (name is String && name.trim().isNotEmpty) return name;
+                  } else if (decoded is Map) {
+                    final name = decoded['display_name'];
+                    if (name is String && name.trim().isNotEmpty) return name;
+                  }
+                } catch (_) {}
+                return null;
+              }
+
+              Future<void> setSelectedLocation(LatLng next) async {
+                setModalState(() {
+                  selectedLatLng = next;
+                  selectedAddress = null;
+                  resolvingAddress = true;
+                });
+                try {
+                  final zoom = mapController.camera.zoom;
+                  mapController.move(next, zoom);
+                } catch (_) {}
+                final addr = await reverseGeocode(next);
+                if (!sheetContext.mounted) return;
+                setModalState(() {
+                  selectedAddress = addr;
+                  resolvingAddress = false;
+                });
+              }
+
+              Future<void> useCurrentLocation() async {
+                if (locating) return;
+                setModalState(() => locating = true);
+                try {
+                  final enabled = await Geolocator.isLocationServiceEnabled();
+                  if (!enabled) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Enable location services to continue'),
+                      ),
+                    );
+                    return;
+                  }
+                  var permission = await Geolocator.checkPermission();
+                  if (permission == LocationPermission.denied) {
+                    permission = await Geolocator.requestPermission();
+                  }
+                  if (permission == LocationPermission.denied ||
+                      permission == LocationPermission.deniedForever) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Location permission is required'),
+                      ),
+                    );
+                    return;
+                  }
+                  final pos = await Geolocator.getCurrentPosition(
+                    desiredAccuracy: LocationAccuracy.high,
+                  );
+                  await setSelectedLocation(
+                    LatLng(pos.latitude, pos.longitude),
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+                } finally {
+                  if (sheetContext.mounted) {
+                    setModalState(() => locating = false);
+                  }
+                }
+              }
+
               Widget stepBody() {
                 if (step == 0) {
                   if (vehicles.isEmpty) {
@@ -263,6 +403,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
                 }
 
                 if (step == 2) {
+                  final current =
+                      selectedLatLng ?? const LatLng(12.9716, 77.5946);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -312,6 +454,98 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         title: const Text('Pickup required'),
                       ),
                       const SizedBox(height: 6),
+                      Text(
+                        'Pickup location',
+                        style: Theme.of(sheetContext).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 220,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: FlutterMap(
+                            mapController: mapController,
+                            options: MapOptions(
+                              initialCenter: current,
+                              initialZoom: 14,
+                              onTap: (_, latLng) => setSelectedLocation(latLng),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  if (selectedLatLng != null)
+                                    Marker(
+                                      point: selectedLatLng!,
+                                      width: 40,
+                                      height: 40,
+                                      child: const Icon(
+                                        Icons.location_on,
+                                        size: 40,
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: locating ? null : useCurrentLocation,
+                              icon: const Icon(Icons.my_location),
+                              label: Text(
+                                locating ? 'Locating...' : 'Use my location',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: selectedLatLng == null
+                                  ? null
+                                  : () => setModalState(() {
+                                      selectedLatLng = null;
+                                      selectedAddress = null;
+                                      resolvingAddress = false;
+                                    }),
+                              child: const Text('Clear'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Text(
+                          selectedLatLng == null
+                              ? 'Tap on the map to select an exact pickup point.'
+                              : (resolvingAddress
+                                    ? 'Resolving address...'
+                                    : (selectedAddress ??
+                                          '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}')),
+                          style: Theme.of(sheetContext).textTheme.bodySmall
+                              ?.copyWith(color: Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: notesController,
                         maxLines: 3,
@@ -349,6 +583,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     _SummaryRow(
                       label: 'Pickup',
                       value: pickupRequired ? 'Yes' : 'No',
+                    ),
+                    const SizedBox(height: 8),
+                    _SummaryRow(
+                      label: 'Location',
+                      value: selectedLatLng == null
+                          ? '-'
+                          : (selectedAddress ??
+                                '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}'),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -401,6 +643,13 @@ class _ServiceListPageState extends State<ServiceListPage> {
                   );
                   return;
                 }
+                final pick = selectedLatLng;
+                if (pick == null) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Select pickup location')),
+                  );
+                  return;
+                }
                 setModalState(() => saving = true);
                 try {
                   final booking = await _bookingService.createBooking(
@@ -408,6 +657,11 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     serviceIds: selectedServiceIds.toList(),
                     date: selectedDateTime,
                     notes: notesController.text,
+                    location: BookingLocation(
+                      address: selectedAddress,
+                      lat: pick.latitude,
+                      lng: pick.longitude,
+                    ),
                     pickupRequired: pickupRequired,
                   );
                   if (!sheetContext.mounted) return;
@@ -531,7 +785,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Services')),
+      appBar: AppBar(title: Text(_title ?? 'Services')),
       body: FutureBuilder<List<ServiceItem>>(
         future: _future,
         builder: (context, snapshot) {
@@ -541,7 +795,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
           if (snapshot.hasError) {
             return Center(child: Text('Error'));
           }
-          final items = snapshot.data ?? [];
+          final items = _applyFilter(snapshot.data ?? []);
           if (items.isEmpty) {
             return const Center(child: Text('No services'));
           }

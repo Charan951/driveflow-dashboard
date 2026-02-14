@@ -89,7 +89,7 @@ export const fetchVehicleDetails = async (req, res) => {
         const options = {
           method: 'GET',
           url: `https://${process.env.RAPIDAPI_HOST}/`,
-          params: { license_plate: normalizedPlate },
+          params: { registrationNumber: normalizedPlate }, // Changed from license_plate to registrationNumber
           headers: {
             'x-rapidapi-key': process.env.RAPIDAPI_KEY,
             'x-rapidapi-host': process.env.RAPIDAPI_HOST
@@ -98,73 +98,37 @@ export const fetchVehicleDetails = async (req, res) => {
 
         const response = await axios.request(options);
         const data = response.data;
+        console.log('RapidAPI Response:', JSON.stringify(data).substring(0, 500)); // Log response for debugging
 
-        // Check if API returned valid data (structure depends on specific API, this is a generic mapper)
-        if (data && (data.make || data.maker_model || data.vehicle_category)) {
+        // Check if API returned valid data
+        if (data && (data.make || data.maker_name || data.model || data.maker_model)) {
              // Map API response to our Schema
-             // Note: You may need to adjust these fields based on the exact API response structure
              const mappedData = {
                make: data.maker_name || data.make || '',
                model: data.maker_model || data.model || '',
-               variant: data.vehicle_class || '',
-               fuelType: data.fuel_type || '',
+               variant: data.variant || data.vehicle_class || '',
+               fuelType: data.fuel_type || data.fuel || '',
                year: parseInt(data.manufacturing_year) || parseInt(data.reg_date?.split('-')[2]) || new Date().getFullYear(),
                color: data.color || '',
-               vin: data.chassis_no || '',
+               vin: data.chassis_no || data.vin || '',
                engineNumber: data.engine_no || '',
                registrationDate: data.reg_date || ''
              };
              return res.json(mappedData);
+        } else {
+          return res.status(404).json({ message: 'Vehicle details not found in API' });
         }
       } catch (apiError) {
-        if (apiError.response && apiError.response.status === 404) {
-          console.log(`Vehicle ${normalizedPlate} not found in RapidAPI (404). Using mock data.`);
-        } else {
-          console.warn('RapidAPI request failed or returned error:', apiError.message);
-        }
-        // Fall through to mock logic
+        console.error('RapidAPI Error details:', apiError.response?.data || apiError.message);
+        const status = apiError.response?.status || 500;
+        const message = apiError.response?.data?.message || apiError.message || 'Failed to fetch from RapidAPI';
+        return res.status(status).json({ message });
       }
+    } else {
+      return res.status(500).json({ message: 'RapidAPI not configured' });
     }
-
-    // 2. Fallback to Mock Data
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Mock data logic
-    // specific check for the user's reported plate
-    if (normalizedPlate === 'TS08JY4741') {
-       return res.json({
-         make: 'Honda',
-         model: 'Activa 6G',
-         year: 2023,
-         fuelType: 'Petrol',
-         type: 'Bike',
-         color: 'Matte Axis Grey',
-         vin: 'ME4JF508EHN00000',
-         registrationDate: '2023-05-15'
-       });
-    }
-
-    // Generic mock based on last digit
-    const lastDigit = licensePlate.replace(/\D/g, '').slice(-1);
-    const mockDb = [
-      { make: 'Maruti Suzuki', model: 'Swift', year: 2020, fuelType: 'Petrol', type: 'Car', color: 'Red' },
-      { make: 'Hyundai', model: 'i20', year: 2021, fuelType: 'Diesel', type: 'Car', color: 'White' },
-      { make: 'Honda', model: 'City', year: 2019, fuelType: 'Petrol', type: 'Car', color: 'Silver' },
-      { make: 'Tata', model: 'Nexon', year: 2022, fuelType: 'Electric', type: 'Car', color: 'Blue' },
-      { make: 'Royal Enfield', model: 'Classic 350', year: 2021, fuelType: 'Petrol', type: 'Bike', color: 'Black' },
-      { make: 'Yamaha', model: 'R15', year: 2020, fuelType: 'Petrol', type: 'Bike', color: 'Racing Blue' },
-      { make: 'TVS', model: 'Jupiter', year: 2022, fuelType: 'Petrol', type: 'Bike', color: 'Grey' },
-      { make: 'Hero', model: 'Splendor+', year: 2019, fuelType: 'Petrol', type: 'Bike', color: 'Black/Purple' },
-      { make: 'Mahindra', model: 'Thar', year: 2023, fuelType: 'Diesel', type: 'Car', color: 'Red' },
-      { make: 'Kia', model: 'Seltos', year: 2021, fuelType: 'Petrol', type: 'Car', color: 'White' }
-    ];
-
-    const vehicleData = mockDb[parseInt(lastDigit) % mockDb.length] || mockDb[0];
-    res.json(vehicleData);
-
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch vehicle details' });
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 

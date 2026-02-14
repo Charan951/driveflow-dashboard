@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
 
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
@@ -22,6 +22,8 @@ class Env {
 
   static String get apiBaseUrl =>
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
+
+  static String get razorpayKey => 'rzp_test_YourKeyHere'; // TODO: Replace with real key
 }
 
 class ApiEndpoints {
@@ -30,7 +32,10 @@ class ApiEndpoints {
   static const String usersMe = '/users/me';
   static const String services = '/services';
   static const String vehicles = '/vehicles';
+  static const String fetchVehicleDetails = '/vehicles/fetch-details';
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
   static String bookingById(String id) => '/bookings/$id';
+  static String createOrder(String id) => '/bookings/$id/create-order';
+  static String verifyPayment(String id) => '/bookings/$id/verify-payment';
 }

@@ -41,4 +41,18 @@ class VehicleService {
     if (res is Map) return Vehicle.fromJson(Map<String, dynamic>.from(res));
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
+
+  Future<Map<String, dynamic>?> fetchDetails(String licensePlate) async {
+    try {
+      final res = await _api.postAny(
+        ApiEndpoints.fetchVehicleDetails,
+        body: {'licensePlate': licensePlate},
+      );
+      if (res is Map<String, dynamic>) return res;
+      if (res is Map) return Map<String, dynamic>.from(res);
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
