@@ -14,6 +14,7 @@ import '../services/vehicle_service.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../state/auth_provider.dart';
+import '../widgets/customer_drawer.dart';
 
 class ServiceListPage extends StatefulWidget {
   const ServiceListPage({super.key});
@@ -786,7 +787,18 @@ class _ServiceListPageState extends State<ServiceListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_title ?? 'Services')),
+      drawer: const CustomerDrawer(currentRouteName: '/services'),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(_title ?? 'Services'),
+      ),
       body: FutureBuilder<List<ServiceItem>>(
         future: _future,
         builder: (context, snapshot) {
@@ -801,14 +813,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
             return const Center(child: Text('No services'));
           }
           return ListView.separated(
+            padding: const EdgeInsets.all(16),
             itemCount: items.length,
-            separatorBuilder: (context, _) => const Divider(height: 1),
+            separatorBuilder: (context, _) => const SizedBox(height: 12),
             itemBuilder: (context, i) {
               final s = items[i];
-              return ListTile(
-                title: Text(s.name),
-                subtitle: Text('₹${s.price}'),
-                trailing: const Icon(Icons.chevron_right),
+              return _ServiceCard(
+                title: s.name,
+                price: s.price,
                 onTap: () =>
                     _openBookServiceFlow(initialService: s, services: items),
               );
@@ -858,6 +870,138 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ServiceCard extends StatefulWidget {
+  final String title;
+  final num price;
+  final VoidCallback onTap;
+
+  const _ServiceCard({
+    required this.title,
+    required this.price,
+    required this.onTap,
+  });
+
+  @override
+  State<_ServiceCard> createState() => _ServiceCardState();
+}
+
+class _ServiceCardState extends State<_ServiceCard> {
+  bool _pressed = false;
+
+  IconData _iconForTitle(String title) {
+    final v = title.toLowerCase();
+    if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
+      return Icons.local_car_wash_outlined;
+    }
+    if (v.contains('battery') || v.contains('tire') || v.contains('tyre')) {
+      return Icons.battery_charging_full_outlined;
+    }
+    if (v.contains('engine') || v.contains('repair')) {
+      return Icons.settings_suggest_outlined;
+    }
+    if (v.contains('insurance')) return Icons.shield_outlined;
+    return Icons.build_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.98 : 1,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.18,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(18),
+                        bottomRight: Radius.circular(18),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF22D3EE).withValues(alpha: 0.12),
+                              const Color(0xFF4F46E5).withValues(alpha: 0.22),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      _iconForTitle(widget.title),
+                      color: const Color(0xFF2563EB),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${widget.price}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.black38),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

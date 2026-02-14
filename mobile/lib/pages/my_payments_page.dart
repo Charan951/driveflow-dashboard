@@ -21,40 +21,22 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   String? _error;
   List<Booking> _payments = const [];
 
-  Future<bool> _ensureAuthenticated() async {
-    final auth = context.read<AuthProvider>();
-    final navigator = Navigator.of(context);
-    if (auth.isAuthenticated) return true;
-    await auth.loadMe();
-    if (!mounted) return false;
-    if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
-      return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final ok = await _ensureAuthenticated();
-      if (!ok) return;
-      await _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
     });
   }
 
   Future<void> _load() async {
-    final auth = context.read<AuthProvider>();
+    if (!mounted) return;
+
     setState(() {
       _loading = true;
       _error = null;
     });
-    final ok = await _ensureAuthenticated();
-    if (!ok) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
+
     try {
       final items = await _service.listMyBookings();
       // Filter for bookings that have payment info or are paid
@@ -65,11 +47,14 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
       if (mounted) setState(() => _payments = paidItems);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
-        await auth.logout();
         if (!mounted) return;
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
+        final auth = context.read<AuthProvider>();
+        await auth.logout();
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
         return;
       }
       if (mounted) setState(() => _error = e.toString());

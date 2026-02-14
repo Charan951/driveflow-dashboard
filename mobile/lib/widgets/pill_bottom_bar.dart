@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class PillBottomBar extends StatelessWidget {
   final int selectedIndex;
@@ -14,89 +14,80 @@ class PillBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const inactive = Color(0xFF94A3B8);
+    final useBlur = !kIsWeb; // Blur is expensive on web
 
     return SizedBox(
       height: 72,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(36),
         clipBehavior: Clip.antiAlias,
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.78),
-                    Colors.white.withValues(alpha: 0.62),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(36),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    blurRadius: 16,
-                    offset: const Offset(-6, -6),
-                  ),
-                ],
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Expanded(
-                        child: GlassNavItem(
-                          icon: Icons.directions_car_filled_outlined,
-                          isActive: selectedIndex == 0,
-                          inactiveColor: inactive,
-                          onTap: () => onTap(0),
-                        ),
-                      ),
-                      Expanded(
-                        child: GlassNavItem(
-                          icon: Icons.calendar_month_outlined,
-                          isActive: selectedIndex == 1,
-                          inactiveColor: inactive,
-                          onTap: () => onTap(1),
-                        ),
-                      ),
-                      const SizedBox(width: 62),
-                      Expanded(
-                        child: GlassNavItem(
-                          icon: Icons.receipt_long_outlined,
-                          isActive: selectedIndex == 3,
-                          inactiveColor: inactive,
-                          onTap: () => onTap(3),
-                        ),
-                      ),
-                      Expanded(
-                        child: GlassNavItem(
-                          icon: Icons.person_outline,
-                          isActive: selectedIndex == 4,
-                          inactiveColor: inactive,
-                          onTap: () => onTap(4),
-                        ),
-                      ),
-                    ],
-                  ),
-                  CenterNavAction(
-                    isActive: selectedIndex == 2,
-                    onTap: () => onTap(2),
-                  ),
-                ],
-              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: useBlur ? 0.78 : 0.95),
+                Colors.white.withValues(alpha: useBlur ? 0.62 : 0.95),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(36),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: useBlur ? 0.16 : 0.10),
+                blurRadius: useBlur ? 24 : 12,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Expanded(
+                    child: GlassNavItem(
+                      icon: Icons.directions_car_filled_outlined,
+                      isActive: selectedIndex == 0,
+                      inactiveColor: inactive,
+                      onTap: () => onTap(0),
+                    ),
+                  ),
+                  Expanded(
+                    child: GlassNavItem(
+                      icon: Icons.calendar_month_outlined,
+                      isActive: selectedIndex == 1,
+                      inactiveColor: inactive,
+                      onTap: () => onTap(1),
+                    ),
+                  ),
+                  const SizedBox(width: 62),
+                  Expanded(
+                    child: GlassNavItem(
+                      icon: Icons.receipt_long_outlined,
+                      isActive: selectedIndex == 3,
+                      inactiveColor: inactive,
+                      onTap: () => onTap(3),
+                    ),
+                  ),
+                  Expanded(
+                    child: GlassNavItem(
+                      icon: Icons.person_outline,
+                      isActive: selectedIndex == 4,
+                      inactiveColor: inactive,
+                      onTap: () => onTap(4),
+                    ),
+                  ),
+                ],
+              ),
+              CenterNavAction(
+                isActive: selectedIndex == 2,
+                onTap: () => onTap(2),
+              ),
+            ],
           ),
         ),
       ),

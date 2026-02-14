@@ -49,6 +49,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     if (socket != null) {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('disconnect');
       socket.off('connect_error');
       socket.off('liveLocation');
       socket.off('bookingUpdated');
@@ -226,70 +227,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       'DELIVERED',
     ];
     return statuses.indexOf(status);
-  }
-
-  Widget _buildTimelineStep({
-    required String title,
-    required bool isCompleted,
-    required bool isLast,
-    String? subtitle,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted ? const Color(0xFF4F46E5) : Colors.white,
-                border: Border.all(
-                  color: isCompleted
-                      ? const Color(0xFF4F46E5)
-                      : const Color(0xFFE5E7EB),
-                  width: 2,
-                ),
-              ),
-              child: isCompleted
-                  ? const Icon(Icons.check, size: 12, color: Colors.white)
-                  : null,
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 40,
-                color: isCompleted
-                    ? const Color(0xFF4F46E5)
-                    : const Color(0xFFE5E7EB),
-              ),
-          ],
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isCompleted ? FontWeight.w700 : FontWeight.w500,
-                  color: isCompleted ? Colors.black87 : Colors.black45,
-                ),
-              ),
-              if (subtitle != null)
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.black45),
-                ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 
   bool _isPaymentLoading = false;
@@ -612,42 +549,31 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
-                child: Column(
-                  children: [
-                    _buildTimelineStep(
-                      title: 'Booking Confirmed',
-                      isCompleted: currentIndex >= 0,
-                      isLast: false,
-                      subtitle: _formatDateTime(context, booking.date),
-                    ),
-                    _buildTimelineStep(
-                      title: booking.status == 'REACHED_CUSTOMER'
-                          ? 'Staff is waiting for pickup'
-                          : 'Pickup Scheduled',
-                      isCompleted: currentIndex >= 2,
-                      isLast: false,
-                    ),
-                    _buildTimelineStep(
-                      title: 'At Service Center',
-                      isCompleted: currentIndex >= 4,
-                      isLast: false,
-                    ),
-                    _buildTimelineStep(
-                      title: 'Service In Progress',
-                      isCompleted: currentIndex >= 5,
-                      isLast: false,
-                    ),
-                    _buildTimelineStep(
-                      title: 'Ready for Delivery',
-                      isCompleted: currentIndex >= 6,
-                      isLast: false,
-                    ),
-                    _buildTimelineStep(
-                      title: 'Delivered',
-                      isCompleted: currentIndex >= 7,
-                      isLast: true,
-                    ),
+                child: _HorizontalStepper(
+                  labels: [
+                    'Booking Confirmed',
+                    booking.status == 'REACHED_CUSTOMER'
+                        ? 'Staff is waiting for pickup'
+                        : 'Pickup Scheduled',
+                    'At Service Center',
+                    'Service In Progress',
+                    'Ready for Delivery',
+                    'Delivered',
                   ],
+                  activeIndex: currentIndex >= 7
+                      ? 5
+                      : currentIndex >= 6
+                      ? 4
+                      : currentIndex >= 5
+                      ? 3
+                      : currentIndex >= 4
+                      ? 2
+                      : currentIndex >= 2
+                      ? 1
+                      : currentIndex >= 0
+                      ? 0
+                      : -1,
+                  firstTimeLabel: _formatDateTime(context, booking.date),
                 ),
               ),
               const SizedBox(height: 24),
@@ -729,6 +655,180 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HorizontalStepper extends StatelessWidget {
+  final List<String> labels;
+  final int activeIndex;
+  final String? firstTimeLabel;
+
+  const _HorizontalStepper({
+    required this.labels,
+    required this.activeIndex,
+    this.firstTimeLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final count = labels.length;
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final spacing = count > 1 ? (w - 24) / (count - 1) : w;
+        final safeIndex = activeIndex.clamp(-1, count - 1);
+        final progress = count <= 1
+            ? 0.0
+            : ((safeIndex + 1) / count).clamp(0.0, 1.0);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 54,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0, end: progress),
+                          duration: const Duration(milliseconds: 720),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, _) => Container(
+                            width: (w - 24) * value,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4F46E5),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: List.generate(count, (i) {
+                      final completed = i <= safeIndex;
+                      final isActive = i == safeIndex;
+                      return SizedBox(
+                        width: i == count - 1 ? 12 : spacing,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedScale(
+                            scale: isActive ? 1.1 : 1.0,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: completed
+                                    ? const Color(0xFF4F46E5)
+                                    : Colors.white,
+                                border: Border.all(
+                                  color: completed
+                                      ? const Color(0xFF4F46E5)
+                                      : const Color(0xFFE5E7EB),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  if (isActive)
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF4F46E5,
+                                      ).withValues(alpha: 0.2),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                ],
+                              ),
+                              child: completed
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: w),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(count, (i) {
+                    final completed = i <= safeIndex;
+                    final isActive = i == safeIndex;
+                    final label = labels[i];
+                    final itemWidth = count <= 3 ? w / count : spacing;
+                    return SizedBox(
+                      width: i == count - 1 ? 12 : itemWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isActive
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              color: completed
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          if (i == 0 && firstTimeLabel != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                firstTimeLabel!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

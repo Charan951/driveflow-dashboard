@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 
 class InsurancePage extends StatefulWidget {
@@ -12,25 +10,9 @@ class InsurancePage extends StatefulWidget {
 }
 
 class _InsurancePageState extends State<InsurancePage> {
-  Future<bool> _ensureAuthenticated() async {
-    final auth = context.read<AuthProvider>();
-    final navigator = Navigator.of(context);
-    if (auth.isAuthenticated) return true;
-    await auth.loadMe();
-    if (!mounted) return false;
-    if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
-      return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _ensureAuthenticated();
-    });
   }
 
   @override
@@ -64,9 +46,7 @@ class _InsurancePageState extends State<InsurancePage> {
                     children: [
                       Text(
                         'Insurance services',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 8),
@@ -76,10 +56,14 @@ class _InsurancePageState extends State<InsurancePage> {
                       ),
                       const SizedBox(height: 14),
                       FilledButton(
-                        onPressed: () => ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(
-                          content: Text('Insurance feature will be added here'),
-                        )),
+                        onPressed: () =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Insurance feature will be added here',
+                                ),
+                              ),
+                            ),
                         child: const Text('View Plans'),
                       ),
                     ],

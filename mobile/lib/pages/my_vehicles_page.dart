@@ -6,6 +6,7 @@ import '../state/navigation_provider.dart';
 import '../models/vehicle.dart';
 import '../services/vehicle_service.dart';
 import '../state/auth_provider.dart';
+import '../widgets/customer_drawer.dart';
 
 class MyVehiclesPage extends StatefulWidget {
   const MyVehiclesPage({super.key});
@@ -20,50 +21,35 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   String? _error;
   List<Vehicle> _vehicles = const [];
 
-  Future<bool> _ensureAuthenticated() async {
-    final auth = context.read<AuthProvider>();
-    final navigator = Navigator.of(context);
-    if (auth.isAuthenticated) return true;
-    await auth.loadMe();
-    if (!mounted) return false;
-    if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
-      return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final ok = await _ensureAuthenticated();
-      if (!ok) return;
-      await _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
     });
   }
 
   Future<void> _load() async {
-    final auth = context.read<AuthProvider>();
+    if (!mounted) return;
+
     setState(() {
       _loading = true;
       _error = null;
     });
-    final ok = await _ensureAuthenticated();
-    if (!ok) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
+
     try {
       final items = await _service.listMyVehicles();
       if (mounted) setState(() => _vehicles = items);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
-        await auth.logout();
         if (!mounted) return;
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
+        final auth = context.read<AuthProvider>();
+        await auth.logout();
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
         return;
       }
       if (mounted) setState(() => _error = e.toString());
@@ -305,7 +291,16 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      drawer: const CustomerDrawer(currentRouteName: '/vehicles'),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text('My Vehicles'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -324,114 +319,171 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
       ),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 32),
-                child: Center(child: CircularProgressIndicator()),
+        child: _loading
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
               )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Failed to load vehicles',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
-            else if (_vehicles.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Column(
-                  children: [
-                    const Text('No vehicles added yet'),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _openAddVehicleSheet,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Vehicle'),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              for (final v in _vehicles)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: Row(
+            : _error != null
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Column(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEDE9FE),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.directions_car_filled_outlined,
-                            color: Color(0xFF4F46E5),
-                          ),
+                        Text(
+                          'Failed to load vehicles',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${v.make} ${v.model}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${v.licensePlate} • ${v.year}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.black54),
-                              ),
-                            ],
-                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.black54),
                         ),
-                        IconButton(
-                          onPressed: () => context
-                              .read<NavigationProvider>()
-                              .setTab(1, arguments: {'openBookHint': true}),
-                          icon: const Icon(Icons.add_task_outlined),
-                          tooltip: 'Book Service',
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _load,
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
                   ),
-                ),
-            ],
-          ],
-        ),
+                ],
+              )
+            : _vehicles.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Column(
+                      children: [
+                        const Text('No vehicles added yet'),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _openAddVehicleSheet,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Vehicle'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _vehicles.length,
+                separatorBuilder: (context, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final v = _vehicles[index];
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 18,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.20,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(18),
+                                  bottomRight: Radius.circular(18),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(
+                                          0xFF2563EB,
+                                        ).withValues(alpha: 0.10),
+                                        const Color(
+                                          0xFF4F46E5,
+                                        ).withValues(alpha: 0.18),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDE9FE),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.directions_car_filled_outlined,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${v.make} ${v.model}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${v.licensePlate} • ${v.year}',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: Colors.black54),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => context
+                                  .read<NavigationProvider>()
+                                  .setTab(1, arguments: {'openBookHint': true}),
+                              icon: const Icon(Icons.add_task_outlined),
+                              tooltip: 'Book Service',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }

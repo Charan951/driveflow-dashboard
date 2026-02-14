@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/auth_provider.dart';
+import '../widgets/customer_drawer.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,25 +12,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  Future<bool> _ensureAuthenticated() async {
-    final auth = context.read<AuthProvider>();
-    final navigator = Navigator.of(context);
-    if (auth.isAuthenticated) return true;
-    await auth.loadMe();
-    if (!mounted) return false;
-    if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
-      return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _ensureAuthenticated();
-    });
   }
 
   @override
@@ -39,7 +24,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      drawer: const CustomerDrawer(currentRouteName: '/profile'),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text('Profile'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,

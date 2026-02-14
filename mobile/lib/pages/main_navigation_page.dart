@@ -31,7 +31,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       drawer: const CustomerDrawer(currentRouteName: '/customer'),
       body: IndexedStack(index: navProvider.selectedIndex, children: _pages),
       bottomNavigationBar: Padding(

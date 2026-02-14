@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 
 class DocumentsPage extends StatefulWidget {
@@ -12,25 +10,9 @@ class DocumentsPage extends StatefulWidget {
 }
 
 class _DocumentsPageState extends State<DocumentsPage> {
-  Future<bool> _ensureAuthenticated() async {
-    final auth = context.read<AuthProvider>();
-    final navigator = Navigator.of(context);
-    if (auth.isAuthenticated) return true;
-    await auth.loadMe();
-    if (!mounted) return false;
-    if (!auth.isAuthenticated) {
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
-      return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _ensureAuthenticated();
-    });
   }
 
   @override
@@ -64,9 +46,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     children: [
                       Text(
                         'Your documents',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 8),
