@@ -11,6 +11,22 @@ import { staggerContainer, staggerItem } from '@/animations/variants';
 
 type FilterType = 'all' | 'active' | 'completed' | 'pending-bills';
 
+const ACTIVE_STATUSES: Booking['status'][] = [
+  'CREATED',
+  'ASSIGNED',
+  'ACCEPTED',
+  'REACHED_CUSTOMER',
+  'VEHICLE_PICKED',
+  'REACHED_MERCHANT',
+  'VEHICLE_AT_MERCHANT',
+  'JOB_CARD',
+  'SERVICE_STARTED',
+  'SERVICE_COMPLETED',
+  'OUT_FOR_DELIVERY',
+];
+
+const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED'];
+
 const Orders: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,23 +50,26 @@ const Orders: React.FC = () => {
   }, []);
 
   const filteredBookings = bookings.filter(booking => {
-    // Search filter
     const searchLower = searchQuery.toLowerCase();
-    const vehicleMatch = (booking.vehicle as unknown as Vehicle)?.registrationNumber?.toLowerCase().includes(searchLower) || 
-                         (booking.vehicle as unknown as Vehicle)?.model?.toLowerCase().includes(searchLower);
-    const userMatch = (booking.user as unknown as User)?.name?.toLowerCase().includes(searchLower);
-    
+    const vehicle = booking.vehicle as unknown as Vehicle | undefined;
+    const user = booking.user as unknown as User | undefined;
+
+    const vehicleMatch =
+      (vehicle?.licensePlate && vehicle.licensePlate.toLowerCase().includes(searchLower)) ||
+      (vehicle?.model && vehicle.model.toLowerCase().includes(searchLower));
+
+    const userMatch = user?.name?.toLowerCase().includes(searchLower) ?? false;
+
     if (searchQuery && !vehicleMatch && !userMatch) return false;
 
-    // Status filter
     if (filter === 'active') {
-      return ['Booked', 'Accepted', 'Pickup Assigned', 'In Garage', 'Inspection Started', 'Awaiting Parts', 'Repair In Progress', 'Servicing', 'QC Pending'].includes(booking.status);
+      return ACTIVE_STATUSES.includes(booking.status);
     }
     if (filter === 'completed') {
-      return ['Completed', 'Ready', 'Delivered'].includes(booking.status);
+      return COMPLETED_STATUSES.includes(booking.status);
     }
     if (filter === 'pending-bills') {
-      return booking.paymentStatus === 'pending' && booking.status !== 'Cancelled';
+      return booking.paymentStatus === 'pending' && booking.status !== 'CANCELLED';
     }
     return true;
   });
@@ -124,12 +143,12 @@ const Orders: React.FC = () => {
                       <span>{(booking.vehicle as unknown as Vehicle)?.model || 'Unknown Vehicle'}</span>
                     </div>
                     <h3 className="font-bold text-lg">
-                      {(booking.vehicle as unknown as Vehicle)?.registrationNumber || 'N/A'}
+                      {(booking.vehicle as unknown as Vehicle)?.licensePlate || 'N/A'}
                     </h3>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    booking.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                    booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                    booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                    booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
                     'bg-blue-100 text-blue-800'
                   }`}>
                     {booking.status}

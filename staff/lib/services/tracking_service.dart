@@ -1,0 +1,205 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+
+import '../core/api_client.dart';
+import '../core/env.dart';
+import '../core/storage.dart';
+
+class TrackingInfo {
+  final double? lat;
+  final double? lng;
+  final DateTime? lastUpdate;
+  final DateTime? lastServerSync;
+
+  const TrackingInfo({
+    this.lat,
+    this.lng,
+    this.lastUpdate,
+    this.lastServerSync,
+  });
+
+  TrackingInfo copyWith({
+    double? lat,
+    double? lng,
+    DateTime? lastUpdate,
+    DateTime? lastServerSync,
+  }) {
+    return TrackingInfo(
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      lastUpdate: lastUpdate ?? this.lastUpdate,
+      lastServerSync: lastServerSync ?? this.lastServerSync,
+    );
+  }
+}
+
+class StaffTrackingService {
+  StaffTrackingService._internal();
+
+  static final StaffTrackingService instance = StaffTrackingService._internal();
+
+  final ApiClient _api = ApiClient();
+  final ValueNotifier<TrackingInfo> info = ValueNotifier<TrackingInfo>(
+    const TrackingInfo(),
+  );
+
+  io.Socket? _socket;
+  StreamSubscription<Position>? _positionSub;
+  bool _isTracking = false;
+  String? _activeBookingId;
+  int _lastSocketMs = 0;
+  int _lastRestMs = 0;
+  double? _targetLat;
+  double? _targetLng;
+  String? _targetForStatus;
+
+  bool get isTracking => _isTracking;
+
+  String? get activeBookingId => _activeBookingId;
+
+  Future<void> setActiveBookingId(String? id) async {
+    _activeBookingId = id;
+  }
+
+  void setAutoStatusTarget({
+    required double? lat,
+    required double? lng,
+    required String? status,
+  }) {
+    _targetLat = lat;
+    _targetLng = lng;
+    _targetForStatus = status;
+  }
+
+  Future<void> start() async {
+    if (_isTracking) return;
+    _isTracking = true;
+    final hasPermission = await _ensurePermissions();
+    if (!hasPermission) {
+      _isTracking = false;
+      return;
+    }
+    await _ensureSocket();
+    await _startPositionStream();
+  }
+
+  Future<void> stop() async {
+    _isTracking = false;
+    await _positionSub?.cancel();
+    _positionSub = null;
+  }
+
+  Future<bool> _ensurePermissions() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _ensureSocket() async {
+    final token = await AppStorage().getToken();
+    final next = io.io(
+      Env.baseUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableForceNew()
+          .setAuth(token != null && token.isNotEmpty ? {'token': token} : {})
+          .build(),
+    );
+    _socket?.dispose();
+    _socket = next;
+    next.connect();
+  }
+
+  Future<void> _startPositionStream() async {
+    await _positionSub?.cancel();
+    final settings = const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+    _positionSub = Geolocator.getPositionStream(
+      locationSettings: settings,
+    ).listen(_handlePosition, onError: (_) {});
+  }
+
+  Future<void> _handlePosition(Position position) async {
+    if (!_isTracking) return;
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+    final current = info.value;
+    info.value = current.copyWith(
+      lat: position.latitude,
+      lng: position.longitude,
+      lastUpdate: now,
+    );
+
+    if (_targetLat != null &&
+        _targetLng != null &&
+        _targetForStatus != null &&
+        _activeBookingId != null) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        _targetLat!,
+        _targetLng!,
+      );
+      if (distance < 100) {
+        try {
+          await _api.putJson(
+            ApiEndpoints.bookingStatus(_activeBookingId!),
+            body: {'status': _targetForStatus},
+          );
+          _targetLat = null;
+          _targetLng = null;
+          _targetForStatus = null;
+        } catch (_) {}
+      }
+    }
+
+    final socket = _socket;
+    if (socket != null && nowMs - _lastSocketMs > 5000) {
+      final payload = <String, dynamic>{
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'timestamp': now.toIso8601String(),
+      };
+      final bookingId = _activeBookingId;
+      if (bookingId != null && bookingId.isNotEmpty) {
+        payload['bookingId'] = bookingId;
+      }
+      try {
+        socket.emit('location', payload);
+        _lastSocketMs = nowMs;
+      } catch (_) {}
+    }
+
+    if (nowMs - _lastRestMs > 120000) {
+      final body = <String, dynamic>{
+        'lat': position.latitude,
+        'lng': position.longitude,
+      };
+      final bookingId = _activeBookingId;
+      if (bookingId != null && bookingId.isNotEmpty) {
+        body['bookingId'] = bookingId;
+      }
+      try {
+        await _api.putJson(ApiEndpoints.trackingUser, body: body);
+        final updated = info.value.copyWith(lastServerSync: DateTime.now());
+        info.value = updated;
+        _lastRestMs = nowMs;
+      } catch (_) {}
+    }
+  }
+}

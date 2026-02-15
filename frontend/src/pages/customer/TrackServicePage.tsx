@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageCircle, 
@@ -18,11 +18,14 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
+import { STATUS_ORDER, STATUS_LABELS } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { AlertTriangle, Check, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { getETA, ETAResponse } from '@/services/trackingService';
+import * as turf from '@turf/turf';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -39,6 +42,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const TrackServicePage: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -51,6 +55,9 @@ const TrackServicePage: React.FC = () => {
 
   // Live Tracking State
   const [staffLocation, setStaffLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [eta, setEta] = useState<ETAResponse | null>(null);
+  const etaTimer = useRef<number | null>(null);
+  const nearAlertedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -59,6 +66,9 @@ const TrackServicePage: React.FC = () => {
             const data = await bookingService.getBookingById(id);
             setOrder(data);
             if (data.status === 'DELIVERED') setDeliveryConfirmed(true);
+            // Restore near-alert state from session to avoid duplicate pop on reloads
+            const key = `nearAlert_${id}`;
+            nearAlertedRef.current = sessionStorage.getItem(key) === '1';
         } catch (error) {
             console.error("Failed to fetch booking", error);
             toast.error("Failed to load booking details");
@@ -68,15 +78,42 @@ const TrackServicePage: React.FC = () => {
     };
     fetchOrder();
 
-    // Socket Connection for Live Tracking
     if (id) {
       socketService.connect();
       socketService.joinRoom(`booking_${id}`);
 
       socketService.on('liveLocation', (data) => {
-        // data: { lat, lng, ... }
+        if (order && order.pickupRequired === false) return;
         if (data.lat && data.lng) {
           setStaffLocation({ lat: data.lat, lng: data.lng });
+          if (!nearAlertedRef.current && order?.location && (order.status === 'ASSIGNED' || order.status === 'ACCEPTED' || order.status === 'REACHED_CUSTOMER')) {
+            const destLat = typeof order.location === 'object' ? order.location.lat : undefined;
+            const destLng = typeof order.location === 'object' ? order.location.lng : undefined;
+            if (destLat && destLng) {
+              const from = turf.point([data.lng, data.lat]);
+              const to = turf.point([destLng, destLat]);
+              const d = turf.distance(from, to, { units: 'meters' });
+              if (d <= 300) {
+                nearAlertedRef.current = true;
+                sessionStorage.setItem(`nearAlert_${id}`, '1');
+                toast.success('Staff is near your location (≤300 m)');
+              }
+            }
+          }
+        }
+      });
+
+      // Server-side proximity notification
+      socketService.on('nearbyStaff', (payload: { bookingId: string; distanceMeters?: number }) => {
+        if (!id || String(payload?.bookingId) !== String(id)) return;
+        if (order && order.pickupRequired === false) return;
+        if (!nearAlertedRef.current) {
+          nearAlertedRef.current = true;
+          sessionStorage.setItem(`nearAlert_${id}`, '1');
+          const msg = payload?.distanceMeters
+            ? `Staff is near your location (~${Math.max(1, Math.round(payload.distanceMeters))} m)`
+            : 'Staff is near your location (≤300 m)';
+          toast.success(msg);
         }
       });
 
@@ -90,6 +127,7 @@ const TrackServicePage: React.FC = () => {
       return () => {
         socketService.leaveRoom(`booking_${id}`);
         socketService.off('liveLocation');
+        socketService.off('nearbyStaff');
         socketService.off('bookingUpdated');
         // Don't disconnect socket fully as it might be used elsewhere, 
         // but socketService.disconnect() usually handles ref counting or single instance logic. 
@@ -103,6 +141,41 @@ const TrackServicePage: React.FC = () => {
         fetchPendingApprovals();
     }
   }, [order?._id]);
+
+  useEffect(() => {
+    if (!order || !staffLocation || order.pickupRequired === false) {
+      setEta(null);
+      return;
+    }
+    const loc = order.location as any;
+    const destLat = typeof loc === 'object' ? loc?.lat : undefined;
+    const destLng = typeof loc === 'object' ? loc?.lng : undefined;
+    if (!destLat || !destLng) {
+      setEta(null);
+      return;
+    }
+    const showForStatuses = ['ACCEPTED', 'REACHED_CUSTOMER', 'OUT_FOR_DELIVERY'];
+    if (!showForStatuses.includes(order.status)) {
+      setEta(null);
+      return;
+    }
+    if (etaTimer.current) {
+      window.clearTimeout(etaTimer.current);
+    }
+    etaTimer.current = window.setTimeout(async () => {
+      try {
+        const res = await getETA(staffLocation.lat, staffLocation.lng, destLat, destLng);
+        setEta(res);
+      } catch (e) {
+      }
+    }, 500);
+    return () => {
+      if (etaTimer.current) {
+        window.clearTimeout(etaTimer.current);
+        etaTimer.current = null;
+      }
+    };
+  }, [order, staffLocation]);
 
   const fetchPendingApprovals = async () => {
       if (!order?._id) return;
@@ -135,6 +208,47 @@ const TrackServicePage: React.FC = () => {
           console.error(`Failed to ${status.toLowerCase()} request`, error);
           toast.error(`Failed to ${status.toLowerCase()} request`);
       }
+  };
+
+  const handleMarkAtMerchant = async () => {
+    if (!order?._id) return;
+    const confirmed = window.confirm(
+      'This button will work only when you are near the workshop (within 200 meters). We will check your location now.'
+    );
+    if (!confirmed) return;
+
+    const merchantLat = order.merchant?.location?.lat;
+    const merchantLng = order.merchant?.location?.lng;
+    if (!merchantLat || !merchantLng) {
+      toast.error('Workshop location is not available');
+      return;
+    }
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported on this device');
+      return;
+    }
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 30000
+        });
+      });
+      const from = turf.point([position.coords.longitude, position.coords.latitude]);
+      const to = turf.point([merchantLng, merchantLat]);
+      const distance = turf.distance(from, to, { units: 'meters' });
+      if (distance > 200) {
+        toast.error('You are not close enough to the workshop (within 200 m)');
+        return;
+      }
+      await bookingService.updateBookingStatus(order._id, 'VEHICLE_AT_MERCHANT');
+      setOrder(prev => prev ? { ...prev, status: 'VEHICLE_AT_MERCHANT' } : null);
+      toast.success('Status updated to At Merchant');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Failed to update status';
+      toast.error(message);
+    }
   };
 
   const handleConfirmDelivery = async () => {
@@ -170,6 +284,33 @@ const TrackServicePage: React.FC = () => {
     } catch (error) {
       console.error('Failed to submit review:', error);
       toast.error('Failed to submit review');
+    }
+  };
+
+  const handleCallMerchant = () => {
+    if (!merchantPhone) return;
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent || '');
+    if (isMobile) {
+      window.location.href = `tel:${merchantPhone}`;
+      return;
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(merchantPhone);
+      toast.success('Phone number copied');
+    } else {
+      toast.message(merchantPhone);
+    }
+  };
+
+  const handleChatMerchant = () => {
+    const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
+    if (phone) {
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?._id}`)}`;
+      window.open(url, '_blank');
+      return;
+    }
+    if (order?._id) {
+      navigate(`/chat/${order._id}`);
     }
   };
 
@@ -276,19 +417,32 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const currentStatusIndex = getStatusStep(order.status);
-  
-  const timelineSteps = [
-    { step: 'Booking Confirmed', completed: currentStatusIndex >= 0, time: order.date },
-    { 
-      step: order.status === 'REACHED_CUSTOMER' ? 'Staff is waiting to pickup vehicle' : 'Pickup Scheduled', 
-      completed: currentStatusIndex >= 1 
-    },
-    { step: 'At Service Center', completed: currentStatusIndex >= 2 },
-    { step: 'Service In Progress', completed: currentStatusIndex >= 3 },
-    { step: 'Ready for Delivery', completed: currentStatusIndex >= 4 },
-    { step: 'Delivered', completed: currentStatusIndex >= 5 },
+  const pickupStatusFlow = STATUS_ORDER;
+  const noPickupStatusFlow: BookingStatus[] = [
+    'CREATED',
+    'ASSIGNED',
+    'VEHICLE_AT_MERCHANT',
+    'SERVICE_STARTED',
+    'SERVICE_COMPLETED',
+    'DELIVERED',
   ];
+
+  const activeStatusFlow = order.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
+  const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
+
+  const timelineSteps = activeStatusFlow.map((s) => {
+    const index = activeStatusFlow.indexOf(s);
+    const isCompleted = index <= currentStatusIndex;
+    const label =
+      order.pickupRequired && s === 'ACCEPTED' && order.status === 'REACHED_CUSTOMER'
+        ? 'Staff waiting at your location'
+        : STATUS_LABELS[s];
+
+    return {
+      step: label,
+      completed: isCompleted,
+    };
+  });
 
   // Helper to safely access vehicle properties
   const vehicle = (typeof order.vehicle === 'object' && order.vehicle !== null) ? order.vehicle : { 
@@ -299,9 +453,11 @@ const TrackServicePage: React.FC = () => {
   const merchantName = order.merchant?.name || 'Service Center';
   const merchantEmail = order.merchant?.email;
   const merchantPhone = order.merchant?.phone;
+  const merchantLat = order.merchant?.location?.lat;
+  const merchantLng = order.merchant?.location?.lng;
   
   return (
-    <div className="p-4 lg:p-6 space-y-6 pb-24">
+    <div className="px-4 lg:px-6 py-4 lg:py-6 space-y-6 pb-24 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
@@ -347,64 +503,10 @@ const TrackServicePage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Progress Timeline */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-card rounded-2xl border border-border p-6"
-      >
-        <h2 className="text-lg font-semibold text-foreground mb-6">Service Progress</h2>
-        <Timeline steps={timelineSteps} />
-      </motion.div>
-
-      {/* Live Tracking Map */}
-      {(['VEHICLE_PICKED', 'REACHED_MERCHANT', 'OUT_FOR_DELIVERY'].includes(order.status) || staffLocation) && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl border border-border overflow-hidden"
-        >
-          <div className="p-4 border-b border-border flex justify-between items-center">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-primary" />
-              Live Tracking
-            </h3>
-            {staffLocation && <span className="text-xs text-green-500 font-medium animate-pulse">● Live</span>}
-          </div>
-          <div className="h-64 w-full relative bg-muted">
-             {staffLocation ? (
-               <MapContainer 
-                  center={[staffLocation.lat, staffLocation.lng]} 
-                  zoom={15} 
-                  style={{ height: '100%', width: '100%' }}
-                  zoomControl={false}
-               >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  />
-                  <Marker position={[staffLocation.lat, staffLocation.lng]}>
-                    <Popup>
-                      Staff is here
-                    </Popup>
-                  </Marker>
-               </MapContainer>
-             ) : (
-               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                 <MapPin className="w-8 h-8 mb-2 opacity-50" />
-                 <p className="text-sm">Waiting for live location...</p>
-               </div>
-             )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Map Section - Only show if we have location data or just show address text */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
         className="bg-card rounded-2xl border border-border overflow-hidden"
       >
         <div className="p-4 border-b border-border">
@@ -414,140 +516,315 @@ const TrackServicePage: React.FC = () => {
           </h2>
         </div>
         
-        {typeof order.location === 'object' && order.location?.lat && order.location?.lng ? (
-             <div className="h-64 bg-muted relative">
-               <iframe
-                 src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000!2d${order.location.lng}!3d${order.location.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus!4v1234567890`}
-                 width="100%"
-                 height="100%"
-                 style={{ border: 0 }}
-                 allowFullScreen
-                 loading="lazy"
-                 referrerPolicy="no-referrer-when-downgrade"
-                 title="Location Map"
-               />
-            </div>
-        ) : (
-            <div className="p-6 text-center text-muted-foreground">
-                <p>Location map not available.</p>
-                {order.location && <p className="mt-2 text-foreground font-medium">{typeof order.location === 'string' ? order.location : order.location.address}</p>}
-            </div>
-        )}
+        <div className="p-6">
+          <p className="text-sm text-muted-foreground">Address</p>
+          <p className="mt-1 font-medium text-foreground">
+            {order.pickupRequired
+              ? (typeof order.location === 'string' 
+                  ? order.location 
+                  : (order.location?.address || 'Location not available'))
+              : (order.merchant?.location?.address || 'Service center address not available')}
+          </p>
+        </div>
       </motion.div>
 
-      {/* Pending Approvals Section */}
-      {pendingApprovals.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl border border-border p-6 border-l-4 border-l-yellow-500"
-        >
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            Approval Required
-          </h2>
-          
-          <div className="space-y-4">
-            {pendingApprovals.map((approval) => (
-              <div key={approval._id} className="bg-muted/30 rounded-xl p-4 border border-border">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{approval.data.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Quantity: {approval.data.quantity} • Price: ₹{approval.data.price}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="block font-bold text-foreground">₹{approval.data.price * approval.data.quantity}</span>
-                  </div>
-                </div>
-
-                {/* Images */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                   {/* New Part */}
-                   <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">New Part</p>
-                      {approval.data.image ? (
-                          <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
-                              <img src={approval.data.image} alt="New Part" className="w-full h-full object-cover" />
-                          </div>
-                      ) : (
-                          <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-xs text-muted-foreground">
-                              No image
-                          </div>
-                      )}
-                   </div>
-
-                   {/* Old Part */}
-                   <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Old Part (Replaced)</p>
-                      {approval.data.oldImage ? (
-                          <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
-                              <img src={approval.data.oldImage} alt="Old Part" className="w-full h-full object-cover" />
-                          </div>
-                      ) : (
-                          <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-xs text-muted-foreground">
-                              No image
-                          </div>
-                      )}
-                   </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleApprovalAction(approval._id, 'Rejected')}
-                    className="flex-1 py-2 bg-destructive/10 text-destructive rounded-lg font-medium hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleApprovalAction(approval._id, 'Approved')}
-                    className="flex-1 py-2 bg-green-500/10 text-green-600 rounded-lg font-medium hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Approve
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Payment Section */}
+      {/* Progress Timeline */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
+        transition={{ delay: 0.15 }}
         className="bg-card rounded-2xl border border-border p-6"
       >
-        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-primary" />
-          Payment Details
-        </h2>
-        
-        <div className="space-y-3 mb-6">
-          <div className="flex justify-between font-bold text-foreground text-lg">
-            <span>Total Amount</span>
-            <span>₹{order.totalAmount}</span>
-          </div>
-           <div className="flex justify-between text-muted-foreground">
-            <span>Status</span>
-            <span className="capitalize">{order.paymentStatus}</span>
-          </div>
-        </div>
-
-        {order.paymentStatus !== 'paid' && (
-            <button
-                className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                onClick={handlePayment}
-                disabled={isPaymentLoading}
-            >
-                {isPaymentLoading ? 'Processing...' : 'Pay Now'}
-            </button>
-        )}
+        <h2 className="text-lg font-semibold text-foreground mb-4">Status & Workflow</h2>
+        <Timeline steps={timelineSteps} vertical={false} className="gap-2" />
       </motion.div>
+
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
+        {order.pickupRequired && (([
+          'ASSIGNED',
+          'ACCEPTED',
+          'REACHED_CUSTOMER',
+          'VEHICLE_PICKED',
+          'REACHED_MERCHANT',
+          'OUT_FOR_DELIVERY'
+        ].includes(order.status)) || staffLocation) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card rounded-2xl border border-border overflow-hidden w-full"
+          >
+            <div className="p-4 border-b border-border flex justify-between items-center">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-primary" />
+                Live Tracking
+              </h3>
+              <div className="flex items-center gap-3">
+                {eta && (
+                  <div className="text-xs text-muted-foreground">
+                    ETA: <span className="font-medium text-foreground">{eta.textDuration}</span>
+                    <span className="mx-1">•</span>
+                    {eta.textDistance}
+                  </div>
+                )}
+                {staffLocation && <span className="text-xs text-green-500 font-medium animate-pulse">● Live</span>}
+              </div>
+            </div>
+            <div className="h-64 w-full relative bg-muted">
+              {staffLocation ? (
+                <MapContainer
+                  center={[staffLocation.lat, staffLocation.lng]}
+                  zoom={15}
+                  style={{ height: '100%', width: '100%' }}
+                  zoomControl={false}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution="&copy; <a href=&quot;https://www.openstreetmap.org/copyright&quot;>OpenStreetMap</a> contributors"
+                  />
+                  <Marker position={[staffLocation.lat, staffLocation.lng]}>
+                    <Popup>Staff is here</Popup>
+                  </Marker>
+                </MapContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <MapPin className="w-8 h-8 mb-2 opacity-50" />
+                  <p className="text-sm">Waiting for live location...</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        <div className="w-full space-y-6">
+          <div className={!order.pickupRequired ? 'grid gap-4 md:grid-cols-2' : ''}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary" />
+                Payment Details
+              </h2>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between font-bold text-foreground text-lg">
+                  <span>Total Amount</span>
+                  <span>₹{order.totalAmount}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Status</span>
+                  <span className="capitalize">{order.paymentStatus}</span>
+                </div>
+              </div>
+
+              {order.paymentStatus !== 'paid' && (
+                <button
+                  className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                  onClick={handlePayment}
+                  disabled={isPaymentLoading}
+                >
+                  {isPaymentLoading ? 'Processing...' : 'Pay Now'}
+                </button>
+              )}
+            </motion.div>
+
+            {!order.pickupRequired && (
+              <div className="space-y-4">
+                {order.merchant &&
+                  (merchantLat || order.merchant.location?.address) &&
+                  ['ASSIGNED', 'ACCEPTED'].includes(order.status) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card rounded-2xl border border-border p-6 space-y-4"
+                  >
+                    <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Navigation className="w-5 h-5 text-primary" />
+                      Get Directions
+                    </h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Navigate from your current location to {order.merchant.name}.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const destUrlParam = merchantLat && merchantLng
+                          ? `${merchantLat},${merchantLng}`
+                          : encodeURIComponent(order.merchant?.location?.address || '');
+                        
+                        const openWith = (origin?: { lat: number; lng: number }) => {
+                          let url = `https://www.google.com/maps/dir/?api=1&destination=${destUrlParam}`;
+                          if (origin?.lat && origin?.lng) {
+                            url += `&origin=${origin.lat},${origin.lng}`;
+                          }
+                          window.open(url, '_blank');
+                        };
+                        
+                        try {
+                          let done = false;
+                          const timer = window.setTimeout(() => {
+                            if (!done) {
+                              done = true;
+                              openWith();
+                            }
+                          }, 5000);
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                              (pos) => {
+                                if (done) return;
+                                done = true;
+                                window.clearTimeout(timer);
+                                openWith({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                              },
+                              () => {
+                                if (done) return;
+                                done = true;
+                                window.clearTimeout(timer);
+                                openWith();
+                              },
+                              { enableHighAccuracy: true, timeout: 4500, maximumAge: 30000 }
+                            );
+                          } else {
+                            openWith();
+                          }
+                        } catch {
+                          openWith();
+                        }
+                      }}
+                      className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      Get Directions to Workshop
+                    </button>
+                    {['ASSIGNED', 'ACCEPTED'].includes(order.status) && (
+                      <button
+                        onClick={handleMarkAtMerchant}
+                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors"
+                      >
+                        I have reached the workshop
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+
+                {pendingApprovals.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-amber-50 border border-amber-300 rounded-2xl p-4 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      <h2 className="text-sm font-semibold text-amber-900">Approval Required</h2>
+                    </div>
+                    
+                    <div className={`space-y-2 ${pendingApprovals.length > 2 ? 'max-h-64 overflow-y-auto pr-1' : ''}`}>
+                      {pendingApprovals.map((approval) => (
+                        <div key={approval._id} className="flex items-start gap-2">
+                          <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-semibold">
+                            SC
+                          </div>
+                          <div className="flex-1">
+                            <div className="inline-block max-w-full bg-white border border-amber-200 rounded-2xl px-3 py-2">
+                              <div className="flex justify-between items-start gap-3">
+                                <div>
+                                  <div className="text-xs font-semibold text-foreground">{approval.data.name}</div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    Qty: {approval.data.quantity} • Price: ₹{approval.data.price}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xs font-bold text-foreground">
+                                    ₹{approval.data.price * approval.data.quantity}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-2">
+                                <div>
+                                  <div className="text-[11px] font-medium text-muted-foreground mb-1">New Part</div>
+                                  {approval.data.image ? (
+                                    <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
+                                      <img src={approval.data.image} alt="New Part" className="w-full h-full object-cover" />
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-[11px] text-muted-foreground">
+                                      No image
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="text-[11px] font-medium text-muted-foreground mb-1">Old Part</div>
+                                  {approval.data.oldImage ? (
+                                    <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
+                                      <img src={approval.data.oldImage} alt="Old Part" className="w-full h-full object-cover" />
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-[11px] text-muted-foreground">
+                                      No image
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-2 justify-end">
+                              <button
+                                onClick={() => handleApprovalAction(approval._id, 'Rejected')}
+                                className="px-3 py-1.5 bg-destructive/10 text-destructive rounded-full text-[11px] font-medium hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
+                              >
+                                <X className="w-3 h-3" />
+                                Reject
+                              </button>
+                              <button
+                                onClick={() => handleApprovalAction(approval._id, 'Approved')}
+                                className="px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full text-[11px] font-medium hover:bg-green-500/20 transition-colors flex items-center gap-1.5"
+                              >
+                                <Check className="w-3 h-3" />
+                                Approve
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl border border-border p-4"
+          >
+            <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-foreground">{merchantName}</p>
+                {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
+                {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCallMerchant}
+                  className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                >
+                  <Phone className="w-5 h-5 text-foreground" />
+                </button>
+                <button
+                  onClick={handleChatMerchant}
+                  className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+                >
+                  <MessageCircle className="w-5 h-5 text-primary-foreground" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      
 
       {/* Delivery Confirmation */}
       {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') && !deliveryConfirmed && (
@@ -569,34 +846,7 @@ const TrackServicePage: React.FC = () => {
       )}
 
       {/* Merchant Info */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="bg-card rounded-2xl border border-border p-4"
-      >
-        <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-foreground">{merchantName}</p>
-            {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
-            {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
-          </div>
-          <div className="flex gap-2">
-            {merchantPhone && (
-                <a href={`tel:${merchantPhone}`} className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors">
-                <Phone className="w-5 h-5 text-foreground" />
-                </a>
-            )}
-            <Link
-              to={`/chat/${order._id}`}
-              className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              <MessageCircle className="w-5 h-5 text-primary-foreground" />
-            </Link>
-          </div>
-        </div>
-      </motion.div>
+      
 
       {/* Rating Modal */}
       <AnimatePresence>

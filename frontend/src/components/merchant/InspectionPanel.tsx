@@ -13,11 +13,11 @@ interface InspectionPanelProps {
 
 const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) => {
   const [damageReport, setDamageReport] = useState(booking.inspection?.damageReport || '');
-  // Initialize with image field if not present
   const [additionalParts, setAdditionalParts] = useState((booking.inspection?.additionalParts || []).map((p: any) => ({
-      ...p,
-      image: p.image || '',
-      oldImage: p.oldImage || ''
+    ...p,
+    image: p.image || '',
+    oldImage: p.oldImage || '',
+    approvalStatus: p.approvalStatus || (p.approved ? 'Approved' : 'Pending')
   })));
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +27,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       price: 0, 
       quantity: 1, 
       approved: false, 
+      approvalStatus: 'Pending',
       image: '', 
       imageFile: null,
       oldImage: '',
@@ -113,9 +114,10 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
 
       // 2. Save inspection details (report + additionalParts list)
       const partsToSave = updatedParts.map((p: any) => {
+          const approvalStatus = p.approvalStatus || (p.approved ? 'Approved' : 'Pending');
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { imageFile, oldImageFile, ...rest } = p;
-          return rest;
+          return { ...rest, approvalStatus };
       });
 
       await bookingService.updateBookingDetails(booking._id, {
@@ -190,6 +192,20 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Additional Parts Needed</label>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <CheckCircle className="w-3 h-3 text-green-500" />
+              <span>Approved</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Trash2 className="w-3 h-3 text-red-500" />
+              <span>Rejected</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-yellow-500" />
+              <span>Pending</span>
+            </div>
+          </div>
           <button
             onClick={handleAddPart}
             className="text-sm text-primary flex items-center gap-1 hover:underline"
@@ -229,14 +245,18 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 min="0"
                 />
                 
-                {part.approved ? (
-                    <div title="Approved" className="text-green-500">
-                        <CheckCircle className="w-5 h-5" />
-                    </div>
+                {part.approvalStatus === 'Approved' || part.approved ? (
+                  <div title="Approved by customer" className="text-green-500">
+                    <CheckCircle className="w-5 h-5" />
+                  </div>
+                ) : part.approvalStatus === 'Rejected' ? (
+                  <div title="Rejected by customer" className="text-red-500">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
                 ) : (part.name && part.price > 0) ? (
-                    <div title="Pending Approval" className="text-yellow-500">
-                        <Clock className="w-5 h-5" />
-                    </div>
+                  <div title="Pending customer approval" className="text-yellow-500">
+                    <Clock className="w-5 h-5" />
+                  </div>
                 ) : null}
 
                 <button

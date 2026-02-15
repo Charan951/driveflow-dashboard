@@ -45,31 +45,46 @@ const AddVehiclePage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Try to fetch vehicle details
       const details = await vehicleService.fetchVehicleDetails(formData.licensePlate);
-      
-      if (details) {
-        setFormData(prev => ({
+
+      if (details && details.found) {
+        setFormData((prev) => ({
           ...prev,
           make: details.make || '',
           model: details.model || '',
           variant: details.variant || '',
           fuel: details.fuelType || '',
           year: details.year?.toString() || '',
-          color: details.color || ''
+          color: details.color || '',
         }));
         toast.success('Vehicle details found!');
       } else {
-        toast.info('Vehicle details not found. Please enter manually.');
+        const message =
+          (details && (details.message as string)) ||
+          'Vehicle details not found. Please enter manually.';
+        toast.info(message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching vehicle details:', error);
-      // Don't block the user, just let them enter manually
-      toast.info('Could not auto-fetch details. Please enter manually.');
+
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message as string | undefined;
+
+      if (status === 404) {
+        toast.info(message || 'Vehicle details not found. Please enter manually.');
+      } else if (status === 500 && message === 'RapidAPI not configured') {
+        toast.info('Auto-fetch is not configured. Please enter details manually.');
+      } else {
+        toast.info('Could not auto-fetch details. Please enter manually.');
+      }
     } finally {
       setIsLoading(false);
       setStep(2);
     }
+  };
+
+  const handleManualEntry = () => {
+    setStep(2);
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -78,9 +93,12 @@ const AddVehiclePage: React.FC = () => {
     
     try {
       await vehicleService.addVehicle({
-        ...formData,
+        licensePlate: formData.licensePlate,
+        make: formData.make.trim(),
+        model: formData.model.trim(),
         year: parseInt(formData.year) || new Date().getFullYear(),
-        // Map other fields as necessary to match Vehicle interface
+        color: formData.color.trim() || undefined,
+        fuelType: formData.fuel.trim() || undefined,
       });
       
       toast.success('Vehicle added successfully!');
@@ -161,6 +179,13 @@ const AddVehiclePage: React.FC = () => {
                   >
                     {isLoading ? 'Fetching...' : 'Next'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleManualEntry}
+                    className="px-6 py-3 border border-border rounded-xl font-medium text-foreground hover:bg-muted/80 transition-colors"
+                  >
+                    Enter manually
+                  </button>
                 </div>
               </div>
             </form>
@@ -174,6 +199,7 @@ const AddVehiclePage: React.FC = () => {
                     name="make"
                     value={formData.make}
                     onChange={handleChange}
+                    required
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
@@ -184,6 +210,7 @@ const AddVehiclePage: React.FC = () => {
                     name="model"
                     value={formData.model}
                     onChange={handleChange}
+                    required
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
@@ -214,6 +241,7 @@ const AddVehiclePage: React.FC = () => {
                     name="year"
                     value={formData.year}
                     onChange={handleChange}
+                    required
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

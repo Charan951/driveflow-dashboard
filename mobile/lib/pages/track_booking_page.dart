@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/env.dart';
 import '../core/storage.dart';
@@ -95,7 +96,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       });
       next.on('liveLocation', (data) {
         if (!mounted) return;
+        final booking = _booking;
+        if (booking != null && booking.pickupRequired == false) {
+          return;
+        }
         if (data is Map) {
+          final role = data['role'];
+          if (role != null && role.toString() != 'staff') {
+            return;
+          }
           final latRaw = data['lat'];
           final lngRaw = data['lng'];
           final nameRaw = data['name'];
@@ -187,7 +196,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       case 'CREATED':
         return 'Booked';
       case 'ASSIGNED':
-        return 'Pickup Assigned';
+        return 'Assigned';
       case 'ACCEPTED':
         return 'Accepted';
       case 'REACHED_CUSTOMER':
@@ -213,20 +222,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       default:
         return status;
     }
-  }
-
-  int _getStatusIndex(String status) {
-    const statuses = [
-      'CREATED',
-      'ASSIGNED',
-      'REACHED_CUSTOMER',
-      'VEHICLE_PICKED',
-      'REACHED_MERCHANT',
-      'SERVICE_STARTED',
-      'SERVICE_COMPLETED',
-      'DELIVERED',
-    ];
-    return statuses.indexOf(status);
   }
 
   bool _isPaymentLoading = false;
@@ -291,6 +286,30 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
   }
 
+  Future<void> _openMerchantDirections() async {
+    final booking = _booking;
+    if (booking == null) return;
+    final loc = booking.merchantLocation;
+    if (loc == null || loc.lat == null || loc.lng == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Merchant location not available')),
+      );
+      return;
+    }
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '${loc.lat},${loc.lng}',
+      'travelmode': 'driving',
+    });
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open maps')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final booking = _booking;
@@ -298,10 +317,56 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final bookingLatLng = bookingLoc?.lat != null && bookingLoc?.lng != null
         ? LatLng(bookingLoc!.lat!, bookingLoc.lng!)
         : null;
+    final merchantLoc = booking?.merchantLocation;
+    final merchantLatLng = merchantLoc?.lat != null && merchantLoc?.lng != null
+        ? LatLng(merchantLoc!.lat!, merchantLoc.lng!)
+        : null;
+    final mapLatLng = booking != null && booking.pickupRequired
+        ? bookingLatLng
+        : (merchantLatLng ?? bookingLatLng);
     final center =
-        bookingLatLng ?? _liveLatLng ?? const LatLng(12.9716, 77.5946);
+        mapLatLng ??
+        (booking != null && booking.pickupRequired ? _liveLatLng : null) ??
+        const LatLng(12.9716, 77.5946);
 
-    final currentIndex = booking != null ? _getStatusIndex(booking.status) : -1;
+    int currentIndex = -1;
+    if (booking != null) {
+      final s = booking.status;
+      if (booking.pickupRequired) {
+        if (s == 'CREATED') {
+          currentIndex = 0;
+        } else if (s == 'ASSIGNED' ||
+            s == 'ACCEPTED' ||
+            s == 'REACHED_CUSTOMER' ||
+            s == 'VEHICLE_PICKED') {
+          currentIndex = 1;
+        } else if (s == 'REACHED_MERCHANT' ||
+            s == 'VEHICLE_AT_MERCHANT' ||
+            s == 'JOB_CARD') {
+          currentIndex = 2;
+        } else if (s == 'SERVICE_STARTED') {
+          currentIndex = 3;
+        } else if (s == 'SERVICE_COMPLETED' || s == 'OUT_FOR_DELIVERY') {
+          currentIndex = 4;
+        } else if (s == 'DELIVERED') {
+          currentIndex = 5;
+        }
+      } else {
+        if (s == 'CREATED') {
+          currentIndex = 0;
+        } else if (s == 'ASSIGNED') {
+          currentIndex = 1;
+        } else if (s == 'VEHICLE_AT_MERCHANT') {
+          currentIndex = 2;
+        } else if (s == 'SERVICE_STARTED') {
+          currentIndex = 3;
+        } else if (s == 'SERVICE_COMPLETED') {
+          currentIndex = 4;
+        } else if (s == 'DELIVERED') {
+          currentIndex = 5;
+        }
+      }
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -370,26 +435,38 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ),
                       MarkerLayer(
                         markers: [
-                          if (bookingLatLng != null)
+                          if (booking.pickupRequired) ...[
+                            if (bookingLatLng != null)
+                              Marker(
+                                point: bookingLatLng,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(
+                                  Icons.location_on,
+                                  size: 40,
+                                  color: Color(0xFF2563EB),
+                                ),
+                              ),
+                            if (_liveLatLng != null)
+                              Marker(
+                                point: _liveLatLng!,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(
+                                  Icons.navigation,
+                                  size: 34,
+                                  color: Color(0xFFEF4444),
+                                ),
+                              ),
+                          ] else if (merchantLatLng != null)
                             Marker(
-                              point: bookingLatLng,
+                              point: merchantLatLng,
                               width: 40,
                               height: 40,
                               child: const Icon(
                                 Icons.location_on,
                                 size: 40,
                                 color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          if (_liveLatLng != null)
-                            Marker(
-                              point: _liveLatLng!,
-                              width: 40,
-                              height: 40,
-                              child: const Icon(
-                                Icons.navigation,
-                                size: 34,
-                                color: Color(0xFFEF4444),
                               ),
                             ),
                         ],
@@ -411,41 +488,58 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: _socketConnected
-                                ? const Color(0xFF22C55E)
-                                : const Color(0xFF94A3B8),
-                            borderRadius: BorderRadius.circular(999),
+                        if (booking.pickupRequired) ...[
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: _socketConnected
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFF94A3B8),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _socketConnected
-                                ? 'Live tracking connected'
-                                : 'Live tracking disconnected',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _socketConnected
+                                  ? 'Live tracking connected'
+                                  : 'Live tracking disconnected',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
                           ),
-                        ),
+                        ] else ...[
+                          Expanded(
+                            child: Text(
+                              'Pickup not required. Go directly to the workshop.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      bookingLoc?.address != null &&
-                              bookingLoc!.address!.isNotEmpty
-                          ? bookingLoc.address!
-                          : (bookingLatLng == null
-                                ? 'Pickup location not set'
-                                : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'),
+                      booking.pickupRequired
+                          ? (bookingLoc?.address != null &&
+                                    bookingLoc!.address!.isNotEmpty
+                                ? bookingLoc.address!
+                                : (bookingLatLng == null
+                                      ? 'Pickup location not set'
+                                      : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'))
+                          : (merchantLoc?.address != null &&
+                                    merchantLoc!.address!.isNotEmpty
+                                ? merchantLoc.address!
+                                : (merchantLatLng == null
+                                      ? 'Workshop location not set'
+                                      : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: Colors.black87),
                     ),
-                    if (_liveLatLng != null) ...[
+                    if (booking.pickupRequired && _liveLatLng != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
@@ -454,7 +548,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ).textTheme.bodySmall?.copyWith(color: Colors.black87),
                       ),
                     ],
-                    if (_socketError != null && _socketError!.isNotEmpty) ...[
+                    if (booking.pickupRequired &&
+                        _socketError != null &&
+                        _socketError!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
                         _socketError!,
@@ -466,7 +562,21 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              if (!booking.pickupRequired &&
+                  merchantLatLng != null &&
+                  merchantLoc != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _openMerchantDirections,
+                    icon: const Icon(Icons.navigation),
+                    label: const Text('Get directions to workshop'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ] else
+                const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -550,16 +660,25 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: _HorizontalStepper(
-                  labels: [
-                    'Booking Confirmed',
-                    booking.status == 'REACHED_CUSTOMER'
-                        ? 'Staff is waiting for pickup'
-                        : 'Pickup Scheduled',
-                    'At Service Center',
-                    'Service In Progress',
-                    'Ready for Delivery',
-                    'Delivered',
-                  ],
+                  labels: booking.pickupRequired
+                      ? [
+                          'Booking Confirmed',
+                          booking.status == 'REACHED_CUSTOMER'
+                              ? 'Staff is waiting for pickup'
+                              : 'Pickup Scheduled',
+                          'At Service Center',
+                          'Service In Progress',
+                          'Ready for Delivery',
+                          'Delivered',
+                        ]
+                      : [
+                          'Booking Confirmed',
+                          'Merchant Assigned',
+                          'Vehicle at Merchant',
+                          'Service In Progress',
+                          'Service Completed',
+                          'Delivered',
+                        ],
                   activeIndex: currentIndex >= 7
                       ? 5
                       : currentIndex >= 6

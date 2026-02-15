@@ -83,7 +83,7 @@ const OrderDetail: React.FC = () => {
       socketService.joinRoom(`booking_${id}`);
 
       socketService.on('liveLocation', (data) => {
-        if (data.lat && data.lng) {
+        if (data.lat && data.lng && data.role === 'staff') {
           setStaffLocation({ lat: data.lat, lng: data.lng });
         }
       });
@@ -167,7 +167,7 @@ const OrderDetail: React.FC = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-muted-foreground">Vehicle Details</p>
-                                        <p className="font-medium">{(booking.vehicle as unknown as Vehicle)?.registrationNumber || 'N/A'}</p>
+                                        <p className="font-medium">{(booking.vehicle as unknown as Vehicle)?.licensePlate || 'N/A'}</p>
                                         <p className="text-sm text-gray-500">{(booking.vehicle as unknown as Vehicle)?.make} {(booking.vehicle as unknown as Vehicle)?.model}</p>
                                     </div>
                                 </div>
@@ -251,8 +251,15 @@ const OrderDetail: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Live Tracking Map */}
-                        {(['Pickup Assigned', 'In Garage', 'On Route'].includes(booking.status) || staffLocation) && (
+                        {/* Live Tracking Map for Staff (pickup bookings) */}
+                        {booking.pickupRequired && (([
+                          'ASSIGNED',
+                          'ACCEPTED',
+                          'REACHED_CUSTOMER',
+                          'VEHICLE_PICKED',
+                          'REACHED_MERCHANT',
+                          'OUT_FOR_DELIVERY'
+                        ].includes(booking.status)) || staffLocation) && (
                           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                             <div className="p-4 border-b border-border flex justify-between items-center">
                               <h3 className="font-semibold flex items-center gap-2">

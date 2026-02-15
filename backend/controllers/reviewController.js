@@ -64,7 +64,7 @@ export const getTargetReviews = async (req, res) => {
         path: 'booking',
         populate: {
           path: 'vehicle services',
-          select: 'make model registrationNumber name'
+          select: 'make model licensePlate name'
         }
       })
       .sort({ createdAt: -1 });

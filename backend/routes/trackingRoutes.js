@@ -3,6 +3,9 @@ import {
   getLiveLocations,
   updateUserLocation,
   updateVehicleLocation,
+  getETA,
+  reverseGeocode,
+  searchGeocode,
 } from '../controllers/trackingController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -16,5 +19,15 @@ router.route('/user')
 
 router.route('/vehicle/:id')
   .put(protect, updateVehicleLocation);
+
+// ETA lookup (Google if available, else OSRM)
+router.route('/eta')
+  .get(protect, getETA);
+
+// Geocoding proxy (Nominatim)
+router.route('/reverse')
+  .get(protect, reverseGeocode);
+router.route('/search')
+  .get(protect, searchGeocode);
 
 export default router;

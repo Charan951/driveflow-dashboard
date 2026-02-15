@@ -455,98 +455,115 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         title: const Text('Pickup required'),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        'Pickup location',
-                        style: Theme.of(sheetContext).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        height: 220,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                      if (pickupRequired) ...[
+                        Text(
+                          'Pickup location',
+                          style: Theme.of(sheetContext).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: FlutterMap(
-                            mapController: mapController,
-                            options: MapOptions(
-                              initialCenter: current,
-                              initialZoom: 14,
-                              onTap: (_, latLng) => setSelectedLocation(latLng),
-                            ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.carb.app',
+                        const SizedBox(height: 10),
+                        Container(
+                          height: 220,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: FlutterMap(
+                              mapController: mapController,
+                              options: MapOptions(
+                                initialCenter: current,
+                                initialZoom: 14,
+                                onTap: (_, latLng) =>
+                                    setSelectedLocation(latLng),
                               ),
-                              MarkerLayer(
-                                markers: [
-                                  if (selectedLatLng != null)
-                                    Marker(
-                                      point: selectedLatLng!,
-                                      width: 40,
-                                      height: 40,
-                                      child: const Icon(
-                                        Icons.location_on,
-                                        size: 40,
-                                        color: Color(0xFFEF4444),
+                              children: [
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.carb.app',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    if (selectedLatLng != null)
+                                      Marker(
+                                        point: selectedLatLng!,
+                                        width: 40,
+                                        height: 40,
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          size: 40,
+                                          color: Color(0xFFEF4444),
+                                        ),
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: locating ? null : useCurrentLocation,
-                              icon: const Icon(Icons.my_location),
-                              label: Text(
-                                locating ? 'Locating...' : 'Use my location',
-                              ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: selectedLatLng == null
-                                  ? null
-                                  : () => setModalState(() {
-                                      selectedLatLng = null;
-                                      selectedAddress = null;
-                                      resolvingAddress = false;
-                                    }),
-                              child: const Text('Clear'),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: locating ? null : useCurrentLocation,
+                                icon: const Icon(Icons.my_location),
+                                label: Text(
+                                  locating ? 'Locating...' : 'Use my location',
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: selectedLatLng == null
+                                    ? null
+                                    : () => setModalState(() {
+                                        selectedLatLng = null;
+                                        selectedAddress = null;
+                                        resolvingAddress = false;
+                                      }),
+                                child: const Text('Clear'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          child: Text(
+                            selectedLatLng == null
+                                ? 'Tap on the map to select an exact pickup point.'
+                                : (resolvingAddress
+                                      ? 'Resolving address...'
+                                      : (selectedAddress ??
+                                            '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}')),
+                            style: Theme.of(sheetContext).textTheme.bodySmall
+                                ?.copyWith(color: Colors.black87),
+                          ),
                         ),
-                        child: Text(
-                          selectedLatLng == null
-                              ? 'Tap on the map to select an exact pickup point.'
-                              : (resolvingAddress
-                                    ? 'Resolving address...'
-                                    : (selectedAddress ??
-                                          '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}')),
-                          style: Theme.of(sheetContext).textTheme.bodySmall
-                              ?.copyWith(color: Colors.black87),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: Text(
+                            'Pickup not required. You will drop your vehicle at the workshop.',
+                            style: Theme.of(sheetContext).textTheme.bodySmall
+                                ?.copyWith(color: Colors.black87),
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 12),
                       TextField(
                         controller: notesController,
@@ -589,10 +606,12 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     const SizedBox(height: 8),
                     _SummaryRow(
                       label: 'Location',
-                      value: selectedLatLng == null
-                          ? '-'
-                          : (selectedAddress ??
-                                '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}'),
+                      value: pickupRequired
+                          ? (selectedLatLng == null
+                                ? '-'
+                                : (selectedAddress ??
+                                      '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}'))
+                          : '-',
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -646,7 +665,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
                   return;
                 }
                 final pick = selectedLatLng;
-                if (pick == null) {
+                if (pickupRequired && pick == null) {
                   messenger.showSnackBar(
                     const SnackBar(content: Text('Select pickup location')),
                   );
@@ -659,11 +678,13 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     serviceIds: selectedServiceIds.toList(),
                     date: selectedDateTime,
                     notes: notesController.text,
-                    location: BookingLocation(
-                      address: selectedAddress,
-                      lat: pick.latitude,
-                      lng: pick.longitude,
-                    ),
+                    location: pickupRequired && pick != null
+                        ? BookingLocation(
+                            address: selectedAddress,
+                            lat: pick.latitude,
+                            lng: pick.longitude,
+                          )
+                        : null,
                     pickupRequired: pickupRequired,
                   );
                   if (!sheetContext.mounted) return;

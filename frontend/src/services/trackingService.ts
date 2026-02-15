@@ -51,12 +51,32 @@ export const getLiveLocations = async () => {
   return response.data;
 };
 
-export const updateMyLocation = async (lat: number, lng: number, address?: string) => {
-  const response = await api.put('/tracking/user', { lat, lng, address });
+export const updateMyLocation = async (lat: number, lng: number, address?: string, bookingId?: string) => {
+  const response = await api.put('/tracking/user', { lat, lng, address, bookingId });
   return response.data;
 };
 
 export const updateOnlineStatus = async (isOnline: boolean) => {
   const response = await api.put('/users/online-status', { isOnline });
   return response.data;
+};
+
+export interface ETAResponse {
+  provider: 'google' | 'osrm';
+  durationSec: number;
+  distanceMeters: number;
+  textDuration: string;
+  textDistance: string;
+  arrivalTimeIso: string;
+}
+
+export const getETA = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
+  const params = new URLSearchParams({
+    originLat: String(originLat),
+    originLng: String(originLng),
+    destLat: String(destLat),
+    destLng: String(destLng),
+  });
+  const response = await api.get(`/tracking/eta?${params.toString()}`);
+  return response.data as ETAResponse;
 };

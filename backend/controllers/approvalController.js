@@ -127,13 +127,14 @@ export const updateApprovalStatus = async (req, res) => {
         const booking = await Booking.findById(approval.relatedId);
         if (booking) {
           const { name, price, quantity, image, oldImage } = approval.data;
-          
+
           // 1. Update inspection.additionalParts
           let partFound = false;
           if (booking.inspection && booking.inspection.additionalParts) {
             const partIndex = booking.inspection.additionalParts.findIndex(p => p.name === name);
             if (partIndex >= 0) {
               booking.inspection.additionalParts[partIndex].approved = true;
+              booking.inspection.additionalParts[partIndex].approvalStatus = 'Approved';
               booking.inspection.additionalParts[partIndex].price = price;
               booking.inspection.additionalParts[partIndex].quantity = quantity;
               if (image) booking.inspection.additionalParts[partIndex].image = image;
@@ -141,26 +142,22 @@ export const updateApprovalStatus = async (req, res) => {
               partFound = true;
             }
           }
-          
+
           if (!partFound) {
             if (!booking.inspection) booking.inspection = {};
             if (!booking.inspection.additionalParts) booking.inspection.additionalParts = [];
-            booking.inspection.additionalParts.push({ name, price, quantity, approved: true, image, oldImage });
+            booking.inspection.additionalParts.push({ name, price, quantity, approved: true, approvalStatus: 'Approved', image, oldImage });
           }
 
           // 2. Add to booking.parts (which affects billing)
           if (!booking.parts) booking.parts = [];
-          
+
           // Check if part already exists in booking.parts to avoid duplicates if approved multiple times?
           // But status check prevents multiple approvals.
           booking.parts.push({ 
               name, 
               price, 
               quantity,
-              // If we have an image, we can store it. Assuming booking.parts schema supports it or is flexible.
-              // Ideally booking schema should have 'image' in parts. 
-              // But 'product' field is ref. If manual part, we can add 'image' field to schema or just ignore for now if schema strict.
-              // Let's assume schema is flexible or we add it.
               image: image 
           });
 
@@ -168,11 +165,11 @@ export const updateApprovalStatus = async (req, res) => {
           const Service = (await import('../models/Service.js')).default;
           const services = await Service.find({ _id: { $in: booking.services } });
           const servicesTotal = services.reduce((acc, service) => acc + service.price, 0);
-          
+
           const partsTotal = booking.parts.reduce((acc, part) => acc + (part.price * part.quantity), 0);
-          
+
           booking.totalAmount = servicesTotal + partsTotal;
-          
+
           // Update billing if exists
           if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
@@ -216,7 +213,21 @@ export const updateApprovalStatus = async (req, res) => {
         }
       }
     } else if (status === 'Rejected') {
-       // Handle rejection logic for other types if needed
+      if (approval.type === 'PartReplacement' && approval.relatedModel === 'Booking') {
+        const booking = await Booking.findById(approval.relatedId);
+        if (booking && booking.inspection && Array.isArray(booking.inspection.additionalParts)) {
+          const { name } = approval.data || {};
+          if (name) {
+            const partIndex = booking.inspection.additionalParts.findIndex(p => p.name === name);
+            if (partIndex >= 0) {
+              booking.inspection.additionalParts[partIndex].approved = false;
+              booking.inspection.additionalParts[partIndex].approvalStatus = 'Rejected';
+              await booking.save();
+            }
+          }
+        }
+      }
+      // Other types (ExtraCost, BillEdit) do not change booking data on rejection for now
     }
 
     const updatedApproval = await approval.save();

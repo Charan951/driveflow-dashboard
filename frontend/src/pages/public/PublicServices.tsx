@@ -207,7 +207,7 @@ const PublicServices = () => {
               <div className="relative rounded-3xl overflow-hidden shadow-2xl group">
                 <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
                 <img 
-                  src={service.image || getServiceFallbackImage(service.category)} 
+                  src={(service.image && service.image.trim() !== '') ? service.image : getServiceFallbackImage(service.category)} 
                   alt={service.name} 
                   className="w-full h-[400px] object-cover transform group-hover:scale-105 transition-transform duration-700"
                 />
@@ -256,7 +256,7 @@ const PublicServices = () => {
                   <p className="text-sm text-muted-foreground">Price</p>
                   <p className="text-3xl font-bold text-primary">₹{service.price}</p>
                   <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> {service.duration}
+                    <Clock className="w-3 h-3" /> {service.duration} mins
                   </p>
                 </div>
                 <button 

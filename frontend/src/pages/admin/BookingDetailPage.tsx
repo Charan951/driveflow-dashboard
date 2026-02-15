@@ -135,14 +135,12 @@ const BookingDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     
-    // Socket Connection
     socketService.connect();
     socketService.joinRoom('admin');
 
     socketService.on('bookingUpdated', (updatedBooking: Booking) => {
       if (updatedBooking._id === id) {
          setBooking(updatedBooking);
-         // toast.info(`Status updated: ${updatedBooking.status}`);
       }
     });
 
@@ -384,31 +382,42 @@ const BookingDetailPage: React.FC = () => {
                    </select>
                 </div>
 
-                <div className="space-y-2">
-                   <label className="text-sm font-medium flex items-center gap-2">
+                {booking.pickupRequired ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                       <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
+                    </label>
+                    <select 
+                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                       value={selectedDriver}
+                       onChange={(e) => setSelectedDriver(e.target.value)}
+                    >
+                       <option value="">Select Driver...</option>
+                       {drivers.map(d => {
+                         let label = d.name;
+                         if (d.isOnline) label += " 🟢 (Online)";
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                            try {
+                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                               const to = turf.point([d.location.lng!, d.location.lat!]);
+                               const dist = turf.distance(from, to, { units: 'kilometers' });
+                               label += ` - ${dist.toFixed(1)}km`;
+                            } catch (e) { /* ignore */ }
+                         }
+                         return <option key={d._id} value={d._id}>{label}</option>;
+                       })}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
                       <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
-                   </label>
-                   <select 
-                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
-                      value={selectedDriver}
-                      onChange={(e) => setSelectedDriver(e.target.value)}
-                   >
-                      <option value="">Select Driver...</option>
-                      {drivers.map(d => {
-                        let label = d.name;
-                        if (d.isOnline) label += " 🟢 (Online)";
-                        if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
-                           try {
-                              const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                              const to = turf.point([d.location.lng!, d.location.lat!]);
-                              const dist = turf.distance(from, to, { units: 'kilometers' });
-                              label += ` - ${dist.toFixed(1)}km`;
-                           } catch (e) { /* ignore */ }
-                        }
-                        return <option key={d._id} value={d._id}>{label}</option>;
-                      })}
-                   </select>
-                </div>
+                    </label>
+                    <div className="text-xs text-muted-foreground p-2 border border-dashed border-border rounded-lg">
+                      Pickup not required. Driver assignment is not needed.
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                    <label className="text-sm font-medium flex items-center gap-2">
@@ -442,20 +451,31 @@ const BookingDetailPage: React.FC = () => {
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Created', value: 'CREATED' },
-                  { label: 'Assigned', value: 'ASSIGNED' },
-                  { label: 'Accepted', value: 'ACCEPTED' },
-                  { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
-                  { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
-                  { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
-                  { label: 'Job Card Created', value: 'JOB_CARD' },
-                  { label: 'Service Started', value: 'SERVICE_STARTED' },
-                  { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
-                  { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
-                  { label: 'Delivered', value: 'DELIVERED' },
-                  { label: 'Cancelled', value: 'CANCELLED' }
-                ].map((item) => (
+                {(booking.pickupRequired
+                  ? [
+                      { label: 'Created', value: 'CREATED' },
+                      { label: 'Assigned', value: 'ASSIGNED' },
+                      { label: 'Accepted', value: 'ACCEPTED' },
+                      { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
+                      { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
+                      { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
+                      { label: 'Job Card Created', value: 'JOB_CARD' },
+                      { label: 'Service Started', value: 'SERVICE_STARTED' },
+                      { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
+                      { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
+                      { label: 'Delivered', value: 'DELIVERED' },
+                      { label: 'Cancelled', value: 'CANCELLED' }
+                    ]
+                  : [
+                      { label: 'Created', value: 'CREATED' },
+                      { label: 'Assigned', value: 'ASSIGNED' },
+                      { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
+                      { label: 'Service Started', value: 'SERVICE_STARTED' },
+                      { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
+                      { label: 'Delivered', value: 'DELIVERED' },
+                      { label: 'Cancelled', value: 'CANCELLED' }
+                    ]
+                 ).map((item) => (
                    <button
                       key={item.value}
                       onClick={() => handleStatusUpdate(item.value)}

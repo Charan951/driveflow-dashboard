@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
+import { addDeviceToken, removeDeviceToken } from '../utils/pushService.js';
 
 // @desc    Get all users (with optional filtering)
 // @route   GET /api/users
@@ -219,10 +220,32 @@ export const createUser = async (req, res) => {
       subRole,
       phone,
       location,
-      isApproved: true // Admin created users are auto-approved
+      isApproved: true
     });
 
     if (user) {
+      try {
+        const readableRole = role === 'merchant' ? 'Merchant' : role === 'staff' ? 'Staff' : 'User';
+        const subject = `Welcome to DriveFlow - ${readableRole} Account Created`;
+        const text = [
+          `Hi ${name || 'there'},`,
+          '',
+          `Your ${readableRole.toLowerCase()} account has been created on DriveFlow.`,
+          '',
+          `Login Email: ${email}`,
+          password ? `Temporary Password: ${password}` : '',
+          '',
+          'Please log in and change your password after first login.',
+          '',
+          'Best regards,',
+          'DriveFlow Team',
+        ].filter(Boolean).join('\n');
+
+        await sendEmail(email, subject, text);
+      } catch (e) {
+        console.error('Failed to send user creation email:', e.message);
+      }
+
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -276,5 +299,33 @@ export const updateOnlineStatus = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Register device token for push notifications
+// @route   POST /api/users/device-token
+// @access  Private
+export const registerDeviceToken = async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: 'Token is required' });
+  try {
+    const tokens = await addDeviceToken(req.user._id, token);
+    res.json({ tokens });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
+// @desc    Remove device token
+// @route   DELETE /api/users/device-token
+// @access  Private
+export const unregisterDeviceToken = async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: 'Token is required' });
+  try {
+    const tokens = await removeDeviceToken(req.user._id, token);
+    res.json({ tokens });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 };

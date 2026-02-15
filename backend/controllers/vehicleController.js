@@ -102,27 +102,44 @@ export const fetchVehicleDetails = async (req, res) => {
 
         // Check if API returned valid data
         if (data && (data.make || data.maker_name || data.model || data.maker_model)) {
-             // Map API response to our Schema
-             const mappedData = {
-               make: data.maker_name || data.make || '',
-               model: data.maker_model || data.model || '',
-               variant: data.variant || data.vehicle_class || '',
-               fuelType: data.fuel_type || data.fuel || '',
-               year: parseInt(data.manufacturing_year) || parseInt(data.reg_date?.split('-')[2]) || new Date().getFullYear(),
-               color: data.color || '',
-               vin: data.chassis_no || data.vin || '',
-               engineNumber: data.engine_no || '',
-               registrationDate: data.reg_date || ''
-             };
-             return res.json(mappedData);
+          const mappedData = {
+            make: data.maker_name || data.make || '',
+            model: data.maker_model || data.model || '',
+            variant: data.variant || data.vehicle_class || '',
+            fuelType: data.fuel_type || data.fuel || '',
+            year:
+              parseInt(data.manufacturing_year) ||
+              parseInt(data.reg_date?.split('-')[2]) ||
+              new Date().getFullYear(),
+            color: data.color || '',
+            vin: data.chassis_no || data.vin || '',
+            engineNumber: data.engine_no || '',
+            registrationDate: data.reg_date || '',
+          };
+          return res.json({ found: true, ...mappedData });
         } else {
-          return res.status(404).json({ message: 'Vehicle details not found in API' });
+          return res.json({
+            found: false,
+            message: 'Vehicle details not found in API',
+          });
         }
       } catch (apiError) {
         console.error('RapidAPI Error details:', apiError.response?.data || apiError.message);
-        const status = apiError.response?.status || 500;
-        const message = apiError.response?.data?.message || apiError.message || 'Failed to fetch from RapidAPI';
-        return res.status(status).json({ message });
+        const status = apiError.response?.status;
+
+        if (status === 404) {
+          return res.json({
+            found: false,
+            message: 'Vehicle details not found in API',
+          });
+        }
+
+        const message =
+          apiError.response?.data?.message ||
+          apiError.message ||
+          'Failed to fetch from RapidAPI';
+
+        return res.status(500).json({ message });
       }
     } else {
       return res.status(500).json({ message: 'RapidAPI not configured' });

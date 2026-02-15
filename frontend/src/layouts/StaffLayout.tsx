@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
 import { TrackingProvider } from '@/context/TrackingContext';
+import { useTracking } from '@/context/TrackingContext';
 
 const staffMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
@@ -25,6 +26,36 @@ export const StaffLayout: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const AutoStart: React.FC = () => {
+    const { startTracking, isTracking } = useTracking();
+    React.useEffect(() => {
+      if (user?.role === 'staff' && !isTracking) {
+        startTracking();
+      }
+    }, [user?.role, isTracking, startTracking]);
+    return null;
+  };
+  
+  const ActiveBookingChip: React.FC = () => {
+    const { activeBookingId, setActiveBookingId, isTracking } = useTracking();
+    if (!activeBookingId) return null;
+    const shortId = activeBookingId.slice(-6).toUpperCase();
+    return (
+      <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-1.5 border border-border">
+        <span className="text-xs font-medium text-foreground">
+          Active #{shortId}
+        </span>
+        <button
+          onClick={() => setActiveBookingId(null)}
+          className="text-xs px-2 py-1 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          disabled={!isTracking}
+          title={isTracking ? 'Unbind from booking' : 'Start sharing to unbind'}
+        >
+          Unbind
+        </button>
+      </div>
+    );
+  };
 
   const handleLogout = () => {
     logout();
@@ -33,6 +64,7 @@ export const StaffLayout: React.FC = () => {
 
   return (
     <TrackingProvider>
+      <AutoStart />
       <div className="min-h-screen flex w-full bg-background">
       {/* Overlay */}
       {sidebarOpen && (
@@ -115,6 +147,7 @@ export const StaffLayout: React.FC = () => {
             <h1 className="font-semibold text-lg">Staff Portal</h1>
           </div>
           <div className="flex items-center gap-3">
+            <ActiveBookingChip />
             <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center">
               <User className="w-5 h-5 text-primary-foreground" />
             </div>

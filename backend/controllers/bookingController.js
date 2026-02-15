@@ -2,6 +2,8 @@ import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import { getIO } from '../socket.js';
 import { sendEmail } from '../utils/emailService.js';
+import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
+import { sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -10,6 +12,14 @@ export const createBooking = async (req, res) => {
   const { vehicleId, serviceIds, date, notes, location, pickupRequired } = req.body;
 
   try {
+    // Basic validation for pickup preference
+    if (pickupRequired === true) {
+      const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
+      if (!hasAddress) {
+        return res.status(400).json({ message: 'Pickup address is required when pickup is requested' });
+      }
+    }
+
     const Service = (await import('../models/Service.js')).default;
     const services = await Service.find({ _id: { $in: serviceIds } });
 
@@ -218,13 +228,39 @@ export const assignBooking = async (req, res) => {
       if (technicianId) booking.technician = technicianId;
       if (slot) booking.date = slot; // Assuming date stores the slot time as well
 
-      // Automatic status update: If both merchant and driver are assigned, move to 'ASSIGNED'
-      if (booking.merchant && booking.pickupDriver && booking.status === 'CREATED') {
-        booking.status = 'ASSIGNED';
+      // Automatic status update rules
+      // - If pickup is required: need both merchant and driver to move to ASSIGNED
+      // - If pickup is NOT required: merchant alone is enough to move to ASSIGNED
+      if (booking.status === 'CREATED') {
+        const canAssign =
+          (!booking.pickupRequired && booking.merchant) ||
+          (booking.pickupRequired && booking.merchant && booking.pickupDriver);
+        if (canAssign) {
+          booking.status = 'ASSIGNED';
+        }
       }
 
       const updatedBooking = await booking.save();
-      res.json(updatedBooking);
+      
+      // Populate essential fields for real-time consumers
+      const populated = await Booking.findById(updatedBooking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('merchant', 'name email phone location')
+        .populate('pickupDriver', 'name email phone')
+        .populate('technician', 'name email phone');
+
+      // Emit real-time update for admin and booking-specific listeners
+      try {
+        const io = getIO();
+        io.to('admin').emit('bookingUpdated', populated);
+        io.to(`booking_${booking._id}`).emit('bookingUpdated', populated);
+      } catch (e) {
+        console.error('Socket emit error (assignBooking):', e);
+      }
+
+      res.json(populated);
     } else {
       res.status(404).json({ message: 'Booking not found' });
     }
@@ -243,7 +279,6 @@ export const updateBookingStatus = async (req, res) => {
     const booking = await Booking.findById(req.params.id).populate('user');
 
     if (booking) {
-      // Authorization check
       const isOwner = booking.user && booking.user._id.toString() === req.user._id.toString();
       const isAdmin = req.user.role === 'admin';
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant.toString() === req.user._id.toString();
@@ -252,18 +287,59 @@ export const updateBookingStatus = async (req, res) => {
         (booking.technician && booking.technician.toString() === req.user._id.toString())
       );
 
-      // If customer (owner), only allow 'DELIVERED'
       if (isOwner && !isAdmin && !isAssignedMerchant && !isAssignedStaff) {
-        if (status !== 'DELIVERED') {
+        const allowedStatuses = ['DELIVERED'];
+        if (!booking.pickupRequired && status === 'VEHICLE_AT_MERCHANT') {
+          allowedStatuses.push('VEHICLE_AT_MERCHANT');
+        }
+        if (!allowedStatuses.includes(status)) {
           return res.status(401).json({ message: 'Not authorized to set this status' });
         }
       } else if (!isAdmin && !isAssignedMerchant && !isAssignedStaff) {
-        // Not owner, not admin, not assigned merchant, not assigned staff
         return res.status(401).json({ message: 'Not authorized' });
       }
 
+      const canonFrom = booking.status;
+      const canonTo = normalizeStatus(status) || status;
+
+      if (!canonTo) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      if (!isValidTransition(canonFrom, canonTo)) {
+        // Allow if admin overrides, otherwise block
+        if (req.user.role !== 'admin') {
+          return res.status(400).json({ message: `Invalid transition from ${canonFrom} to ${canonTo}` });
+        }
+      }
+
+      // OTP gating for delivery
+      if (canonTo === 'OUT_FOR_DELIVERY') {
+        const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
+        booking.deliveryOtp = {
+          code,
+          expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+          attempts: 0,
+          verifiedAt: null
+        };
+        if (booking.user?.email) {
+          await sendEmail(
+            booking.user.email,
+            'Delivery OTP',
+            `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
+          );
+        }
+        await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) });
+      }
+
+      if (canonTo === 'DELIVERED') {
+        if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
+          return res.status(400).json({ message: 'OTP verification required before marking as DELIVERED' });
+        }
+      }
+
       // Stock Auto Adjustment
-      if ((status === 'SERVICE_COMPLETED') && 
+      if ((canonTo === 'SERVICE_COMPLETED') && 
           !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(booking.status)) {
           
           const Product = (await import('../models/Product.js')).default;
@@ -291,7 +367,7 @@ export const updateBookingStatus = async (req, res) => {
           }
       }
 
-      booking.status = status;
+      booking.status = canonTo;
       const updatedBooking = await booking.save();
 
       // Emit socket event for real-time updates
@@ -313,9 +389,10 @@ export const updateBookingStatus = async (req, res) => {
         await sendEmail(
           booking.user.email,
           'Booking Status Update - DriveFlow',
-          `Dear ${booking.user.name},\n\nYour booking status has been updated to: ${status}.\n\nCheck your dashboard for more details.`
+          `Dear ${booking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
         );
       }
+      await sendPushToUser(booking.user?._id, 'Booking Update', `Status updated to ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(booking._id) });
 
       res.json(updatedBooking);
     } else {
@@ -323,6 +400,76 @@ export const updateBookingStatus = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Generate delivery OTP
+// @route   POST /api/bookings/:id/generate-otp
+// @access  Private/Staff/Admin
+export const generateDeliveryOtp = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('user');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const isAdmin = req.user.role === 'admin';
+    const isAssignedStaff = req.user.role === 'staff' && (
+      (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString()) ||
+      (booking.technician && booking.technician.toString() === req.user._id.toString())
+    );
+    if (!isAdmin && !isAssignedStaff) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
+    booking.deliveryOtp = {
+      code,
+      expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+      attempts: 0,
+      verifiedAt: null
+    };
+    await booking.save();
+
+    if (booking.user?.email) {
+      await sendEmail(
+        booking.user.email,
+        'Delivery OTP',
+        `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
+      );
+    }
+    await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) });
+    res.json({ message: 'OTP generated' });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
+// @desc    Verify delivery OTP
+// @route   POST /api/bookings/:id/verify-otp
+// @access  Private/Staff/Admin/Customer
+export const verifyDeliveryOtp = async (req, res) => {
+  const { otp } = req.body;
+  try {
+    const booking = await Booking.findById(req.params.id).populate('user');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking.deliveryOtp || !booking.deliveryOtp.code) return res.status(400).json({ message: 'No OTP generated' });
+
+    const now = new Date();
+    if (booking.deliveryOtp.expiresAt && booking.deliveryOtp.expiresAt < now) {
+      return res.status(400).json({ message: 'OTP expired' });
+    }
+    booking.deliveryOtp.attempts = (booking.deliveryOtp.attempts || 0) + 1;
+    if (booking.deliveryOtp.attempts > 5) {
+      return res.status(429).json({ message: 'Too many attempts' });
+    }
+    if (String(otp) !== booking.deliveryOtp.code) {
+      await booking.save();
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+    booking.deliveryOtp.verifiedAt = now;
+    await booking.save();
+    res.json({ message: 'OTP verified' });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 };
 

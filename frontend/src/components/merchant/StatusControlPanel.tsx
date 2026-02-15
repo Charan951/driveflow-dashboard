@@ -3,23 +3,12 @@ import { Activity, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { STATUS_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 
 interface StatusControlPanelProps {
   booking: any;
   onUpdate: () => void;
 }
-
-const STATUS_FLOW = [
-  'CREATED',
-  'ASSIGNED',
-  'VEHICLE_PICKED',
-  'REACHED_MERCHANT',
-  'VEHICLE_AT_MERCHANT',
-  'SERVICE_STARTED',
-  'SERVICE_COMPLETED',
-  'OUT_FOR_DELIVERY',
-  'DELIVERED'
-];
 
 const DELAY_REASONS = [
   'Waiting for parts',
@@ -34,21 +23,28 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
   const [delayNote, setDelayNote] = useState('');
 
-  const currentStatusIndex = STATUS_FLOW.indexOf(booking.status);
-  
-  // Determine next possible status
+  const pickupStatusFlow = STATUS_ORDER;
+  const noPickupStatusFlow: BookingStatus[] = [
+    'CREATED',
+    'ASSIGNED',
+    'VEHICLE_AT_MERCHANT',
+    'SERVICE_STARTED',
+    'SERVICE_COMPLETED',
+    'DELIVERED',
+  ];
+
+  const activeStatusFlow: BookingStatus[] = booking.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
+  const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);
+
   let nextStatus = '';
-  if (currentStatusIndex !== -1 && currentStatusIndex < STATUS_FLOW.length - 1) {
-    // Only allow Merchant specific transitions
+  if (booking.pickupRequired) {
     if (booking.status === 'REACHED_MERCHANT') nextStatus = 'VEHICLE_AT_MERCHANT';
     else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
     else if (booking.status === 'SERVICE_STARTED') nextStatus = 'SERVICE_COMPLETED';
-  } else if (booking.status === 'CREATED') {
-    // Maybe allow merchant to accept? But requirement says 'ASSIGNED' is auto.
-    // Let's assume Merchant can just view until Vehicle arrives? 
-    // Or maybe Merchant accepts -> ASSIGNED? 
-    // User said: Admin assigns -> Status = ASSIGNED.
-    // So Merchant might not have a manual action until vehicle arrives.
+  } else {
+    if (booking.status === 'ACCEPTED') nextStatus = 'VEHICLE_AT_MERCHANT';
+    else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
+    else if (booking.status === 'SERVICE_STARTED') nextStatus = 'SERVICE_COMPLETED';
   }
 
   const handleStatusChange = async (status: string) => {
@@ -140,28 +136,41 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
 
       {/* Workflow Progress */}
       <div className="relative">
-        <div className="absolute left-0 top-1/2 w-full h-1 bg-gray-200 -z-10"></div>
-        <div className="flex justify-between overflow-x-auto pb-4">
-            {STATUS_FLOW.map((step, idx) => {
-                const stepIndex = STATUS_FLOW.indexOf(step);
-                const isActive = booking.status === step;
-                const isCompleted = currentStatusIndex > stepIndex;
-                
-                return (
-                    <div key={step} className="flex flex-col items-center min-w-[80px]">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                            isActive ? 'bg-primary text-white ring-4 ring-blue-100' :
-                            isCompleted ? 'bg-green-500 text-white' :
-                            'bg-gray-200 text-gray-500'
-                        }`}>
-                            {idx + 1}
-                        </div>
-                        <span className={`text-xs mt-2 text-center max-w-[80px] ${isActive ? 'font-bold text-primary' : 'text-gray-500'}`}>
-                            {step}
-                        </span>
-                    </div>
-                );
+        <div className="absolute left-0 top-[22px] w-full h-0.5 bg-gray-200 -z-10"></div>
+        <div className="overflow-x-auto pb-4">
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: `repeat(${activeStatusFlow.length}, minmax(80px,1fr))` }}
+          >
+            {activeStatusFlow.map((step, idx) => {
+              const stepIndex = activeStatusFlow.indexOf(step);
+              const isActive = booking.status === step;
+              const isCompleted = currentStatusIndex > stepIndex;
+              const label = STATUS_LABELS[step as keyof typeof STATUS_LABELS] || step;
+              return (
+                <div key={step} className="flex flex-col items-center">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      isActive
+                        ? 'bg-primary text-white ring-4 ring-blue-100'
+                        : isCompleted
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                  <span
+                    className={`text-[10px] mt-2 text-center leading-tight ${
+                      isActive ? 'font-semibold text-primary' : 'text-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </div>
+              );
             })}
+          </div>
         </div>
       </div>
 

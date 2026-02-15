@@ -49,6 +49,11 @@ const bookingSchema = mongoose.Schema(
         price: Number,
         quantity: { type: Number, default: 1 },
         approved: { type: Boolean, default: false },
+        approvalStatus: {
+          type: String,
+          enum: ['Pending', 'Approved', 'Rejected'],
+          default: 'Pending'
+        },
         image: String,
         oldImage: String
       }]
@@ -143,6 +148,12 @@ const bookingSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       index: true,
+    },
+    deliveryOtp: {
+      code: { type: String },
+      expiresAt: { type: Date },
+      attempts: { type: Number, default: 0 },
+      verifiedAt: { type: Date },
     },
     paymentStatus: {
       type: String,

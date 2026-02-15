@@ -3,18 +3,20 @@ import { Plus, Edit, Trash, X, Save, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
+import api from '@/services/api';
 
 const AdminServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   const [formData, setFormData] = useState<Partial<Service>>({
     name: '',
     description: '',
     price: 0,
-    duration: '',
+    duration: 60,
     category: 'Periodic',
     vehicleType: 'Car',
     features: [],
@@ -59,12 +61,38 @@ const AdminServicesPage: React.FC = () => {
       name: '',
       description: '',
       price: 0,
-      duration: '',
+      duration: 60,
       category: 'Periodic',
       vehicleType: 'Car',
       features: [],
     });
     setIsModalOpen(true);
+  };
+
+  const handleImageUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const data = new FormData();
+      data.append('file', file);
+      const res = await api.post('/upload', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const url: string = res.data?.url;
+      if (url) {
+        setFormData((prev) => ({ ...prev, image: url }));
+        toast.success('Image uploaded');
+      } else {
+        toast.error('Upload succeeded but no URL returned');
+      }
+    } catch (err) {
+      toast.error('Image upload failed');
+    } finally {
+      setUploading(false);
+      // Reset input value so the same file can be reselected if needed
+      e.currentTarget.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,6 +133,9 @@ const AdminServicesPage: React.FC = () => {
             <div key={service._id} className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
+                  {service.image ? (
+                    <img src={service.image} alt={service.name} className="w-full h-32 object-cover rounded-md mb-2" />
+                  ) : null}
                   <h3 className="font-semibold">{service.name}</h3>
                   <p className="text-xs text-muted-foreground">{service.category} • {service.vehicleType}</p>
                 </div>
@@ -116,7 +147,7 @@ const AdminServicesPage: React.FC = () => {
               <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{service.description}</p>
               <div className="flex justify-between items-center mt-auto">
                 <span className="font-bold text-primary">₹{service.price}</span>
-                <span className="text-xs bg-muted px-2 py-1 rounded">{service.duration}</span>
+                <span className="text-xs bg-muted px-2 py-1 rounded">{service.duration} mins</span>
               </div>
             </div>
           ))}
@@ -180,7 +211,8 @@ const AdminServicesPage: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium">Price (₹)</label>
                     <input 
-                      type="number" 
+                      type="number"
+                      min={0}
                       required 
                       value={formData.price}
                       onChange={e => setFormData({...formData, price: Number(e.target.value)})}
@@ -188,17 +220,43 @@ const AdminServicesPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Duration</label>
+                    <label className="text-sm font-medium">Duration (mins)</label>
                     <input 
-                      type="text" 
+                      type="number" 
+                      min={1}
                       required 
-                      placeholder="e.g. 2 hours"
+                      placeholder="e.g. 120"
                       value={formData.duration}
-                      onChange={e => setFormData({...formData, duration: e.target.value})}
+                      onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
                       className="w-full mt-1 p-2 border rounded-lg bg-muted/50"
                     />
                   </div>
                 </div>
+
+              {/* Image upload */}
+              <div>
+                <label className="text-sm font-medium">Image</label>
+                {formData.image ? (
+                  <div className="mt-2">
+                    <img src={formData.image} alt="Service" className="w-full h-40 object-cover rounded-lg border border-border/50" />
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-muted-foreground truncate">{formData.image}</span>
+                      <button type="button" onClick={() => setFormData({ ...formData, image: undefined })} className="text-xs text-red-500 hover:underline">Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                      className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-muted file:text-foreground hover:file:bg-muted/80"
+                    />
+                    {uploading && <p className="text-xs text-muted-foreground mt-1">Uploading...</p>}
+                  </div>
+                )}
+              </div>
 
                 <div>
                   <label className="text-sm font-medium">Description</label>

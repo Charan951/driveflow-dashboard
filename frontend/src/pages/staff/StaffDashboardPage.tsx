@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
 import { uploadService } from '@/services/uploadService';
 import CounterCard from '@/components/CounterCard';
+import { useTracking } from '@/context/TrackingContext';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import {
@@ -39,6 +40,7 @@ const StaffDashboardPage: React.FC = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Booking | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
+  const { setActiveBookingId } = useTracking();
 
   const handleUploadClick = (orderId: string) => {
     setSelectedOrderForUpload(orderId);
@@ -87,7 +89,18 @@ const StaffDashboardPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
+      if (newStatus === 'DELIVERED') {
+        const otp = window.prompt('Enter delivery OTP');
+        if (!otp) {
+          toast.dismiss(loadingToast);
+          return;
+        }
+        await bookingService.verifyDeliveryOtp(selectedOrderForStatus._id, otp);
+      }
       await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
+      if (['ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','OUT_FOR_DELIVERY'].includes(newStatus)) {
+        setActiveBookingId(selectedOrderForStatus._id);
+      }
       toast.dismiss(loadingToast);
       toast.success('Status updated successfully');
       setStatusDialogOpen(false);
@@ -181,22 +194,32 @@ const StaffDashboardPage: React.FC = () => {
   const activeOrders = bookings.filter(b => activeStatuses.includes(b.status));
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Staff Dashboard</h1>
-      </div>
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="space-y-8"
+    >
+      <motion.div variants={staggerItem}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-primary">Staff Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Overview of your assigned jobs and live orders
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
+        <motion.div variants={staggerItem} className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <CounterCard label="Today's Orders" value={stats.todaysOrders} icon={<Package className="w-5 h-5 text-primary" />} delay={0} />
             <CounterCard label="Pending" value={stats.pending} icon={<Clock className="w-5 h-5 text-primary" />} delay={1} />
             <CounterCard label="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-primary" />} delay={2} />
             <CounterCard label="Job Value" value={`₹${stats.earnings}`} icon={<DollarSign className="w-5 h-5 text-primary" />} delay={3} />
           </div>
 
-          {/* Orders */}
           <div>
             <h2 className="font-semibold text-lg mb-4">Active Orders</h2>
             {activeOrders.length === 0 ? (
@@ -214,22 +237,18 @@ const StaffDashboardPage: React.FC = () => {
                         <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
                         <h3 className="font-semibold">
                             {order.services && order.services.length > 0 
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
                               ? (typeof order.services[0] === 'object' ? (order.services[0] as any).name : 'Service')
                               : 'Service'}
                             {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                             {typeof order.user === 'object' ? (order.user as any).name : 'Customer'}
                         </p>
                       </div>
                       <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium">{STATUS_LABELS[order.status] || order.status}</span>
                     </div>
                     
-                    {/* Services List */}
                     <div className="space-y-2 mb-4">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {Array.isArray(order.services) && order.services.map((service: any, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                           <CheckCircle className="w-4 h-4 text-muted" />
@@ -255,11 +274,10 @@ const StaffDashboardPage: React.FC = () => {
               </motion.div>
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="space-y-6">
-          {/* Quick Actions or Other Info can go here */}
-        </div>
+        <motion.div variants={staggerItem} className="space-y-6">
+        </motion.div>
       </div>
 
       <input 
@@ -301,7 +319,7 @@ const StaffDashboardPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 };
 

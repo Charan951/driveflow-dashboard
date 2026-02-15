@@ -17,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
+import { getETA, ETAResponse } from '@/services/trackingService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
@@ -26,16 +28,14 @@ const StaffOrderPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [eta, setEta] = useState<ETAResponse | null>(null);
+  const etaTimerRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     // Set active booking ID for tracking context
     if (id) {
       setActiveBookingId(id);
     }
-    
-    return () => {
-      setActiveBookingId(null);
-    };
   }, [id, setActiveBookingId]);
 
   useEffect(() => {
@@ -111,12 +111,60 @@ const StaffOrderPage: React.FC = () => {
     }
   }, [order, staffLocation, isUpdating]);
 
+  // Compute ETA for current leg (to customer during pickup; to merchant after pick; to customer during delivery)
+  useEffect(() => {
+    if (!order || !staffLocation) {
+      setEta(null);
+      return;
+    }
+    const isHeadingToMerchant = order.status === 'VEHICLE_PICKED';
+    // compute destination based on phase
+    let destLat: number | undefined;
+    let destLng: number | undefined;
+    if (order.status === 'ACCEPTED' || order.status === 'REACHED_CUSTOMER' || order.status === 'OUT_FOR_DELIVERY') {
+      destLat = order.location?.lat;
+      destLng = order.location?.lng;
+    } else if (isHeadingToMerchant && order.merchant?.location) {
+      destLat = order.merchant.location.lat;
+      destLng = order.merchant.location.lng;
+    }
+    if (!destLat || !destLng) {
+      setEta(null);
+      return;
+    }
+    if (etaTimerRef.current) {
+      window.clearTimeout(etaTimerRef.current);
+    }
+    etaTimerRef.current = window.setTimeout(async () => {
+      try {
+        const res = await getETA(staffLocation.lat, staffLocation.lng, destLat!, destLng!);
+        setEta(res);
+      } catch (e) {
+        // ignore
+      }
+    }, 400);
+    return () => {
+      if (etaTimerRef.current) {
+        window.clearTimeout(etaTimerRef.current);
+        etaTimerRef.current = null;
+      }
+    };
+  }, [order?._id, order?.status, order?.location?.lat, order?.location?.lng, order?.merchant?.location?.lat, order?.merchant?.location?.lng, staffLocation?.lat, staffLocation?.lng]);
+
   const handleStatusUpdate = async (newStatus: string) => {
     if (!order) return;
     try {
       setIsUpdating(true);
+      if (newStatus === 'DELIVERED') {
+        const otp = window.prompt('Enter delivery OTP');
+        if (!otp) {
+          setIsUpdating(false);
+          return;
+        }
+        await bookingService.verifyDeliveryOtp(order._id, otp);
+      }
       await bookingService.updateBookingStatus(order._id, newStatus);
-      setOrder({ ...order, status: newStatus as any });
+      setOrder({ ...order, status: newStatus as typeof order.status });
       toast.success(`Order updated to ${newStatus}`);
 
       // Auto-navigate to merchant when vehicle is picked
@@ -139,9 +187,13 @@ const StaffOrderPage: React.FC = () => {
           toast.warning("Merchant location coordinates missing, cannot start navigation automatically.");
         }
       }
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to update status');
+      if (newStatus === 'OUT_FOR_DELIVERY') {
+        toast.info('Delivery OTP sent to customer');
+      }
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      console.error(err);
+      toast.error(err?.response?.data?.message || 'Failed to update status');
     } finally {
       setIsUpdating(false);
     }
@@ -264,7 +316,6 @@ const StaffOrderPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Status Actions */}
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
           <h3 className="font-medium">Order Actions</h3>
@@ -279,7 +330,6 @@ const StaffOrderPage: React.FC = () => {
               <DropdownMenuLabel>Available Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              {/* Status Update */}
               {nextAction && (
                 <DropdownMenuItem 
                   onClick={() => handleStatusUpdate(nextAction.nextStatus)}
@@ -290,13 +340,11 @@ const StaffOrderPage: React.FC = () => {
                 </DropdownMenuItem>
               )}
 
-              {/* Navigation */}
               <DropdownMenuItem onClick={handleNavigate} className="cursor-pointer">
                 <Navigation className="mr-2 h-4 w-4" />
                 Navigate to Location
               </DropdownMenuItem>
 
-              {/* Upload */}
               <DropdownMenuItem onClick={handleUploadClick} className="cursor-pointer">
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Photo
@@ -314,99 +362,123 @@ const StaffOrderPage: React.FC = () => {
         </div>
       )}
 
-      {/* Waiting for Merchant Confirmation */}
       {order.status === 'REACHED_MERCHANT' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-medium text-yellow-800 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Waiting for Handover
-            </h3>
-            <p className="text-sm text-yellow-700">
-                You have reached the workshop. Please handover the vehicle to the merchant.
-                The merchant will update the status once they receive the vehicle.
-            </p>
+          <h3 className="font-medium text-yellow-800 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Waiting for Handover
+          </h3>
+          <p className="text-sm text-yellow-700">
+            You have reached the workshop. Please handover the vehicle to the merchant.
+            The merchant will update the status once they receive the vehicle.
+          </p>
         </div>
       )}
 
-      {/* Customer Info */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-purple-50 rounded-full">
-            <User className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="font-medium text-lg">{userDetails.name || 'Guest User'}</h3>
-            <p className="text-muted-foreground text-sm">{userDetails.phone || 'No phone'}</p>
-          </div>
-          {userDetails.phone && (
-             <a href={`tel:${userDetails.phone}`} className="ml-auto p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100">
-               <Phone className="w-5 h-5" />
-             </a>
-          )}
-        </div>
-      </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
+          <TabsTrigger value="navigation">Navigation</TabsTrigger>
+          <TabsTrigger value="media">Photos</TabsTrigger>
+        </TabsList>
 
-      {/* Vehicle Info */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-50 rounded-full">
-            <Car className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-medium">{vehicle.make} {vehicle.model}</h3>
-            <p className="text-muted-foreground text-sm">{vehicle.registrationNumber || 'No Plate'}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Location & Navigation */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-amber-50 rounded-full">
-            <MapPin className="w-5 h-5 text-amber-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-medium mb-1">{locationLabel}</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              {addressDisplay}
-            </p>
-            
-            <Button onClick={handleNavigate} className="w-full gap-2">
-              <Navigation className="w-4 h-4" />
-              {navigateButtonText}
-            </Button>
-            
-            {isTracking && (
-              <div className="mt-2 flex items-center justify-center gap-2 text-xs text-green-600 font-medium animate-pulse">
-                <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                Sharing Live Location
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-50 rounded-full">
+                <User className="w-5 h-5 text-purple-600" />
               </div>
+              <div>
+                <h3 className="font-medium text-lg">{userDetails.name || 'Guest User'}</h3>
+                <p className="text-muted-foreground text-sm">{userDetails.phone || 'No phone'}</p>
+              </div>
+              {userDetails.phone && (
+                <a href={`tel:${userDetails.phone}`} className="ml-auto p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100">
+                  <Phone className="w-5 h-5" />
+                </a>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="vehicle" className="space-y-4 mt-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-50 rounded-full">
+                <Car className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-medium">{vehicle.make} {vehicle.model}</h3>
+                <p className="text-muted-foreground text-sm">{vehicle.licensePlate || 'No Plate'}</p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Services</h4>
+              <ul className="space-y-2">
+                {services.map((s: any, idx: number) => (
+                  <li key={idx} className="text-sm p-2 bg-gray-50 rounded flex justify-between">
+                    <span>{s.name || 'Service'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="navigation" className="space-y-4 mt-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-50 rounded-full">
+                <MapPin className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium mb-1">{locationLabel}</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {addressDisplay}
+                </p>
+                {eta && (
+                  <div className="mb-3 text-xs text-muted-foreground">
+                    ETA: <span className="font-medium text-foreground">{eta.textDuration}</span>
+                    <span className="mx-1">•</span>
+                    {eta.textDistance}
+                  </div>
+                )}
+                
+                <Button onClick={handleNavigate} className="w-full gap-2">
+                  <Navigation className="w-4 h-4" />
+                  {navigateButtonText}
+                </Button>
+                
+                {isTracking && (
+                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-green-600 font-medium animate-pulse">
+                    <span className="w-2 h-2 bg-green-600 rounded-full"></span>
+                    Sharing Live Location
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="media" className="mt-4 space-y-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+            <h3 className="font-medium mb-3">Uploaded Photos</h3>
+            {order.media && order.media.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {order.media.map((url, index) => (
+                  <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                    <img src={url} alt={`Order media ${index + 1}`} className="w-full h-32 object-cover" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No photos uploaded yet. Use the Actions menu to upload.</p>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Services */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <h3 className="font-medium mb-3 flex items-center gap-2">
-          <Wrench className="w-4 h-4 text-gray-500" /> Requested Services
-        </h3>
-        <ul className="space-y-2">
-          {services.map((s: any, idx: number) => (
-            <li key={idx} className="text-sm p-2 bg-gray-50 rounded flex justify-between">
-              <span>{s.name || 'Service'}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className="hidden" 
-        accept="image/*"
-        onChange={handleFileChange}
-      />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

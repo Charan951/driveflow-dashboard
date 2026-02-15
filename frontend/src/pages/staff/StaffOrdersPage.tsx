@@ -24,10 +24,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTracking } from '@/context/TrackingContext';
+import { getETA, ETAResponse } from '@/services/trackingService';
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
-  const { location: trackingLocation } = useTracking();
+  const { location: trackingLocation, setActiveBookingId, activeBookingId } = useTracking();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +40,8 @@ const StaffOrdersPage: React.FC = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Booking | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
+  const [etaByBooking, setEtaByBooking] = useState<Record<string, ETAResponse>>({});
+  const etaTimeoutRef = useRef<number | null>(null);
 
   const activeStatuses = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'VEHICLE_AT_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING'];
 
@@ -58,6 +61,15 @@ const StaffOrdersPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Auto-bind an active booking to enable live sharing to customers/merchants
+  useEffect(() => {
+    if (activeBookingId) return;
+    const candidate = bookings.find(b => activeStatuses.includes(b.status));
+    if (candidate) {
+      setActiveBookingId(candidate._id);
+    }
+  }, [bookings, activeBookingId]);
 
   useEffect(() => {
     let result = bookings;
@@ -83,6 +95,47 @@ const StaffOrdersPage: React.FC = () => {
     setFilteredBookings(result);
   }, [searchQuery, statusFilter, bookings]);
 
+  // Compute ETA badges for visible orders using OSRM backend endpoint
+  useEffect(() => {
+    if (!trackingLocation) {
+      setEtaByBooking({});
+      return;
+    }
+    if (etaTimeoutRef.current) {
+      window.clearTimeout(etaTimeoutRef.current);
+    }
+    etaTimeoutRef.current = window.setTimeout(async () => {
+      const updates: Record<string, ETAResponse> = {};
+      const toProcess = filteredBookings.slice(0, 12);
+      for (const b of toProcess) {
+        let destLat: number | undefined;
+        let destLng: number | undefined;
+        if (['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'OUT_FOR_DELIVERY'].includes(b.status)) {
+          destLat = b.location?.lat;
+          destLng = b.location?.lng;
+        } else if (b.status === 'VEHICLE_PICKED' && (b as any).merchant?.location) {
+          destLat = (b as any).merchant.location.lat;
+          destLng = (b as any).merchant.location.lng;
+        }
+        if (destLat && destLng) {
+          try {
+            const res = await getETA(trackingLocation.lat, trackingLocation.lng, destLat, destLng);
+            updates[b._id] = res;
+          } catch {
+            // ignore
+          }
+        }
+      }
+      setEtaByBooking(prev => ({ ...prev, ...updates }));
+    }, 400);
+    return () => {
+      if (etaTimeoutRef.current) {
+        window.clearTimeout(etaTimeoutRef.current);
+        etaTimeoutRef.current = null;
+      }
+    };
+  }, [trackingLocation?.lat, trackingLocation?.lng, filteredBookings]);
+
   const handleUploadClick = (orderId: string) => {
     setSelectedOrderForUpload(orderId);
     fileInputRef.current?.click();
@@ -92,6 +145,7 @@ const StaffOrdersPage: React.FC = () => {
     try {
         const loadingToast = toast.loading('Accepting order...');
         await bookingService.updateBookingStatus(orderId, 'ACCEPTED');
+        setActiveBookingId(orderId);
         toast.dismiss(loadingToast);
         toast.success('Order accepted successfully');
         fetchData();
@@ -197,7 +251,18 @@ const StaffOrdersPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
+      if (newStatus === 'DELIVERED') {
+        const otp = window.prompt('Enter delivery OTP');
+        if (!otp) {
+          toast.dismiss(loadingToast);
+          return;
+        }
+        await bookingService.verifyDeliveryOtp(selectedOrderForStatus._id, otp);
+      }
       await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
+      if (['ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','OUT_FOR_DELIVERY'].includes(newStatus)) {
+        setActiveBookingId(selectedOrderForStatus._id);
+      }
       toast.dismiss(loadingToast);
       toast.success('Status updated successfully');
       setStatusDialogOpen(false);
@@ -213,34 +278,42 @@ const StaffOrdersPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">My Orders</h1>
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      <motion.div variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Service Orders</h1>
+          <p className="text-muted-foreground mt-1">Handle your assigned bookings and status updates</p>
+        </div>
         
         <div className="flex gap-2">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Search orders..." 
-                    className="pl-9 w-full sm:w-[200px]"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Orders</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-            </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search orders..." 
+              className="pl-9 w-full sm:w-[200px]"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Orders</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="space-y-4">
+      <motion.div variants={staggerItem} className="space-y-4">
         {filteredBookings.length === 0 ? (
           <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
             <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -260,23 +333,26 @@ const StaffOrdersPage: React.FC = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
                     <h3 className="font-semibold line-clamp-1">
-                        {order.services && order.services.length > 0 
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          ? (typeof order.services[0] === 'object' ? (order.services[0] as any).name : 'Service')
-                          : 'Service'}
-                        {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
+                      {order.services && order.services.length > 0 
+                        ? (typeof order.services[0] === 'object' ? (order.services[0] as any).name : 'Service')
+                        : 'Service'}
+                      {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
                     </h3>
                     <p className="text-sm text-muted-foreground truncate">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {typeof order.user === 'object' ? (order.user as any).name : 'Customer'}
+                      {typeof order.user === 'object' ? (order.user as any).name : 'Customer'}
                     </p>
                   </div>
-                  <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{order.status}</span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{order.status}</span>
+                    {etaByBooking[order._id] && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-200">
+                        ETA {etaByBooking[order._id].textDuration}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
-                {/* Services List */}
                 <div className="space-y-2 mb-4 flex-1">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {Array.isArray(order.services) && order.services.slice(0, 3).map((service: any, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
@@ -288,56 +364,55 @@ const StaffOrdersPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Location Display */}
                 {['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED'].includes(order.status) && order.location && (
-                     <div className="mt-3 mb-2 p-3 bg-muted/30 rounded-lg border border-border/50">
-                        <div className="flex items-start gap-2">
-                             <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                             <div>
-                                 <p className="text-xs font-medium text-foreground">Pickup Location</p>
-                                 <p className="text-xs text-muted-foreground line-clamp-2">{order.location.address}</p>
-                             </div>
-                        </div>
-                     </div>
+                  <div className="mt-3 mb-2 p-3 bg-muted/30 rounded-lg border border-border/50">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Pickup Location</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{order.location.address}</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-border">
                   {order.status === 'ASSIGNED' ? (
-                     <button 
-                        onClick={(e) => { e.stopPropagation(); handleAcceptOrder(order._id); }}
-                        className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                        Accept Order
-                     </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleAcceptOrder(order._id); }}
+                      className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                      Accept Order
+                    </button>
                   ) : (
-                     <>
-                        {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
-                                className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                                <Navigation className="w-4 h-4" /> Get Directions
-                            </button>
-                        )}
+                    <>
+                      {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
+                          className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                          <Navigation className="w-4 h-4" /> Get Directions
+                        </button>
+                      )}
 
-                        <div className="flex gap-3">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
-                            className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                            <Upload className="w-3.5 h-3.5" /> Upload
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
-                            className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                            Update
-                          </button>
-                        </div>
-                     </>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
+                          className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
+                          <Upload className="w-3.5 h-3.5" /> Upload
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
+                          className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                          Update
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               </motion.div>
             ))}
           </motion.div>
         )}
-      </div>
+      </motion.div>
 
       <input 
         type="file" 
@@ -380,7 +455,7 @@ const StaffOrdersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 };
 

@@ -52,6 +52,9 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  deviceTokens: [{
+    type: String,
+  }],
   location: {
     lat: { type: Number },
     lng: { type: Number },

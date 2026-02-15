@@ -43,7 +43,7 @@ export interface Booking {
   inspection?: {
     photos?: string[];
     damageReport?: string;
-    additionalParts?: { name: string; price: number; quantity: number; approved: boolean }[];
+    additionalParts?: { name: string; price: number; quantity: number; approved: boolean; approvalStatus?: 'Pending' | 'Approved' | 'Rejected'; image?: string; oldImage?: string }[];
   };
   delay?: {
     isDelayed: boolean;
@@ -134,6 +134,16 @@ export const bookingService = {
 
   updateBookingStatus: async (id: string, status: string) => {
     const response = await api.put(`/bookings/${id}/status`, { status });
+    return response.data;
+  },
+
+  generateDeliveryOtp: async (id: string) => {
+    const response = await api.post(`/bookings/${id}/generate-otp`, {});
+    return response.data;
+  },
+
+  verifyDeliveryOtp: async (id: string, otp: string) => {
+    const response = await api.post(`/bookings/${id}/verify-otp`, { otp });
     return response.data;
   },
 

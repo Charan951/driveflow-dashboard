@@ -5,7 +5,7 @@ export interface Service {
   name: string;
   description: string;
   price: number;
-  duration: string;
+  duration: number;
   category: 'Periodic' | 'Repair' | 'Wash' | 'Tyres' | 'Denting' | 'Painting' | 'Detailing' | 'AC' | 'Accessories' | 'Other';
   vehicleType: 'Car' | 'Bike';
   image?: string;

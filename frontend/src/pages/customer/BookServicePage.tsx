@@ -36,6 +36,7 @@ const BookServicePage: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
+  const [pickupRequired, setPickupRequired] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -86,7 +87,7 @@ const BookServicePage: React.FC = () => {
       case 1: return selectedCategory !== null;
       case 2: return selectedServices.length > 0;
       case 3: return selectedDate !== null && selectedTime !== null;
-      case 4: return pickupLocation.address.trim() !== '';
+      case 4: return pickupRequired ? pickupLocation.address.trim() !== '' : true;
       default: return false;
     }
   };
@@ -125,28 +126,28 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
-      const locationData: { address: string; lat?: number; lng?: number } = {
-        address: pickupLocation.address
-      };
-
-      if (typeof pickupLocation.lat === 'number' && !isNaN(pickupLocation.lat)) {
-        locationData.lat = pickupLocation.lat;
-      }
-      if (typeof pickupLocation.lng === 'number' && !isNaN(pickupLocation.lng)) {
-        locationData.lng = pickupLocation.lng;
+      let locationData: { address: string; lat?: number; lng?: number } | undefined = undefined;
+      if (pickupRequired) {
+        locationData = { address: pickupLocation.address };
+        if (typeof pickupLocation.lat === 'number' && !isNaN(pickupLocation.lat)) {
+          locationData.lat = pickupLocation.lat;
+        }
+        if (typeof pickupLocation.lng === 'number' && !isNaN(pickupLocation.lng)) {
+          locationData.lng = pickupLocation.lng;
+        }
       }
 
       const bookingData = {
         vehicleId: selectedVehicle,
         serviceIds: selectedServices,
         date: bookingDate.toISOString(),
-        location: locationData,
-        pickupRequired: true, // Assuming pickup is required if address is provided in this flow
+        ...(locationData ? { location: locationData } : {}),
+        pickupRequired,
         notes: ""
       };
 
       const newBooking = await bookingService.createBooking(bookingData);
-      toast.success('Booking confirmed! We\'ll pick up your vehicle soon.');
+      toast.success(pickupRequired ? 'Booking confirmed! We\'ll pick up your vehicle soon.' : 'Booking confirmed! Please drop off your vehicle at the service center.');
       navigate(`/track/${newBooking._id}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -438,17 +439,46 @@ const BookServicePage: React.FC = () => {
             </div>
 
             {/* Pickup Address */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Pickup Address
-              </label>
-              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                <LocationPicker 
-                  value={pickupLocation} 
-                  onChange={setPickupLocation}
-                  mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
-                />
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Pickup Required?
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPickupRequired(true)}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium ${pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickupRequired(false)}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium ${!pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
+                  >
+                    No
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {pickupRequired ? 'Our driver will collect your vehicle from your location.' : 'You will drop off the vehicle at the service center.'}
+                </p>
               </div>
+
+              {pickupRequired && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Pickup Address
+                  </label>
+                  <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                    <LocationPicker 
+                      value={pickupLocation} 
+                      onChange={setPickupLocation}
+                      mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -30,7 +30,7 @@ interface Review {
     vehicle?: {
       make: string;
       model: string;
-      registrationNumber: string;
+      licensePlate: string;
     };
     services?: Array<{
       name: string;
@@ -137,7 +137,7 @@ const Feedback: React.FC = () => {
                             {review.booking.vehicle && (
                                 <span className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
                                     <Car className="w-3 h-3" /> 
-                                    {review.booking.vehicle.make} {review.booking.vehicle.model} ({review.booking.vehicle.registrationNumber})
+                                    {review.booking.vehicle.make} {review.booking.vehicle.model} ({review.booking.vehicle.licensePlate})
                                 </span>
                             )}
                             {review.booking.services && review.booking.services.length > 0 && (

@@ -66,6 +66,7 @@ const AdminTrackingPage: React.FC = () => {
   const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number, airDistance?: number } | null>(null);
   const [destination, setDestination] = useState<[number, number] | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [etaByAsset, setEtaByAsset] = useState<Record<string, number>>({});
 
   // Use React Query for fetching data
   const { data: liveData, isLoading, isFetching, refetch } = useQuery({
@@ -189,6 +190,34 @@ const AdminTrackingPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
+  // Recompute route ETA live for the selected asset when its location updates
+  useEffect(() => {
+    const handler = async (data: any) => {
+      if (!selectedItem || !destination) return;
+      if (data.userId !== (selectedItem as any)._id) return;
+      try {
+        const start = [data.lat, data.lng] as [number, number];
+        const end = destination;
+        const response = await routingService.getRoute(start, end);
+        if (response.routes && response.routes.length > 0) {
+          const route = response.routes[0];
+          const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+          setRouteGeometry(coordinates);
+          setRouteInfo({
+            distance: route.distance,
+            duration: route.duration,
+          });
+        }
+      } catch (e) {
+        // silent
+      }
+    };
+    socketService.on('liveLocation', handler);
+    return () => {
+      socketService.off('liveLocation', handler as any);
+    };
+  }, [selectedItem, destination]);
+
   useEffect(() => {
     if (selectedItem && 'currentJob' in selectedItem && selectedItem.currentJob?.location) {
       // Handle both string and object location
@@ -246,6 +275,48 @@ const AdminTrackingPage: React.FC = () => {
     }
   }, [selectedItem]);
 
+  useEffect(() => {
+    if (!liveData) return;
+    const items = filteredItems().slice(0, 12);
+    const doWork = async () => {
+      const updates: Record<string, number> = {};
+      for (const it of items) {
+        if ('currentJob' in it && it.currentJob && it.currentJob.location) {
+          const loc: any = it.currentJob.location as any;
+          let destLat: number | undefined;
+          let destLng: number | undefined;
+          if (typeof loc === 'object' && loc.lat && loc.lng) {
+            destLat = loc.lat;
+            destLng = loc.lng;
+          } else if (typeof loc === 'string') {
+            const parts = loc.split(',').map((p: string) => parseFloat(p.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              destLat = parts[0];
+              destLng = parts[1];
+            }
+          }
+          if (destLat && destLng) {
+            try {
+              const start = [it.location.lat, it.location.lng] as [number, number];
+              const end = [destLat, destLng] as [number, number];
+              const response = await routingService.getRoute(start, end);
+              if (response.routes && response.routes.length > 0) {
+                const route = response.routes[0];
+                updates[it._id] = Math.round(route.duration / 60);
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+      if (Object.keys(updates).length) {
+        setEtaByAsset(prev => ({ ...prev, ...updates }));
+      }
+    };
+    doWork();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveData?.timestamp, filter]);
   // Removed old fetchData function as we use useQuery now
 
   const createCustomIcon = (type: 'staff' | 'vehicle' | 'merchant', status?: string, isShopOpen?: boolean) => {
@@ -462,17 +533,24 @@ const AdminTrackingPage: React.FC = () => {
                         <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {'name' in item ? item.name : `${item.make} ${item.model}`}
                         </h3>
-                        {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                ('role' in item && item.role === 'merchant') 
-                                    ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
-                                    : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
-                            }`}>
-                                {('role' in item && item.role === 'merchant') 
-                                    ? (item.isShopOpen !== false ? 'Open' : 'Closed') 
-                                    : (item.isOnline ? 'Online' : 'Offline')}
+                        <div className="flex items-center gap-1">
+                          {etaByAsset[item._id] !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                              ETA {etaByAsset[item._id]}m
                             </span>
-                        )}
+                          )}
+                          {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                  ('role' in item && item.role === 'merchant') 
+                                      ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
+                                      : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
+                              }`}>
+                                  {('role' in item && item.role === 'merchant') 
+                                      ? (item.isShopOpen !== false ? 'Open' : 'Closed') 
+                                      : (item.isOnline ? 'Online' : 'Offline')}
+                              </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}
@@ -549,6 +627,9 @@ const AdminTrackingPage: React.FC = () => {
                        <div className="mt-1 pt-1 border-t border-gray-200">
                          <p className="text-xs font-semibold text-blue-600">Active Job</p>
                          <p className="text-xs text-gray-500">{item.currentJob.status}</p>
+                         {etaByAsset[item._id] !== undefined && (
+                           <p className="text-xs text-blue-700 mt-1">ETA {etaByAsset[item._id]}m</p>
+                         )}
                        </div>
                      )}
                      <p className="text-xs text-gray-500 mt-1">

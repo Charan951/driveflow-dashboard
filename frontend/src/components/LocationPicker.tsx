@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
+import api from '@/services/api';
 import { Search, MapPin, Loader2, Locate } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -76,9 +76,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const response = await axios.get(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
+      const response = await api.get('/tracking/reverse', { params: { lat, lng } });
       if (response.data && response.data.display_name) {
         const address = response.data.display_name;
         setQuery(address);
@@ -134,9 +132,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
   // Helper function for searching
   const searchNominatim = async (q: string) => {
     try {
-      const response = await axios.get(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&countrycodes=in`
-      );
+      const response = await api.get('/tracking/search', { params: { q, limit: 5, countrycodes: 'in' } });
       return response.data || [];
     } catch (e) {
       console.error('Nominatim search error:', e);

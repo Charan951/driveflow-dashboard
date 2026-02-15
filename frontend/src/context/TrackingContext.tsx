@@ -3,6 +3,7 @@ import { socketService } from '@/services/socket';
 import { updateMyLocation, updateOnlineStatus } from '@/services/trackingService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
+import { bookingService } from '@/services/bookingService';
 
 interface TrackingContextType {
   isTracking: boolean;
@@ -10,6 +11,7 @@ interface TrackingContextType {
   error: string | null;
   lastUpdate: Date | null;
   lastServerSync: Date | null;
+  activeBookingId: string | null;
   startTracking: () => void;
   stopTracking: () => void;
   setActiveBookingId: (id: string | null) => void;
@@ -26,7 +28,9 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [lastServerSync, setLastServerSync] = useState<Date | null>(null);
-  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [activeBookingId, _setActiveBookingId] = useState<string | null>(() => {
+    return localStorage.getItem('activeBookingId') || null;
+  });
 
   const watchId = useRef<number | null>(null);
   const lastRestUpdate = useRef<number>(0);
@@ -37,7 +41,22 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
   useEffect(() => {
     activeBookingIdRef.current = activeBookingId;
+    if (activeBookingId) {
+      localStorage.setItem('activeBookingId', activeBookingId);
+      // Ensure socket is connected for live room forwarding
+      socketService.connect();
+      // Optionally start tracking to ensure updates flow
+      if (!isTracking) {
+        startTracking();
+      }
+    } else {
+      localStorage.removeItem('activeBookingId');
+    }
   }, [activeBookingId]);
+
+  const setActiveBookingId = (id: string | null) => {
+    _setActiveBookingId(id);
+  };
 
   const handlePositionUpdate = async (position: GeolocationPosition) => {
     const { latitude, longitude } = position.coords;
@@ -67,7 +86,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Also update via REST for persistence (Throttle to every 2 minutes)
       if (now - lastRestUpdate.current > 120000) { // 2 minutes
-        await updateMyLocation(latitude, longitude);
+        await updateMyLocation(latitude, longitude, undefined, activeBookingIdRef.current || undefined);
         lastRestUpdate.current = now;
         setLastServerSync(new Date());
         // toast.success('Location synced to server'); // Optional: too noisy if global
@@ -76,6 +95,97 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Failed to update server', err);
+    }
+  };
+
+  // Attempt native background tracking if available (Capacitor/Cordova)
+  const bgRef = useRef<{ stop?: () => Promise<void> | void } | null>(null);
+
+  const tryStartNativeBackground = async () => {
+    try {
+      const cap = (window as any).Capacitor;
+      const plugins = cap?.Plugins || {};
+      const bg =
+        plugins?.BackgroundGeolocation ||
+        (window as any).BackgroundGeolocation ||
+        plugins?.CapacitorBackgroundGeolocation ||
+        null;
+
+      if (!bg) return;
+
+      // Support common plugin APIs
+      if (typeof bg.addListener === 'function' && typeof bg.start === 'function') {
+        const onLoc = async (loc: any) => {
+          const lat = loc?.latitude ?? loc?.coords?.latitude;
+          const lng = loc?.longitude ?? loc?.coords?.longitude;
+          if (typeof lat === 'number' && typeof lng === 'number') {
+            setLocation({ lat, lng });
+            const payload: any = {
+              userId: user?._id,
+              role: user?.role,
+              subRole: user?.subRole,
+              lat,
+              lng,
+              timestamp: new Date().toISOString()
+            };
+            if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
+            socketService.emit('location', payload);
+            try {
+              await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
+              setLastServerSync(new Date());
+            } catch {}
+            setLastUpdate(new Date());
+          }
+        };
+        const sub = await bg.addListener('location', onLoc);
+        await bg.start();
+        bgRef.current = {
+          stop: async () => {
+            try { await bg.stop?.(); } catch {}
+            try { await sub?.remove?.(); } catch {}
+          }
+        };
+        return;
+      }
+
+      // capawesome API: addWatcher
+      if (typeof bg.addWatcher === 'function') {
+        const watcherId = await bg.addWatcher(
+          {
+            backgroundMessage: 'Location service running',
+            backgroundTitle: 'VehicleCare',
+            requestPermissions: true,
+            stale: false
+          },
+          async (loc: any, err: any) => {
+            if (err) return;
+            if (!loc) return;
+            const lat = loc?.latitude;
+            const lng = loc?.longitude;
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              setLocation({ lat, lng });
+              const payload: any = {
+                userId: user?._id,
+                role: user?.role,
+                subRole: user?.subRole,
+                lat,
+                lng,
+                timestamp: new Date().toISOString()
+              };
+              if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
+              socketService.emit('location', payload);
+              try {
+                await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
+                setLastServerSync(new Date());
+              } catch {}
+              setLastUpdate(new Date());
+            }
+          }
+        );
+        bgRef.current = { stop: async () => { try { await bg.removeWatcher({ id: watcherId }); } catch {} } };
+      }
+    } catch {
+      // Ignore plugin errors on web
     }
   };
 
@@ -150,12 +260,19 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Start with high accuracy
     startWatch(true);
+
+    // Start native background if available (no-op on web)
+    tryStartNativeBackground();
   };
 
   const stopTracking = () => {
     if (watchId.current !== null) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
+    }
+    if (bgRef.current?.stop) {
+      try { bgRef.current.stop(); } catch {}
+      bgRef.current = null;
     }
     setIsTracking(false);
     localStorage.setItem('isTracking', 'false');
@@ -171,6 +288,51 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-clear activeBookingId when next milestone is reached
+  useEffect(() => {
+    if (!activeBookingId) return;
+    socketService.connect();
+    const handler = (updatedBooking: any) => {
+      if (!updatedBooking || String(updatedBooking._id) !== String(activeBookingId)) return;
+      const status = updatedBooking.status;
+      if (status === 'REACHED_MERCHANT' || status === 'VEHICLE_AT_MERCHANT' || status === 'DELIVERED' || status === 'CANCELLED') {
+        _setActiveBookingId(null);
+        localStorage.removeItem('activeBookingId');
+        toast.success('Reached milestone; live sharing unbound from booking');
+      }
+    };
+    socketService.on('bookingUpdated', handler);
+    return () => {
+      socketService.off('bookingUpdated');
+    };
+  }, [activeBookingId]);
+
+  useEffect(() => {
+    let timer: number | null = null;
+    const statuses = ['ASSIGNED','ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','REACHED_MERCHANT','SERVICE_COMPLETED','OUT_FOR_DELIVERY','QC_PENDING'];
+    const sync = async () => {
+      if (!user?._id || user.role !== 'staff') return;
+      if (!isTracking) return;
+      try {
+        const bookings = await bookingService.getMyBookings();
+        const active = bookings.find((b: any) => statuses.includes(b.status));
+        if (active?._id && activeBookingId !== active._id) {
+          _setActiveBookingId(active._id);
+          localStorage.setItem('activeBookingId', active._id);
+        }
+        if (!active && activeBookingId) {
+          _setActiveBookingId(null);
+          localStorage.removeItem('activeBookingId');
+        }
+      } catch {}
+    };
+    sync();
+    timer = window.setInterval(sync, 60000);
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [user?._id, user?.role, isTracking, activeBookingId]);
 
   // Cleanup on unmount (of the provider, which is usually app close or logout)
   useEffect(() => {
@@ -189,6 +351,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       error,
       lastUpdate,
       lastServerSync,
+      activeBookingId,
       startTracking,
       stopTracking,
       setActiveBookingId

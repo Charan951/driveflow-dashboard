@@ -5,6 +5,8 @@ import {
   getMyBookings,
   getAllBookings,
   updateBookingStatus,
+  generateDeliveryOtp,
+  verifyDeliveryOtp,
   getUserBookings,
   getVehicleBookings,
   getMerchantBookings,
@@ -31,6 +33,8 @@ router.route('/:id')
 router.route('/:id/assign').put(protect, admin, assignBooking); // Admin only
 
 router.route('/:id/status').put(protect, updateBookingStatus); // Permission handled in controller
+router.post('/:id/generate-otp', protect, generateDeliveryOtp);
+router.post('/:id/verify-otp', protect, verifyDeliveryOtp);
 
 router.route('/:id/details').put(protect, updateBookingDetails);
 

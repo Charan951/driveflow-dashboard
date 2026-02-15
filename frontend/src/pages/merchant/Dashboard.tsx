@@ -50,25 +50,39 @@ const Dashboard: React.FC = () => {
       try {
         const bookingsData = await bookingService.getAllBookings();
 
-        // Calculate stats
-        const active = bookingsData.filter((b: Booking) => 
-          ['Booked', 'Pickup Assigned', 'In Garage', 'Servicing'].includes(b.status)
+        const activeStatuses: Booking['status'][] = [
+          'CREATED',
+          'ASSIGNED',
+          'ACCEPTED',
+          'REACHED_CUSTOMER',
+          'VEHICLE_PICKED',
+          'REACHED_MERCHANT',
+          'VEHICLE_AT_MERCHANT',
+          'JOB_CARD',
+          'SERVICE_STARTED',
+          'SERVICE_COMPLETED',
+          'OUT_FOR_DELIVERY',
+        ];
+
+        const completedStatuses: Booking['status'][] = ['DELIVERED'];
+
+        const active = bookingsData.filter((b: Booking) =>
+          activeStatuses.includes(b.status)
         ).length;
         
-        const completed = bookingsData.filter((b: Booking) => 
-          ['Ready', 'Delivered'].includes(b.status)
+        const completed = bookingsData.filter((b: Booking) =>
+          completedStatuses.includes(b.status)
         ).length;
 
-        // Assuming pending bills means paymentStatus is pending or a specific status
-        const pendingBills = bookingsData.filter((b: Booking) => 
-          b.paymentStatus === 'pending' && b.status !== 'Cancelled'
+        const pendingBills = bookingsData.filter((b: Booking) =>
+          b.paymentStatus === 'pending' && b.status !== 'CANCELLED'
         ).length;
 
         setStats({
           activeOrders: active,
           completedOrders: completed,
-          pendingBills: pendingBills,
-          lowStock: 3, // Mocked value as per requirement "Low Stock Alerts"
+          pendingBills,
+          lowStock: 3,
         });
 
         setRecentBookings(bookingsData.slice(0, 5));
@@ -174,11 +188,11 @@ const Dashboard: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-lg">
-                      {(booking.vehicle as unknown as Vehicle)?.registrationNumber || 'N/A'}
+                      {(booking.vehicle as unknown as Vehicle)?.licensePlate || 'N/A'}
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      booking.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                      booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                      booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
                       'bg-blue-100 text-blue-800'
                     }`}>
                       {booking.status}

@@ -82,7 +82,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'CREATED':
         return 'Booked';
       case 'ASSIGNED':
-        return 'Pickup Assigned';
+        return 'Assigned';
       case 'ACCEPTED':
         return 'Accepted';
       case 'REACHED_CUSTOMER':

@@ -5,14 +5,31 @@ import User from './models/User.js';
 let io;
 
 export const initSocket = (server) => {
-  const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : "*";
-  
+  const allowedOrigins = process.env.FRONTEND_URLS
+    ? process.env.FRONTEND_URLS.split(',')
+    : [];
+  const isDev = process.env.NODE_ENV !== 'production';
+  const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
+
   io = new Server(server, {
     cors: {
-      origin: allowedOrigins,
-      methods: ["GET", "POST"],
-      credentials: true
-    }
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const normalized = origin.trim();
+        const allowedByEnv =
+          allowedOrigins.includes('*') || allowedOrigins.includes(normalized);
+        const allowedByDevDefault =
+          isDev && devOriginPrefixes.some((p) => normalized.startsWith(p));
+
+        if (allowedByEnv || allowedByDevDefault) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS (socket.io)'));
+        }
+      },
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
   });
 
   // Authentication Middleware

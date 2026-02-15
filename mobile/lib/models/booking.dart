@@ -40,6 +40,9 @@ class Booking {
   final String? notes;
   final String? paymentStatus;
   final String? createdAt;
+  final BookingLocation? merchantLocation;
+  final String? merchantName;
+  final String? merchantPhone;
 
   Booking({
     required this.id,
@@ -53,6 +56,9 @@ class Booking {
     required this.notes,
     required this.paymentStatus,
     required this.createdAt,
+    this.merchantLocation,
+    this.merchantName,
+    this.merchantPhone,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -84,6 +90,30 @@ class Booking {
       location = BookingLocation.fromJson(Map<String, dynamic>.from(loc));
     }
 
+    BookingLocation? merchantLocation;
+    String? merchantName;
+    String? merchantPhone;
+    final m = json['merchant'];
+    if (m is Map<String, dynamic> || m is Map) {
+      final mm = m is Map<String, dynamic>
+          ? m
+          : Map<String, dynamic>.from(m as Map);
+      final mLoc = mm['location'];
+      if (mLoc is Map<String, dynamic>) {
+        merchantLocation = BookingLocation.fromJson(mLoc);
+      } else if (mLoc is Map) {
+        merchantLocation = BookingLocation.fromJson(
+          Map<String, dynamic>.from(mLoc),
+        );
+      }
+      final nameRaw = mm['name'];
+      final phoneRaw = mm['phone'];
+      final nameStr = nameRaw?.toString().trim();
+      final phoneStr = phoneRaw?.toString().trim();
+      merchantName = nameStr != null && nameStr.isNotEmpty ? nameStr : null;
+      merchantPhone = phoneStr != null && phoneStr.isNotEmpty ? phoneStr : null;
+    }
+
     return Booking(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
@@ -102,6 +132,9 @@ class Booking {
       createdAt: (json['createdAt'] ?? '').toString().trim().isEmpty
           ? null
           : (json['createdAt'] ?? '').toString(),
+      merchantLocation: merchantLocation,
+      merchantName: merchantName,
+      merchantPhone: merchantPhone,
     );
   }
 }
