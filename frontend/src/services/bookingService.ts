@@ -20,6 +20,7 @@ export interface Booking {
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentId?: string;
   createdAt: string;
+  prePickupPhotos?: string[];
   merchant?: { 
     _id: string; 
     name: string; 

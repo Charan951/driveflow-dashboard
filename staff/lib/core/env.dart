@@ -3,7 +3,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = false;
+  static const bool useProduction = true;
+
+  static const String mapTileUrlTemplate = String.fromEnvironment(
+    'MAP_TILE_URL_TEMPLATE',
+    defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  );
+
+  static const List<String> mapTileSubdomains = <String>['a', 'b', 'c'];
 
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
@@ -34,4 +41,6 @@ class ApiEndpoints {
   static String bookingStatus(String id) => '/bookings/$id/status';
   static String bookingGenerateOtp(String id) => '/bookings/$id/generate-otp';
   static String bookingVerifyOtp(String id) => '/bookings/$id/verify-otp';
+  static String bookingDetails(String id) => '/bookings/$id/details';
+  static const String uploadMultiple = '/upload/multiple';
 }

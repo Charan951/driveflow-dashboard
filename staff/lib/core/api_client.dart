@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -86,6 +87,39 @@ class ApiClient {
     } on TimeoutException {
       throw ApiException(statusCode: 408, message: 'Request timed out');
     }
+  }
+
+  Future<List<dynamic>> uploadFiles(
+    String path,
+    List<File> files, {
+    String fieldName = 'files',
+  }) async {
+    final token = await AppStorage().getToken();
+    final uri = Uri.parse('${Env.apiBaseUrl}$path');
+    final request = http.MultipartRequest('POST', uri);
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    for (final file in files) {
+      final stream = http.ByteStream(file.openRead());
+      final length = await file.length();
+      request.files.add(
+        http.MultipartFile(
+          fieldName,
+          stream,
+          length,
+          filename: file.path.split(Platform.pathSeparator).last,
+        ),
+      );
+    }
+    final streamed = await request.send().timeout(_timeout);
+    final res = await http.Response.fromStream(streamed);
+    final decoded = _decodeBody(res);
+    if (decoded is List) return decoded;
+    if (decoded is Map && decoded['files'] is List) {
+      return decoded['files'] as List;
+    }
+    throw ApiException(statusCode: 500, message: 'Unexpected upload response');
   }
 
   Future<Map<String, dynamic>> postJson(

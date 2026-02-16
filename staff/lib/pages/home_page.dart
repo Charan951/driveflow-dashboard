@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/booking.dart';
 import '../services/auth_service.dart';
@@ -77,6 +78,24 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
   Future<void> _startTrackingIfEnabled() async {
     if (_shareLocation) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Please turn on location services to share your live status.',
+            ),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: Geolocator.openLocationSettings,
+            ),
+          ),
+        );
+        return;
+      }
+
       await _trackingService.start();
       _updateActiveBookingId();
       try {
@@ -120,6 +139,405 @@ class _StaffHomePageState extends State<StaffHomePage> {
     return '$h:$m';
   }
 
+  Widget _buildSidebarContent(ThemeData theme, TrackingInfo trackingInfo) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Staff Portal',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _NavItem(
+            icon: Icons.dashboard_rounded,
+            label: 'Dashboard',
+            selected: _selectedNav == 'dashboard',
+            onTap: () {
+              setState(() {
+                _selectedNav = 'dashboard';
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          _NavItem(
+            icon: Icons.list_alt_rounded,
+            label: 'Orders',
+            selected: _selectedNav == 'orders',
+            onTap: () {
+              setState(() {
+                _selectedNav = 'orders';
+              });
+            },
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Live Status',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Switch(
+                value: _shareLocation,
+                onChanged: (v) {
+                  setState(() {
+                    _shareLocation = v;
+                  });
+                  if (v) {
+                    _startTrackingIfEnabled();
+                  } else {
+                    _trackingService.stop();
+                    _setOffline();
+                  }
+                },
+                activeThumbColor: Colors.white,
+                activeTrackColor: const Color(0xFF22C55E),
+              ),
+            ],
+          ),
+          Text(
+            'Share location',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF3),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF22C55E),
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _shareLocation
+                            ? 'You are Online & Tracking'
+                            : 'Tracking paused',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF166534),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _StatusLine(
+                  label: 'Latitude',
+                  value: trackingInfo.lat != null
+                      ? trackingInfo.lat!.toStringAsFixed(6)
+                      : '-',
+                ),
+                const SizedBox(height: 4),
+                _StatusLine(
+                  label: 'Longitude',
+                  value: trackingInfo.lng != null
+                      ? trackingInfo.lng!.toStringAsFixed(6)
+                      : '-',
+                ),
+                const SizedBox(height: 4),
+                _StatusLine(
+                  label: 'Last Update',
+                  value: _formatTime(trackingInfo.lastUpdate),
+                ),
+                const SizedBox(height: 4),
+                _StatusLine(
+                  label: 'Server Sync',
+                  value: _formatTime(trackingInfo.lastServerSync),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            height: 44,
+            child: TextButton.icon(
+              onPressed: _logout,
+              icon: const Icon(
+                Icons.logout,
+                color: Color(0xFFEF4444),
+                size: 20,
+              ),
+              label: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: Color(0xFFEF4444),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent(
+    ThemeData theme,
+    List<BookingSummary> bookings,
+    int todayCount,
+    int completedCount,
+    int pendingCount,
+  ) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 960),
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedNav == 'dashboard'
+                                ? 'Staff Dashboard'
+                                : 'Orders',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1D4ED8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedNav == 'dashboard'
+                                ? 'Overview of your assigned jobs and live orders'
+                                : 'View and manage your active orders',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.person,
+                          color: const Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (_selectedNav == 'dashboard') ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            title: "Today's Orders",
+                            value: todayCount.toString(),
+                            icon: Icons.inventory_2,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Pending',
+                            value: pendingCount.toString(),
+                            icon: Icons.schedule,
+                            color: const Color(0xFF0EA5E9),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Completed',
+                            value: completedCount.toString(),
+                            icon: Icons.check_circle,
+                            color: const Color(0xFF22C55E),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Job Value',
+                            value: '₹0',
+                            icon: Icons.attach_money,
+                            color: const Color(0xFFF97316),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  Text(
+                    'Active Orders',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_isLoading && bookings.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_errorText != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Center(child: Text(_errorText!)),
+                    )
+                  else if (bookings.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 40,
+                            color: const Color(0xFF9CA3AF),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No active orders',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "You don't have any active orders assigned.",
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Column(
+                      children: bookings
+                          .map(
+                            (b) => Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                leading: CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFFE0EAFF),
+                                  child: Icon(
+                                    Icons.directions_car_filled_rounded,
+                                    color: const Color(0xFF2563EB),
+                                  ),
+                                ),
+                                title: Text(
+                                  b.vehicleName ?? 'Booking',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Status: ${b.status}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF2563EB),
+                                          ),
+                                    ),
+                                    if (b.locationAddress != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        b.locationAddress!,
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ],
+                                    if (b.date != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        b.date!,
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed('/order', arguments: b.id);
+                                },
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -145,455 +563,71 @@ class _StaffHomePageState extends State<StaffHomePage> {
       }
     }
     final pendingCount = bookings.length - completedCount;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 720;
+        if (isCompact) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(
+                _selectedNav == 'dashboard' ? 'Staff Dashboard' : 'Orders',
+              ),
+            ),
+            drawer: Drawer(
+              child: SafeArea(child: _buildSidebarContent(theme, trackingInfo)),
+            ),
+            body: Container(
+              color: const Color(0xFFF3F4F6),
+              child: _buildMainContent(
+                theme,
+                bookings,
+                todayCount,
+                completedCount,
+                pendingCount,
+              ),
+            ),
+          );
+        }
 
-    return Scaffold(
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 260,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: const Border(
-                  right: BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 20,
-                    offset: const Offset(4, 0),
+        return Scaffold(
+          body: SafeArea(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 260,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: const Border(
+                      right: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 20,
+                        offset: const Offset(4, 0),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Staff Portal',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _NavItem(
-                      icon: Icons.dashboard_rounded,
-                      label: 'Dashboard',
-                      selected: _selectedNav == 'dashboard',
-                      onTap: () {
-                        setState(() {
-                          _selectedNav = 'dashboard';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    _NavItem(
-                      icon: Icons.list_alt_rounded,
-                      label: 'Orders',
-                      selected: _selectedNav == 'orders',
-                      onTap: () {
-                        setState(() {
-                          _selectedNav = 'orders';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Live Status',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Switch(
-                          value: _shareLocation,
-                          onChanged: (v) {
-                            setState(() {
-                              _shareLocation = v;
-                            });
-                            if (v) {
-                              _startTrackingIfEnabled();
-                            } else {
-                              _trackingService.stop();
-                              _setOffline();
-                            }
-                          },
-                          activeThumbColor: Colors.white,
-                          activeTrackColor: const Color(0xFF22C55E),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Share location',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF3),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color(0xFF22C55E),
-                                ),
-                                child: const Icon(
-                                  Icons.check_rounded,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _shareLocation
-                                      ? 'You are Online & Tracking'
-                                      : 'Tracking paused',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF166534),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _StatusLine(
-                            label: 'Latitude',
-                            value: trackingInfo.lat != null
-                                ? trackingInfo.lat!.toStringAsFixed(6)
-                                : '-',
-                          ),
-                          const SizedBox(height: 4),
-                          _StatusLine(
-                            label: 'Longitude',
-                            value: trackingInfo.lng != null
-                                ? trackingInfo.lng!.toStringAsFixed(6)
-                                : '-',
-                          ),
-                          const SizedBox(height: 4),
-                          _StatusLine(
-                            label: 'Last Update',
-                            value: _formatTime(trackingInfo.lastUpdate),
-                          ),
-                          const SizedBox(height: 4),
-                          _StatusLine(
-                            label: 'Server Sync',
-                            value: _formatTime(trackingInfo.lastServerSync),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      height: 44,
-                      child: TextButton.icon(
-                        onPressed: _logout,
-                        icon: const Icon(
-                          Icons.logout,
-                          color: Color(0xFFEF4444),
-                          size: 20,
-                        ),
-                        label: const Text(
-                          'Logout',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                        ),
-                      ),
-                    ),
-                  ],
+                  child: _buildSidebarContent(theme, trackingInfo),
                 ),
-              ),
-            ),
-            Expanded(
-              child: Container(
-                color: const Color(0xFFF3F4F6),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 960),
-                    child: RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _selectedNav == 'dashboard'
-                                            ? 'Staff Dashboard'
-                                            : 'Orders',
-                                        style: theme.textTheme.headlineSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                              color: const Color(0xFF1D4ED8),
-                                            ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _selectedNav == 'dashboard'
-                                            ? 'Overview of your assigned jobs and live orders'
-                                            : 'View and manage your active orders',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: const Color(0xFF6B7280),
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: Colors.white,
-                                    child: Icon(
-                                      Icons.person,
-                                      color: const Color(0xFF2563EB),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              if (_selectedNav == 'dashboard') ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _StatCard(
-                                        title: "Today's Orders",
-                                        value: todayCount.toString(),
-                                        icon: Icons.inventory_2,
-                                        color: const Color(0xFF2563EB),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _StatCard(
-                                        title: 'Pending',
-                                        value: pendingCount.toString(),
-                                        icon: Icons.schedule,
-                                        color: const Color(0xFF0EA5E9),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _StatCard(
-                                        title: 'Completed',
-                                        value: completedCount.toString(),
-                                        icon: Icons.check_circle,
-                                        color: const Color(0xFF22C55E),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _StatCard(
-                                        title: 'Job Value',
-                                        value: '₹0',
-                                        icon: Icons.attach_money,
-                                        color: const Color(0xFFF97316),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                              Text(
-                                'Active Orders',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (_isLoading && bookings.isEmpty)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 48,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              else if (_errorText != null)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 48,
-                                    horizontal: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: Center(child: Text(_errorText!)),
-                                )
-                              else if (bookings.isEmpty)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 48,
-                                    horizontal: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.inbox_outlined,
-                                        size: 40,
-                                        color: const Color(0xFF9CA3AF),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'No active orders',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "You don't have any active orders assigned.",
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: const Color(0xFF6B7280),
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                Column(
-                                  children: bookings
-                                      .map(
-                                        (b) => Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                            border: Border.all(
-                                              color: const Color(0xFFE5E7EB),
-                                            ),
-                                          ),
-                                          child: ListTile(
-                                            contentPadding:
-                                                const EdgeInsets.all(16),
-                                            leading: CircleAvatar(
-                                              radius: 22,
-                                              backgroundColor: const Color(
-                                                0xFFE0EAFF,
-                                              ),
-                                              child: Icon(
-                                                Icons
-                                                    .directions_car_filled_rounded,
-                                                color: const Color(0xFF2563EB),
-                                              ),
-                                            ),
-                                            title: Text(
-                                              b.vehicleName ?? 'Booking',
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                            ),
-                                            subtitle: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Status: ${b.status}',
-                                                  style: theme
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: const Color(
-                                                          0xFF2563EB,
-                                                        ),
-                                                      ),
-                                                ),
-                                                if (b.locationAddress !=
-                                                    null) ...[
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    b.locationAddress!,
-                                                    style: theme
-                                                        .textTheme
-                                                        .bodySmall,
-                                                  ),
-                                                ],
-                                                if (b.date != null) ...[
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    b.date!,
-                                                    style: theme
-                                                        .textTheme
-                                                        .bodySmall,
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            onTap: () {
-                                              Navigator.of(context).pushNamed(
-                                                '/order',
-                                                arguments: b.id,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFFF3F4F6),
+                    child: _buildMainContent(
+                      theme,
+                      bookings,
+                      todayCount,
+                      completedCount,
+                      pendingCount,
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -105,6 +105,7 @@ const bookingSchema = mongoose.Schema(
     media: [{
       type: String, // URLs to images/videos
     }],
+    prePickupPhotos: [String],
     parts: [{
       product: {
         type: mongoose.Schema.Types.ObjectId,

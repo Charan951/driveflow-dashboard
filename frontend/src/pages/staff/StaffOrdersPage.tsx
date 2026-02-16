@@ -251,6 +251,14 @@ const StaffOrdersPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
+      if (newStatus === 'VEHICLE_PICKED' && selectedOrderForStatus.pickupRequired) {
+        const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
+        if (photos.length < 4) {
+          toast.dismiss(loadingToast);
+          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
+          return;
+        }
+      }
       if (newStatus === 'DELIVERED') {
         const otp = window.prompt('Enter delivery OTP');
         if (!otp) {

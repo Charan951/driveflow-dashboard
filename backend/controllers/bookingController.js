@@ -313,6 +313,13 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
+      if (canonTo === 'VEHICLE_PICKED' && booking.pickupRequired) {
+        const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
+        if (photos.length < 4) {
+          return res.status(400).json({ message: 'Please upload 4 vehicle photos before picking up the vehicle' });
+        }
+      }
+
       // OTP gating for delivery
       if (canonTo === 'OUT_FOR_DELIVERY') {
         const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
@@ -481,6 +488,7 @@ export const updateBookingDetails = async (req, res) => {
     media, 
     parts, 
     notes,
+    prePickupPhotos,
     inspection,
     delay,
     serviceExecution,
@@ -506,6 +514,7 @@ export const updateBookingDetails = async (req, res) => {
 
       if (media) booking.media = media;
       if (notes) booking.notes = notes;
+      if (prePickupPhotos) booking.prePickupPhotos = prePickupPhotos;
       if (inspection) booking.inspection = { ...booking.inspection, ...inspection };
       if (delay) booking.delay = { ...booking.delay, ...delay };
       if (serviceExecution) booking.serviceExecution = { ...booking.serviceExecution, ...serviceExecution };

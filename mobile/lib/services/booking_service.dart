@@ -52,7 +52,10 @@ class BookingService {
   }
 
   Future<Map<String, dynamic>> createRazorpayOrder(String bookingId) async {
-    return await _api.postJson(ApiEndpoints.createOrder(bookingId));
+    return await _api.postJson(
+      ApiEndpoints.paymentsCreateOrder,
+      body: {'bookingId': bookingId},
+    );
   }
 
   Future<Map<String, dynamic>> verifyPayment({
@@ -62,11 +65,12 @@ class BookingService {
     required String razorpaySignature,
   }) async {
     return await _api.postJson(
-      ApiEndpoints.verifyPayment(bookingId),
+      ApiEndpoints.paymentsVerifyPayment,
       body: {
         'razorpay_order_id': razorpayOrderId,
         'razorpay_payment_id': razorpayPaymentId,
         'razorpay_signature': razorpaySignature,
+        'bookingId': bookingId,
       },
     );
   }

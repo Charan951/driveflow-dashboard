@@ -24,7 +24,7 @@ class Env {
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
 
   static String get razorpayKey =>
-      'rzp_test_YourKeyHere'; // TODO: Replace with real key
+      'rzp_test_RAcgtscfNdp1cg'; // TODO: Replace with real key
 }
 
 class ApiEndpoints {
@@ -37,6 +37,6 @@ class ApiEndpoints {
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
   static String bookingById(String id) => '/bookings/$id';
-  static String createOrder(String id) => '/bookings/$id/create-order';
-  static String verifyPayment(String id) => '/bookings/$id/verify-payment';
+  static const String paymentsCreateOrder = '/payments/create-order';
+  static const String paymentsVerifyPayment = '/payments/verify-payment';
 }

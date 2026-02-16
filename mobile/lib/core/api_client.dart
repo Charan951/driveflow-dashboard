@@ -19,8 +19,25 @@ class ApiClient {
   static const Duration _timeout = Duration(seconds: 12);
 
   dynamic _decodeBody(http.Response res) {
-    final rawBody = res.body.isEmpty ? 'null' : res.body;
-    final decoded = jsonDecode(rawBody);
+    if (res.body.isEmpty) {
+      if (res.statusCode >= 400) {
+        throw ApiException(statusCode: res.statusCode, message: 'Request failed');
+      }
+      return null;
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } on FormatException {
+      final status = res.statusCode;
+      final code = status >= 400 ? status : 500;
+      throw ApiException(
+        statusCode: code,
+        message: 'Unexpected response format from server',
+      );
+    }
+
     if (res.statusCode >= 400) {
       final message = decoded is Map && decoded['message'] != null
           ? decoded['message'].toString()

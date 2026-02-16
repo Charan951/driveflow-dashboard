@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/env.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
@@ -22,6 +26,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   bool _loading = true;
   String? _error;
   bool _updatingStatus = false;
+  bool _uploadingPhotos = false;
+  List<File> _selectedPhotos = const [];
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void didChangeDependencies() {
@@ -84,6 +91,21 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       _updatingStatus = true;
     });
     try {
+      if (status == 'VEHICLE_PICKED' && booking.pickupRequired) {
+        if (booking.prePickupPhotos.length < 4) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Please upload 4 vehicle photos before picking up the vehicle',
+              ),
+            ),
+          );
+          setState(() {
+            _updatingStatus = false;
+          });
+          return;
+        }
+      }
       if (status == 'DELIVERED') {
         final controller = TextEditingController();
         final ok = await showDialog<bool>(
@@ -135,6 +157,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           merchantLocation: booking.merchantLocation,
           pickupRequired: booking.pickupRequired,
           vehicleName: booking.vehicleName,
+          prePickupPhotos: booking.prePickupPhotos,
         );
       });
       ScaffoldMessenger.of(
@@ -204,6 +227,72 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return LatLng(20.5937, 78.9629);
   }
 
+  Future<void> _pickPrePickupPhotos() async {
+    final booking = _booking;
+    if (booking == null || _uploadingPhotos) return;
+    if (!booking.pickupRequired) return;
+    final images = await _picker.pickMultiImage(imageQuality: 80);
+    if (!mounted) return;
+    if (images.isEmpty) return;
+    if (images.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select exactly 4 photos')),
+      );
+      return;
+    }
+    final files = images.map((x) => File(x.path)).toList();
+    setState(() {
+      _selectedPhotos = files;
+    });
+    await _uploadPrePickupPhotos();
+  }
+
+  Future<void> _uploadPrePickupPhotos() async {
+    final booking = _booking;
+    if (booking == null || _uploadingPhotos) return;
+    if (_selectedPhotos.length != 4) {
+      return;
+    }
+    setState(() {
+      _uploadingPhotos = true;
+    });
+    try {
+      final uploaded = await _service.uploadPrePickupPhotos(
+        booking.id,
+        _selectedPhotos,
+      );
+      if (!mounted) return;
+      final urls = uploaded;
+      setState(() {
+        _booking = BookingDetail(
+          id: booking.id,
+          status: booking.status,
+          date: booking.date,
+          location: booking.location,
+          merchantLocation: booking.merchantLocation,
+          pickupRequired: booking.pickupRequired,
+          vehicleName: booking.vehicleName,
+          prePickupPhotos: urls,
+        );
+        _selectedPhotos = const [];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pre-pickup photos uploaded')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to upload photos')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingPhotos = false;
+        });
+      }
+    }
+  }
+
   Future<void> _openDirections(BookingDetail booking) async {
     final dest = _destinationLatLng(booking);
     if (dest == null) {
@@ -269,11 +358,66 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Status: ${booking.status}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF2563EB),
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'Status: ${booking.status}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFF2563EB),
+                              ),
+                            ),
+                            if (booking.pickupRequired) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: booking.prePickupPhotos.length >= 4
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFFF59E0B),
+                                  ),
+                                  color: booking.prePickupPhotos.length >= 4
+                                      ? const Color(0xFFBBF7D0)
+                                      : const Color(0xFFFEF3C7),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      booking.prePickupPhotos.length >= 4
+                                          ? Icons.check_circle
+                                          : Icons.warning_amber_rounded,
+                                      size: 14,
+                                      color: booking.prePickupPhotos.length >= 4
+                                          ? const Color(0xFF15803D)
+                                          : const Color(0xFFB45309),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      booking.prePickupPhotos.length >= 4
+                                          ? '4/4 photos'
+                                          : '${booking.prePickupPhotos.length}/4 photos',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontSize: 11,
+                                            color:
+                                                booking
+                                                        .prePickupPhotos
+                                                        .length >=
+                                                    4
+                                                ? const Color(0xFF166534)
+                                                : const Color(0xFF92400E),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         if (booking.location?.address != null) ...[
                           const SizedBox(height: 4),
@@ -300,11 +444,28 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                 child: const Text('Reached Location'),
                               )
                             else if (booking.status == 'REACHED_CUSTOMER')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('VEHICLE_PICKED'),
-                                child: const Text('Vehicle Picked'),
+                              Row(
+                                children: [
+                                  FilledButton(
+                                    onPressed: _updatingStatus
+                                        ? null
+                                        : () => _updateStatus('VEHICLE_PICKED'),
+                                    child: const Text('Vehicle Picked'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton.tonal(
+                                    onPressed: _uploadingPhotos
+                                        ? null
+                                        : _pickPrePickupPhotos,
+                                    child: Text(
+                                      _uploadingPhotos
+                                          ? 'Uploading...'
+                                          : (booking.prePickupPhotos.length >= 4
+                                                ? 'Photos Captured'
+                                                : 'Capture 4 Photos'),
+                                    ),
+                                  ),
+                                ],
                               )
                             else if (booking.status == 'VEHICLE_PICKED')
                               FilledButton(
@@ -360,9 +521,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                           ),
                           children: [
                             TileLayer(
-                              urlTemplate:
-                                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              subdomains: const ['a', 'b', 'c'],
+                              urlTemplate: Env.mapTileUrlTemplate,
+                              subdomains: Env.mapTileSubdomains,
+                              userAgentPackageName: 'com.example.staff',
                             ),
                             if (staffPos != null || destPos != null)
                               MarkerLayer(

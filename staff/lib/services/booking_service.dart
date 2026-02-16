@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../models/booking.dart';
@@ -30,5 +32,25 @@ class BookingService {
 
   Future<void> verifyDeliveryOtp(String id, String otp) async {
     await _api.postJson(ApiEndpoints.bookingVerifyOtp(id), body: {'otp': otp});
+  }
+
+  Future<void> updatePrePickupPhotos(String id, List<String> urls) async {
+    await _api.putJson(
+      ApiEndpoints.bookingDetails(id),
+      body: {'prePickupPhotos': urls},
+    );
+  }
+
+  Future<List<String>> uploadPrePickupPhotos(
+    String id,
+    List<File> files,
+  ) async {
+    final uploaded = await _api.uploadFiles(ApiEndpoints.uploadMultiple, files);
+    final urls = uploaded
+        .map((e) => e is Map<String, dynamic> ? e['url']?.toString() : null)
+        .whereType<String>()
+        .toList();
+    await updatePrePickupPhotos(id, urls);
+    return urls;
   }
 }

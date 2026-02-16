@@ -28,8 +28,10 @@ const StaffOrderPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const prePickupInputRef = React.useRef<HTMLInputElement>(null);
   const [eta, setEta] = useState<ETAResponse | null>(null);
   const etaTimerRef = React.useRef<number | null>(null);
+  const [isUploadingPrePickup, setIsUploadingPrePickup] = useState(false);
 
   useEffect(() => {
     // Set active booking ID for tracking context
@@ -155,6 +157,14 @@ const StaffOrderPage: React.FC = () => {
     if (!order) return;
     try {
       setIsUpdating(true);
+      if (newStatus === 'VEHICLE_PICKED' && order.pickupRequired) {
+        const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+        if (photos.length < 4) {
+          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
+          setIsUpdating(false);
+          return;
+        }
+      }
       if (newStatus === 'DELIVERED') {
         const otp = window.prompt('Enter delivery OTP');
         if (!otp) {
@@ -275,6 +285,37 @@ const StaffOrderPage: React.FC = () => {
     }
   };
 
+  const handlePrePickupUploadClick = () => {
+    prePickupInputRef.current?.click();
+  };
+
+  const handlePrePickupFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!order) return;
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    if (files.length !== 4) {
+      toast.error('Please select exactly 4 photos');
+      e.target.value = '';
+      return;
+    }
+    try {
+      setIsUploadingPrePickup(true);
+      const loadingToast = toast.loading('Uploading pre-pickup photos...');
+      const res = await uploadService.uploadFiles(files);
+      const urls = (res.files || []).map((f: { url: string }) => f.url);
+      await bookingService.updateBookingDetails(order._id, { prePickupPhotos: urls });
+      setOrder({ ...order, prePickupPhotos: urls });
+      toast.dismiss(loadingToast);
+      toast.success('Pre-pickup photos uploaded');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to upload pre-pickup photos');
+    } finally {
+      setIsUploadingPrePickup(false);
+      if (prePickupInputRef.current) prePickupInputRef.current.value = '';
+    }
+  };
+
   if (loading) return <div className="p-6 text-center">Loading...</div>;
   if (!order) return <div className="p-6 text-center">Order not found</div>;
 
@@ -307,13 +348,32 @@ const StaffOrderPage: React.FC = () => {
 
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Order Details</h1>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-          order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-        }`}>
-          {order.status}
-        </span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Order Details</h1>
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+            order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+          }`}>
+            {order.status}
+          </span>
+        </div>
+        {order.pickupRequired && (
+          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+            {Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <span className="text-green-700">Pickup photos ready</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-amber-600">
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4 photos` : '0/4 photos'}
+                </span>
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
@@ -463,6 +523,60 @@ const StaffOrderPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="media" className="mt-4 space-y-4">
+          {order.pickupRequired && (
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="space-y-1">
+                  <h3 className="font-medium">Pre-Pickup Vehicle Photos</h3>
+                  <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
+                    {order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span className="text-green-700">4/4 photos captured</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-3 h-3 text-amber-500" />
+                        <span className="text-amber-600">
+                          {order.prePickupPhotos?.length || 0}/4 photos
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handlePrePickupUploadClick}
+                  disabled={isUploadingPrePickup || order.status !== 'REACHED_CUSTOMER'}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {isUploadingPrePickup ? 'Uploading...' : 'Upload 4 Photos'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Capture 4 photos of the vehicle at customer location before pickup. Required before marking vehicle as picked.
+              </p>
+              {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {order.prePickupPhotos.map((url, index) => (
+                    <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                      <img src={url} alt={`Pre-pickup ${index + 1}`} className="w-full h-32 object-cover" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No pre-pickup photos uploaded yet.</p>
+              )}
+              <input
+                type="file"
+                ref={prePickupInputRef}
+                className="hidden"
+                accept="image/*"
+                multiple
+                onChange={handlePrePickupFileChange}
+              />
+            </div>
+          )}
           <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
             <h3 className="font-medium mb-3">Uploaded Photos</h3>
             {order.media && order.media.length > 0 ? (

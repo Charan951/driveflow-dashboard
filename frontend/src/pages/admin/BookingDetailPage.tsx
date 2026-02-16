@@ -205,6 +205,23 @@ const BookingDetailPage: React.FC = () => {
                 'bg-blue-100 text-blue-800'}`}>
               {booking.status}
             </span>
+            {booking.pickupRequired && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+                {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length >= 4 ? (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                    <span className="text-green-700">Pickup photos ready</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-amber-600">
+                      {Array.isArray(booking.prePickupPhotos) ? `${booking.prePickupPhotos.length}/4 photos` : '0/4 photos'}
+                    </span>
+                  </>
+                )}
+              </span>
+            )}
           </h1>
           <p className="text-muted-foreground text-sm">Created on {new Date(booking.createdAt).toLocaleString()}</p>
         </div>
@@ -229,6 +246,50 @@ const BookingDetailPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {booking.pickupRequired && booking.prePickupPhotos && booking.prePickupPhotos.length > 0 && (
+            <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" /> Pre-Pickup Vehicle Photos
+              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Captured by staff at customer location before vehicle pickup.
+                </p>
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+                  {booking.prePickupPhotos.length >= 4 ? (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                      <span className="text-green-700">4/4 photos</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-amber-600">
+                        {booking.prePickupPhotos.length}/4 photos
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {booking.prePickupPhotos.map((url, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="relative rounded-xl overflow-hidden border border-border bg-muted group"
+                    onClick={() => window.open(url, '_blank')}
+                  >
+                    <img
+                      src={url}
+                      alt={`Pre-pickup ${index + 1}`}
+                      className="w-full h-32 object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
             <h3 className="font-semibold flex items-center gap-2">

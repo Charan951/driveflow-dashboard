@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,6 +21,7 @@ class TrackBookingPage extends StatefulWidget {
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _mapController = MapController();
+  Razorpay? _razorpay;
 
   bool _loading = true;
   String? _error;
@@ -31,6 +34,18 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   LatLng? _liveLatLng;
   String? _liveName;
   DateTime? _liveUpdatedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      final rz = Razorpay();
+      _razorpay = rz;
+      rz.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
+      rz.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
+      rz.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -57,7 +72,119 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       socket.emit('leave', 'booking_${_bookingId ?? ''}');
       socket.dispose();
     }
+    final rz = _razorpay;
+    if (rz != null) {
+      rz.clear();
+    }
     super.dispose();
+  }
+
+  void _onPaymentSuccess(PaymentSuccessResponse response) {
+    final booking = _booking;
+    if (booking == null) return;
+    _service
+        .verifyPayment(
+          bookingId: booking.id,
+          razorpayOrderId: response.orderId ?? '',
+          razorpayPaymentId: response.paymentId ?? '',
+          razorpaySignature: response.signature ?? '',
+        )
+        .then((_) => _load())
+        .catchError((e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Payment verification failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Payment Successful!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _onPaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Payment Failed: ${response.message ?? response.code.toString()}',
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _onExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('External wallet selected: ${response.walletName}'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  bool _isPaymentLoading = false;
+
+  Future<void> _handlePayment() async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Online payment is available only in the mobile app'),
+        ),
+      );
+      return;
+    }
+
+    final rz = _razorpay;
+    if (rz == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment is not initialized')),
+      );
+      return;
+    }
+
+    setState(() => _isPaymentLoading = true);
+    try {
+      final order = await _service.createRazorpayOrder(booking.id);
+      if (!mounted) return;
+
+      final options = {
+        'key': Env.razorpayKey,
+        'amount': order['amount'],
+        'currency': order['currency'] ?? 'INR',
+        'name': 'DriveFlow',
+        'description':
+            'Service payment for ${booking.vehicle?.licensePlate ?? ''}',
+        'order_id': order['id'],
+        'prefill': {'contact': '', 'email': ''},
+        'theme': {'color': '#4F46E5'},
+      };
+
+      rz.open(options);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to start payment: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPaymentLoading = false);
+      }
+    }
   }
 
   Future<void> _connectSocket(String bookingId) async {
@@ -221,68 +348,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         return 'Cancelled';
       default:
         return status;
-    }
-  }
-
-  bool _isPaymentLoading = false;
-
-  Future<void> _handlePayment() async {
-    final booking = _booking;
-    if (booking == null) return;
-
-    setState(() => _isPaymentLoading = true);
-    try {
-      // 1. Create Order on Backend
-      final orderData = await _service.createRazorpayOrder(booking.id);
-      final orderId = orderData['id'] as String;
-
-      if (!mounted) return;
-
-      // 2. Mock Razorpay Payment for now since package is missing
-      // In a real app, you would use:
-      // final razorpay = Razorpay();
-      // razorpay.open(options);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Processing payment... (Mocking Razorpay)'),
-          backgroundColor: Color(0xFF4F46E5),
-        ),
-      );
-
-      // Simulate a small delay for payment gateway
-      await Future.delayed(const Duration(seconds: 2));
-
-      // 3. Verify Payment on Backend (Mocking the callback data)
-      await _service.verifyPayment(
-        bookingId: booking.id,
-        razorpayOrderId: orderId,
-        razorpayPaymentId: 'pay_mock_${DateTime.now().millisecondsSinceEpoch}',
-        razorpaySignature: 'sig_mock_${DateTime.now().millisecondsSinceEpoch}',
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment Successful!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // 4. Refresh Booking Data
-      _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment Failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isPaymentLoading = false);
-      }
     }
   }
 

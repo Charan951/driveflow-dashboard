@@ -63,6 +63,7 @@ class BookingDetail {
   final BookingLocation? merchantLocation;
   final bool pickupRequired;
   final String? vehicleName;
+  final List<String> prePickupPhotos;
 
   BookingDetail({
     required this.id,
@@ -72,6 +73,7 @@ class BookingDetail {
     required this.merchantLocation,
     required this.pickupRequired,
     required this.vehicleName,
+    required this.prePickupPhotos,
   });
 
   factory BookingDetail.fromJson(Map<String, dynamic> json) {
@@ -124,6 +126,9 @@ class BookingDetail {
       merchantLocation: merchantLocation,
       pickupRequired: (json['pickupRequired'] ?? false) == true,
       vehicleName: vehicleName,
+      prePickupPhotos: (json['prePickupPhotos'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 }
