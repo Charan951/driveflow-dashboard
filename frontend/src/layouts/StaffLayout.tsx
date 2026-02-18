@@ -24,18 +24,8 @@ const staffMenuItems = [
 export const StaffLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuthStore();
+  const { logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const AutoStart: React.FC = () => {
-    const { startTracking, isTracking } = useTracking();
-    React.useEffect(() => {
-      if (user?.role === 'staff' && !isTracking) {
-        startTracking();
-      }
-    }, [user?.role, isTracking, startTracking]);
-    return null;
-  };
-  
   const ActiveBookingChip: React.FC = () => {
     const { activeBookingId, setActiveBookingId, isTracking } = useTracking();
     if (!activeBookingId) return null;
@@ -64,7 +54,6 @@ export const StaffLayout: React.FC = () => {
 
   return (
     <TrackingProvider>
-      <AutoStart />
       <div className="min-h-screen flex w-full bg-background">
       {/* Overlay */}
       {sidebarOpen && (

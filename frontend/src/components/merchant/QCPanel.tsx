@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { bookingService } from '../../services/bookingService';
+import { bookingService, Booking } from '../../services/bookingService';
 
 interface QCPanelProps {
-  booking: any;
+  booking: Booking;
   onUpdate: () => void;
 }
 

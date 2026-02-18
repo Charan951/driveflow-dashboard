@@ -5,17 +5,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/context/TrackingContext';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
-import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, ChevronDown, CheckCircle } from 'lucide-react';
+import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle } from 'lucide-react';
 import * as turf from '@turf/turf';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -119,11 +111,15 @@ const StaffOrderPage: React.FC = () => {
       setEta(null);
       return;
     }
-    const isHeadingToMerchant = order.status === 'VEHICLE_PICKED';
-    // compute destination based on phase
+    const isHeadingToMerchant =
+      order.status === 'VEHICLE_PICKED' || order.status === 'SERVICE_COMPLETED';
     let destLat: number | undefined;
     let destLng: number | undefined;
-    if (order.status === 'ACCEPTED' || order.status === 'REACHED_CUSTOMER' || order.status === 'OUT_FOR_DELIVERY') {
+    if (
+      order.status === 'ACCEPTED' ||
+      order.status === 'REACHED_CUSTOMER' ||
+      order.status === 'OUT_FOR_DELIVERY'
+    ) {
       destLat = order.location?.lat;
       destLng = order.location?.lng;
     } else if (isHeadingToMerchant && order.merchant?.location) {
@@ -142,7 +138,7 @@ const StaffOrderPage: React.FC = () => {
         const res = await getETA(staffLocation.lat, staffLocation.lng, destLat!, destLng!);
         setEta(res);
       } catch (e) {
-        // ignore
+        setEta(null);
       }
     }, 400);
     return () => {
@@ -151,10 +147,103 @@ const StaffOrderPage: React.FC = () => {
         etaTimerRef.current = null;
       }
     };
-  }, [order?._id, order?.status, order?.location?.lat, order?.location?.lng, order?.merchant?.location?.lat, order?.merchant?.location?.lng, staffLocation?.lat, staffLocation?.lng]);
+  }, [
+    order?._id,
+    order?.status,
+    order?.location?.lat,
+    order?.location?.lng,
+    order?.merchant?.location?.lat,
+    order?.merchant?.location?.lng,
+    staffLocation?.lat,
+    staffLocation?.lng,
+  ]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!order) return;
+
+    if (newStatus === 'REACHED_CUSTOMER') {
+      const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
+      const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
+
+      if (!targetLat || !targetLng) {
+        toast.error('Customer location is not available');
+        return;
+      }
+
+      if (!staffLocation?.lat || !staffLocation?.lng) {
+        toast.error('Your live location is not available. Turn on tracking to continue.');
+        return;
+      }
+
+      try {
+        const from = turf.point([staffLocation.lng, staffLocation.lat]);
+        const to = turf.point([targetLng, targetLat]);
+        const distance = turf.distance(from, to, { units: 'meters' });
+
+        if (distance > 100) {
+          toast.error('You are too far from customer location (must be within 100 m).');
+          return;
+        }
+      } catch {
+        toast.error('Could not verify your current location');
+        return;
+      }
+    }
+
+    if (newStatus === 'REACHED_MERCHANT') {
+      const targetLat = order.merchant?.location?.lat;
+      const targetLng = order.merchant?.location?.lng;
+
+      if (!targetLat || !targetLng) {
+        toast.error('Merchant location is not available');
+        return;
+      }
+
+      if (!staffLocation?.lat || !staffLocation?.lng) {
+        toast.error('Your live location is not available. Turn on tracking to continue.');
+        return;
+      }
+
+      try {
+        const from = turf.point([staffLocation.lng, staffLocation.lat]);
+        const to = turf.point([targetLng, targetLat]);
+        const distance = turf.distance(from, to, { units: 'meters' });
+
+        if (distance > 100) {
+          toast.error('You are too far from merchant location (must be within 100 m).');
+          return;
+        }
+      } catch {
+        toast.error('Could not verify your current location');
+        return;
+      }
+    }
+
+    if (newStatus === 'DELIVERED') {
+      const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
+      const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
+
+      if (targetLat && targetLng) {
+        if (!staffLocation?.lat || !staffLocation?.lng) {
+          toast.error('Your live location is not available. Turn on tracking to complete delivery.');
+          return;
+        }
+        try {
+          const from = turf.point([staffLocation.lng, staffLocation.lat]);
+          const to = turf.point([targetLng, targetLat]);
+          const distance = turf.distance(from, to, { units: 'meters' });
+
+          if (distance > 100) {
+            toast.error('You are too far from customer location (must be within 100 m) to complete delivery.');
+            return;
+          }
+        } catch {
+          toast.error('Could not verify your current location');
+          return;
+        }
+      }
+    }
+
     try {
       setIsUpdating(true);
       if (newStatus === 'VEHICLE_PICKED' && order.pickupRequired) {
@@ -166,7 +255,7 @@ const StaffOrderPage: React.FC = () => {
         }
       }
       if (newStatus === 'DELIVERED') {
-        const otp = window.prompt('Enter delivery OTP');
+        const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
         if (!otp) {
           setIsUpdating(false);
           return;
@@ -177,7 +266,6 @@ const StaffOrderPage: React.FC = () => {
       setOrder({ ...order, status: newStatus as typeof order.status });
       toast.success(`Order updated to ${newStatus}`);
 
-      // Auto-navigate to merchant when vehicle is picked
       if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
         const { lat, lng, address } = order.merchant.location;
         let url = '';
@@ -199,6 +287,33 @@ const StaffOrderPage: React.FC = () => {
       }
       if (newStatus === 'OUT_FOR_DELIVERY') {
         toast.info('Delivery OTP sent to customer');
+        if (order.location) {
+          const loc =
+            typeof order.location === 'object'
+              ? order.location
+              : { address: order.location as unknown as string };
+          const { lat, lng, address } = loc as {
+            lat?: number;
+            lng?: number;
+            address?: string;
+          };
+          let url = '';
+          if (lat && lng) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+          } else if (address) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+              address,
+            )}`;
+          }
+          if (url) {
+            if (staffLocation?.lat && staffLocation?.lng) {
+              url += `&origin=${staffLocation.lat},${staffLocation.lng}`;
+            }
+            window.open(url, '_blank');
+          } else {
+            toast.warning('Customer location coordinates missing, cannot start navigation.');
+          }
+        }
       }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -210,11 +325,10 @@ const StaffOrderPage: React.FC = () => {
   };
 
   const handleNavigate = () => {
-    // Determine target based on status
-    // If vehicle is picked up, we are going to the merchant
-    const isHeadingToMerchant = order?.status === 'VEHICLE_PICKED';
+    const isHeadingToMerchant =
+      order?.status === 'VEHICLE_PICKED' || order?.status === 'SERVICE_COMPLETED';
     const targetLocation = isHeadingToMerchant ? order?.merchant?.location : order?.location;
-    const targetName = isHeadingToMerchant ? "Merchant" : "Customer";
+    const targetName = isHeadingToMerchant ? 'Merchant' : 'Customer';
 
     if (!targetLocation) {
       toast.error(`No location available for ${targetName}`);
@@ -319,28 +433,41 @@ const StaffOrderPage: React.FC = () => {
   if (loading) return <div className="p-6 text-center">Loading...</div>;
   if (!order) return <div className="p-6 text-center">Order not found</div>;
 
-  // Safe access helpers
-  const vehicle = (order.vehicle as any) || {};
-  const userDetails = (order.user as any) || {};
+  const vehicle =
+    typeof order.vehicle === 'object' && order.vehicle !== null
+      ? order.vehicle
+      : { make: 'Unknown', model: 'Vehicle', licensePlate: '' };
+
+  const userDetails =
+    typeof order.user === 'object' && order.user !== null
+      ? order.user
+      : { name: 'Guest User', phone: '' };
+
   const services = Array.isArray(order.services) ? order.services : [];
 
   const getNextStatusAction = (currentStatus: string) => {
     switch (currentStatus) {
       case 'ASSIGNED': return { label: 'Accept Order', nextStatus: 'ACCEPTED', color: 'bg-blue-600 hover:bg-blue-700' };
-      case 'ACCEPTED': return { label: 'Reached Location', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
-      case 'REACHED_CUSTOMER': return { label: 'Vehicle Picked Up', nextStatus: 'VEHICLE_PICKED', color: 'bg-blue-600 hover:bg-blue-700' };
-      case 'VEHICLE_PICKED': return { label: 'Reached Workshop', nextStatus: 'REACHED_MERCHANT', color: 'bg-purple-600 hover:bg-purple-700' };
+      case 'ACCEPTED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
+      case 'REACHED_CUSTOMER': return { label: 'Pickup Vehicle from Customer', nextStatus: 'VEHICLE_PICKED', color: 'bg-blue-600 hover:bg-blue-700' };
+      case 'VEHICLE_PICKED': return { label: 'Reached Service Center', nextStatus: 'REACHED_MERCHANT', color: 'bg-purple-600 hover:bg-purple-700' };
       // case 'REACHED_MERCHANT': return { label: 'Handover to Merchant', nextStatus: 'VEHICLE_AT_MERCHANT', color: 'bg-indigo-600 hover:bg-indigo-700' };
-      case 'SERVICE_COMPLETED': return { label: 'Pick for Delivery', nextStatus: 'OUT_FOR_DELIVERY', color: 'bg-orange-600 hover:bg-orange-700' };
-      case 'OUT_FOR_DELIVERY': return { label: 'Confirm Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
+      case 'SERVICE_COMPLETED': return { label: 'Pickup Vehicle from Workshop', nextStatus: 'OUT_FOR_DELIVERY', color: 'bg-orange-600 hover:bg-orange-700' };
+      case 'OUT_FOR_DELIVERY': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
       default: return null;
     }
   };
 
   const nextAction = getNextStatusAction(order.status);
+  const shouldDisablePrimaryAction =
+    isUpdating ||
+    (nextAction?.nextStatus === 'VEHICLE_PICKED' &&
+      order.pickupRequired &&
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4));
 
   // Determine display location
   const isHeadingToMerchant = order.status === 'VEHICLE_PICKED';
+  const isPrePickupPhase = order.pickupRequired && order.status === 'REACHED_CUSTOMER';
   const targetLocation = isHeadingToMerchant ? order.merchant?.location : order.location;
   const locationLabel = isHeadingToMerchant ? 'Drop-off Location (Workshop)' : 'Pickup Location';
   const navigateButtonText = isHeadingToMerchant ? 'Navigate to Workshop' : 'Navigate & Start Job';
@@ -379,46 +506,84 @@ const StaffOrderPage: React.FC = () => {
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
           <h3 className="font-medium">Order Actions</h3>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={isUpdating} className="w-full justify-between" size="lg">
-                Actions <ChevronDown className="ml-2 h-4 w-4" />
+
+          <div className="space-y-3">
+            {nextAction && (
+              <Button
+                disabled={shouldDisablePrimaryAction}
+                size="lg"
+                className={`w-full justify-center gap-2 text-white ${nextAction.color}`}
+                onClick={() => handleStatusUpdate(nextAction.nextStatus)}
+              >
+                <CheckCircle className="w-4 h-4" />
+                {nextAction.label}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="end">
-              <DropdownMenuLabel>Available Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              
-              {nextAction && (
-                <DropdownMenuItem 
-                  onClick={() => handleStatusUpdate(nextAction.nextStatus)}
-                  className="cursor-pointer text-primary font-medium"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  {nextAction.label}
-                </DropdownMenuItem>
-              )}
+            )}
 
-              <DropdownMenuItem onClick={handleNavigate} className="cursor-pointer">
-                <Navigation className="mr-2 h-4 w-4" />
-                Navigate to Location
-              </DropdownMenuItem>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full justify-center gap-2"
+              onClick={handleNavigate}
+            >
+              <Navigation className="w-4 h-4" />
+              Navigate to Location
+            </Button>
 
-              <DropdownMenuItem onClick={handleUploadClick} className="cursor-pointer">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Photo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="w-full justify-center gap-2"
+              onClick={isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick}
+              disabled={isPrePickupPhase && isUploadingPrePickup}
+            >
+              <Upload className="w-4 h-4" />
+              {isPrePickupPhase
+                ? isUploadingPrePickup
+                  ? 'Uploading...'
+                  : 'Upload 4 Photos'
+                : 'Upload Photo'}
+            </Button>
+          </div>
 
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
             accept="image/*"
             onChange={handleFileChange}
           />
+
+          {isPrePickupPhase && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Pre-pickup photos</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4` : '0/4'}
+                </span>
+              </div>
+              {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {order.prePickupPhotos.slice(0, 4).map((url, index) => (
+                    <div
+                      key={index}
+                      className="relative rounded-lg overflow-hidden border border-border bg-muted"
+                    >
+                      <img
+                        src={url}
+                        alt={`Pre-pickup ${index + 1}`}
+                        className="w-full h-16 object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  No photos uploaded yet. Upload 4 clear photos of the vehicle before pickup.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -477,9 +642,9 @@ const StaffOrderPage: React.FC = () => {
             <div className="mt-4">
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Services</h4>
               <ul className="space-y-2">
-                {services.map((s: any, idx: number) => (
+                {services.map((s, idx: number) => (
                   <li key={idx} className="text-sm p-2 bg-gray-50 rounded flex justify-between">
-                    <span>{s.name || 'Service'}</span>
+                    <span>{typeof s === 'string' ? s : s.name || 'Service'}</span>
                   </li>
                 ))}
               </ul>

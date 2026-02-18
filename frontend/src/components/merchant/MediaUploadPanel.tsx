@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Upload, Image as ImageIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { bookingService } from '../../services/bookingService';
+import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
 
 interface MediaUploadPanelProps {
   bookingId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  booking?: any; 
+  booking?: Booking;
   onUploadComplete: () => void;
 }
 
@@ -17,9 +16,15 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   const [afterImages, setAfterImages] = useState<File[]>([]);
   
   // State for existing images (URLs)
-  const [existingBefore, setExistingBefore] = useState<string[]>(booking?.serviceExecution?.beforePhotos || []);
-  const [existingDuring, setExistingDuring] = useState<string[]>(booking?.serviceExecution?.duringPhotos || []);
-  const [existingAfter, setExistingAfter] = useState<string[]>(booking?.serviceExecution?.afterPhotos || []);
+  const [existingBefore, setExistingBefore] = useState<string[]>(
+    booking?.serviceExecution?.beforePhotos || []
+  );
+  const [existingDuring, setExistingDuring] = useState<string[]>(
+    booking?.serviceExecution?.duringPhotos || []
+  );
+  const [existingAfter, setExistingAfter] = useState<string[]>(
+    booking?.serviceExecution?.afterPhotos || []
+  );
 
   const [isUploaded, setIsUploaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,16 +80,16 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
 
         // Upload new files
         if (beforeImages.length > 0) {
-            const res = await uploadService.uploadFiles(beforeImages);
-            newBeforeUrls = res.files.map((f: any) => f.url);
+          const res: { files: { url: string }[] } = await uploadService.uploadFiles(beforeImages);
+          newBeforeUrls = res.files.map((f) => f.url);
         }
         if (duringImages.length > 0) {
-            const res = await uploadService.uploadFiles(duringImages);
-            newDuringUrls = res.files.map((f: any) => f.url);
+          const res: { files: { url: string }[] } = await uploadService.uploadFiles(duringImages);
+          newDuringUrls = res.files.map((f) => f.url);
         }
         if (afterImages.length > 0) {
-            const res = await uploadService.uploadFiles(afterImages);
-            newAfterUrls = res.files.map((f: any) => f.url);
+          const res: { files: { url: string }[] } = await uploadService.uploadFiles(afterImages);
+          newAfterUrls = res.files.map((f) => f.url);
         }
         
         const finalBefore = [...existingBefore, ...newBeforeUrls];

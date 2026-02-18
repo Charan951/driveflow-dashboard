@@ -17,7 +17,9 @@ import {
   Package,
   Clock,
   Trash2,
-  MapPin
+  MapPin,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +34,6 @@ const AdminMerchantsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // New Merchant Form State
   const [newMerchant, setNewMerchant] = useState({
     name: '',
     email: '',
@@ -40,6 +41,7 @@ const AdminMerchantsPage: React.FC = () => {
     phone: '',
     location: { address: '', lat: 0, lng: 0 },
   });
+  const [showMerchantPassword, setShowMerchantPassword] = useState(false);
 
   // Rejection Modal State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -73,6 +75,27 @@ const AdminMerchantsPage: React.FC = () => {
     filterMerchants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showAddModal) {
+          setShowAddModal(false);
+        }
+        if (isRejectModalOpen) {
+          setIsRejectModalOpen(false);
+        }
+      }
+    };
+
+    if (showAddModal || isRejectModalOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAddModal, isRejectModalOpen]);
 
   const fetchUsers = async () => {
     try {
@@ -338,12 +361,16 @@ const AdminMerchantsPage: React.FC = () => {
       {/* Add Merchant Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowAddModal(false)}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-xl font-bold mb-4 dark:text-white">Add New Merchant</h2>
               <form onSubmit={handleAddMerchant} className="space-y-4">
@@ -394,16 +421,25 @@ const AdminMerchantsPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={newMerchant.password}
-                    onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showMerchantPassword ? 'text' : 'password'}
+                      required
+                      value={newMerchant.password}
+                      onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
+                      className="w-full px-3 pr-10 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMerchantPassword(!showMerchantPassword)}
+                      className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-200"
+                    >
+                      {showMerchantPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
                   <button
@@ -429,12 +465,16 @@ const AdminMerchantsPage: React.FC = () => {
       {/* Reject Modal */}
       <AnimatePresence>
         {isRejectModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsRejectModalOpen(false)}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-xl font-bold mb-4 dark:text-white">Reject Merchant</h2>
               <p className="text-gray-500 dark:text-gray-400 mb-4">

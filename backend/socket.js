@@ -1,8 +1,13 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import User from './models/User.js';
+import Booking from './models/Booking.js';
 
 let io;
+
+// Cache to avoid frequent DB lookups when deriving active booking for a staff user
+// Map<userId, { bookingId: string, updatedAt: number }>
+const activeBookingCache = new Map();
 
 export const initSocket = (server) => {
   const allowedOrigins = process.env.FRONTEND_URLS
@@ -75,9 +80,12 @@ export const initSocket = (server) => {
     });
 
     // Handle live location updates
-    socket.on('location', (data) => {
+    socket.on('location', async (data) => {
       // Only authenticated users can send location updates
       if (!socket.user) return;
+
+      const userId = String(socket.user._id);
+      const now = Date.now();
 
       // Broadcast to 'admin' room
       io.to('admin').emit('liveLocation', {
@@ -87,10 +95,56 @@ export const initSocket = (server) => {
         name: socket.user.name
       });
 
-      // If bookingId is present, broadcast to that specific booking room (for user/merchant tracking)
-      if (data.bookingId) {
-        io.to(`booking_${data.bookingId}`).emit('liveLocation', {
+      // Derive effective bookingId:
+      // 1) Prefer explicit bookingId from client
+      // 2) Fallback to last cached active booking for this staff
+      // 3) As a last resort, look up the latest active booking from DB (throttled)
+      let bookingId = data.bookingId;
+
+      if (!bookingId) {
+        const cached = activeBookingCache.get(userId);
+        const ttlMs = 30 * 1000;
+        if (cached && now - cached.updatedAt < ttlMs) {
+          bookingId = cached.bookingId;
+        } else {
+          try {
+            const active = await Booking.findOne({
+              $or: [
+                { pickupDriver: socket.user._id },
+                { technician: socket.user._id }
+              ],
+              status: {
+                $in: [
+                  'ASSIGNED',
+                  'ACCEPTED',
+                  'REACHED_CUSTOMER',
+                  'VEHICLE_PICKED',
+                  'REACHED_MERCHANT',
+                  'OUT_FOR_DELIVERY'
+                ]
+              }
+            })
+              .sort({ updatedAt: -1 })
+              .select('_id')
+              .lean();
+
+            if (active?._id) {
+              bookingId = String(active._id);
+              activeBookingCache.set(userId, { bookingId, updatedAt: now });
+            } else {
+              activeBookingCache.delete(userId);
+            }
+          } catch (e) {
+            console.error('Socket location booking lookup failed:', e.message);
+          }
+        }
+      }
+
+      // If we resolved a bookingId, broadcast to that specific booking room
+      if (bookingId) {
+        io.to(`booking_${bookingId}`).emit('liveLocation', {
           ...data,
+          bookingId,
           userId: socket.user._id,
           role: socket.user.role,
           name: socket.user.name

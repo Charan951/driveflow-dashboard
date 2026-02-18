@@ -4,7 +4,7 @@ const OSRM_API_BASE = 'https://router.project-osrm.org/route/v1/driving';
 
 export interface RouteResponse {
   routes: {
-    geometry: any; // GeoJSON or Polyline string
+    geometry: { coordinates: [number, number][]; type: string } | string;
     distance: number;
     duration: number;
   }[];

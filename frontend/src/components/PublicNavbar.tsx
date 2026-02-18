@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Car, Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -71,10 +71,12 @@ const PublicNavbar: React.FC = () => {
     }`}>
       <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-            <Car className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <span className={`font-semibold text-lg ${isScrolled ? 'text-foreground' : 'text-white'}`}>VehicleCare</span>
+          <img
+            src="/speshway-logo.png"
+            alt="Speshway Solutions"
+            className="w-10 h-10 rounded-xl object-cover"
+          />
+          <span className={`font-semibold text-lg ${isScrolled ? 'text-foreground' : 'text-white'}`}>Speshway Solutions</span>
         </Link>
 
         {/* Desktop Navigation */}

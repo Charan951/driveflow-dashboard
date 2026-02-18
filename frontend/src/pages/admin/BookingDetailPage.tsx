@@ -398,6 +398,69 @@ const BookingDetailPage: React.FC = () => {
             )}
           </div>
 
+          {Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
+            (p) => (p.approvalStatus || (p.approved ? 'Approved' : 'Pending')) !== 'Rejected'
+          ).length > 0 && (
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-primary" />
+                Additional Parts
+              </h3>
+              <div className="space-y-4">
+                {booking.inspection.additionalParts
+                  .filter((part) => {
+                    const status = part.approvalStatus || (part.approved ? 'Approved' : 'Pending');
+                    return status !== 'Rejected';
+                  })
+                  .map((part, index) => {
+                  const status = part.approvalStatus || (part.approved ? 'Approved' : 'Pending');
+                  const total = (part.price || 0) * (part.quantity || 1);
+                  return (
+                    <div
+                      key={index}
+                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-border rounded-xl p-4 bg-muted/40"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-sm">{part.name}</p>
+                          <p className="text-sm font-semibold">
+                            ₹{part.price} × {part.quantity} = ₹{total}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-3">
+                          <span>Qty: {part.quantity}</span>
+                          <span>Price: ₹{part.price}</span>
+                          <span className="inline-flex items-center gap-1">
+                            {status === 'Approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {status === 'Rejected' && <XCircle className="w-3 h-3 text-red-500" />}
+                            {status === 'Pending' && <Clock className="w-3 h-3 text-amber-500" />}
+                            <span className="capitalize">{status.toLowerCase()}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                          {part.image ? (
+                            <img src={part.image} alt="New Part" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>No new image</span>
+                          )}
+                        </div>
+                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                          {part.oldImage ? (
+                            <img src={part.oldImage} alt="Old Part" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>No old image</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Assignment Panel */}
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4 flex items-center justify-between">

@@ -41,6 +41,8 @@ class StaffTrackingService {
 
   static final StaffTrackingService instance = StaffTrackingService._internal();
 
+  static const double autoStatusDistanceMeters = 100;
+
   final ApiClient _api = ApiClient();
   final ValueNotifier<TrackingInfo> info = ValueNotifier<TrackingInfo>(
     const TrackingInfo(),
@@ -155,7 +157,7 @@ class StaffTrackingService {
         _targetLat!,
         _targetLng!,
       );
-      if (distance < 100) {
+      if (distance < autoStatusDistanceMeters) {
         try {
           await _api.putJson(
             ApiEndpoints.bookingStatus(_activeBookingId!),

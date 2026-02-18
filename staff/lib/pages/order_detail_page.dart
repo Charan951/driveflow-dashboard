@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/env.dart';
 import '../models/booking.dart';
@@ -67,6 +68,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           lng: booking.location!.lng,
           status: 'REACHED_CUSTOMER',
         );
+      } else if (booking.status == 'VEHICLE_PICKED' &&
+          booking.merchantLocation?.lat != null &&
+          booking.merchantLocation?.lng != null) {
+        _tracking.setAutoStatusTarget(
+          lat: booking.merchantLocation!.lat,
+          lng: booking.merchantLocation!.lng,
+          status: 'REACHED_MERCHANT',
+        );
       } else {
         _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
       }
@@ -98,6 +107,52 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               content: Text(
                 'Please upload 4 vehicle photos before picking up the vehicle',
               ),
+            ),
+          );
+          setState(() {
+            _updatingStatus = false;
+          });
+          return;
+        }
+      }
+      if (status == 'REACHED_CUSTOMER' ||
+          status == 'REACHED_MERCHANT' ||
+          status == 'DELIVERED') {
+        final info = _tracking.info.value;
+        final staffLat = info.lat;
+        final staffLng = info.lng;
+        BookingLocation? destLoc;
+        if (status == 'REACHED_MERCHANT') {
+          destLoc = booking.merchantLocation ?? booking.location;
+        } else {
+          destLoc = booking.location;
+        }
+        final targetLat = destLoc?.lat;
+        final targetLng = destLoc?.lng;
+        if (staffLat == null ||
+            staffLng == null ||
+            targetLat == null ||
+            targetLng == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location not available to update status'),
+            ),
+          );
+          setState(() {
+            _updatingStatus = false;
+          });
+          return;
+        }
+        final distance = Geolocator.distanceBetween(
+          staffLat,
+          staffLng,
+          targetLat,
+          targetLng,
+        );
+        if (distance > StaffTrackingService.autoStatusDistanceMeters) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You are too far from the location to update status'),
             ),
           );
           setState(() {
@@ -176,6 +231,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           lat: booking.location!.lat,
           lng: booking.location!.lng,
           status: 'REACHED_CUSTOMER',
+        );
+      } else if (status == 'VEHICLE_PICKED' &&
+          booking.merchantLocation?.lat != null &&
+          booking.merchantLocation?.lng != null) {
+        _tracking.setAutoStatusTarget(
+          lat: booking.merchantLocation!.lat,
+          lng: booking.merchantLocation!.lng,
+          status: 'REACHED_MERCHANT',
         );
       } else {
         _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);

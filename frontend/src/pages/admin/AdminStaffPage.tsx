@@ -17,7 +17,9 @@ import {
   XCircle,
   MapPin,
   Clock,
-  Trash2
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,7 +32,6 @@ const AdminStaffPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // New Staff Form State
   const [newStaff, setNewStaff] = useState({
     name: '',
     email: '',
@@ -38,6 +39,7 @@ const AdminStaffPage: React.FC = () => {
     phone: '',
     subRole: 'Driver'
   });
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -322,14 +324,23 @@ const AdminStaffPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={newStaff.password}
-                  onChange={e => setNewStaff({...newStaff, password: e.target.value})}
-                  className="w-full p-2 rounded-lg border border-border bg-background"
-                  placeholder="Create a temporary password"
-                />
+                <div className="relative">
+                  <input
+                    type={showStaffPassword ? 'text' : 'password'}
+                    required
+                    value={newStaff.password}
+                    onChange={e => setNewStaff({...newStaff, password: e.target.value})}
+                    className="w-full p-2 pr-10 rounded-lg border border-border bg-background"
+                    placeholder="Create a temporary password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffPassword(!showStaffPassword)}
+                    className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

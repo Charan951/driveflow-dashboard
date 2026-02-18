@@ -156,17 +156,19 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                                       ),
                                     ],
                                   ),
-                                  child: const Icon(
-                                    Icons.directions_car_filled_rounded,
-                                    color: Color(0xFF22D3EE),
-                                    size: 48,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: Image.asset(
+                                      'assets/speshway_logo.png',
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
                                 );
                               },
                             ),
                             const SizedBox(height: 18),
                             Text(
-                              'VEHICLE CARE',
+                              'SPESHWAY SOLUTIONS',
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.headlineMedium
                                   ?.copyWith(
@@ -177,7 +179,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Your Car. One App.',
+                              'Car Services',
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodyLarge
                                   ?.copyWith(color: Colors.white70),

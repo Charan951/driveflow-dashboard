@@ -3,7 +3,7 @@ import { socketService } from '@/services/socket';
 import { updateMyLocation, updateOnlineStatus } from '@/services/trackingService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
-import { bookingService } from '@/services/bookingService';
+import { bookingService, Booking } from '@/services/bookingService';
 
 interface TrackingContextType {
   isTracking: boolean;
@@ -15,6 +15,16 @@ interface TrackingContextType {
   startTracking: () => void;
   stopTracking: () => void;
   setActiveBookingId: (id: string | null) => void;
+}
+
+interface LocationPayload {
+  userId?: string;
+  role?: string;
+  subRole?: string;
+  lat: number;
+  lng: number;
+  timestamp: string;
+  bookingId?: string;
 }
 
 const TrackingContext = createContext<TrackingContextType | undefined>(undefined);
@@ -36,23 +46,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastRestUpdate = useRef<number>(0);
   const lastSocketUpdate = useRef<number>(0);
 
-  // Ref for activeBookingId to be accessible in the callback closure
   const activeBookingIdRef = useRef<string | null>(null);
-  
-  useEffect(() => {
-    activeBookingIdRef.current = activeBookingId;
-    if (activeBookingId) {
-      localStorage.setItem('activeBookingId', activeBookingId);
-      // Ensure socket is connected for live room forwarding
-      socketService.connect();
-      // Optionally start tracking to ensure updates flow
-      if (!isTracking) {
-        startTracking();
-      }
-    } else {
-      localStorage.removeItem('activeBookingId');
-    }
-  }, [activeBookingId]);
 
   const setActiveBookingId = (id: string | null) => {
     _setActiveBookingId(id);
@@ -65,9 +59,8 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       setLocation({ lat: latitude, lng: longitude });
       
-      // Emit via Socket.IO (Throttle to every 5 seconds for live feel)
       if (now - lastSocketUpdate.current > 5000) {
-        const payload: any = {
+        const payload: LocationPayload = {
           userId: user?._id,
           role: user?.role,
           subRole: user?.subRole,
@@ -103,24 +96,38 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const tryStartNativeBackground = async () => {
     try {
-      const cap = (window as any).Capacitor;
+      const capWindow = window as unknown as {
+        Capacitor?: { Plugins?: Record<string, unknown> };
+        BackgroundGeolocation?: unknown;
+      };
+      const cap = capWindow.Capacitor;
       const plugins = cap?.Plugins || {};
       const bg =
         plugins?.BackgroundGeolocation ||
-        (window as any).BackgroundGeolocation ||
+        capWindow.BackgroundGeolocation ||
         plugins?.CapacitorBackgroundGeolocation ||
         null;
 
       if (!bg) return;
 
-      // Support common plugin APIs
-      if (typeof bg.addListener === 'function' && typeof bg.start === 'function') {
-        const onLoc = async (loc: any) => {
+      if (typeof bg === 'object' && bg !== null && 'addListener' in bg && 'start' in bg) {
+        type BackgroundLocation =
+          | { latitude?: number; longitude?: number; coords?: { latitude?: number; longitude?: number } }
+          | null
+          | undefined;
+
+        const plugin = bg as {
+          addListener: (event: string, cb: (loc: BackgroundLocation) => void) => Promise<{ remove?: () => Promise<void> | void }>;
+          start: () => Promise<void> | void;
+          stop?: () => Promise<void> | void;
+        };
+
+        const onLoc = async (loc: BackgroundLocation) => {
           const lat = loc?.latitude ?? loc?.coords?.latitude;
           const lng = loc?.longitude ?? loc?.coords?.longitude;
           if (typeof lat === 'number' && typeof lng === 'number') {
             setLocation({ lat, lng });
-            const payload: any = {
+            const payload: LocationPayload = {
               userId: user?._id,
               role: user?.role,
               subRole: user?.subRole,
@@ -133,38 +140,66 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             try {
               await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
               setLastServerSync(new Date());
-            } catch {}
+            } catch (error) {
+              console.error('Background geo REST sync failed', error);
+            }
             setLastUpdate(new Date());
           }
         };
-        const sub = await bg.addListener('location', onLoc);
-        await bg.start();
+        const sub = await plugin.addListener('location', onLoc);
+        await plugin.start();
         bgRef.current = {
           stop: async () => {
-            try { await bg.stop?.(); } catch {}
-            try { await sub?.remove?.(); } catch {}
+            try {
+              await plugin.stop?.();
+            } catch (error) {
+              console.error('Failed to stop background tracking', error);
+            }
+            try {
+              await sub?.remove?.();
+            } catch (error) {
+              console.error('Failed to remove background listener', error);
+            }
           }
         };
         return;
       }
 
-      // capawesome API: addWatcher
-      if (typeof bg.addWatcher === 'function') {
-        const watcherId = await bg.addWatcher(
+      if (typeof bg === 'object' && bg !== null && 'addWatcher' in bg) {
+        const watcherPlugin = bg as {
+          addWatcher: (
+            options: {
+              backgroundMessage: string;
+              backgroundTitle: string;
+              requestPermissions: boolean;
+              stale: boolean;
+            },
+            callback: (
+              loc: { latitude?: number; longitude?: number } | null,
+              err: { message?: string } | null
+            ) => void
+          ) => Promise<string | number>;
+          removeWatcher?: (args: { id: string | number }) => Promise<void> | void;
+        };
+
+        const watcherId = await watcherPlugin.addWatcher(
           {
             backgroundMessage: 'Location service running',
             backgroundTitle: 'VehicleCare',
             requestPermissions: true,
             stale: false
           },
-          async (loc: any, err: any) => {
+          async (
+            loc: { latitude?: number; longitude?: number } | null,
+            err: { message?: string } | null
+          ) => {
             if (err) return;
             if (!loc) return;
             const lat = loc?.latitude;
             const lng = loc?.longitude;
             if (typeof lat === 'number' && typeof lng === 'number') {
               setLocation({ lat, lng });
-              const payload: any = {
+              const payload: LocationPayload = {
                 userId: user?._id,
                 role: user?.role,
                 subRole: user?.subRole,
@@ -177,12 +212,22 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               try {
                 await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
                 setLastServerSync(new Date());
-              } catch {}
+              } catch (error) {
+                console.error('Background watcher REST sync failed', error);
+              }
               setLastUpdate(new Date());
             }
           }
         );
-        bgRef.current = { stop: async () => { try { await bg.removeWatcher({ id: watcherId }); } catch {} } };
+        bgRef.current = {
+          stop: async () => {
+            try {
+              await watcherPlugin.removeWatcher?.({ id: watcherId });
+            } catch (error) {
+              console.error('Failed to remove background watcher', error);
+            }
+          }
+        };
       }
     } catch {
       // Ignore plugin errors on web
@@ -271,7 +316,11 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       watchId.current = null;
     }
     if (bgRef.current?.stop) {
-      try { bgRef.current.stop(); } catch {}
+      try {
+        bgRef.current.stop();
+      } catch (error) {
+        console.error('Failed to stop native background tracking', error);
+      }
       bgRef.current = null;
     }
     setIsTracking(false);
@@ -280,6 +329,19 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Set status to offline
     updateOnlineStatus(false).catch(err => console.error('Failed to set offline status', err));
   };
+
+  useEffect(() => {
+    activeBookingIdRef.current = activeBookingId;
+    if (activeBookingId) {
+      localStorage.setItem('activeBookingId', activeBookingId);
+      socketService.connect();
+      if (!isTracking) {
+        startTracking();
+      }
+    } else {
+      localStorage.removeItem('activeBookingId');
+    }
+  }, [activeBookingId, isTracking, startTracking]);
 
   // Restore tracking on mount if persisted
   useEffect(() => {
@@ -293,7 +355,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (!activeBookingId) return;
     socketService.connect();
-    const handler = (updatedBooking: any) => {
+    const handler = (updatedBooking: Booking) => {
       if (!updatedBooking || String(updatedBooking._id) !== String(activeBookingId)) return;
       const status = updatedBooking.status;
       if (status === 'REACHED_MERCHANT' || status === 'VEHICLE_AT_MERCHANT' || status === 'DELIVERED' || status === 'CANCELLED') {
@@ -304,7 +366,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
     socketService.on('bookingUpdated', handler);
     return () => {
-      socketService.off('bookingUpdated');
+      socketService.off('bookingUpdated', handler);
     };
   }, [activeBookingId]);
 
@@ -315,8 +377,8 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!user?._id || user.role !== 'staff') return;
       if (!isTracking) return;
       try {
-        const bookings = await bookingService.getMyBookings();
-        const active = bookings.find((b: any) => statuses.includes(b.status));
+        const bookings = (await bookingService.getMyBookings()) as Booking[];
+        const active = bookings.find((b) => statuses.includes(b.status));
         if (active?._id && activeBookingId !== active._id) {
           _setActiveBookingId(active._id);
           localStorage.setItem('activeBookingId', active._id);
@@ -325,7 +387,9 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           _setActiveBookingId(null);
           localStorage.removeItem('activeBookingId');
         }
-      } catch {}
+      } catch (error) {
+        console.error('Failed to auto-bind active booking', error);
+      }
     };
     sync();
     timer = window.setInterval(sync, 60000);

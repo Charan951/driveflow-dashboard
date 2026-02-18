@@ -89,6 +89,14 @@ const StaffDashboardPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
+      if (newStatus === 'VEHICLE_PICKED' && selectedOrderForStatus.pickupRequired) {
+        const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
+        if (photos.length < 4) {
+          toast.dismiss(loadingToast);
+          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
+          return;
+        }
+      }
       if (newStatus === 'DELIVERED') {
         const otp = window.prompt('Enter delivery OTP');
         if (!otp) {
@@ -105,9 +113,10 @@ const StaffDashboardPage: React.FC = () => {
       toast.success('Status updated successfully');
       setStatusDialogOpen(false);
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to update status');
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to update status');
     }
   };
 
@@ -236,25 +245,26 @@ const StaffDashboardPage: React.FC = () => {
                       <div>
                         <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
                         <h3 className="font-semibold">
-                            {order.services && order.services.length > 0 
-                              ? (typeof order.services[0] === 'object' ? (order.services[0] as any).name : 'Service')
-                              : 'Service'}
-                            {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
+                          {order.services && order.services.length > 0
+                            ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
+                            : 'Service'}
+                          {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                            {typeof order.user === 'object' ? (order.user as any).name : 'Customer'}
+                          {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
                         </p>
                       </div>
                       <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium">{STATUS_LABELS[order.status] || order.status}</span>
                     </div>
                     
                     <div className="space-y-2 mb-4">
-                      {Array.isArray(order.services) && order.services.map((service: any, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <CheckCircle className="w-4 h-4 text-muted" />
-                          {typeof service === 'object' ? service.name : service}
-                        </div>
-                      ))}
+                      {Array.isArray(order.services) &&
+                        order.services.map((service, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <CheckCircle className="w-4 h-4 text-muted" />
+                            {typeof service === 'object' ? service.name : service}
+                          </div>
+                        ))}
                     </div>
 
                     <div className="flex gap-3">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Car, 
@@ -24,6 +24,7 @@ const DashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -247,7 +248,7 @@ const DashboardPage: React.FC = () => {
                 scheduledDate={new Date(booking.date).toLocaleDateString()}
                 scheduledTime={new Date(booking.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 price={booking.totalAmount}
-                onClick={() => {}}
+                onClick={() => navigate(`/track/${booking._id}`)}
               />
             </motion.div>
           ))}

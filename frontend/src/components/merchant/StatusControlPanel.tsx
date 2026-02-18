@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Activity, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { bookingService } from '../../services/bookingService';
+import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { STATUS_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 
 interface StatusControlPanelProps {
-  booking: any;
+  booking: Booking;
   onUpdate: () => void;
 }
 
@@ -47,7 +47,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
     else if (booking.status === 'SERVICE_STARTED') nextStatus = 'SERVICE_COMPLETED';
   }
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = async (status: BookingStatus | string) => {
     // Validation before completing
     if (status === 'SERVICE_COMPLETED') {
         if (!booking.qc?.completedAt) {
@@ -81,8 +81,9 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
 
       toast.success(`Status updated to ${status}`);
       onUpdate();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update status');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to update status');
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,8 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
         toast.success('Order marked as delayed');
         setShowDelayModal(false);
         onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
+        console.error(error);
         toast.error('Failed to mark delay');
     } finally {
         setLoading(false);

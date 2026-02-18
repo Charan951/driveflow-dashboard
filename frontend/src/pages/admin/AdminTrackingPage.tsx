@@ -10,6 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { distance, point } from '@turf/turf';
 import { SmoothMarker } from '@/components/SmoothMarker';
+import { Booking } from '@/services/bookingService';
 import { 
   Car, 
   Bike, 
@@ -28,7 +29,7 @@ import {
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -77,11 +78,29 @@ const AdminTrackingPage: React.FC = () => {
   });
 
   useEffect(() => {
-    // Socket.IO Setup
     socketService.connect();
     socketService.joinRoom('admin');
     
-    socketService.on('liveLocation', (data) => {
+    interface LiveLocationEvent {
+      userId: string;
+      role?: string;
+      subRole?: string;
+      lat: number;
+      lng: number;
+      timestamp: string;
+      isOnline?: boolean;
+      isShopOpen?: boolean;
+      lastSeen?: string;
+    }
+
+    interface UserStatusUpdateEvent {
+      userId: string;
+      isOnline?: boolean;
+      isShopOpen?: boolean;
+      lastSeen?: string;
+    }
+
+    socketService.on('liveLocation', (data: LiveLocationEvent) => {
        // data: { userId, role, subRole, lat, lng, timestamp }
        queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
          if (!prev) return prev;
@@ -111,7 +130,7 @@ const AdminTrackingPage: React.FC = () => {
        });
     });
 
-    socketService.on('userStatusUpdate', (data) => {
+    socketService.on('userStatusUpdate', (data: UserStatusUpdateEvent) => {
        // Handle Shop Open/Close status
        if (typeof data.isShopOpen !== 'undefined') {
          queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
@@ -150,7 +169,7 @@ const AdminTrackingPage: React.FC = () => {
        });
     });
 
-    socketService.on('bookingUpdated', (updatedBooking: any) => {
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
         queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
             if (!prev) return prev;
             
@@ -181,20 +200,26 @@ const AdminTrackingPage: React.FC = () => {
     });
 
     return () => {
-        socketService.leaveRoom('admin');
-        socketService.off('liveLocation');
-        socketService.off('userStatusUpdate');
-        socketService.off('bookingUpdated');
-        socketService.disconnect();
+      socketService.leaveRoom('admin');
+      socketService.off('liveLocation');
+      socketService.off('userStatusUpdate');
+      socketService.off('bookingUpdated');
+      socketService.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
   // Recompute route ETA live for the selected asset when its location updates
   useEffect(() => {
-    const handler = async (data: any) => {
+    interface LiveLocationEvent {
+      userId: string;
+      lat: number;
+      lng: number;
+      timestamp?: string;
+    }
+
+    const handler = async (data: LiveLocationEvent) => {
       if (!selectedItem || !destination) return;
-      if (data.userId !== (selectedItem as any)._id) return;
+      if (data.userId !== selectedItem._id) return;
       try {
         const start = [data.lat, data.lng] as [number, number];
         const end = destination;
@@ -209,20 +234,18 @@ const AdminTrackingPage: React.FC = () => {
           });
         }
       } catch (e) {
-        // silent
+        console.error('Failed to update live ETA', e);
       }
     };
     socketService.on('liveLocation', handler);
     return () => {
-      socketService.off('liveLocation', handler as any);
+      socketService.off('liveLocation', handler);
     };
   }, [selectedItem, destination]);
 
   useEffect(() => {
     if (selectedItem && 'currentJob' in selectedItem && selectedItem.currentJob?.location) {
-      // Handle both string and object location
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const loc = selectedItem.currentJob.location as any;
+      const loc = selectedItem.currentJob.location as { lat?: number; lng?: number } | string | null | undefined;
       let jobLat: number | undefined;
       let jobLng: number | undefined;
 
@@ -282,7 +305,7 @@ const AdminTrackingPage: React.FC = () => {
       const updates: Record<string, number> = {};
       for (const it of items) {
         if ('currentJob' in it && it.currentJob && it.currentJob.location) {
-          const loc: any = it.currentJob.location as any;
+          const loc = it.currentJob.location as { lat?: number; lng?: number } | string | null | undefined;
           let destLat: number | undefined;
           let destLng: number | undefined;
           if (typeof loc === 'object' && loc.lat && loc.lng) {

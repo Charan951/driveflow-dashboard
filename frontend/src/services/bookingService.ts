@@ -85,6 +85,19 @@ export interface Booking {
   };
 }
 
+export interface BookingDetailsUpdate {
+  media?: string[];
+  parts?: Booking['parts'];
+  notes?: Booking['notes'];
+  inspection?: Booking['inspection'];
+  delay?: Booking['delay'];
+  serviceExecution?: Booking['serviceExecution'];
+  qc?: Booking['qc'];
+  billing?: Booking['billing'];
+  revisit?: Booking['revisit'];
+  prePickupPhotos?: Booking['prePickupPhotos'];
+}
+
 export const bookingService = {
   createBooking: async (data: {
     vehicleId: string;
@@ -153,18 +166,7 @@ export const bookingService = {
     return response.data;
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  updateBookingDetails: async (id: string, data: { 
-    media?: string[]; 
-    parts?: any[]; 
-    notes?: string;
-    inspection?: any;
-    delay?: any;
-    serviceExecution?: any;
-    qc?: any;
-    billing?: any;
-    revisit?: any;
-  }) => {
+  updateBookingDetails: async (id: string, data: BookingDetailsUpdate) => {
     const response = await api.put(`/bookings/${id}/details`, data);
     return response.data;
   },

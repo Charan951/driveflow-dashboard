@@ -64,11 +64,12 @@ const AddVehiclePage: React.FC = () => {
           'Vehicle details not found. Please enter manually.';
         toast.info(message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching vehicle details:', error);
 
-      const status = error?.response?.status;
-      const message = error?.response?.data?.message as string | undefined;
+      const err = error as { response?: { status?: number; data?: { message?: string } } };
+      const status = err.response?.status;
+      const message = err.response?.data?.message;
 
       if (status === 404) {
         toast.info(message || 'Vehicle details not found. Please enter manually.');

@@ -22,8 +22,15 @@ export interface User {
 
 export const userService = {
   getAllUsers: async (filters?: { role?: string; subRole?: string }) => {
-    const params = new URLSearchParams(filters as any).toString();
-    const response = await api.get(`/users?${params}`);
+    const params = new URLSearchParams();
+    if (filters?.role) {
+      params.set('role', filters.role);
+    }
+    if (filters?.subRole) {
+      params.set('subRole', filters.subRole);
+    }
+    const query = params.toString();
+    const response = await api.get(`/users${query ? `?${query}` : ''}`);
     return response.data;
   },
 

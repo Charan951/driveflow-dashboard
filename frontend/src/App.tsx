@@ -19,6 +19,8 @@ import PublicRoute from "./components/PublicRoute";
 import HomePage from "./pages/public/HomePage";
 import LoginPage from "./pages/public/LoginPage";
 import RegisterPage from "./pages/public/RegisterPage";
+import ForgotPasswordPage from "./pages/public/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/public/ResetPasswordPage";
 import AboutUs from "./pages/public/AboutUs";
 import Careers from "./pages/public/Careers";
 import Blog from "./pages/public/Blog";
@@ -118,6 +120,8 @@ const App = () => (
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/merchant/login" element={<MerchantLoginPage />} />
               <Route path="/staff/login" element={<StaffLoginPage />} />
             </Route>

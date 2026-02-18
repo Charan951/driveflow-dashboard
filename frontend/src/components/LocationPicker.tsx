@@ -5,12 +5,13 @@ import 'leaflet/dist/leaflet.css';
 import api from '@/services/api';
 import { Search, MapPin, Loader2, Locate } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -89,11 +90,19 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
   };
 
   const handleGetCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsLocating(true);
-      setIsTyping(false);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    setIsTyping(false);
+    const loadingToast = toast.loading('Getting your location...');
+
+    const requestLocation = (highAccuracy: boolean) => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          toast.dismiss(loadingToast);
           const { latitude, longitude } = position.coords;
           const newPos: [number, number] = [latitude, longitude];
           setPosition(newPos);
@@ -101,16 +110,26 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
           setIsLocating(false);
         },
         (error) => {
-          console.error('Error getting location:', error);
+          if (highAccuracy && (error.code === 2 || error.code === 3)) {
+            console.warn('High accuracy geolocation failed, falling back to low accuracy:', error);
+            toast('Weak GPS signal', { description: 'Trying approximate network location…' });
+            requestLocation(false);
+            return;
+          }
+          toast.dismiss(loadingToast);
+          console.warn('Error getting location:', error);
+          toast.error('Failed to get location. Please enable GPS or search manually.');
           setIsLocating(false);
         },
         {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          enableHighAccuracy: highAccuracy,
+          timeout: highAccuracy ? 10000 : 15000,
+          maximumAge: highAccuracy ? 0 : 60000
         }
       );
-    }
+    };
+
+    requestLocation(true);
   };
 
   const handleDragEnd = async () => {

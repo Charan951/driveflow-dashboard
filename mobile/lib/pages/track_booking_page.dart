@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,7 +20,6 @@ class TrackBookingPage extends StatefulWidget {
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _mapController = MapController();
-  Razorpay? _razorpay;
 
   bool _loading = true;
   String? _error;
@@ -34,18 +32,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   LatLng? _liveLatLng;
   String? _liveName;
   DateTime? _liveUpdatedAt;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!kIsWeb) {
-      final rz = Razorpay();
-      _razorpay = rz;
-      rz.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
-      rz.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
-      rz.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
-    }
-  }
+  bool _isPaymentLoading = false;
+  bool _nearAlertShown = false;
 
   @override
   void didChangeDependencies() {
@@ -54,6 +42,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final nextId = args?.toString();
     if (nextId != null && nextId.isNotEmpty && nextId != _bookingId) {
       _bookingId = nextId;
+      _nearAlertShown = false;
       _load();
       _connectSocket(nextId);
     }
@@ -72,66 +61,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       socket.emit('leave', 'booking_${_bookingId ?? ''}');
       socket.dispose();
     }
-    final rz = _razorpay;
-    if (rz != null) {
-      rz.clear();
-    }
     super.dispose();
   }
 
-  void _onPaymentSuccess(PaymentSuccessResponse response) {
-    final booking = _booking;
-    if (booking == null) return;
-    _service
-        .verifyPayment(
-          bookingId: booking.id,
-          razorpayOrderId: response.orderId ?? '',
-          razorpayPaymentId: response.paymentId ?? '',
-          razorpaySignature: response.signature ?? '',
-        )
-        .then((_) => _load())
-        .catchError((e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Payment verification failed: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment Successful!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _onPaymentError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Payment Failed: ${response.message ?? response.code.toString()}',
-        ),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  void _onExternalWallet(ExternalWalletResponse response) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('External wallet selected: ${response.walletName}'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  bool _isPaymentLoading = false;
+  static const _adminUpiId = '6301028401@axl';
+  static const _adminName = 'DriveFlow Admin';
 
   Future<void> _handlePayment() async {
     final booking = _booking;
@@ -140,43 +74,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     if (kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Online payment is available only in the mobile app'),
+          content: Text('UPI payment is available only in the mobile app'),
         ),
-      );
-      return;
-    }
-
-    final rz = _razorpay;
-    if (rz == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment is not initialized')),
       );
       return;
     }
 
     setState(() => _isPaymentLoading = true);
     try {
-      final order = await _service.createRazorpayOrder(booking.id);
-      if (!mounted) return;
-
-      final options = {
-        'key': Env.razorpayKey,
-        'amount': order['amount'],
-        'currency': order['currency'] ?? 'INR',
-        'name': 'DriveFlow',
-        'description':
-            'Service payment for ${booking.vehicle?.licensePlate ?? ''}',
-        'order_id': order['id'],
-        'prefill': {'contact': '', 'email': ''},
-        'theme': {'color': '#4F46E5'},
-      };
-
-      rz.open(options);
+      await _showUpiOptions(booking);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Unable to start payment: $e'),
+          content: Text('Payment action failed: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -184,6 +95,133 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (mounted) {
         setState(() => _isPaymentLoading = false);
       }
+    }
+  }
+
+  Future<void> _showUpiOptions(Booking booking) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Pay using UPI',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Amount: ₹${booking.totalAmount}',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchUpiPayment(booking, 'Google Pay');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Pay with Google Pay'),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchUpiPayment(booking, 'PhonePe');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Pay with PhonePe'),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchUpiPayment(booking, 'Paytm');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Pay with Paytm'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchUpiPayment(booking, 'UPI app');
+                  },
+                  child: const Text('Other UPI app'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _launchUpiPayment(Booking booking, String label) async {
+    final amount = booking.totalAmount.toDouble().toStringAsFixed(2);
+    final vpa = _adminUpiId;
+    final pn = Uri.encodeComponent(_adminName);
+    final note = Uri.encodeComponent('Booking ${booking.id}');
+
+    final uri = Uri.parse(
+      'upi://pay?pa=$vpa&pn=$pn&tn=$note&am=$amount&cu=INR',
+    );
+
+    final canOpen = await canLaunchUrl(uri);
+    if (!canOpen) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No UPI app found to open $label'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open $label'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -235,7 +273,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           final latRaw = data['lat'];
           final lngRaw = data['lng'];
           final nameRaw = data['name'];
-          final updatedAtRaw = data['updatedAt'];
+          final updatedAtRaw = data['updatedAt'] ?? data['timestamp'];
           if (latRaw is num && lngRaw is num) {
             setState(() {
               _liveLatLng = LatLng(latRaw.toDouble(), lngRaw.toDouble());
@@ -249,14 +287,61 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           }
         }
       });
+      next.on('nearbyStaff', (data) {
+        if (!mounted) return;
+        final id = _bookingId;
+        if (id == null || id.isEmpty) return;
+        if (data is Map) {
+          final bookingId = data['bookingId']?.toString();
+          if (bookingId != id) return;
+          if (_nearAlertShown) return;
+          _nearAlertShown = true;
+          String message;
+          final distanceRaw = data['distanceMeters'];
+          if (distanceRaw is num) {
+            final d = distanceRaw.round();
+            final clamped = d < 1 ? 1 : d;
+            message = 'Staff is near your location (~$clamped m)';
+          } else {
+            message = 'Staff is near your location (≤300 m)';
+          }
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
+        }
+      });
       next.on('bookingUpdated', (data) {
         if (!mounted) return;
         if (data is Map<String, dynamic>) {
-          setState(() => _booking = Booking.fromJson(data));
+          final updated = Booking.fromJson(data);
+          setState(() {
+            _booking = updated;
+            if (updated.status == 'VEHICLE_AT_MERCHANT' ||
+                updated.status == 'SERVICE_STARTED' ||
+                updated.status == 'SERVICE_COMPLETED' ||
+                updated.status == 'OUT_FOR_DELIVERY' ||
+                updated.status == 'DELIVERED' ||
+                updated.status == 'CANCELLED') {
+              _liveLatLng = null;
+              _liveName = null;
+              _liveUpdatedAt = null;
+            }
+          });
         } else if (data is Map) {
-          setState(
-            () => _booking = Booking.fromJson(Map<String, dynamic>.from(data)),
-          );
+          final updated = Booking.fromJson(Map<String, dynamic>.from(data));
+          setState(() {
+            _booking = updated;
+            if (updated.status == 'VEHICLE_AT_MERCHANT' ||
+                updated.status == 'SERVICE_STARTED' ||
+                updated.status == 'SERVICE_COMPLETED' ||
+                updated.status == 'OUT_FOR_DELIVERY' ||
+                updated.status == 'DELIVERED' ||
+                updated.status == 'CANCELLED') {
+              _liveLatLng = null;
+              _liveName = null;
+              _liveUpdatedAt = null;
+            }
+          });
         }
       });
 
@@ -540,6 +625,56 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ),
                 ),
               ),
+              if (booking.pickupRequired && _nearAlertShown) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF3),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF22C55E),
+                        ),
+                        child: const Icon(
+                          Icons.directions_car_filled,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Staff is nearby',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF166534),
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Your pickup partner has almost reached your location.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: const Color(0xFF166534)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -724,40 +859,72 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
-                child: _HorizontalStepper(
-                  labels: booking.pickupRequired
-                      ? [
-                          'Booking Confirmed',
-                          booking.status == 'REACHED_CUSTOMER'
-                              ? 'Staff is waiting for pickup'
-                              : 'Pickup Scheduled',
-                          'At Service Center',
-                          'Service In Progress',
-                          'Ready for Delivery',
-                          'Delivered',
-                        ]
-                      : [
-                          'Booking Confirmed',
-                          'Merchant Assigned',
-                          'Vehicle at Merchant',
-                          'Service In Progress',
-                          'Service Completed',
-                          'Delivered',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (booking.pickupRequired &&
+                        booking.status == 'REACHED_CUSTOMER' &&
+                        _nearAlertShown) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF22C55E),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Staff is nearby',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF166534),
+                                ),
+                          ),
                         ],
-                  activeIndex: currentIndex >= 7
-                      ? 5
-                      : currentIndex >= 6
-                      ? 4
-                      : currentIndex >= 5
-                      ? 3
-                      : currentIndex >= 4
-                      ? 2
-                      : currentIndex >= 2
-                      ? 1
-                      : currentIndex >= 0
-                      ? 0
-                      : -1,
-                  firstTimeLabel: _formatDateTime(context, booking.date),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    _HorizontalStepper(
+                      labels: booking.pickupRequired
+                          ? [
+                              'Booking Confirmed',
+                              booking.status == 'REACHED_CUSTOMER'
+                                  ? 'Staff is waiting for pickup'
+                                  : 'Pickup Scheduled',
+                              'At Service Center',
+                              'Service In Progress',
+                              'Ready for Delivery',
+                              'Delivered',
+                            ]
+                          : [
+                              'Booking Confirmed',
+                              'Merchant Assigned',
+                              'Vehicle at Merchant',
+                              'Service In Progress',
+                              'Service Completed',
+                              'Delivered',
+                            ],
+                      activeIndex: currentIndex >= 7
+                          ? 5
+                          : currentIndex >= 6
+                          ? 4
+                          : currentIndex >= 5
+                          ? 3
+                          : currentIndex >= 4
+                          ? 2
+                          : currentIndex >= 2
+                          ? 1
+                          : currentIndex >= 0
+                          ? 0
+                          : -1,
+                      firstTimeLabel: _formatDateTime(context, booking.date),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),

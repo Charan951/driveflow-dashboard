@@ -1,6 +1,7 @@
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import { getIO } from '../socket.js';
 
 // @desc    Get all approval requests
 // @route   GET /api/approvals
@@ -115,6 +116,24 @@ export const updateApprovalStatus = async (req, res) => {
     approval.resolvedAt = Date.now();
     approval.resolvedBy = req.user._id;
 
+    const emitBookingUpdated = async (bookingId) => {
+      try {
+        const io = getIO();
+        const populated = await Booking.findById(bookingId)
+          .populate('user', 'id name email phone')
+          .populate('vehicle')
+          .populate('services')
+          .populate('merchant', 'name email phone location')
+          .populate('pickupDriver', 'name email phone')
+          .populate('technician', 'name email phone');
+        if (!populated) return;
+        io.to('admin').emit('bookingUpdated', populated);
+        io.to(`booking_${bookingId}`).emit('bookingUpdated', populated);
+      } catch (e) {
+        console.error('Socket emit error (approval update):', e);
+      }
+    };
+
     if (status === 'Approved') {
       // Execute the logic based on type
       if (approval.type === 'BillEdit' && approval.relatedModel === 'Booking') {
@@ -122,6 +141,7 @@ export const updateApprovalStatus = async (req, res) => {
         if (booking && approval.data?.newAmount) {
           booking.totalAmount = approval.data.newAmount;
           await booking.save();
+          await emitBookingUpdated(booking._id);
         }
       } else if (approval.type === 'PartReplacement' && approval.relatedModel === 'Booking') {
         const booking = await Booking.findById(approval.relatedId);
@@ -177,6 +197,7 @@ export const updateApprovalStatus = async (req, res) => {
           }
 
           await booking.save();
+          await emitBookingUpdated(booking._id);
         }
       } else if (approval.type === 'ExtraCost' && approval.relatedModel === 'Booking') {
         const booking = await Booking.findById(approval.relatedId);
@@ -210,6 +231,7 @@ export const updateApprovalStatus = async (req, res) => {
           booking.notes = booking.notes ? booking.notes + '\n' + note : note;
           
           await booking.save();
+          await emitBookingUpdated(booking._id);
         }
       }
     } else if (status === 'Rejected') {
@@ -223,6 +245,7 @@ export const updateApprovalStatus = async (req, res) => {
               booking.inspection.additionalParts[partIndex].approved = false;
               booking.inspection.additionalParts[partIndex].approvalStatus = 'Rejected';
               await booking.save();
+              await emitBookingUpdated(booking._id);
             }
           }
         }

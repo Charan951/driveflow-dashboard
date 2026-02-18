@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -18,7 +18,7 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
-import { STATUS_ORDER, STATUS_LABELS } from '@/lib/statusFlow';
+import { STATUS_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { AlertTriangle, Check, X } from 'lucide-react';
@@ -31,7 +31,7 @@ import * as turf from '@turf/turf';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -54,10 +54,15 @@ const TrackServicePage: React.FC = () => {
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
 
   // Live Tracking State
-  const [staffLocation, setStaffLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [eta, setEta] = useState<ETAResponse | null>(null);
   const etaTimer = useRef<number | null>(null);
   const nearAlertedRef = useRef<boolean>(false);
+  const orderRef = useRef<Booking | null>(null);
+
+  useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -82,13 +87,31 @@ const TrackServicePage: React.FC = () => {
       socketService.connect();
       socketService.joinRoom(`booking_${id}`);
 
-      socketService.on('liveLocation', (data) => {
-        if (order && order.pickupRequired === false) return;
+      socketService.on('liveLocation', (data: { lat?: number; lng?: number; role?: string }) => {
+        const currentOrder = orderRef.current;
+        if (!currentOrder) return;
+        if (currentOrder.pickupRequired === false) return;
+        if (data.role && data.role !== 'staff') return;
+        if (
+          currentOrder.status === 'VEHICLE_AT_MERCHANT' ||
+          currentOrder.status === 'SERVICE_STARTED' ||
+          currentOrder.status === 'SERVICE_COMPLETED' ||
+          currentOrder.status === 'DELIVERED' ||
+          currentOrder.status === 'CANCELLED'
+        ) {
+          return;
+        }
         if (data.lat && data.lng) {
           setStaffLocation({ lat: data.lat, lng: data.lng });
-          if (!nearAlertedRef.current && order?.location && (order.status === 'ASSIGNED' || order.status === 'ACCEPTED' || order.status === 'REACHED_CUSTOMER')) {
-            const destLat = typeof order.location === 'object' ? order.location.lat : undefined;
-            const destLng = typeof order.location === 'object' ? order.location.lng : undefined;
+          if (
+            !nearAlertedRef.current &&
+            currentOrder.location &&
+            (currentOrder.status === 'ASSIGNED' ||
+              currentOrder.status === 'ACCEPTED' ||
+              currentOrder.status === 'REACHED_CUSTOMER')
+          ) {
+            const destLat = typeof currentOrder.location === 'object' ? currentOrder.location.lat : undefined;
+            const destLng = typeof currentOrder.location === 'object' ? currentOrder.location.lng : undefined;
             if (destLat && destLng) {
               const from = turf.point([data.lng, data.lat]);
               const to = turf.point([destLng, destLat]);
@@ -106,7 +129,8 @@ const TrackServicePage: React.FC = () => {
       // Server-side proximity notification
       socketService.on('nearbyStaff', (payload: { bookingId: string; distanceMeters?: number }) => {
         if (!id || String(payload?.bookingId) !== String(id)) return;
-        if (order && order.pickupRequired === false) return;
+        const currentOrder = orderRef.current;
+        if (currentOrder && currentOrder.pickupRequired === false) return;
         if (!nearAlertedRef.current) {
           nearAlertedRef.current = true;
           sessionStorage.setItem(`nearAlert_${id}`, '1');
@@ -119,8 +143,17 @@ const TrackServicePage: React.FC = () => {
 
       socketService.on('bookingUpdated', (updatedBooking: Booking) => {
         if (updatedBooking._id === id) {
-             setOrder(updatedBooking);
-             // toast.info(`Status updated: ${updatedBooking.status}`);
+          setOrder(updatedBooking);
+          if (
+            updatedBooking.status === 'VEHICLE_AT_MERCHANT' ||
+            updatedBooking.status === 'SERVICE_STARTED' ||
+            updatedBooking.status === 'SERVICE_COMPLETED' ||
+            updatedBooking.status === 'DELIVERED' ||
+            updatedBooking.status === 'CANCELLED'
+          ) {
+            setStaffLocation(null);
+            setEta(null);
+          }
         }
       });
 
@@ -136,20 +169,53 @@ const TrackServicePage: React.FC = () => {
     }
   }, [id]);
 
-  useEffect(() => {
-    if (order?._id) {
-        fetchPendingApprovals();
+  const fetchPendingApprovals = useCallback(async () => {
+    if (!order?._id) return;
+    try {
+      const approvals = await getMyApprovals();
+      const filtered = approvals.filter((a) => {
+        const rawRelated: unknown = a.relatedId as unknown;
+        let relatedId = '';
+        if (typeof rawRelated === 'string') {
+          relatedId = rawRelated;
+        } else if (rawRelated && typeof rawRelated === 'object') {
+          const obj = rawRelated as { _id?: unknown };
+          if (typeof obj._id === 'string') {
+            relatedId = obj._id;
+          } else if (obj._id) {
+            relatedId = String(obj._id);
+          } else {
+            relatedId = String(rawRelated);
+          }
+        } else if (rawRelated != null) {
+          relatedId = String(rawRelated);
+        }
+        return (
+          relatedId === order._id &&
+          a.status === 'Pending' &&
+          a.type === 'PartReplacement'
+        );
+      });
+      setPendingApprovals(filtered);
+    } catch (error) {
+      console.error('Failed to fetch approvals', error);
     }
   }, [order?._id]);
+
+  useEffect(() => {
+    if (!order?._id) return;
+    fetchPendingApprovals();
+    const interval = window.setInterval(fetchPendingApprovals, 15000);
+    return () => window.clearInterval(interval);
+  }, [order?._id, fetchPendingApprovals]);
 
   useEffect(() => {
     if (!order || !staffLocation || order.pickupRequired === false) {
       setEta(null);
       return;
     }
-    const loc = order.location as any;
-    const destLat = typeof loc === 'object' ? loc?.lat : undefined;
-    const destLng = typeof loc === 'object' ? loc?.lng : undefined;
+    const destLat = typeof order.location === 'object' ? order.location?.lat : undefined;
+    const destLng = typeof order.location === 'object' ? order.location?.lng : undefined;
     if (!destLat || !destLng) {
       setEta(null);
       return;
@@ -167,6 +233,7 @@ const TrackServicePage: React.FC = () => {
         const res = await getETA(staffLocation.lat, staffLocation.lng, destLat, destLng);
         setEta(res);
       } catch (e) {
+        console.error('Failed to calculate ETA', e);
       }
     }, 500);
     return () => {
@@ -176,22 +243,6 @@ const TrackServicePage: React.FC = () => {
       }
     };
   }, [order, staffLocation]);
-
-  const fetchPendingApprovals = async () => {
-      if (!order?._id) return;
-      try {
-          const approvals = await getMyApprovals();
-          // Filter for this booking and pending status
-          const filtered = approvals.filter(a => 
-              a.relatedId === order._id && 
-              a.status === 'Pending' &&
-              a.type === 'PartReplacement'
-          );
-          setPendingApprovals(filtered);
-      } catch (error) {
-          console.error("Failed to fetch approvals", error);
-      }
-  };
 
   const handleApprovalAction = async (approvalId: string, status: 'Approved' | 'Rejected') => {
       try {
@@ -245,8 +296,9 @@ const TrackServicePage: React.FC = () => {
       await bookingService.updateBookingStatus(order._id, 'VEHICLE_AT_MERCHANT');
       setOrder(prev => prev ? { ...prev, status: 'VEHICLE_AT_MERCHANT' } : null);
       toast.success('Status updated to At Merchant');
-    } catch (error: any) {
-      const message = error?.response?.data?.message || 'Failed to update status';
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err.response?.data?.message || 'Failed to update status';
       toast.error(message);
     }
   };
@@ -339,6 +391,12 @@ const TrackServicePage: React.FC = () => {
     try {
       const orderData = await paymentService.createOrder(order._id);
       
+      interface RazorpayHandlerResponse {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      }
+
       const options: RazorpayOptions = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || '', 
         amount: orderData.amount,
@@ -346,22 +404,21 @@ const TrackServicePage: React.FC = () => {
         name: 'Vehicle Care',
         description: 'Service Payment',
         order_id: orderData.id,
-        handler: async function (response: any) {
-            try {
-                await paymentService.verifyPayment({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                    bookingId: order._id
-                });
-                toast.success('Payment Successful!');
-                // Refresh order
-                const updatedOrder = await bookingService.getBookingById(order._id);
-                setOrder(updatedOrder);
-            } catch (err) {
-                console.error("Payment Verification Error", err);
-                toast.error('Payment verification failed');
-            }
+        handler: async function (response: RazorpayHandlerResponse) {
+          try {
+            await paymentService.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              bookingId: order._id
+            });
+            toast.success('Payment Successful!');
+            const updatedOrder = await bookingService.getBookingById(order._id);
+            setOrder(updatedOrder);
+          } catch (err) {
+            console.error('Payment Verification Error', err);
+            toast.error('Payment verification failed');
+          }
         },
         prefill: {
             name: typeof order.user === 'object' ? order.user.name : '',
@@ -455,7 +512,15 @@ const TrackServicePage: React.FC = () => {
   const merchantPhone = order.merchant?.phone;
   const merchantLat = order.merchant?.location?.lat;
   const merchantLng = order.merchant?.location?.lng;
-  
+  const hasDirectionsCard =
+    !order.pickupRequired &&
+    !!order.merchant &&
+    (merchantLat || order.merchant.location?.address) &&
+    ['ASSIGNED', 'ACCEPTED'].includes(order.status);
+  const hasApprovalsChat = pendingApprovals.length > 0;
+  const hasRightColumnContent = hasDirectionsCard || hasApprovalsChat;
+  const showTwoColumnPaymentRow = hasRightColumnContent;
+
   return (
     <div className="px-4 lg:px-6 py-4 lg:py-6 space-y-6 pb-24 max-w-6xl mx-auto">
       {/* Header */}
@@ -540,14 +605,14 @@ const TrackServicePage: React.FC = () => {
       </motion.div>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
-        {order.pickupRequired && (([
+        {order.pickupRequired && ([
           'ASSIGNED',
           'ACCEPTED',
           'REACHED_CUSTOMER',
           'VEHICLE_PICKED',
           'REACHED_MERCHANT',
           'OUT_FOR_DELIVERY'
-        ].includes(order.status)) || staffLocation) && (
+        ].includes(order.status)) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -596,7 +661,7 @@ const TrackServicePage: React.FC = () => {
         )}
 
         <div className="w-full space-y-6">
-          <div className={!order.pickupRequired ? 'grid gap-4 md:grid-cols-2' : ''}>
+          <div className={showTwoColumnPaymentRow ? 'grid gap-4 md:grid-cols-2 items-start' : ''}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -629,11 +694,9 @@ const TrackServicePage: React.FC = () => {
               )}
             </motion.div>
 
-            {!order.pickupRequired && (
+            {hasRightColumnContent && (
               <div className="space-y-4">
-                {order.merchant &&
-                  (merchantLat || order.merchant.location?.address) &&
-                  ['ASSIGNED', 'ACCEPTED'].includes(order.status) && (
+                {hasDirectionsCard && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -644,7 +707,7 @@ const TrackServicePage: React.FC = () => {
                       Get Directions
                     </h2>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Navigate from your current location to {order.merchant.name}.
+                      Navigate from your current location to {order.merchant?.name}.
                     </p>
                     <button
                       onClick={() => {
@@ -707,7 +770,7 @@ const TrackServicePage: React.FC = () => {
                   </motion.div>
                 )}
 
-                {pendingApprovals.length > 0 && (
+                {hasApprovalsChat && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

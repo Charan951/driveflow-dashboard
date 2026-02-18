@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Clock, Camera, DollarSign, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { bookingService } from '../../services/bookingService';
+import { bookingService, Booking } from '../../services/bookingService';
 import { userService, User } from '../../services/userService';
 import { createApproval } from '../../services/approvalService';
 import { uploadService } from '../../services/uploadService';
 
 interface ServiceExecutionPanelProps {
-  booking: any;
+  booking: Booking;
   onUpdate: () => void;
 }
 
@@ -95,15 +95,17 @@ const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, 
       setLoading(true);
       try {
         const files = Array.from(e.target.files);
-        const res = await uploadService.uploadFiles(files);
-        const newPhotos = res.files.map(f => f.url);
+        const res: { files: { url: string }[] } = await uploadService.uploadFiles(files);
+        const newPhotos = res.files.map((f) => f.url);
         
         // Get existing photos
-        const currentPhotos = booking.serviceExecution?.[`${type}Photos`] || [];
+        const key = `${type}Photos` as 'beforePhotos' | 'duringPhotos' | 'afterPhotos';
+        const currentPhotos = booking.serviceExecution?.[key] || [];
         
         await bookingService.updateBookingDetails(booking._id, {
           serviceExecution: {
-            [`${type}Photos`]: [...currentPhotos, ...newPhotos]
+            ...booking.serviceExecution,
+            [key]: [...currentPhotos, ...newPhotos],
           }
         });
         

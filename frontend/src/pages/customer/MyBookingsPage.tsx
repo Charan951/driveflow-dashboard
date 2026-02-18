@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MyBookingsPage = () => {
@@ -154,7 +154,20 @@ const MyBookingsPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookingsList.map((booking) => (
+              {bookingsList.map((booking) => {
+                const additionalParts = Array.isArray(booking.inspection?.additionalParts)
+                  ? booking.inspection.additionalParts
+                  : [];
+                const approvedParts = additionalParts.filter(
+                  (p) => p.approvalStatus === 'Approved' || p.approved
+                );
+                const approvedPartsCount = approvedParts.length;
+                const approvedPartsTotal = approvedParts.reduce(
+                  (sum, part) => sum + (part.price || 0) * (part.quantity || 1),
+                  0
+                );
+
+                return (
                 <TableRow key={booking._id}>
                   <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
                   <TableCell>
@@ -174,7 +187,17 @@ const MyBookingsPage = () => {
                       {booking.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>₹{booking.totalAmount}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span>₹{booking.totalAmount}</span>
+                      {approvedPartsCount > 0 && (
+                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                          <Wrench className="w-3 h-3" />
+                          {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="capitalize">{booking.paymentStatus}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -200,7 +223,7 @@ const MyBookingsPage = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div>

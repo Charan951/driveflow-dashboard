@@ -118,17 +118,19 @@ class _SplashPageState extends State<SplashPage>
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.directions_car_filled_rounded,
-                            color: Color(0xFF22D3EE),
-                            size: 48,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: Image.asset(
+                              'assets/speshway_logo.png',
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         );
                       },
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'DRIVEFLOW STAFF',
+                      'SPESHWAY SOLUTIONS',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
@@ -139,7 +141,7 @@ class _SplashPageState extends State<SplashPage>
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Manage bookings on the go.',
+                      'Staff Portal',
                       textAlign: TextAlign.center,
                       style: Theme.of(
                         context,

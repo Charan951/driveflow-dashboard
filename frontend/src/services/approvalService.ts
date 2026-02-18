@@ -6,7 +6,14 @@ export interface ApprovalRequest {
   status: 'Pending' | 'Approved' | 'Rejected';
   relatedId: string | Record<string, unknown>; // Populated object
   relatedModel: 'User' | 'Booking';
-  data?: any;
+  data?: {
+    name?: string;
+    price?: number;
+    quantity?: number;
+    image?: string;
+    oldImage?: string;
+    [key: string]: unknown;
+  };
   requestedBy: { _id: string; name: string; email: string; role: string };
   adminComment?: string;
   createdAt: string;

@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
- rejectionReason: {
+  rejectionReason: {
     type: String,
     default: null,
   },
@@ -55,6 +55,12 @@ const userSchema = new mongoose.Schema({
   deviceTokens: [{
     type: String,
   }],
+  passwordResetToken: {
+    type: String,
+  },
+  passwordResetExpires: {
+    type: Date,
+  },
   location: {
     lat: { type: Number },
     lng: { type: Number },

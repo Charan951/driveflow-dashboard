@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapPin, Navigation } from 'lucide-react';
@@ -13,7 +13,7 @@ import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -29,7 +29,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Panels
 import StatusControlPanel from '../../components/merchant/StatusControlPanel';
 import InspectionPanel from '../../components/merchant/InspectionPanel';
-import ServiceExecutionPanel from '../../components/merchant/ServiceExecutionPanel';
 import QCPanel from '../../components/merchant/QCPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
 import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
@@ -59,9 +58,9 @@ const OrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
-  const [staffLocation, setStaffLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const fetchBooking = async () => {
+  const fetchBooking = useCallback(async () => {
     if (!id) return;
     try {
       const data = await bookingService.getBookingById(id);
@@ -72,7 +71,7 @@ const OrderDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchBooking();
@@ -82,7 +81,7 @@ const OrderDetail: React.FC = () => {
       socketService.connect();
       socketService.joinRoom(`booking_${id}`);
 
-      socketService.on('liveLocation', (data) => {
+      socketService.on('liveLocation', (data: { lat?: number; lng?: number; role?: string }) => {
         if (data.lat && data.lng && data.role === 'staff') {
           setStaffLocation({ lat: data.lat, lng: data.lng });
         }
@@ -90,7 +89,7 @@ const OrderDetail: React.FC = () => {
 
       socketService.on('bookingUpdated', (updatedBooking: Booking) => {
         if (updatedBooking._id === id) {
-             setBooking(updatedBooking);
+          setBooking(updatedBooking);
         }
       });
 
@@ -100,7 +99,7 @@ const OrderDetail: React.FC = () => {
         socketService.off('bookingUpdated');
       };
     }
-  }, [id, navigate]);
+  }, [id, fetchBooking]);
 
   if (loading) {
     return (
@@ -252,14 +251,14 @@ const OrderDetail: React.FC = () => {
                         </div>
 
                         {/* Live Tracking Map for Staff (pickup bookings) */}
-                        {booking.pickupRequired && (([
+                        {booking.pickupRequired && ([
                           'ASSIGNED',
                           'ACCEPTED',
                           'REACHED_CUSTOMER',
                           'VEHICLE_PICKED',
                           'REACHED_MERCHANT',
                           'OUT_FOR_DELIVERY'
-                        ].includes(booking.status)) || staffLocation) && (
+                        ].includes(booking.status)) && (
                           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                             <div className="p-4 border-b border-border flex justify-between items-center">
                               <h3 className="font-semibold flex items-center gap-2">
@@ -309,7 +308,6 @@ const OrderDetail: React.FC = () => {
 
             {/* Service Tab */}
             <TabsContent value="service" className="space-y-6 mt-6">
-                <ServiceExecutionPanel booking={booking} onUpdate={fetchBooking} />
                 <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
             </TabsContent>
 

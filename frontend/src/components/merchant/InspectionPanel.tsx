@@ -1,38 +1,52 @@
 
 import React, { useState } from 'react';
-import { AlertTriangle, Plus, Trash2, Save, CheckCircle, Clock, Upload, Image as ImageIcon } from 'lucide-react';
-import { bookingService } from '../../services/bookingService';
+import { AlertTriangle, Plus, Trash2, CheckCircle, Clock, Upload, Image as ImageIcon } from 'lucide-react';
+import { bookingService, Booking, BookingDetailsUpdate } from '../../services/bookingService';
 import { createApproval } from '../../services/approvalService';
 import { uploadService } from '../../services/uploadService';
 import { toast } from 'sonner';
 
 interface InspectionPanelProps {
-  booking: any;
+  booking: Booking;
   onUpdate: () => void;
 }
 
+type BookingAdditionalPart =
+  NonNullable<NonNullable<Booking['inspection']>['additionalParts']>[number];
+
+interface UIAdditionalPart extends BookingAdditionalPart {
+  imageFile?: File | null;
+  oldImageFile?: File | null;
+}
+
 const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) => {
-  const [damageReport, setDamageReport] = useState(booking.inspection?.damageReport || '');
-  const [additionalParts, setAdditionalParts] = useState((booking.inspection?.additionalParts || []).map((p: any) => ({
-    ...p,
-    image: p.image || '',
-    oldImage: p.oldImage || '',
-    approvalStatus: p.approvalStatus || (p.approved ? 'Approved' : 'Pending')
-  })));
+  const [additionalParts, setAdditionalParts] = useState<UIAdditionalPart[]>(
+    (booking.inspection?.additionalParts || []).map((p) => ({
+      ...p,
+      image: p.image || '',
+      oldImage: p.oldImage || '',
+      approvalStatus: p.approvalStatus || (p.approved ? 'Approved' : 'Pending'),
+      imageFile: null,
+      oldImageFile: null,
+    }))
+  );
   const [loading, setLoading] = useState(false);
 
   const handleAddPart = () => {
-    setAdditionalParts([...additionalParts, { 
-      name: '', 
-      price: 0, 
-      quantity: 1, 
-      approved: false, 
-      approvalStatus: 'Pending',
-      image: '', 
-      imageFile: null,
-      oldImage: '',
-      oldImageFile: null
-    }]);
+    setAdditionalParts((prev) => [
+      ...prev,
+      {
+        name: '',
+        price: 0,
+        quantity: 1,
+        approved: false,
+        approvalStatus: 'Pending',
+        image: '',
+        imageFile: null,
+        oldImage: '',
+        oldImageFile: null,
+      },
+    ]);
   };
 
   const handleRemovePart = (index: number) => {
@@ -41,10 +55,12 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     setAdditionalParts(newParts);
   };
 
-  const handlePartChange = (index: number, field: string, value: any) => {
-    const newParts = [...additionalParts];
-    newParts[index] = { ...newParts[index], [field]: value };
-    setAdditionalParts(newParts);
+  const handlePartChange = (index: number, field: keyof UIAdditionalPart, value: string | number | boolean) => {
+    setAdditionalParts((prev) => {
+      const newParts = [...prev];
+      newParts[index] = { ...newParts[index], [field]: value } as UIAdditionalPart;
+      return newParts;
+    });
   };
 
   const handleImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>, type: 'new' | 'old' = 'new') => {
@@ -64,7 +80,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     setLoading(true);
     try {
       // 0. Upload images first
-      const updatedParts = [...additionalParts];
+      const updatedParts: UIAdditionalPart[] = [...additionalParts];
       for (let i = 0; i < updatedParts.length; i++) {
         let part = updatedParts[i];
         
@@ -103,33 +119,33 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       setAdditionalParts(updatedParts);
 
       // 1. Identify approved parts for billing
-      const approvedParts = updatedParts
-        .filter((p: any) => p.approved)
-        .map((p: any) => ({
+      const approvedParts: NonNullable<BookingDetailsUpdate['parts']> = updatedParts
+        .filter((p) => p.approved)
+        .map((p) => ({
           name: p.name,
           price: Number(p.price) || 0,
           quantity: Number(p.quantity) || 1,
-          image: p.image
+          image: p.image,
         }));
 
-      // 2. Save inspection details (report + additionalParts list)
-      const partsToSave = updatedParts.map((p: any) => {
-          const approvalStatus = p.approvalStatus || (p.approved ? 'Approved' : 'Pending');
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { imageFile, oldImageFile, ...rest } = p;
-          return { ...rest, approvalStatus };
+      // 2. Save additional parts list
+      const partsToSave: BookingAdditionalPart[] = updatedParts.map((p) => {
+        const approvalStatus = p.approvalStatus || (p.approved ? 'Approved' : 'Pending');
+        const { imageFile, oldImageFile, ...rest } = p;
+        return { ...rest, approvalStatus };
       });
 
       await bookingService.updateBookingDetails(booking._id, {
         inspection: {
-          damageReport,
           additionalParts: partsToSave
         },
         parts: approvedParts
       });
 
       // 3. Create approval requests for NEW unapproved parts
-      const unapprovedParts = updatedParts.filter((p: any) => !p.approved && p.name && p.price > 0);
+      const unapprovedParts = updatedParts.filter(
+        (p) => !p.approved && p.name && (Number(p.price) || 0) > 0
+      );
       
       let requestCount = 0;
       for (const part of unapprovedParts) {
@@ -158,9 +174,9 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       }
 
       if (requestCount > 0) {
-        toast.success(`Inspection saved. ${requestCount} approval request(s) sent.`);
+        toast.success(`Additional parts saved. ${requestCount} approval request(s) sent.`);
       } else {
-        toast.success('Inspection details saved');
+        toast.success('Additional parts saved');
       }
       
       onUpdate();
@@ -176,18 +192,8 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
       <h3 className="text-lg font-semibold flex items-center gap-2">
         <AlertTriangle className="w-5 h-5 text-yellow-600" />
-        Inspection Details
+        Additional Parts
       </h3>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Damage Report / Initial Observations</label>
-        <textarea
-          value={damageReport}
-          onChange={(e) => setDamageReport(e.target.value)}
-          className="w-full p-3 border border-input rounded-lg min-h-[100px]"
-          placeholder="Describe any visible damage or issues..."
-        />
-      </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -218,7 +224,9 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
           <p className="text-sm text-muted-foreground italic">No additional parts added.</p>
         )}
 
-        {additionalParts.map((part: any, index: number) => (
+        {additionalParts.map((part, index: number) => {
+          const isApproved = part.approvalStatus === 'Approved' || part.approved;
+          return (
           <div key={index} className="flex flex-col gap-3 bg-muted/30 p-3 rounded-lg border border-border">
             <div className="flex items-center gap-3">
                 <input
@@ -227,6 +235,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 value={part.name}
                 onChange={(e) => handlePartChange(index, 'name', e.target.value)}
                 className="flex-1 p-2 border border-input rounded-md text-sm"
+                disabled={isApproved}
                 />
                 <input
                 type="number"
@@ -235,6 +244,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 onChange={(e) => handlePartChange(index, 'quantity', parseInt(e.target.value))}
                 className="w-16 p-2 border border-input rounded-md text-sm"
                 min="1"
+                disabled={isApproved}
                 />
                 <input
                 type="number"
@@ -243,6 +253,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 onChange={(e) => handlePartChange(index, 'price', parseFloat(e.target.value))}
                 className="w-24 p-2 border border-input rounded-md text-sm"
                 min="0"
+                disabled={isApproved}
                 />
                 
                 {part.approvalStatus === 'Approved' || part.approved ? (
@@ -260,8 +271,12 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 ) : null}
 
                 <button
-                onClick={() => handleRemovePart(index)}
-                className="p-2 text-red-500 hover:bg-red-50 rounded-md"
+                onClick={() => {
+                  if (isApproved) return;
+                  handleRemovePart(index);
+                }}
+                disabled={isApproved}
+                className={`p-2 rounded-md ${isApproved ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
                 >
                 <Trash2 className="w-4 h-4" />
                 </button>
@@ -275,12 +290,13 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleImageChange(index, e, 'new')}
+                        disabled={isApproved}
                         className="hidden"
                         id={`part-image-${index}`}
                     />
                     <label 
                         htmlFor={`part-image-${index}`} 
-                        className="cursor-pointer p-2 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2 text-xs"
+                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
                         title="Upload New Part Image"
                     >
                         {part.imageFile || part.image ? (
@@ -304,12 +320,13 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleImageChange(index, e, 'old')}
+                        disabled={isApproved}
                         className="hidden"
                         id={`part-old-image-${index}`}
                     />
                     <label 
                         htmlFor={`part-old-image-${index}`} 
-                        className="cursor-pointer p-2 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2 text-xs"
+                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
                         title="Upload Old Part Image"
                     >
                         {part.oldImageFile || part.oldImage ? (
@@ -327,7 +344,8 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 </div>
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       <div className="pt-4 border-t">
@@ -336,7 +354,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
           disabled={loading}
           className="flex items-center justify-center gap-2 w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
-          {loading ? 'Saving...' : 'Save Inspection Details'}
+          {loading ? 'Saving...' : 'Save Additional Parts'}
         </button>
       </div>
     </div>

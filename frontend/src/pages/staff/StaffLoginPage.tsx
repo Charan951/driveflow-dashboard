@@ -39,9 +39,9 @@ const StaffLoginPage: React.FC = () => {
 
       toast.success('Welcome to Staff Portal!');
       navigate('/staff/dashboard', { replace: true });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +92,12 @@ const StaffLoginPage: React.FC = () => {
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
+          </div>
+
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+              Forgot password?
+            </Link>
           </div>
 
           <motion.button

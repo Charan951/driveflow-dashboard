@@ -76,10 +76,13 @@ const StaffOrdersPage: React.FC = () => {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(b => 
-        b._id.toLowerCase().includes(query) ||
-        (typeof b.user === 'object' && (b.user as any).name?.toLowerCase().includes(query))
-      );
+      result = result.filter((b) => {
+        const idMatch = b._id.toLowerCase().includes(query);
+        const userName =
+          typeof b.user === 'object' && b.user !== null ? b.user.name.toLowerCase() : '';
+        const userMatch = userName.includes(query);
+        return idMatch || userMatch;
+      });
     }
 
     if (statusFilter !== 'all') {
@@ -113,9 +116,9 @@ const StaffOrdersPage: React.FC = () => {
         if (['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'OUT_FOR_DELIVERY'].includes(b.status)) {
           destLat = b.location?.lat;
           destLng = b.location?.lng;
-        } else if (b.status === 'VEHICLE_PICKED' && (b as any).merchant?.location) {
-          destLat = (b as any).merchant.location.lat;
-          destLng = (b as any).merchant.location.lng;
+        } else if (b.status === 'VEHICLE_PICKED' && b.merchant?.location) {
+          destLat = b.merchant.location.lat;
+          destLng = b.merchant.location.lng;
         }
         if (destLat && destLng) {
           try {
@@ -275,9 +278,10 @@ const StaffOrdersPage: React.FC = () => {
       toast.success('Status updated successfully');
       setStatusDialogOpen(false);
       fetchData();
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to update status');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to update status');
     }
   };
 
@@ -341,13 +345,13 @@ const StaffOrdersPage: React.FC = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
                     <h3 className="font-semibold line-clamp-1">
-                      {order.services && order.services.length > 0 
-                        ? (typeof order.services[0] === 'object' ? (order.services[0] as any).name : 'Service')
+                      {order.services && order.services.length > 0
+                        ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
                         : 'Service'}
                       {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
                     </h3>
                     <p className="text-sm text-muted-foreground truncate">
-                      {typeof order.user === 'object' ? (order.user as any).name : 'Customer'}
+                      {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -361,12 +365,13 @@ const StaffOrdersPage: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2 mb-4 flex-1">
-                  {Array.isArray(order.services) && order.services.slice(0, 3).map((service: any, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
-                      <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
-                    </div>
-                  ))}
+                  {Array.isArray(order.services) &&
+                    order.services.slice(0, 3).map((service, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
+                        <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
+                      </div>
+                    ))}
                   {Array.isArray(order.services) && order.services.length > 3 && (
                      <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 3} more services</div>
                   )}

@@ -14,6 +14,12 @@ export interface LoginData {
     password: string;
 }
 
+export interface ResetPasswordData {
+    token: string;
+    email: string;
+    password: string;
+}
+
 export const authService = {
     register: async (data: RegisterData) => {
         const response = await api.post('/auth/register', data);
@@ -27,6 +33,14 @@ export const authService = {
         if (response.data.token) {
             sessionStorage.setItem('token', response.data.token);
         }
+        return response.data;
+    },
+    forgotPassword: async (email: string) => {
+        const response = await api.post('/auth/forgot-password', { email });
+        return response.data;
+    },
+    resetPassword: async (data: ResetPasswordData) => {
+        const response = await api.post('/auth/reset-password', data);
         return response.data;
     },
     logout: () => {

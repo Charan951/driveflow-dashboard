@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Upload, X, FileText, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { bookingService } from '../../services/bookingService';
+import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
 
 interface BillUploadPanelProps {
-  booking: any;
+  booking: Booking;
   onUploadComplete: () => void;
 }
 

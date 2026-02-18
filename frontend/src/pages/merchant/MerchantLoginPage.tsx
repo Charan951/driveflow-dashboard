@@ -94,6 +94,12 @@ const MerchantLoginPage: React.FC = () => {
             </button>
           </div>
 
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+
           <motion.button
             type="submit"
             disabled={isLoading}

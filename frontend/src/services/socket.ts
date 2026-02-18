@@ -35,18 +35,23 @@ class SocketService {
     }
   }
 
-  emit(event: string, data: any) {
+  emit(event: string, data: unknown) {
     if (!this.socket) this.connect();
     this.socket?.emit(event, data);
   }
 
-  on(event: string, callback: (data: any) => void) {
+  on(event: string, callback: (data: unknown) => void) {
     if (!this.socket) this.connect();
     this.socket?.on(event, callback);
   }
 
-  off(event: string) {
-    this.socket?.off(event);
+  off(event: string, callback?: (data: unknown) => void) {
+    if (!this.socket) return;
+    if (callback) {
+      this.socket.off(event, callback);
+    } else {
+      this.socket.off(event);
+    }
   }
 
   joinRoom(room: string) {
