@@ -17,7 +17,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'driveflow_uploads',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf', 'heic', 'heif', 'webp'],
     resource_type: 'auto' // Important for supporting PDFs and other types
   }
 });
@@ -35,7 +35,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 // 10MB limit
   }
 });
 

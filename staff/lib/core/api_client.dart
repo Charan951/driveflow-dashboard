@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'env.dart';
 import 'storage.dart';
@@ -20,6 +21,7 @@ class ApiException implements Exception {
 class ApiClient {
   final http.Client _client = http.Client();
   static const Duration _timeout = Duration(seconds: 12);
+  static const Duration _uploadTimeout = Duration(seconds: 60);
 
   dynamic _decodeBody(http.Response res) {
     final rawBody = res.body.isEmpty ? 'null' : res.body;
@@ -101,18 +103,20 @@ class ApiClient {
       request.headers['Authorization'] = 'Bearer $token';
     }
     for (final file in files) {
-      final stream = http.ByteStream(file.openRead());
-      final length = await file.length();
+      final lower = file.path.toLowerCase();
+      final isPdf = lower.endsWith('.pdf');
+      final contentType = isPdf
+          ? MediaType('application', 'pdf')
+          : MediaType('image', 'jpeg');
       request.files.add(
-        http.MultipartFile(
+        await http.MultipartFile.fromPath(
           fieldName,
-          stream,
-          length,
-          filename: file.path.split(Platform.pathSeparator).last,
+          file.path,
+          contentType: contentType,
         ),
       );
     }
-    final streamed = await request.send().timeout(_timeout);
+    final streamed = await request.send().timeout(_uploadTimeout);
     final res = await http.Response.fromStream(streamed);
     final decoded = _decodeBody(res);
     if (decoded is List) return decoded;

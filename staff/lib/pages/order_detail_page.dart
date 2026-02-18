@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../core/env.dart';
+import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
@@ -152,7 +153,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         if (distance > StaffTrackingService.autoStatusDistanceMeters) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('You are too far from the location to update status'),
+              content: Text(
+                'You are too far from the location to update status',
+              ),
             ),
           );
           setState(() {
@@ -290,20 +293,98 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return LatLng(20.5937, 78.9629);
   }
 
+  Future<void> _capturePrePickupPhoto() async {
+    final booking = _booking;
+    if (booking == null || _uploadingPhotos) return;
+    if (!booking.pickupRequired) return;
+    const maxPhotos = 4;
+    final existingCount = booking.prePickupPhotos.length;
+    final remaining = maxPhotos - existingCount;
+    if (remaining <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You already captured 4 photos')),
+      );
+      return;
+    }
+    final image = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 80,
+    );
+    if (!mounted || image == null) return;
+    setState(() {
+      _selectedPhotos = [File(image.path)];
+    });
+    await _uploadPrePickupPhotos();
+  }
+
+  Future<void> _showPrePickupPhotoOptions() async {
+    final booking = _booking;
+    if (booking == null || _uploadingPhotos) return;
+    if (!booking.pickupRequired) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () => Navigator.of(context).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source == null) return;
+    if (source == ImageSource.camera) {
+      await _capturePrePickupPhoto();
+    } else {
+      await _pickPrePickupPhotos();
+    }
+  }
+
   Future<void> _pickPrePickupPhotos() async {
     final booking = _booking;
     if (booking == null || _uploadingPhotos) return;
     if (!booking.pickupRequired) return;
-    final images = await _picker.pickMultiImage(imageQuality: 80);
-    if (!mounted) return;
-    if (images.isEmpty) return;
-    if (images.length != 4) {
+    const maxPhotos = 4;
+    final existingCount = booking.prePickupPhotos.length;
+    final remaining = maxPhotos - existingCount;
+    if (remaining <= 0) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select exactly 4 photos')),
+        const SnackBar(content: Text('You already captured 4 photos')),
       );
       return;
     }
-    final files = images.map((x) => File(x.path)).toList();
+    final images = await _picker.pickMultiImage(
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 80,
+    );
+    if (!mounted) return;
+    if (images.isEmpty) return;
+    if (images.length > remaining) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'You can add only $remaining more photo(s) for this booking',
+          ),
+        ),
+      );
+    }
+    final files = images.take(remaining).map((x) => File(x.path)).toList();
     setState(() {
       _selectedPhotos = files;
     });
@@ -313,7 +394,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Future<void> _uploadPrePickupPhotos() async {
     final booking = _booking;
     if (booking == null || _uploadingPhotos) return;
-    if (_selectedPhotos.length != 4) {
+    if (_selectedPhotos.isEmpty) {
       return;
     }
     setState(() {
@@ -323,6 +404,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       final uploaded = await _service.uploadPrePickupPhotos(
         booking.id,
         _selectedPhotos,
+        existing: booking.prePickupPhotos,
       );
       if (!mounted) return;
       final urls = uploaded;
@@ -344,9 +426,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       );
     } catch (e) {
       if (!mounted) return;
+      String message = 'Failed to upload photos';
+      if (e is ApiException && e.message.isNotEmpty) {
+        message = e.message;
+      }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to upload photos')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() {
@@ -490,81 +576,120 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                           ),
                         ],
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            if (booking.status == 'ASSIGNED')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('ACCEPTED'),
-                                child: const Text('Accept Job'),
-                              )
-                            else if (booking.status == 'ACCEPTED')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('REACHED_CUSTOMER'),
-                                child: const Text('Reached Location'),
-                              )
-                            else if (booking.status == 'REACHED_CUSTOMER')
-                              Row(
-                                children: [
-                                  FilledButton(
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: Column(
+                            key: ValueKey(booking.status),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (booking.status == 'ASSIGNED')
+                                SizedBox(
+                                  height: 44,
+                                  child: FilledButton(
                                     onPressed: _updatingStatus
                                         ? null
-                                        : () => _updateStatus('VEHICLE_PICKED'),
-                                    child: const Text('Vehicle Picked'),
+                                        : () => _updateStatus('ACCEPTED'),
+                                    child: const Text('Accept Job'),
                                   ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.tonal(
-                                    onPressed: _uploadingPhotos
+                                )
+                              else if (booking.status == 'ACCEPTED')
+                                SizedBox(
+                                  height: 44,
+                                  child: FilledButton(
+                                    onPressed: _updatingStatus
                                         ? null
-                                        : _pickPrePickupPhotos,
-                                    child: Text(
-                                      _uploadingPhotos
-                                          ? 'Uploading...'
-                                          : (booking.prePickupPhotos.length >= 4
-                                                ? 'Photos Captured'
-                                                : 'Capture 4 Photos'),
-                                    ),
+                                        : () =>
+                                              _updateStatus('REACHED_CUSTOMER'),
+                                    child: const Text('Reached Location'),
                                   ),
-                                ],
-                              )
-                            else if (booking.status == 'VEHICLE_PICKED')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('REACHED_MERCHANT'),
-                                child: const Text('Reached Garage'),
-                              )
-                            else if (booking.status == 'REACHED_MERCHANT')
-                              Text(
-                                'Waiting for handover from merchant',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFF6B7280),
+                                )
+                              else if (booking.status == 'REACHED_CUSTOMER')
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(
+                                      height: 44,
+                                      child: FilledButton(
+                                        onPressed: _updatingStatus
+                                            ? null
+                                            : () => _updateStatus(
+                                                'VEHICLE_PICKED',
+                                              ),
+                                        child: const Text('Vehicle Picked'),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      height: 44,
+                                      child: FilledButton.tonal(
+                                        onPressed: _uploadingPhotos
+                                            ? null
+                                            : _showPrePickupPhotoOptions,
+                                        child: Text(
+                                          _uploadingPhotos
+                                              ? 'Uploading...'
+                                              : (booking
+                                                            .prePickupPhotos
+                                                            .length >=
+                                                        4
+                                                    ? 'Photos Captured'
+                                                    : 'Capture 4 Photos'),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else if (booking.status == 'VEHICLE_PICKED')
+                                SizedBox(
+                                  height: 44,
+                                  child: FilledButton(
+                                    onPressed: _updatingStatus
+                                        ? null
+                                        : () =>
+                                              _updateStatus('REACHED_MERCHANT'),
+                                    child: const Text('Reached Garage'),
+                                  ),
+                                )
+                              else if (booking.status == 'REACHED_MERCHANT')
+                                Text(
+                                  'Waiting for handover from merchant',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF6B7280),
+                                  ),
+                                )
+                              else if (booking.status == 'SERVICE_COMPLETED')
+                                SizedBox(
+                                  height: 44,
+                                  child: FilledButton(
+                                    onPressed: _updatingStatus
+                                        ? null
+                                        : () =>
+                                              _updateStatus('OUT_FOR_DELIVERY'),
+                                    child: const Text('Out for Delivery'),
+                                  ),
+                                )
+                              else if (booking.status == 'OUT_FOR_DELIVERY')
+                                SizedBox(
+                                  height: 44,
+                                  child: FilledButton(
+                                    onPressed: _updatingStatus
+                                        ? null
+                                        : () => _updateStatus('DELIVERED'),
+                                    child: const Text('Mark Delivered'),
+                                  ),
                                 ),
-                              )
-                            else if (booking.status == 'SERVICE_COMPLETED')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('OUT_FOR_DELIVERY'),
-                                child: const Text('Out for Delivery'),
-                              )
-                            else if (booking.status == 'OUT_FOR_DELIVERY')
-                              FilledButton(
-                                onPressed: _updatingStatus
-                                    ? null
-                                    : () => _updateStatus('DELIVERED'),
-                                child: const Text('Mark Delivered'),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 44,
+                                child: FilledButton.icon(
+                                  onPressed: () => _openDirections(booking),
+                                  icon: const Icon(Icons.directions),
+                                  label: const Text('Get Directions'),
+                                ),
                               ),
-                            const Spacer(),
-                            FilledButton.icon(
-                              onPressed: () => _openDirections(booking),
-                              icon: const Icon(Icons.directions),
-                              label: const Text('Get Directions'),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),

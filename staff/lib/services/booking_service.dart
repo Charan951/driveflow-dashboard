@@ -43,14 +43,16 @@ class BookingService {
 
   Future<List<String>> uploadPrePickupPhotos(
     String id,
-    List<File> files,
-  ) async {
+    List<File> files, {
+    List<String> existing = const [],
+  }) async {
     final uploaded = await _api.uploadFiles(ApiEndpoints.uploadMultiple, files);
-    final urls = uploaded
+    final newUrls = uploaded
         .map((e) => e is Map<String, dynamic> ? e['url']?.toString() : null)
         .whereType<String>()
         .toList();
-    await updatePrePickupPhotos(id, urls);
-    return urls;
+    final allUrls = <String>[...existing, ...newUrls];
+    await updatePrePickupPhotos(id, allUrls);
+    return allUrls;
   }
 }

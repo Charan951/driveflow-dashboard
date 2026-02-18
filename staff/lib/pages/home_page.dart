@@ -314,6 +314,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
           onRefresh: _loadData,
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 480;
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -356,45 +357,94 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   ),
                   const SizedBox(height: 24),
                   if (_selectedNav == 'dashboard') ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            title: "Today's Orders",
-                            value: todayCount.toString(),
-                            icon: Icons.inventory_2,
-                            color: const Color(0xFF2563EB),
+                    if (isCompact)
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatCard(
+                                  title: "Today's Orders",
+                                  value: todayCount.toString(),
+                                  icon: Icons.inventory_2,
+                                  color: const Color(0xFF2563EB),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  title: 'Pending',
+                                  value: pendingCount.toString(),
+                                  icon: Icons.schedule,
+                                  color: const Color(0xFF0EA5E9),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Pending',
-                            value: pendingCount.toString(),
-                            icon: Icons.schedule,
-                            color: const Color(0xFF0EA5E9),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatCard(
+                                  title: 'Completed',
+                                  value: completedCount.toString(),
+                                  icon: Icons.check_circle,
+                                  color: const Color(0xFF22C55E),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  title: 'Job Value',
+                                  value: '₹0',
+                                  icon: Icons.attach_money,
+                                  color: const Color(0xFFF97316),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Completed',
-                            value: completedCount.toString(),
-                            icon: Icons.check_circle,
-                            color: const Color(0xFF22C55E),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              title: "Today's Orders",
+                              value: todayCount.toString(),
+                              icon: Icons.inventory_2,
+                              color: const Color(0xFF2563EB),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Job Value',
-                            value: '₹0',
-                            icon: Icons.attach_money,
-                            color: const Color(0xFFF97316),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              title: 'Pending',
+                              value: pendingCount.toString(),
+                              icon: Icons.schedule,
+                              color: const Color(0xFF0EA5E9),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              title: 'Completed',
+                              value: completedCount.toString(),
+                              icon: Icons.check_circle,
+                              color: const Color(0xFF22C55E),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              title: 'Job Value',
+                              value: '₹0',
+                              icon: Icons.attach_money,
+                              color: const Color(0xFFF97316),
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 24),
                   ],
                   Text(
