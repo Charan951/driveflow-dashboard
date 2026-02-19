@@ -43,7 +43,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     });
 
     try {
-      final items = await _service.listMyBookings();
+      final items = await _service.listMyBookings(forceRefresh: true);
       items.sort((a, b) => b.date.compareTo(a.date));
       if (mounted) setState(() => _bookings = items);
     } catch (e) {

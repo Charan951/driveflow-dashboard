@@ -184,6 +184,9 @@ const bookingSchema = mongoose.Schema(
   }
 );
 
+bookingSchema.index({ user: 1, createdAt: -1 });
+bookingSchema.index({ merchant: 1, createdAt: -1 });
+
 bookingSchema.pre('save', async function () {
   if (!this.isNew) return;
   if (this.orderNumber != null) return;

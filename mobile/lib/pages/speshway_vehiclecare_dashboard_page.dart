@@ -34,10 +34,13 @@ class _SpeshwayVehicleCareDashboardState
 
   bool _loading = false;
   String? _error;
+  DateTime? _lastLoadedAt;
 
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
+  Booking? _upcomingBookingCached;
+  List<Booking> _recentBookings = [];
   final Set<int> _pressedQuickServiceIndices = {};
 
   Color get _backgroundStart => const Color(0xFF020617);
@@ -98,6 +101,13 @@ class _SpeshwayVehicleCareDashboardState
 
   Future<void> _load({bool isInitial = false}) async {
     if (!mounted) return;
+    final now = DateTime.now();
+    if (!isInitial &&
+        _lastLoadedAt != null &&
+        now.difference(_lastLoadedAt!) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastLoadedAt = now;
     if (_loading && !isInitial) return;
 
     setState(() {
@@ -113,10 +123,19 @@ class _SpeshwayVehicleCareDashboardState
       ]);
 
       if (!mounted) return;
+      final vehicles = (results[0] as List<Vehicle>);
+      final bookings = (results[1] as List<Booking>);
+      final services = (results[2] as List<ServiceItem>);
+
+      final upcoming = _computeUpcomingBooking(bookings);
+      final recent = _computeRecentBookings(bookings);
+
       setState(() {
-        _vehicles = (results[0] as List<Vehicle>);
-        _bookings = (results[1] as List<Booking>);
-        _services = (results[2] as List<ServiceItem>);
+        _vehicles = vehicles;
+        _bookings = bookings;
+        _services = services;
+        _upcomingBookingCached = upcoming;
+        _recentBookings = recent;
         _loading = false;
       });
     } catch (e) {
@@ -209,16 +228,35 @@ class _SpeshwayVehicleCareDashboardState
   }
 
   Booking? _upcomingBooking() {
-    final active = _bookings
+    if (_upcomingBookingCached != null) return _upcomingBookingCached;
+    final computed = _computeUpcomingBooking(_bookings);
+    _upcomingBookingCached = computed;
+    return computed;
+  }
+
+  Booking? _computeUpcomingBooking(List<Booking> source) {
+    final active = source
         .where((b) => b.status != 'DELIVERED' && b.status != 'CANCELLED')
         .toList();
+    if (active.isEmpty) return null;
     active.sort((a, b) {
       final da = _parseDate(a.date) ?? DateTime(2999);
       final db = _parseDate(b.date) ?? DateTime(2999);
       return da.compareTo(db);
     });
-    if (active.isEmpty) return null;
     return active.first;
+  }
+
+  List<Booking> _computeRecentBookings(List<Booking> source) {
+    if (source.isEmpty) return const [];
+    final sorted = [...source];
+    sorted.sort((a, b) {
+      final da = _parseDate(a.date) ?? DateTime(1900);
+      final db = _parseDate(b.date) ?? DateTime(1900);
+      return db.compareTo(da);
+    });
+    if (sorted.length <= 3) return sorted;
+    return sorted.take(3).toList();
   }
 
   @override
@@ -303,7 +341,7 @@ class _SpeshwayVehicleCareDashboardState
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Unable to load your dashboard.\n$_error',
+                                      'Unable to load your dashboard.\nPlease check your internet connection and try again.',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -316,7 +354,7 @@ class _SpeshwayVehicleCareDashboardState
                                   ),
                                   const SizedBox(width: 8),
                                   TextButton(
-                                    onPressed: _load,
+                                    onPressed: () => _load(isInitial: true),
                                     child: const Text('Retry'),
                                   ),
                                 ],
@@ -761,13 +799,7 @@ class _SpeshwayVehicleCareDashboardState
   }
 
   Widget _buildRecentServices() {
-    final sorted = [..._bookings];
-    sorted.sort((a, b) {
-      final da = _parseDate(a.date) ?? DateTime(1900);
-      final db = _parseDate(b.date) ?? DateTime(1900);
-      return db.compareTo(da);
-    });
-    final items = sorted.take(3).toList();
+    final items = _recentBookings;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -964,8 +996,8 @@ class _FrostedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useBlur = !kIsWeb;
-    final blurSigma = useBlur ? 10.0 : 0.0;
+    const useBlur = false;
+    const blurSigma = 0.0;
     final container = Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -1000,8 +1032,8 @@ class _NeonBorderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(26);
-    final useBlur = !kIsWeb;
-    final blurSigma = useBlur ? 10.0 : 0.0;
+    const useBlur = false;
+    const blurSigma = 0.0;
     return Stack(
       children: [
         Container(

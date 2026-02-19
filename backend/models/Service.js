@@ -41,6 +41,8 @@ const serviceSchema = mongoose.Schema(
   }
 );
 
+serviceSchema.index({ vehicleType: 1, category: 1, name: 1 });
+
 const Service = mongoose.model('Service', serviceSchema);
 
 export default Service;

@@ -5,6 +5,10 @@ import '../models/booking.dart';
 class BookingService {
   final ApiClient _api = ApiClient();
 
+  static List<Booking>? _cachedMyBookings;
+  static DateTime? _lastMyBookingsFetchAt;
+  static const Duration _cacheDuration = Duration(minutes: 2);
+
   Future<Booking> createBooking({
     required String vehicleId,
     required List<String> serviceIds,
@@ -29,7 +33,15 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
-  Future<List<Booking>> listMyBookings() async {
+  Future<List<Booking>> listMyBookings({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh &&
+        _cachedMyBookings != null &&
+        _lastMyBookingsFetchAt != null &&
+        now.difference(_lastMyBookingsFetchAt!) < _cacheDuration) {
+      return _cachedMyBookings!;
+    }
+
     final res = await _api.getAny(ApiEndpoints.myBookings);
     final items = <Booking>[];
     if (res is List) {
@@ -41,6 +53,8 @@ class BookingService {
         }
       }
     }
+    _cachedMyBookings = items;
+    _lastMyBookingsFetchAt = now;
     return items;
   }
 

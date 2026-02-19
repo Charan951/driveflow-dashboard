@@ -5,7 +5,19 @@ import '../models/service.dart';
 class CatalogService {
   final ApiClient _api = ApiClient();
 
-  Future<List<ServiceItem>> listServices() async {
+  static List<ServiceItem>? _cachedServices;
+  static DateTime? _lastFetchAt;
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
+  Future<List<ServiceItem>> listServices({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh &&
+        _cachedServices != null &&
+        _lastFetchAt != null &&
+        now.difference(_lastFetchAt!) < _cacheDuration) {
+      return _cachedServices!;
+    }
+
     final items = <ServiceItem>[];
     final res = await _api.getAny(ApiEndpoints.services);
     final data = res is Map ? (res['data'] ?? res['services'] ?? res) : res;
@@ -18,6 +30,8 @@ class CatalogService {
         }
       }
     }
+    _cachedServices = items;
+    _lastFetchAt = now;
     return items;
   }
 }

@@ -138,11 +138,13 @@ export const getMyBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
+      .sort({ createdAt: -1 })
+      .limit(50)
       .populate('vehicle')
       .populate('services')
       .populate('merchant', 'name email phone location')
-      .populate('user', 'name email phone location');
-      
+      .populate('user', 'name email phone location')
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -155,8 +157,11 @@ export const getMyBookings = async (req, res) => {
 export const getUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .limit(100)
       .populate('vehicle')
-      .populate('services');
+      .populate('services')
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -169,8 +174,11 @@ export const getUserBookings = async (req, res) => {
 export const getVehicleBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ vehicle: req.params.vehicleId })
+      .sort({ createdAt: -1 })
+      .limit(100)
       .populate('user', 'id name email')
-      .populate('services');
+      .populate('services')
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -183,9 +191,12 @@ export const getVehicleBookings = async (req, res) => {
 export const getMerchantBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ merchant: req.params.merchantId })
+      .sort({ createdAt: -1 })
+      .limit(100)
       .populate('user', 'id name email')
       .populate('vehicle', 'make model licensePlate')
-      .populate('services');
+      .populate('services')
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -205,12 +216,15 @@ export const getAllBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
+      .sort({ createdAt: -1 })
+      .limit(200)
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')
       .populate('merchant', 'name email phone')
       .populate('pickupDriver', 'name email phone')
-      .populate('technician', 'name email phone');
+      .populate('technician', 'name email phone')
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });

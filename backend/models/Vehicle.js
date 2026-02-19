@@ -61,6 +61,8 @@ const vehicleSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+vehicleSchema.index({ user: 1, createdAt: -1 });
+
 const Vehicle = mongoose.model('Vehicle', vehicleSchema);
 
 export default Vehicle;
