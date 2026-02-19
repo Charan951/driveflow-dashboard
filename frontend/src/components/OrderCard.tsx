@@ -6,6 +6,7 @@ import { cardHover } from '@/animations/variants';
 
 interface OrderCardProps {
   id: string;
+  orderNumber?: number;
   service: string;
   vehicle: {
     make: string;
@@ -31,6 +32,7 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
 
 export const OrderCard: React.FC<OrderCardProps> = ({
   id,
+  orderNumber,
   service,
   vehicle,
   status,
@@ -57,7 +59,9 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-xs text-muted-foreground mb-1">Order #{id}</p>
+          <p className="text-xs text-muted-foreground mb-1">
+            Order #{orderNumber ?? id.slice(-6).toUpperCase()}
+          </p>
           <h3 className="font-semibold text-foreground">{service}</h3>
         </div>
         <span className={cn('px-2.5 py-1 rounded-full text-xs font-medium', statusStyle.bg, statusStyle.text)}>

@@ -398,7 +398,7 @@ class _PaymentCardState extends State<_PaymentCard>
                                 ),
                           ),
                           Text(
-                            'Booking Ref: ${b.id.toUpperCase()}',
+                            'Booking Ref: ${b.orderNumber ?? b.id.toUpperCase()}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

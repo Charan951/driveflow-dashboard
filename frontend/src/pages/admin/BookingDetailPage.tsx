@@ -198,7 +198,7 @@ const BookingDetailPage: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
-            Booking #{booking._id.slice(-6).toUpperCase()}
+            Booking #{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}
             <span className={`px-3 py-1 rounded-full text-xs font-medium 
               ${booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
                 booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
@@ -574,8 +574,8 @@ const BookingDetailPage: React.FC = () => {
           {/* Status Workflow */}
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
-             <div className="flex flex-wrap gap-2">
-                {(booking.pickupRequired
+            <div className="flex flex-wrap gap-2">
+               {(booking.pickupRequired
                   ? [
                       { label: 'Created', value: 'CREATED' },
                       { label: 'Assigned', value: 'ASSIGNED' },
@@ -583,7 +583,6 @@ const BookingDetailPage: React.FC = () => {
                       { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
                       { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
                       { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
-                      { label: 'Job Card Created', value: 'JOB_CARD' },
                       { label: 'Service Started', value: 'SERVICE_STARTED' },
                       { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
                       { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },

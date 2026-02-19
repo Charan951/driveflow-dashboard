@@ -1,4 +1,5 @@
 import Booking from '../models/Booking.js';
+import Counter from '../models/Counter.js';
 import User from '../models/User.js';
 import { getIO } from '../socket.js';
 import { sendEmail } from '../utils/emailService.js';
@@ -29,18 +30,62 @@ export const createBooking = async (req, res) => {
 
     const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
 
-    const booking = new Booking({
-      user: req.user._id,
-      vehicle: vehicleId,
-      services: serviceIds,
-      date,
-      notes,
-      location,
-      pickupRequired,
-      totalAmount,
-    });
+    const MAX_RETRIES = 5;
+    let lastError = null;
+    let createdBooking = null;
 
-    const createdBooking = await booking.save();
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const orderNumber = await Counter.next('booking');
+        const booking = new Booking({
+          user: req.user._id,
+          vehicle: vehicleId,
+          services: serviceIds,
+          date,
+          orderNumber,
+          notes,
+          location,
+          pickupRequired,
+          totalAmount,
+        });
+
+        createdBooking = await booking.save();
+        break;
+      } catch (err) {
+        lastError = err;
+        // Retry on duplicate orderNumber, otherwise abort
+        // MongoServerError code 11000 is duplicate key
+        const isDuplicate =
+          err &&
+          err.code === 11000 &&
+          (err.keyPattern?.orderNumber || String(err.message || '').includes('orderNumber_1'));
+
+        if (!isDuplicate) {
+          throw err;
+        }
+
+        // Align counter with current max orderNumber to avoid repeated collisions
+        try {
+          const lastWithOrder = await Booking.findOne({ orderNumber: { $ne: null } })
+            .sort({ orderNumber: -1 })
+            .select('orderNumber')
+            .lean();
+          if (lastWithOrder && typeof lastWithOrder.orderNumber === 'number') {
+            await Counter.findOneAndUpdate(
+              { name: 'booking' },
+              { $set: { seq: lastWithOrder.orderNumber } },
+              { upsert: true }
+            );
+          }
+        } catch (alignError) {
+          console.error('Failed to align booking counter', alignError);
+        }
+      }
+    }
+
+    if (!createdBooking) {
+      throw lastError || new Error('Failed to create booking with unique order number');
+    }
     
     // Send confirmation email
     if (req.user.email) {

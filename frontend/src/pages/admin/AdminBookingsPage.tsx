@@ -65,6 +65,7 @@ const AdminBookingsPage: React.FC = () => {
       const query = searchQuery.toLowerCase();
       result = result.filter(b => 
         b._id.toLowerCase().includes(query) ||
+        (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
         (typeof b.user === 'object' && b.user.name.toLowerCase().includes(query)) ||
         (typeof b.vehicle === 'object' && b.vehicle.licensePlate.toLowerCase().includes(query))
       );
@@ -161,7 +162,7 @@ const AdminBookingsPage: React.FC = () => {
             <table className="w-full text-sm text-left min-w-[1000px]">
               <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="p-4 font-medium">Booking ID</th>
+                  <th className="p-4 font-medium">Order #</th>
                   <th className="p-4 font-medium">Customer & Vehicle</th>
                   <th className="p-4 font-medium">Service Info</th>
                   <th className="p-4 font-medium">Date & Slot</th>
@@ -175,7 +176,7 @@ const AdminBookingsPage: React.FC = () => {
                 {filteredBookings.map((booking) => (
                   <tr key={booking._id} className="hover:bg-muted/30 transition-colors">
                     <td className="p-4">
-                      <span className="font-mono text-xs text-muted-foreground">#{booking._id.slice(-6).toUpperCase()}</span>
+                      <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col">

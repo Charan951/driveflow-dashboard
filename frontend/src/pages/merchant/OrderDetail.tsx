@@ -127,7 +127,7 @@ const OrderDetail: React.FC = () => {
           <ArrowLeft className="w-6 h-6" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order #{booking._id?.slice(-6).toUpperCase()}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Order #{booking.orderNumber ?? booking._id?.slice(-6).toUpperCase()}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{new Date(booking.date).toLocaleDateString()}</span>
             <span>•</span>

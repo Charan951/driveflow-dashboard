@@ -1,4 +1,4 @@
-export const STATUS_ORDER = [
+export const PICKUP_FLOW_ORDER = [
   'CREATED',
   'ASSIGNED',
   'ACCEPTED',
@@ -12,7 +12,17 @@ export const STATUS_ORDER = [
   'DELIVERED'
 ] as const;
 
-export type BookingStatus = typeof STATUS_ORDER[number];
+export const NO_PICKUP_FLOW_ORDER = [
+  'CREATED',
+  'ASSIGNED',
+  'ACCEPTED',
+  'VEHICLE_AT_MERCHANT',
+  'SERVICE_STARTED',
+  'SERVICE_COMPLETED',
+  'DELIVERED'
+] as const;
+
+export type BookingStatus = (typeof PICKUP_FLOW_ORDER[number]) | (typeof NO_PICKUP_FLOW_ORDER[number]) | 'COMPLETED';
 
 export const STATUS_LABELS: Record<BookingStatus, string> = {
   CREATED: 'Created',
@@ -25,5 +35,6 @@ export const STATUS_LABELS: Record<BookingStatus, string> = {
   SERVICE_STARTED: 'Service Started',
   SERVICE_COMPLETED: 'Service Completed',
   OUT_FOR_DELIVERY: 'Out for Delivery',
-  DELIVERED: 'Delivered'
+  DELIVERED: 'Delivered',
+  COMPLETED: 'Completed'
 };

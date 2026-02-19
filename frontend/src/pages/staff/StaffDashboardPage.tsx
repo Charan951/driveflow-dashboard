@@ -243,7 +243,7 @@ const StaffDashboardPage: React.FC = () => {
                   <motion.div key={order._id} variants={staggerItem} className="bg-card rounded-2xl border border-border p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
+                        <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
                         <h3 className="font-semibold">
                           {order.services && order.services.length > 0
                             ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
@@ -303,7 +303,7 @@ const StaffDashboardPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Update Order Status</DialogTitle>
             <DialogDescription>
-              Update the status for Order #{selectedOrderForStatus?._id.slice(-6).toUpperCase()}
+              Update the status for Order #{selectedOrderForStatus?.orderNumber ?? selectedOrderForStatus?._id.slice(-6).toUpperCase()}
             </DialogDescription>
           </DialogHeader>
           

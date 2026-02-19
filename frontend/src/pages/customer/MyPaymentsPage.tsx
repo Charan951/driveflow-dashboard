@@ -72,7 +72,7 @@ const MyPaymentsPage = () => {
                   {payments.map((booking) => (
                     <TableRow key={booking._id}>
                       <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
-                      <TableCell className="font-mono text-xs">{booking._id.slice(-8).toUpperCase()}</TableCell>
+                      <TableCell className="font-mono text-xs">{booking.orderNumber ?? booking._id.slice(-8).toUpperCase()}</TableCell>
                       <TableCell>
                         Service for {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : 'Vehicle'}
                       </TableCell>

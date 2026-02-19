@@ -501,6 +501,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
+                          'Order #${booking.orderNumber ?? booking.id}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF374151),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
                           booking.vehicleName ?? 'Booking',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,

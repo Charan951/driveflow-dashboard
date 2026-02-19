@@ -34,11 +34,13 @@ void main() async {
     socketService.init();
   }
 
-  runApp(MyApp(
-    authProvider: authProvider,
-    themeProvider: themeProvider,
-    socketService: socketService,
-  ));
+  runApp(
+    MyApp(
+      authProvider: authProvider,
+      themeProvider: themeProvider,
+      socketService: socketService,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

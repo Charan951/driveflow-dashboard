@@ -77,7 +77,7 @@ const StaffOrdersPage: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter((b) => {
-        const idMatch = b._id.toLowerCase().includes(query);
+        const idMatch = b._id.toLowerCase().includes(query) || (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query));
         const userName =
           typeof b.user === 'object' && b.user !== null ? b.user.name.toLowerCase() : '';
         const userMatch = userName.includes(query);
@@ -270,12 +270,21 @@ const StaffOrdersPage: React.FC = () => {
         }
         await bookingService.verifyDeliveryOtp(selectedOrderForStatus._id, otp);
       }
-      await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
+      const updated = await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
       if (['ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','OUT_FOR_DELIVERY'].includes(newStatus)) {
         setActiveBookingId(selectedOrderForStatus._id);
       }
+      if (newStatus === 'OUT_FOR_DELIVERY') {
+        const otpCode = updated.deliveryOtp?.code;
+        if (otpCode) {
+          toast.success(`Status updated. Delivery OTP for customer: ${otpCode}`);
+        } else {
+          toast.success('Status updated successfully. Delivery OTP sent to customer');
+        }
+      } else {
+        toast.success('Status updated successfully');
+      }
       toast.dismiss(loadingToast);
-      toast.success('Status updated successfully');
       setStatusDialogOpen(false);
       fetchData();
     } catch (error: unknown) {
@@ -343,7 +352,7 @@ const StaffOrdersPage: React.FC = () => {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="text-xs text-muted-foreground">Order #{order._id.slice(-6).toUpperCase()}</p>
+                    <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
                     <h3 className="font-semibold line-clamp-1">
                       {order.services && order.services.length > 0
                         ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
@@ -440,7 +449,7 @@ const StaffOrdersPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Update Order Status</DialogTitle>
             <DialogDescription>
-              Update the status for Order #{selectedOrderForStatus?._id.slice(-6).toUpperCase()}
+              Update the status for Order #{selectedOrderForStatus?.orderNumber ?? selectedOrderForStatus?._id.slice(-6).toUpperCase()}
             </DialogDescription>
           </DialogHeader>
           

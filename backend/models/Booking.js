@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Counter from './Counter.js';
 
 const bookingSchema = mongoose.Schema(
   {
@@ -21,6 +22,11 @@ const bookingSchema = mongoose.Schema(
       type: Date,
       required: true,
     },
+    orderNumber: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
     status: {
       type: String,
       required: true,
@@ -32,11 +38,11 @@ const bookingSchema = mongoose.Schema(
         'VEHICLE_PICKED', 
         'REACHED_MERCHANT', 
         'VEHICLE_AT_MERCHANT', 
-        'JOB_CARD',
         'SERVICE_STARTED', 
         'SERVICE_COMPLETED', 
         'OUT_FOR_DELIVERY', 
         'DELIVERED', 
+        'COMPLETED',
         'CANCELLED'
       ],
       default: 'CREATED',
@@ -177,6 +183,13 @@ const bookingSchema = mongoose.Schema(
     timestamps: true,
   }
 );
+
+bookingSchema.pre('save', async function () {
+  if (!this.isNew) return;
+  if (this.orderNumber != null) return;
+  const seq = await Counter.next('booking');
+  this.orderNumber = seq;
+});
 
 const Booking = mongoose.model('Booking', bookingSchema);
 

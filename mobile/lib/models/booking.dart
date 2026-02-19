@@ -28,8 +28,31 @@ class BookingLocation {
   };
 }
 
+class DeliveryOtp {
+  final String code;
+  final String? expiresAt;
+  final bool verified;
+
+  const DeliveryOtp({
+    required this.code,
+    this.expiresAt,
+    required this.verified,
+  });
+
+  factory DeliveryOtp.fromJson(Map<String, dynamic> json) {
+    final rawCode = (json['code'] ?? '').toString();
+    final rawExpires = (json['expiresAt'] ?? '').toString();
+    return DeliveryOtp(
+      code: rawCode,
+      expiresAt: rawExpires.trim().isEmpty ? null : rawExpires,
+      verified: json['verified'] == true,
+    );
+  }
+}
+
 class Booking {
   final String id;
+  final int? orderNumber;
   final String status;
   final String date;
   final num totalAmount;
@@ -43,9 +66,11 @@ class Booking {
   final BookingLocation? merchantLocation;
   final String? merchantName;
   final String? merchantPhone;
+  final DeliveryOtp? deliveryOtp;
 
   Booking({
     required this.id,
+    this.orderNumber,
     required this.status,
     required this.date,
     required this.totalAmount,
@@ -59,6 +84,7 @@ class Booking {
     this.merchantLocation,
     this.merchantName,
     this.merchantPhone,
+    this.deliveryOtp,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -114,8 +140,20 @@ class Booking {
       merchantPhone = phoneStr != null && phoneStr.isNotEmpty ? phoneStr : null;
     }
 
+    DeliveryOtp? deliveryOtp;
+    final d = json['deliveryOtp'];
+    if (d is Map<String, dynamic> || d is Map) {
+      final dd = d is Map<String, dynamic>
+          ? d
+          : Map<String, dynamic>.from(d as Map);
+      deliveryOtp = DeliveryOtp.fromJson(dd);
+    }
+
     return Booking(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
+      orderNumber: json['orderNumber'] is num
+          ? (json['orderNumber'] as num).toInt()
+          : null,
       status: (json['status'] ?? '').toString(),
       date: (json['date'] ?? '').toString(),
       totalAmount: (json['totalAmount'] ?? 0) as num,
@@ -135,6 +173,7 @@ class Booking {
       merchantLocation: merchantLocation,
       merchantName: merchantName,
       merchantPhone: merchantPhone,
+      deliveryOtp: deliveryOtp,
     );
   }
 }

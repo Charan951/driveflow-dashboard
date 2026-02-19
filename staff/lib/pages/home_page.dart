@@ -545,6 +545,14 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Text(
+                                      'Order #${b.orderNumber ?? b.id}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF374151),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
                                       'Status: ${b.status}',
@@ -608,7 +616,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
           }
         }
       }
-      if (b.status.toUpperCase() == 'COMPLETED') {
+      final status = b.status.toUpperCase();
+      if (status == 'DELIVERED' || status == 'COMPLETED') {
         completedCount++;
       }
     }

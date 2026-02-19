@@ -262,8 +262,8 @@ const StaffOrderPage: React.FC = () => {
         }
         await bookingService.verifyDeliveryOtp(order._id, otp);
       }
-      await bookingService.updateBookingStatus(order._id, newStatus);
-      setOrder({ ...order, status: newStatus as typeof order.status });
+      const updated = await bookingService.updateBookingStatus(order._id, newStatus);
+      setOrder(updated);
       toast.success(`Order updated to ${newStatus}`);
 
       if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
@@ -286,7 +286,12 @@ const StaffOrderPage: React.FC = () => {
         }
       }
       if (newStatus === 'OUT_FOR_DELIVERY') {
-        toast.info('Delivery OTP sent to customer');
+        const otpCode = updated.deliveryOtp?.code;
+        if (otpCode) {
+          toast.info(`Delivery OTP for customer: ${otpCode}`);
+        } else {
+          toast.info('Delivery OTP sent to customer');
+        }
         if (order.location) {
           const loc =
             typeof order.location === 'object'
@@ -502,6 +507,20 @@ const StaffOrderPage: React.FC = () => {
           </span>
         )}
       </div>
+
+      {order.status === 'OUT_FOR_DELIVERY' && order.deliveryOtp?.code && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-indigo-700">Delivery OTP for customer</p>
+            <p className="text-[11px] text-indigo-600">
+              Ask the customer to share this code at the time of delivery.
+            </p>
+          </div>
+          <div className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 font-mono text-sm font-semibold tracking-[0.3em] text-indigo-700">
+            {order.deliveryOtp.code}
+          </div>
+        </div>
+      )}
 
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">

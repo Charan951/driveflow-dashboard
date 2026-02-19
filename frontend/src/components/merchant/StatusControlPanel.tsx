@@ -3,7 +3,7 @@ import { Activity, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { STATUS_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 
 interface StatusControlPanelProps {
   booking: Booking;
@@ -23,15 +23,8 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
   const [delayNote, setDelayNote] = useState('');
 
-  const pickupStatusFlow = STATUS_ORDER;
-  const noPickupStatusFlow: BookingStatus[] = [
-    'CREATED',
-    'ASSIGNED',
-    'VEHICLE_AT_MERCHANT',
-    'SERVICE_STARTED',
-    'SERVICE_COMPLETED',
-    'DELIVERED',
-  ];
+  const pickupStatusFlow = PICKUP_FLOW_ORDER;
+  const noPickupStatusFlow: BookingStatus[] = NO_PICKUP_FLOW_ORDER;
 
   const activeStatusFlow: BookingStatus[] = booking.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
   const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);

@@ -434,8 +434,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       case 'SERVICE_COMPLETED':
         return 'Ready';
       case 'OUT_FOR_DELIVERY':
-        return 'Out for Delivery';
+        return 'Waiting for Staff Pickup';
       case 'DELIVERED':
+        return 'Delivered';
+      case 'COMPLETED':
         return 'Delivered';
       case 'CANCELLED':
         return 'Cancelled';
@@ -504,15 +506,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             s == 'REACHED_CUSTOMER' ||
             s == 'VEHICLE_PICKED') {
           currentIndex = 1;
-        } else if (s == 'REACHED_MERCHANT' ||
-            s == 'VEHICLE_AT_MERCHANT' ||
-            s == 'JOB_CARD') {
+        } else if (s == 'REACHED_MERCHANT' || s == 'VEHICLE_AT_MERCHANT') {
           currentIndex = 2;
         } else if (s == 'SERVICE_STARTED') {
           currentIndex = 3;
         } else if (s == 'SERVICE_COMPLETED' || s == 'OUT_FOR_DELIVERY') {
           currentIndex = 4;
-        } else if (s == 'DELIVERED') {
+        } else if (s == 'DELIVERED' || s == 'COMPLETED') {
           currentIndex = 5;
         }
       } else {
@@ -526,7 +526,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           currentIndex = 3;
         } else if (s == 'SERVICE_COMPLETED') {
           currentIndex = 4;
-        } else if (s == 'DELIVERED') {
+        } else if (s == 'DELIVERED' || s == 'COMPLETED') {
           currentIndex = 5;
         }
       }
@@ -808,7 +808,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Booking #${booking.id}',
+                            'Booking #${booking.orderNumber ?? booking.id}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleSmall
@@ -861,6 +861,64 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ],
                 ),
               ),
+              if (booking.status == 'OUT_FOR_DELIVERY' &&
+                  booking.deliveryOtp != null &&
+                  booking.deliveryOtp!.code.trim().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF6366F1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Delivery OTP',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF4F46E5),
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              booking.deliveryOtp!.code,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                letterSpacing: 4,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Share this code only with our staff at the time of delivery.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: const Color(0xFF4B5563)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Text(
                 'Service Progress',
@@ -921,7 +979,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   : 'Pickup Scheduled',
                               'At Service Center',
                               'Service In Progress',
-                              'Ready for Delivery',
+                              'Waiting for Staff Pickup Vehicle',
                               'Delivered',
                             ]
                           : [
@@ -932,19 +990,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               'Service Completed',
                               'Delivered',
                             ],
-                      activeIndex: currentIndex >= 7
-                          ? 5
-                          : currentIndex >= 6
-                          ? 4
-                          : currentIndex >= 5
-                          ? 3
-                          : currentIndex >= 4
-                          ? 2
-                          : currentIndex >= 2
-                          ? 1
-                          : currentIndex >= 0
-                          ? 0
-                          : -1,
+                      activeIndex: currentIndex,
                       firstTimeLabel: _formatDateTime(context, booking.date),
                     ),
                   ],

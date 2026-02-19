@@ -4,6 +4,7 @@ import { ChevronLeft, MessageCircle } from 'lucide-react';
 
 const ChatPage: React.FC = () => {
   const { id } = useParams();
+  const shortId = id ? id.slice(-6).toUpperCase() : '';
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-[calc(100vh-2rem)]">
@@ -14,7 +15,9 @@ const ChatPage: React.FC = () => {
         </Link>
         <div className="flex-1">
           <h1 className="font-semibold text-foreground">Service Chat</h1>
-          <p className="text-sm text-muted-foreground">Order #{id}</p>
+          <p className="text-sm text-muted-foreground">
+            Order #{shortId || id}
+          </p>
         </div>
       </div>
 

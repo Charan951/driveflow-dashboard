@@ -4,11 +4,12 @@ import { Service } from './serviceService';
 
 export interface Booking {
   _id: string;
+  orderNumber?: number;
   user: string | { _id: string; name: string; email: string; phone?: string };
   vehicle: Vehicle | string;
   services: Service[] | string[];
   date: string;
-  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'VEHICLE_AT_MERCHANT' | 'JOB_CARD' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'VEHICLE_AT_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
   totalAmount: number;
   notes?: string;
   location?: {
@@ -82,6 +83,12 @@ export interface Booking {
     isRevisit: boolean;
     originalBookingId: string;
     reason: string;
+  };
+  deliveryOtp?: {
+    code?: string;
+    expiresAt?: string;
+    attempts?: number;
+    verifiedAt?: string | null;
   };
 }
 

@@ -1,5 +1,6 @@
 class BookingSummary {
   final String id;
+  final int? orderNumber;
   final String status;
   final String? date;
   final String? vehicleName;
@@ -7,6 +8,7 @@ class BookingSummary {
 
   BookingSummary({
     required this.id,
+    this.orderNumber,
     required this.status,
     this.date,
     this.vehicleName,
@@ -27,6 +29,9 @@ class BookingSummary {
 
     return BookingSummary(
       id: json['_id']?.toString() ?? '',
+      orderNumber: json['orderNumber'] is num
+          ? (json['orderNumber'] as num).toInt()
+          : null,
       status: json['status']?.toString() ?? '',
       date: json['date']?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
@@ -57,6 +62,7 @@ class BookingLocation {
 
 class BookingDetail {
   final String id;
+  final int? orderNumber;
   final String status;
   final String date;
   final BookingLocation? location;
@@ -67,6 +73,7 @@ class BookingDetail {
 
   BookingDetail({
     required this.id,
+    this.orderNumber,
     required this.status,
     required this.date,
     required this.location,
@@ -120,6 +127,9 @@ class BookingDetail {
 
     return BookingDetail(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
+      orderNumber: json['orderNumber'] is num
+          ? (json['orderNumber'] as num).toInt()
+          : null,
       status: (json['status'] ?? '').toString(),
       date: (json['date'] ?? '').toString(),
       location: location,

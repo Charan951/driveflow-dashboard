@@ -158,15 +158,15 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
         return 'Reached Garage';
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
-      case 'JOB_CARD':
-        return 'Job Card';
       case 'SERVICE_STARTED':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
         return 'Ready';
       case 'OUT_FOR_DELIVERY':
-        return 'Out for Delivery';
+        return 'Waiting for Staff Pickup';
       case 'DELIVERED':
+        return 'Delivered';
+      case 'COMPLETED':
         return 'Delivered';
       case 'CANCELLED':
         return 'Cancelled';
@@ -177,7 +177,12 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
 
   Booking? _upcomingBooking() {
     final active = _bookings
-        .where((b) => b.status != 'DELIVERED' && b.status != 'CANCELLED')
+        .where(
+          (b) =>
+              b.status != 'DELIVERED' &&
+              b.status != 'COMPLETED' &&
+              b.status != 'CANCELLED',
+        )
         .toList();
     active.sort((a, b) {
       final da = _parseDate(a.date) ?? DateTime(2999);
@@ -426,8 +431,10 @@ class _UpcomingBookingCard extends StatelessWidget {
       case 'SERVICE_COMPLETED':
         return 0.93;
       case 'OUT_FOR_DELIVERY':
-        return 0.98;
+        return 0.96;
       case 'DELIVERED':
+        return 1.0;
+      case 'COMPLETED':
         return 1.0;
       case 'CANCELLED':
         return 0.0;

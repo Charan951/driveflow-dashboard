@@ -98,8 +98,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         return 'Reached Garage';
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
-      case 'JOB_CARD':
-        return 'Job Card';
       case 'SERVICE_STARTED':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
@@ -107,6 +105,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'OUT_FOR_DELIVERY':
         return 'Out for Delivery';
       case 'DELIVERED':
+        return 'Delivered';
+      case 'COMPLETED':
         return 'Delivered';
       case 'CANCELLED':
         return 'Cancelled';
@@ -133,6 +133,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'OUT_FOR_DELIVERY':
         return const Color(0xFFF59E0B);
       case 'DELIVERED':
+        return const Color(0xFF16A34A);
+      case 'COMPLETED':
         return const Color(0xFF16A34A);
       case 'CANCELLED':
         return const Color(0xFFEF4444);
@@ -296,6 +298,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                           : null;
                       return _BookingCard(
                         id: b.id,
+                        orderNumber: b.orderNumber,
                         dateTimeLabel: _formatDateTime(context, b.date),
                         title: primaryService?.name ?? 'Service',
                         categoryLabel: primaryService?.category,
@@ -325,6 +328,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
 class _BookingCard extends StatefulWidget {
   final String id;
+  final int? orderNumber;
   final String dateTimeLabel;
   final String title;
   final String? categoryLabel;
@@ -337,6 +341,7 @@ class _BookingCard extends StatefulWidget {
 
   const _BookingCard({
     required this.id,
+    this.orderNumber,
     required this.dateTimeLabel,
     required this.title,
     required this.amount,
@@ -500,7 +505,7 @@ class _BookingCardState extends State<_BookingCard>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Booking #${widget.id}',
+                              'Booking #${widget.orderNumber ?? widget.id}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleSmall

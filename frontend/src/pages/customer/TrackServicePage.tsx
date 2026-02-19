@@ -18,7 +18,7 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
-import { STATUS_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { AlertTriangle, Check, X } from 'lucide-react';
@@ -306,14 +306,21 @@ const TrackServicePage: React.FC = () => {
   const handleConfirmDelivery = async () => {
     if (!order?._id) return;
     try {
+      const otp = window.prompt('Enter the 4-digit delivery OTP sent to you');
+      if (!otp) {
+        toast.error('Please enter the OTP to confirm delivery');
+        return;
+      }
+      await bookingService.verifyDeliveryOtp(order._id, otp);
       await bookingService.updateBookingStatus(order._id, 'DELIVERED');
       setOrder(prev => prev ? { ...prev, status: 'DELIVERED' } : null);
       setDeliveryConfirmed(true);
       setShowRatingModal(true);
       toast.success('Delivery confirmed! Order completed.');
     } catch (error) {
-      console.error("Failed to confirm delivery", error);
-      toast.error("Failed to confirm delivery");
+      const err = error as { response?: { data?: { message?: string } } };
+      console.error('Failed to confirm delivery', err);
+      toast.error(err?.response?.data?.message || 'Failed to confirm delivery');
     }
   };
 
@@ -357,7 +364,7 @@ const TrackServicePage: React.FC = () => {
   const handleChatMerchant = () => {
     const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
     if (phone) {
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?._id}`)}`;
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?.orderNumber ?? order?._id}`)}`;
       window.open(url, '_blank');
       return;
     }
@@ -460,7 +467,6 @@ const TrackServicePage: React.FC = () => {
       case 'VEHICLE_PICKED':
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
-      case 'JOB_CARD':
         return 2;
       case 'SERVICE_STARTED':
         return 3;
@@ -474,15 +480,8 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const pickupStatusFlow = STATUS_ORDER;
-  const noPickupStatusFlow: BookingStatus[] = [
-    'CREATED',
-    'ASSIGNED',
-    'VEHICLE_AT_MERCHANT',
-    'SERVICE_STARTED',
-    'SERVICE_COMPLETED',
-    'DELIVERED',
-  ];
+  const pickupStatusFlow = PICKUP_FLOW_ORDER;
+  const noPickupStatusFlow: BookingStatus[] = NO_PICKUP_FLOW_ORDER;
 
   const activeStatusFlow = order.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
@@ -493,7 +492,9 @@ const TrackServicePage: React.FC = () => {
     const label =
       order.pickupRequired && s === 'ACCEPTED' && order.status === 'REACHED_CUSTOMER'
         ? 'Staff waiting at your location'
-        : STATUS_LABELS[s];
+        : (order.pickupRequired && s === 'OUT_FOR_DELIVERY'
+            ? 'Waiting for staff pickup vehicle'
+            : STATUS_LABELS[s]);
 
     return {
       step: label,
@@ -533,7 +534,9 @@ const TrackServicePage: React.FC = () => {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-foreground">Track Service</h1>
-          <p className="text-sm text-muted-foreground">Order #{order._id}</p>
+          <p className="text-sm text-muted-foreground">
+            Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}
+          </p>
         </div>
       </div>
 
@@ -898,7 +901,18 @@ const TrackServicePage: React.FC = () => {
           className="bg-card rounded-2xl border border-border p-6 text-center"
         >
           <h2 className="text-xl font-bold text-foreground mb-2">Vehicle Ready</h2>
-          <p className="text-muted-foreground mb-6">Your vehicle is ready for pickup/delivery.</p>
+          <p className="text-muted-foreground mb-3">Your vehicle is ready for pickup/delivery.</p>
+          {order.deliveryOtp?.code && order.status === 'OUT_FOR_DELIVERY' && (
+            <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-primary/80">Delivery OTP</p>
+              <p className="mt-1 text-2xl font-mono font-semibold text-primary">
+                {order.deliveryOtp.code}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Share this code only with our staff at the time of delivery.
+              </p>
+            </div>
+          )}
           <button
             onClick={handleConfirmDelivery}
             className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors"

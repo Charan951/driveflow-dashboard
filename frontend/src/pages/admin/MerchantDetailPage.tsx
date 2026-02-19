@@ -251,7 +251,7 @@ const AdminMerchantDetailPage: React.FC = () => {
                       onClick={() => navigate(`/admin/bookings/${booking._id}`)}
                     >
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white truncate max-w-[100px]">
-                        #{booking._id.slice(-6)}
+                        #{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}
                       </td>
                       <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                         {new Date(booking.date).toLocaleDateString()}

@@ -192,6 +192,8 @@ class _SpeshwayVehicleCareDashboardState
         return 'Out for Delivery';
       case 'DELIVERED':
         return 'Delivered';
+      case 'COMPLETED':
+        return 'Delivered';
       case 'CANCELLED':
         return 'Cancelled';
       default:
