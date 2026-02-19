@@ -21,6 +21,11 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   String? _error;
   List<Booking> _payments = const [];
 
+  Color get _backgroundStart => const Color(0xFF020617);
+  Color get _backgroundEnd => const Color(0xFF020617);
+  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentBlue => const Color(0xFF22D3EE);
+
   @override
   void initState() {
     super.initState();
@@ -80,154 +85,436 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: CustomerDrawer(currentRouteName: routeName),
       appBar: AppBar(
-        title: const Text('My Payments'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu),
+                  color: Colors.white,
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'My Payments',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             onPressed: _load,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Failed to load payments',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('Retry'),
-                    ),
+      body: Stack(
+        children: [
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -1.2),
+                  radius: 1.4,
+                  colors: [
+                    _accentPurple.withValues(alpha: 0.14),
+                    _accentBlue.withValues(alpha: 0.06),
+                    _backgroundStart,
                   ],
                 ),
-              )
-            else if (_payments.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: Text('No payments found')),
-              )
-            else ...[
-              for (final b in _payments)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
+              ),
+            )
+          else
+            Container(color: Colors.white),
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
+                ),
+              ),
+            ),
+          RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _formatDateTime(context, b.date),
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.black54),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: b.paymentStatus == 'paid'
-                                    ? const Color(0xFFDCFCE7)
-                                    : const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                (b.paymentStatus ?? 'pending').toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: b.paymentStatus == 'paid'
-                                      ? const Color(0xFF166534)
-                                      : const Color(0xFF92400E),
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Failed to load payments',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Booking Ref: ${b.id.toUpperCase()}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            color: Colors.black87,
-                          ),
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.white70),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Service for ${b.vehicle?.make ?? 'Vehicle'} ${b.vehicle?.licensePlate ?? ''}',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Text(
-                              '₹${b.totalAmount}',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const Spacer(),
-                            if (b.paymentStatus != 'paid')
-                              TextButton(
-                                onPressed: () {
-                                  // In a real app, this would trigger payment gateway
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Payment gateway integration coming soon',
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Pay Now'),
-                              ),
-                          ],
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _load,
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
+                  )
+                else if (_payments.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Center(
+                      child: Text(
+                        'No payments found',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  )
+                else ...[
+                  for (final b in _payments)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _PaymentCard(
+                        booking: b,
+                        dateLabel: _formatDateTime(context, b.date),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentCard extends StatefulWidget {
+  final Booking booking;
+  final String dateLabel;
+
+  const _PaymentCard({required this.booking, required this.dateLabel});
+
+  @override
+  State<_PaymentCard> createState() => _PaymentCardState();
+}
+
+class _PaymentCardState extends State<_PaymentCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  IconData _iconForTitle(String title) {
+    final v = title.toLowerCase();
+    if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
+      return Icons.local_car_wash_outlined;
+    }
+    if (v.contains('battery') || v.contains('tire') || v.contains('tyre')) {
+      return Icons.battery_charging_full_outlined;
+    }
+    if (v.contains('engine') || v.contains('repair')) {
+      return Icons.settings_suggest_outlined;
+    }
+    if (v.contains('insurance')) return Icons.shield_outlined;
+    return Icons.payments_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = widget.booking;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPaid = b.paymentStatus == 'paid';
+    final statusText = (b.paymentStatus ?? 'pending').toUpperCase();
+    final accent = isPaid ? const Color(0xFF22C55E) : const Color(0xFFF59E0B);
+    final primaryService = b.services.isNotEmpty ? b.services.first : null;
+    final title = primaryService?.name ?? 'Service';
+    final category = primaryService?.category;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, '/track', arguments: b.id);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E7EB),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 24,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: 0.20,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(18),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _glowController,
+                      builder: (context, child) {
+                        final t = _glowController.value;
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accent.withValues(alpha: 0.10 + 0.10 * t),
+                                accent.withValues(alpha: 0.24 + 0.12 * t),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-            ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    AnimatedBuilder(
+                      animation: _glowController,
+                      builder: (context, child) {
+                        final t = _glowController.value;
+                        return Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: RadialGradient(
+                              center: Alignment(0, -0.2 + 0.2 * t),
+                              colors: [
+                                accent.withValues(alpha: 0.85),
+                                accent.withValues(alpha: 0.25),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(
+                                  alpha: 0.25 + 0.25 * t,
+                                ),
+                                blurRadius: 16,
+                                spreadRadius: 1.2,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: Icon(
+                        _iconForTitle(title),
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.dateLabel,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                ),
+                          ),
+                          Text(
+                            'Booking Ref: ${b.id.toUpperCase()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          if (category != null && category.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: accent.withValues(alpha: 0.08),
+                                ),
+                                child: Text(
+                                  category.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: accent,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                      ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _glowController,
+                      builder: (context, child) {
+                        final t = _glowController.value;
+                        final highlight = Color.lerp(
+                          accent,
+                          Colors.white,
+                          0.18,
+                        )!;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            gradient: LinearGradient(
+                              colors: [
+                                accent.withValues(alpha: 0.20 + 0.10 * t),
+                                highlight.withValues(alpha: 0.32),
+                              ],
+                              begin: Alignment(-1 + t, 0),
+                              end: Alignment(1 - t, 0),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.30 * t),
+                                blurRadius: 16,
+                                spreadRadius: 0.6,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: Text(
+                        statusText,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Service for ${b.vehicle?.make ?? 'Vehicle'} ${b.vehicle?.licensePlate ?? ''}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      '₹${b.totalAmount}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (b.paymentStatus != 'paid')
+                      TextButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Payment gateway integration coming soon',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Pay Now'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),

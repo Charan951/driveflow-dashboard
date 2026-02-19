@@ -21,6 +21,11 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   String? _error;
   List<Booking> _bookings = const [];
 
+  Color get _backgroundStart => const Color(0xFF020617);
+  Color get _backgroundEnd => const Color(0xFF020617);
+  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentBlue => const Color(0xFF22D3EE);
+
   @override
   void initState() {
     super.initState();
@@ -138,109 +143,181 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: const CustomerDrawer(currentRouteName: '/bookings'),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         automaticallyImplyLeading: false,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu),
+                  color: Colors.white,
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'My Bookings',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-        title: const Text('My Bookings'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
         actions: [
           IconButton(
             onPressed: _load,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _loading
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.only(top: 32),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ],
-              )
-            : _error != null
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Failed to load bookings',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.black54),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : _bookings.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.only(top: 24),
-                    child: Center(child: Text('No bookings yet')),
-                  ),
-                ],
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: _bookings.length,
-                separatorBuilder: (context, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final b = _bookings[index];
-                  return _BookingCard(
-                    id: b.id,
-                    dateTimeLabel: _formatDateTime(context, b.date),
-                    title: b.services.isNotEmpty
-                        ? b.services.first.name
-                        : 'Service',
-                    subtitle: b.vehicle != null
-                        ? '${b.vehicle!.make} ${b.vehicle!.model} • ${b.vehicle!.licensePlate}'
-                        : null,
-                    extra: b.services.length > 1
-                        ? '+${b.services.length - 1} more'
-                        : null,
-                    amount: b.totalAmount,
-                    statusLabel: _statusLabel(b.status),
-                    statusColor: _statusColor(b.status),
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/track', arguments: b.id),
-                  );
-                },
+      body: Stack(
+        children: [
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -1.2),
+                  radius: 1.4,
+                  colors: [
+                    _accentPurple.withValues(alpha: 0.14),
+                    _accentBlue.withValues(alpha: 0.06),
+                    _backgroundStart,
+                  ],
+                ),
               ),
+            )
+          else
+            Container(color: Colors.white),
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
+                ),
+              ),
+            ),
+          RefreshIndicator(
+            onRefresh: _load,
+            child: _loading
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.only(top: 32),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ],
+                  )
+                : _error != null
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Failed to load bookings',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.white70),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _load,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : _bookings.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Center(
+                          child: Text(
+                            'No bookings yet',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _bookings.length,
+                    separatorBuilder: (context, _) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final b = _bookings[index];
+                      final primaryService = b.services.isNotEmpty
+                          ? b.services.first
+                          : null;
+                      return _BookingCard(
+                        id: b.id,
+                        dateTimeLabel: _formatDateTime(context, b.date),
+                        title: primaryService?.name ?? 'Service',
+                        categoryLabel: primaryService?.category,
+                        subtitle: b.vehicle != null
+                            ? '${b.vehicle!.make} ${b.vehicle!.model} • ${b.vehicle!.licensePlate}'
+                            : null,
+                        extra: b.services.length > 1
+                            ? '+${b.services.length - 1} more'
+                            : null,
+                        amount: b.totalAmount,
+                        statusLabel: _statusLabel(b.status),
+                        statusColor: _statusColor(b.status),
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/track',
+                          arguments: b.id,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -250,6 +327,7 @@ class _BookingCard extends StatefulWidget {
   final String id;
   final String dateTimeLabel;
   final String title;
+  final String? categoryLabel;
   final String? subtitle;
   final String? extra;
   final num amount;
@@ -265,6 +343,7 @@ class _BookingCard extends StatefulWidget {
     required this.statusLabel,
     required this.statusColor,
     required this.onTap,
+    this.categoryLabel,
     this.subtitle,
     this.extra,
   });
@@ -273,12 +352,46 @@ class _BookingCard extends StatefulWidget {
   State<_BookingCard> createState() => _BookingCardState();
 }
 
-class _BookingCardState extends State<_BookingCard> {
+class _BookingCardState extends State<_BookingCard>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+
+  late final AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = widget.statusColor;
+    IconData iconForTitle(String title) {
+      final v = title.toLowerCase();
+      if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
+        return Icons.local_car_wash_outlined;
+      }
+      if (v.contains('battery') || v.contains('tire') || v.contains('tyre')) {
+        return Icons.battery_charging_full_outlined;
+      }
+      if (v.contains('engine') || v.contains('repair')) {
+        return Icons.settings_suggest_outlined;
+      }
+      if (v.contains('insurance')) return Icons.shield_outlined;
+      return Icons.miscellaneous_services_outlined;
+    }
+
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
@@ -291,9 +404,13 @@ class _BookingCardState extends State<_BookingCard> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFE5E7EB),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
@@ -314,17 +431,23 @@ class _BookingCardState extends State<_BookingCard> {
                         topRight: Radius.circular(18),
                         bottomRight: Radius.circular(18),
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              accent.withValues(alpha: 0.12),
-                              accent.withValues(alpha: 0.32),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
+                      child: AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          final t = _glowController.value;
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  accent.withValues(alpha: 0.10 + 0.10 * t),
+                                  accent.withValues(alpha: 0.28 + 0.12 * t),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -335,33 +458,127 @@ class _BookingCardState extends State<_BookingCard> {
                 children: [
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          'Booking #${widget.id}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                      AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          final t = _glowController.value;
+                          final base = accent;
+                          return Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              gradient: RadialGradient(
+                                center: Alignment(0, -0.2 + 0.2 * t),
+                                colors: [
+                                  base.withValues(alpha: 0.85),
+                                  base.withValues(alpha: 0.25),
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: base.withValues(
+                                    alpha: 0.25 + 0.25 * t,
+                                  ),
+                                  blurRadius: 16,
+                                  spreadRadius: 1.2,
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: Icon(
+                          iconForTitle(widget.title),
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Booking #${widget.id}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            if (widget.categoryLabel != null &&
+                                widget.categoryLabel!.trim().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    color: accent.withValues(alpha: 0.08),
+                                  ),
+                                  child: Text(
+                                    widget.categoryLabel!.toUpperCase(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: accent,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.6,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        decoration: BoxDecoration(
-                          color: widget.statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: widget.statusColor.withValues(alpha: 0.22),
-                          ),
-                        ),
+                      ),
+                      AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          final t = _glowController.value;
+                          final base = widget.statusColor;
+                          final highlight = Color.lerp(
+                            base,
+                            Colors.white,
+                            0.18,
+                          )!;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              gradient: LinearGradient(
+                                colors: [
+                                  base.withValues(alpha: 0.20 + 0.10 * t),
+                                  highlight.withValues(alpha: 0.32),
+                                ],
+                                begin: Alignment(-1 + t, 0),
+                                end: Alignment(1 - t, 0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: base.withValues(alpha: 0.30 * t),
+                                  blurRadius: 16,
+                                  spreadRadius: 0.6,
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          );
+                        },
                         child: Text(
                           widget.statusLabel,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: widget.statusColor,
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -370,13 +587,17 @@ class _BookingCardState extends State<_BookingCard> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.schedule, size: 16, color: Colors.black54),
+                      Icon(
+                        Icons.schedule,
+                        size: 16,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         widget.dateTimeLabel,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
                       ),
                     ],
                   ),
@@ -395,18 +616,18 @@ class _BookingCardState extends State<_BookingCard> {
                       widget.subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                     ),
                   ],
                   if (widget.extra != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       widget.extra!,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black45),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 10),
@@ -419,7 +640,10 @@ class _BookingCardState extends State<_BookingCard> {
                         ),
                       ),
                       const Spacer(),
-                      const Icon(Icons.chevron_right, color: Colors.black38),
+                      Icon(
+                        Icons.chevron_right,
+                        color: isDark ? Colors.white60 : Colors.black38,
+                      ),
                     ],
                   ),
                 ],

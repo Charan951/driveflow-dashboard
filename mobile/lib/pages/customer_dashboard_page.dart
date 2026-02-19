@@ -241,6 +241,9 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
             constraints: const BoxConstraints(maxWidth: 900),
             child: ListView(
               controller: _scrollController,
+              physics: const _FasterScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               padding: EdgeInsets.fromLTRB(16, 14, 16, 110 + bottomInset),
               children: [
                 enter(
@@ -771,6 +774,28 @@ class _UpcomingBookingCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _FasterScrollPhysics extends ClampingScrollPhysics {
+  const _FasterScrollPhysics({super.parent});
+
+  @override
+  _FasterScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _FasterScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    return offset * 1.8;
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    return super.createBallisticSimulation(position, velocity * 1.5);
   }
 }
 

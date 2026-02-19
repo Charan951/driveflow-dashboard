@@ -9,85 +9,236 @@ class SupportPage extends StatefulWidget {
   State<SupportPage> createState() => _SupportPageState();
 }
 
-class _SupportPageState extends State<SupportPage> {
+class _SupportPageState extends State<SupportPage>
+    with SingleTickerProviderStateMixin {
+  Color get _backgroundStart => const Color(0xFF020617);
+  Color get _backgroundEnd => const Color(0xFF020617);
+  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentBlue => const Color(0xFF22D3EE);
+  late final AnimationController _glowController;
   @override
   void initState() {
     super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: CustomerDrawer(currentRouteName: routeName),
       appBar: AppBar(
-        title: const Text('Support'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Need help?',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "We're here 24/7. You can share your issue and our team will assist you.",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                      const SizedBox(height: 14),
-                      const _SupportCardRow(
-                        icon: Icons.phone_outlined,
-                        title: 'Phone',
-                        subtitle: '+91-XXXXXXXXXX',
-                      ),
-                      const SizedBox(height: 10),
-                      const _SupportCardRow(
-                        icon: Icons.mail_outline,
-                        title: 'Email',
-                        subtitle: 'support@vehiclecare.com',
-                      ),
-                      const SizedBox(height: 10),
-                      const _SupportCardRow(
-                        icon: Icons.access_time,
-                        title: 'Hours',
-                        subtitle: 'Always available',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FilledButton(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Support chat will be added here'),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  child: const Text('Start Chat'),
+                  ],
                 ),
-              ],
+                child: IconButton(
+                  icon: const Icon(Icons.menu),
+                  color: Colors.white,
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Support',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Stack(
+        children: [
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -1.2),
+                  radius: 1.4,
+                  colors: [
+                    _accentPurple.withValues(alpha: 0.14),
+                    _accentBlue.withValues(alpha: 0.06),
+                    _backgroundStart,
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(color: Colors.white),
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
+                ),
+              ),
+            ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFE5E7EB),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.45)
+                                : Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 24,
+                            offset: const Offset(0, 16),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              AnimatedBuilder(
+                                animation: _glowController,
+                                builder: (context, child) {
+                                  final t = _glowController.value;
+                                  return Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: RadialGradient(
+                                        center: Alignment(0, -0.2 + 0.2 * t),
+                                        colors: [
+                                          _accentBlue.withValues(alpha: 0.85),
+                                          _accentBlue.withValues(alpha: 0.25),
+                                        ],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _accentBlue.withValues(
+                                            alpha: 0.30 + 0.10 * t,
+                                          ),
+                                          blurRadius: 18,
+                                          spreadRadius: 1.2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: child,
+                                  );
+                                },
+                                child: const Icon(
+                                  Icons.support_agent_outlined,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Need help?',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "We're here 24/7. You can share your issue and our team will assist you.",
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : Colors.black54,
+                                ),
+                          ),
+                          const SizedBox(height: 14),
+                          const _SupportCardRow(
+                            icon: Icons.phone_outlined,
+                            title: 'Phone',
+                            subtitle: '+91-XXXXXXXXXX',
+                          ),
+                          const SizedBox(height: 10),
+                          const _SupportCardRow(
+                            icon: Icons.mail_outline,
+                            title: 'Email',
+                            subtitle: 'support@vehiclecare.com',
+                          ),
+                          const SizedBox(height: 10),
+                          const _SupportCardRow(
+                            icon: Icons.access_time,
+                            title: 'Hours',
+                            subtitle: 'Always available',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: () =>
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Support chat will be added here'),
+                            ),
+                          ),
+                      child: const Text('Start Chat'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -106,16 +257,48 @@ class _SupportCardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF4F46E5)),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  scheme.primary.withValues(alpha: 0.96),
+                  scheme.primary.withValues(alpha: 0.76),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Icon(icon, color: scheme.onPrimary, size: 20),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -123,10 +306,20 @@ class _SupportCardRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : Colors.black54,
+                  ),
+                ),
               ],
             ),
           ),

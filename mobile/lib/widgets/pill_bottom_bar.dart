@@ -15,6 +15,33 @@ class PillBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const inactive = Color(0xFF94A3B8);
     final useBlur = !kIsWeb; // Blur is expensive on web
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final gradient = isDark
+        ? LinearGradient(
+            colors: [
+              const Color(0xFF020617).withValues(alpha: useBlur ? 0.95 : 0.98),
+              const Color(0xFF020617).withValues(alpha: useBlur ? 0.92 : 0.98),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: useBlur ? 0.78 : 0.95),
+              Colors.white.withValues(alpha: useBlur ? 0.62 : 0.95),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.white.withValues(alpha: 0.40);
+
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: useBlur ? 0.65 : 0.50)
+        : Colors.black.withValues(alpha: useBlur ? 0.16 : 0.10);
 
     return SizedBox(
       height: 72,
@@ -24,19 +51,12 @@ class PillBottomBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: useBlur ? 0.78 : 0.95),
-                Colors.white.withValues(alpha: useBlur ? 0.62 : 0.95),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: gradient,
             borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
+            border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: useBlur ? 0.16 : 0.10),
+                color: shadowColor,
                 blurRadius: useBlur ? 24 : 12,
                 offset: const Offset(0, 10),
               ),

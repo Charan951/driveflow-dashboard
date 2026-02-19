@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/auth_provider.dart';
@@ -86,116 +87,122 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       _navigated = true;
       navigator.pushReplacementNamed(auth.homeRoute);
     } else {
-      debugPrint('Splash: Not authenticated, navigating to /login');
-      _navigated = true;
-      navigator.pushReplacementNamed('/login');
+      debugPrint('Splash: Not authenticated, waiting for user interaction');
     }
   }
 
-  void _goRegister() {
+  void _onInteract() {
     if (_navigated) return;
     _navigated = true;
-    Navigator.of(context).pushReplacementNamed('/register');
+    Navigator.of(context).pushReplacementNamed('/login');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, _) =>
-                    _SplashBackground(t: _bgController.value),
+      body: GestureDetector(
+        onTap: _onInteract,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _bgController,
+                  builder: (context, _) =>
+                      _SplashBackground(t: _bgController.value),
+                ),
               ),
             ),
-          ),
-          SafeArea(
-            child: Center(
-              child: FadeTransition(
-                opacity: _fade,
-                child: SlideTransition(
-                  position: _slide,
-                  child: ScaleTransition(
-                    scale: _scale,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 480),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedBuilder(
-                              animation: _bgController,
-                              builder: (context, _) {
-                                final pulse =
-                                    0.65 +
-                                    0.35 * sin(_bgController.value * pi * 2);
-                                return Container(
-                                  width: 112,
-                                  height: 112,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black.withValues(alpha: 0.18),
-                                    border: Border.all(
-                                      color: const Color(
-                                        0xFF22D3EE,
-                                      ).withValues(alpha: 0.9),
-                                      width: 3,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
+            SafeArea(
+              child: Center(
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: SlideTransition(
+                    position: _slide,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AnimatedBuilder(
+                                animation: _bgController,
+                                builder: (context, _) {
+                                  final pulse =
+                                      0.65 +
+                                      0.35 * sin(_bgController.value * pi * 2);
+                                  return Container(
+                                    width: 112,
+                                    height: 112,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      border: Border.all(
                                         color: const Color(
                                           0xFF22D3EE,
-                                        ).withValues(alpha: 0.55 * pulse),
-                                        blurRadius: 30,
-                                        spreadRadius: 2,
+                                        ).withValues(alpha: 0.9),
+                                        width: 3,
                                       ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(999),
-                                    child: Image.asset(
-                                      'assets/speshway_logo.png',
-                                      fit: BoxFit.cover,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF22D3EE,
+                                          ).withValues(alpha: 0.55 * pulse),
+                                          blurRadius: 30,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              'SPESHWAY SOLUTIONS',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 2,
-                                    color: Colors.white,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Car Services',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                            const SizedBox(height: 26),
-                            AnimatedBuilder(
-                              animation: _bgController,
-                              builder: (context, _) {
-                                final t = _bgController.value;
-                                return _LetsStartButton(
-                                  t: t,
-                                  onPressed: _goRegister,
-                                );
-                              },
-                            ),
-                          ],
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: Image.asset(
+                                        'assets/speshway_logo.png',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                'SPESHWAY SOLUTIONS',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 2,
+                                      color: Colors.white,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Car Services',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 26),
+                              AnimatedBuilder(
+                                animation: _bgController,
+                                builder: (context, _) {
+                                  final t = _bgController.value;
+                                  return _LetsStartButton(
+                                    t: t,
+                                    onPressed: _onInteract,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -203,8 +210,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -218,6 +225,8 @@ class _LetsStartButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useBlur = !kIsWeb;
+    final blurSigma = useBlur ? 12.0 : 0.0;
     final pulse = 0.92 + 0.08 * sin(t * pi * 2);
     final drift = sin(t * pi * 2) * 0.25;
 
@@ -225,84 +234,162 @@ class _LetsStartButton extends StatelessWidget {
       scale: pulse,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment(-1 + drift, -1),
-                end: Alignment(1 + drift, 1),
-                colors: [
-                  const Color(0xFF22D3EE).withValues(alpha: 0.35),
-                  const Color(0xFF4F46E5).withValues(alpha: 0.30),
-                  const Color(0xFFF472B6).withValues(alpha: 0.28),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.20 + 0.10 * pulse),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(
-                    0xFF22D3EE,
-                  ).withValues(alpha: 0.35 * pulse),
-                  blurRadius: 26,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  blurRadius: 14,
-                  offset: const Offset(-6, -6),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onPressed,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        color: Colors.white,
-                        size: 18,
+        child: useBlur
+            ? BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(-1 + drift, -1),
+                      end: Alignment(1 + drift, 1),
+                      colors: [
+                        const Color(0xFF22D3EE).withValues(alpha: 0.35),
+                        const Color(0xFF4F46E5).withValues(alpha: 0.30),
+                        const Color(0xFFF472B6).withValues(alpha: 0.28),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(
+                        alpha: 0.20 + 0.10 * pulse,
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        "Let's Start",
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.3,
-                            ),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(
+                          0xFF22D3EE,
+                        ).withValues(alpha: 0.35 * pulse),
+                        blurRadius: 26,
+                        spreadRadius: 1,
                       ),
-                      const SizedBox(width: 10),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white.withValues(alpha: 0.95),
-                        size: 18,
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                        offset: const Offset(-6, -6),
                       ),
                     ],
                   ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onPressed,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              "Let's Start",
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                  ),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: Colors.white.withValues(alpha: 0.95),
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment(-1 + drift, -1),
+                    end: Alignment(1 + drift, 1),
+                    colors: [
+                      const Color(0xFF22D3EE).withValues(alpha: 0.35),
+                      const Color(0xFF4F46E5).withValues(alpha: 0.30),
+                      const Color(0xFFF472B6).withValues(alpha: 0.28),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.20 + 0.10 * pulse),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(
+                        0xFF22D3EE,
+                      ).withValues(alpha: 0.35 * pulse),
+                      blurRadius: 26,
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      blurRadius: 14,
+                      offset: const Offset(-6, -6),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onPressed,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            "Let's Start",
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                          ),
+                          const SizedBox(width: 10),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Colors.white.withValues(alpha: 0.95),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
       ),
     );
   }

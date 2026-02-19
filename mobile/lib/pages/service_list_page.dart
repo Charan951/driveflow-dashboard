@@ -30,6 +30,11 @@ class _ServiceListPageState extends State<ServiceListPage> {
   String? _title;
   String? _filterKey;
 
+  Color get _backgroundStart => const Color(0xFF020617);
+  Color get _backgroundEnd => const Color(0xFF020617);
+  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentBlue => const Color(0xFF22D3EE);
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +137,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (sheetContext) {
+          // Use the widget's context to determine theme consistency
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final backgroundColor = isDark
+              ? const Color(0xFF1E293B)
+              : Colors.white;
+          final textColor = isDark ? Colors.white : Colors.black87;
+          final subTextColor = isDark ? Colors.white70 : Colors.black54;
+
           var step = 0;
           var saving = false;
           var selectedVehicleId = vehicles.isNotEmpty
@@ -292,12 +305,15 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         Text(
                           'No vehicles found.',
                           style: Theme.of(sheetContext).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: textColor,
+                              ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Add a vehicle first to book a service.',
-                          style: TextStyle(color: Colors.black54),
+                          style: TextStyle(color: subTextColor),
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
@@ -316,7 +332,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       Text(
                         'Select Vehicle',
                         style: Theme.of(sheetContext).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
                       ),
                       const SizedBox(height: 12),
                       ...vehicles.map((v) {
@@ -325,13 +344,19 @@ class _ServiceListPageState extends State<ServiceListPage> {
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
                             color: selected
-                                ? const Color(0xFFF5F3FF)
-                                : Colors.white,
+                                ? (isDark
+                                      ? const Color(0xFF312E81)
+                                      : const Color(0xFFF5F3FF))
+                                : (isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : Colors.white),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: selected
                                   ? const Color(0xFF4F46E5)
-                                  : const Color(0xFFE5E7EB),
+                                  : (isDark
+                                        ? Colors.white.withValues(alpha: 0.1)
+                                        : const Color(0xFFE5E7EB)),
                             ),
                           ),
                           child: InkWell(
@@ -345,10 +370,18 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                     : Icons.radio_button_off,
                                 color: selected
                                     ? const Color(0xFF4F46E5)
-                                    : Colors.black38,
+                                    : (isDark
+                                          ? Colors.white54
+                                          : Colors.black38),
                               ),
-                              title: Text('${v.make} ${v.model}'),
-                              subtitle: Text('${v.licensePlate} • ${v.year}'),
+                              title: Text(
+                                '${v.make} ${v.model}',
+                                style: TextStyle(color: textColor),
+                              ),
+                              subtitle: Text(
+                                '${v.licensePlate} • ${v.year}',
+                                style: TextStyle(color: subTextColor),
+                              ),
                             ),
                           ),
                         );
@@ -364,7 +397,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       Text(
                         'Select Services',
                         style: Theme.of(sheetContext).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
                       ),
                       const SizedBox(height: 10),
                       ...services.map((s) {
@@ -372,11 +408,20 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
                           ),
                           child: CheckboxListTile(
                             value: checked,
+                            activeColor: const Color(0xFF4F46E5),
+                            checkColor: Colors.white,
                             onChanged: (v) {
                               setModalState(() {
                                 if (v == true) {
@@ -386,8 +431,14 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                 }
                               });
                             },
-                            title: Text(s.name),
-                            subtitle: Text('₹${s.price}'),
+                            title: Text(
+                              s.name,
+                              style: TextStyle(color: textColor),
+                            ),
+                            subtitle: Text(
+                              '₹${s.price}',
+                              style: TextStyle(color: subTextColor),
+                            ),
                             controlAffinity: ListTileControlAffinity.leading,
                           ),
                         );
@@ -397,7 +448,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         'Total: ₹${totalForSelected()}',
                         textAlign: TextAlign.right,
                         style: Theme.of(sheetContext).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: textColor,
+                            ),
                       ),
                     ],
                   );
@@ -412,7 +466,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       Text(
                         'Schedule',
                         style: Theme.of(sheetContext).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
@@ -445,28 +502,47 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         },
                         icon: const Icon(Icons.calendar_month_outlined),
                         label: Text(formatDateTime(selectedDateTime)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: isDark
+                              ? BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                )
+                              : null,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       SwitchListTile(
                         value: pickupRequired,
+                        activeColor: const Color(0xFF4F46E5),
                         onChanged: (v) => setModalState(() {
                           pickupRequired = v;
                         }),
-                        title: const Text('Pickup required'),
+                        title: Text(
+                          'Pickup required',
+                          style: TextStyle(color: textColor),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       if (pickupRequired) ...[
                         Text(
                           'Pickup location',
                           style: Theme.of(sheetContext).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                              ),
                         ),
                         const SizedBox(height: 10),
                         Container(
                           height: 220,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(16),
@@ -513,6 +589,16 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                 label: Text(
                                   locating ? 'Locating...' : 'Use my location',
                                 ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: isDark ? Colors.white : null,
+                                  side: isDark
+                                      ? BorderSide(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                        )
+                                      : null,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -525,6 +611,16 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                         selectedAddress = null;
                                         resolvingAddress = false;
                                       }),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: isDark ? Colors.white : null,
+                                  side: isDark
+                                      ? BorderSide(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                        )
+                                      : null,
+                                ),
                                 child: const Text('Clear'),
                               ),
                             ),
@@ -534,9 +630,15 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : const Color(0xFFF9FAFB),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
                           ),
                           child: Text(
                             selectedLatLng == null
@@ -546,21 +648,35 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                       : (selectedAddress ??
                                             '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}')),
                             style: Theme.of(sheetContext).textTheme.bodySmall
-                                ?.copyWith(color: Colors.black87),
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87,
+                                ),
                           ),
                         ),
                       ] else ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : const Color(0xFFF9FAFB),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
                           ),
                           child: Text(
                             'Pickup not required. You will drop your vehicle at the workshop.',
                             style: Theme.of(sheetContext).textTheme.bodySmall
-                                ?.copyWith(color: Colors.black87),
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87,
+                                ),
                           ),
                         ),
                       ],
@@ -568,9 +684,22 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       TextField(
                         controller: notesController,
                         maxLines: 3,
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: InputDecoration(
                           labelText: 'Notes (optional)',
-                          border: OutlineInputBorder(),
+                          labelStyle: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                          border: const OutlineInputBorder(),
+                          enabledBorder: isDark
+                              ? OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                )
+                              : const OutlineInputBorder(),
                         ),
                       ),
                     ],
@@ -589,19 +718,31 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     Text(
                       'Confirm',
                       style: Theme.of(sheetContext).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
                     ),
                     const SizedBox(height: 14),
-                    _SummaryRow(label: 'Vehicle', value: vehicleText),
+                    _SummaryRow(
+                      label: 'Vehicle',
+                      value: vehicleText,
+                      labelColor: subTextColor,
+                      valueColor: textColor,
+                    ),
                     const SizedBox(height: 8),
                     _SummaryRow(
                       label: 'Schedule',
                       value: formatDateTime(selectedDateTime),
+                      labelColor: subTextColor,
+                      valueColor: textColor,
                     ),
                     const SizedBox(height: 8),
                     _SummaryRow(
                       label: 'Pickup',
                       value: pickupRequired ? 'Yes' : 'No',
+                      labelColor: subTextColor,
+                      valueColor: textColor,
                     ),
                     const SizedBox(height: 8),
                     _SummaryRow(
@@ -612,12 +753,17 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                 : (selectedAddress ??
                                       '${selectedLatLng!.latitude.toStringAsFixed(6)}, ${selectedLatLng!.longitude.toStringAsFixed(6)}'))
                           : '-',
+                      labelColor: subTextColor,
+                      valueColor: textColor,
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'Services',
                       style: Theme.of(sheetContext).textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     ...selectedServices.map((s) {
@@ -630,9 +776,13 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                 s.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: textColor),
                               ),
                             ),
-                            Text('₹${s.price}'),
+                            Text(
+                              '₹${s.price}',
+                              style: TextStyle(color: textColor),
+                            ),
                           ],
                         ),
                       );
@@ -642,6 +792,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       label: 'Total',
                       value: '₹${totalForSelected()}',
                       isEmphasis: true,
+                      labelColor: subTextColor,
+                      valueColor: textColor,
                     ),
                   ],
                 );
@@ -707,9 +859,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
                 builder: (context, scrollController) {
                   final bottom = MediaQuery.of(context).padding.bottom;
                   return Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
                     ),
@@ -722,7 +874,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
                             width: 42,
                             height: 5,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE5E7EB),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.2)
+                                  : const Color(0xFFE5E7EB),
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -730,17 +884,42 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         const SizedBox(height: 14),
                         Row(
                           children: [
+                            if (step == 1)
+                              Hero(
+                                tag: 'service-hero-${initialService.id}',
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  margin: const EdgeInsets.only(right: 10),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isDark
+                                        ? const Color(0xFF0C4A6E)
+                                        : const Color(0xFFE0F2FE),
+                                  ),
+                                  child: Icon(
+                                    Icons.build_rounded,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
                             Expanded(
                               child: Text(
                                 'Book Service',
                                 style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: textColor,
+                                    ),
                               ),
                             ),
                             Text(
                               '${step + 1}/4',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.black54),
+                                  ?.copyWith(color: subTextColor),
                             ),
                           ],
                         ),
@@ -755,6 +934,16 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                   onPressed: saving
                                       ? null
                                       : () => goBack(setModalState),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: textColor,
+                                    side: isDark
+                                        ? BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
                                   child: const Text('Back'),
                                 ),
                               ),
@@ -807,47 +996,112 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: const CustomerDrawer(currentRouteName: '/services'),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         automaticallyImplyLeading: false,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu),
+                  color: Colors.white,
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _title ?? 'Services',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-        title: Text(_title ?? 'Services'),
       ),
-      body: FutureBuilder<List<ServiceItem>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error'));
-          }
-          final items = _applyFilter(snapshot.data ?? []);
-          if (items.isEmpty) {
-            return const Center(child: Text('No services'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            separatorBuilder: (context, _) => const SizedBox(height: 12),
-            itemBuilder: (context, i) {
-              final s = items[i];
-              return _ServiceCard(
-                title: s.name,
-                price: s.price,
-                onTap: () =>
-                    _openBookServiceFlow(initialService: s, services: items),
+      body: Stack(
+        children: [
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -1.2),
+                  radius: 1.4,
+                  colors: [
+                    _accentPurple.withValues(alpha: 0.14),
+                    _accentBlue.withValues(alpha: 0.06),
+                    _backgroundStart,
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(color: Colors.white),
+          if (isDark)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
+                ),
+              ),
+            ),
+          FutureBuilder<List<ServiceItem>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Error'));
+              }
+              final items = _applyFilter(snapshot.data ?? []);
+              if (items.isEmpty) {
+                return const Center(child: Text('No services'));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: items.length,
+                separatorBuilder: (context, _) => const SizedBox(height: 12),
+                itemBuilder: (context, i) {
+                  final s = items[i];
+                  return _ServiceCard(
+                    title: s.name,
+                    price: s.price,
+                    onTap: () => _openBookServiceFlow(
+                      initialService: s,
+                      services: items,
+                    ),
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -864,30 +1118,38 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isEmphasis;
+  final Color? labelColor;
+  final Color? valueColor;
 
   const _SummaryRow({
     required this.label,
     required this.value,
     this.isEmphasis = false,
+    this.labelColor,
+    this.valueColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodyMedium;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final lColor = labelColor ?? (isDark ? Colors.white70 : Colors.black54);
+    final vColor = valueColor ?? (isDark ? Colors.white : Colors.black87);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 90,
-          child: Text(label, style: style?.copyWith(color: Colors.black54)),
+          child: Text(label, style: style?.copyWith(color: lColor)),
         ),
         Expanded(
           child: Text(
             value,
             textAlign: TextAlign.right,
             style: isEmphasis
-                ? style?.copyWith(fontWeight: FontWeight.w700)
-                : style,
+                ? style?.copyWith(fontWeight: FontWeight.w700, color: vColor)
+                : style?.copyWith(color: vColor),
           ),
         ),
       ],
@@ -910,8 +1172,25 @@ class _ServiceCard extends StatefulWidget {
   State<_ServiceCard> createState() => _ServiceCardState();
 }
 
-class _ServiceCardState extends State<_ServiceCard> {
+class _ServiceCardState extends State<_ServiceCard>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+  late final AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
 
   IconData _iconForTitle(String title) {
     final v = title.toLowerCase();
@@ -930,6 +1209,7 @@ class _ServiceCardState extends State<_ServiceCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
@@ -942,9 +1222,13 @@ class _ServiceCardState extends State<_ServiceCard> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFE5E7EB),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
@@ -983,16 +1267,39 @@ class _ServiceCardState extends State<_ServiceCard> {
               ),
               Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  AnimatedBuilder(
+                    animation: _glowController,
+                    builder: (context, child) {
+                      final t = _glowController.value;
+                      final glow = 0.12 + 0.10 * t;
+                      return Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: RadialGradient(
+                            center: Alignment(0, -0.2 + 0.2 * t),
+                            colors: [
+                              const Color(0xFF22D3EE).withValues(alpha: 0.9),
+                              const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF22D3EE,
+                              ).withValues(alpha: glow),
+                              blurRadius: 18,
+                              spreadRadius: 1.2,
+                            ),
+                          ],
+                        ),
+                        child: child,
+                      );
+                    },
                     child: Icon(
                       _iconForTitle(widget.title),
-                      color: const Color(0xFF2563EB),
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1011,12 +1318,17 @@ class _ServiceCardState extends State<_ServiceCard> {
                         Text(
                           '₹${widget.price}',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.black54),
+                              ?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.black38),
+                  Icon(
+                    Icons.chevron_right,
+                    color: isDark ? Colors.white60 : Colors.black38,
+                  ),
                 ],
               ),
             ],

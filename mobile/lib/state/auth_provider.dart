@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/socket_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _auth = AuthService();
@@ -83,6 +84,8 @@ class AuthProvider extends ChangeNotifier {
       if (user == null) {
         loading = true;
         notifyListeners();
+      } else {
+        SocketService().init();
       }
 
       // 2. Refresh from server in background
@@ -148,6 +151,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         debugPrint('AuthProvider: Login successful. User: ${user?.name}');
+        SocketService().init();
         loading = false;
         notifyListeners();
         return true;
@@ -182,6 +186,7 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
+        SocketService().init();
         loading = false;
         notifyListeners();
         return true;
@@ -197,6 +202,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.logout();
+    SocketService().disconnect();
     user = null;
     lastError = null;
     notifyListeners();

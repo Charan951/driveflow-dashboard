@@ -1,13 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/navigation_provider.dart';
+import '../state/theme_provider.dart';
 
-class CustomerDrawer extends StatelessWidget {
+class CustomerDrawer extends StatefulWidget {
   final String? currentRouteName;
 
   const CustomerDrawer({super.key, required this.currentRouteName});
 
-  bool _isActive(String routeName) => currentRouteName == routeName;
+  @override
+  State<CustomerDrawer> createState() => _CustomerDrawerState();
+}
+
+class _CustomerDrawerState extends State<CustomerDrawer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+
+  bool _isActive(String routeName) => widget.currentRouteName == routeName;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
 
   Future<void> _navigate(
     BuildContext context, {
@@ -26,7 +50,6 @@ class CustomerDrawer extends StatelessWidget {
         routeName,
         arguments: arguments as Map<String, dynamic>?,
       );
-      // If we are already on the MainNavigationPage, we don't need to push it
       if (ModalRoute.of(context)?.settings.name != '/customer') {
         Navigator.of(
           context,
@@ -42,6 +65,8 @@ class CustomerDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.mode == ThemeMode.dark;
 
     final items = <_DrawerItem>[
       const _DrawerItem(
@@ -111,132 +136,302 @@ class CustomerDrawer extends StatelessWidget {
 
     return Drawer(
       width: 288,
-      child: SafeArea(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 64,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
+      child: AnimatedBuilder(
+        animation: _glowController,
+        builder: (context, child) {
+          final t = _glowController.value;
+          final topLight = Color.lerp(
+            const Color(0xFFE0F2FE),
+            const Color(0xFFF3E8FF),
+            t,
+          )!;
+          final midLight = Color.lerp(
+            const Color(0xFFE0F2FE),
+            const Color(0xFFDBEAFE),
+            t,
+          )!;
+          final topDark = Color.lerp(
+            const Color(0xFF020617),
+            const Color(0xFF0F172A),
+            0.5 + 0.2 * t,
+          )!;
+          final bgGradient = isDark
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [topDark, const Color(0xFF020617)],
+                )
+              : LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [topLight, midLight, Colors.white],
+                );
+          return Container(
+            decoration: BoxDecoration(gradient: bgGradient),
+            child: child,
+          );
+        },
+        child: SafeArea(
+          child: Column(
+            children: [
+              SizedBox(
+                height: 76,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          final t = _glowController.value;
+                          final start = const Color(0xFF7C3AED);
+                          final end = const Color(0xFF22D3EE);
+                          return Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color.lerp(start, end, t)!,
+                                  Color.lerp(end, start, t)!,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: start.withValues(
+                                    alpha: isDark ? 0.38 : 0.24,
+                                  ),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 14),
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: const Icon(
+                          Icons.directions_car_filled,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'VehicleCare',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Customer',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.7)
+                                    : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.10)
+                              : Colors.black.withValues(alpha: 0.04),
+                        ),
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                          tooltip: 'Close',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.white.withValues(alpha: 0.80),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.04),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isDark ? Icons.dark_mode : Icons.light_mode,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : const Color(0xFF0F172A),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Dark mode',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.9)
+                                    : const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            value: isDark,
+                            onChanged: (_) => themeProvider.toggleTheme(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final item in items)
+                      _DrawerTile(
+                        icon: item.icon,
+                        label: item.label,
+                        active: _isActive(item.routeName),
+                        onTap: () => _navigate(
+                          context,
+                          routeName: item.routeName,
+                          arguments: item.arguments,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                child: AnimatedBuilder(
+                  animation: _glowController,
+                  builder: (context, child) {
+                    final t = _glowController.value;
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
+                    final primary = scheme.primary;
+                    final secondary = scheme.secondary;
+                    final topColor = isDark
+                        ? primary.withValues(alpha: 0.16 + 0.10 * t)
+                        : Color.lerp(
+                            primary.withValues(alpha: 0.26),
+                            secondary.withValues(alpha: 0.22),
+                            0.5 + 0.3 * t,
+                          )!;
+                    final bottomColor = isDark
+                        ? primary.withValues(alpha: 0.05)
+                        : secondary.withValues(alpha: 0.12);
+
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
                         gradient: LinearGradient(
-                          colors: [scheme.primary, scheme.primaryContainer],
+                          colors: [topColor, bottomColor],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                      ),
-                      child: Icon(
-                        Icons.directions_car_filled,
-                        color: scheme.onPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'VehicleCare',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                        border: Border.all(
+                          color: primary.withValues(
+                            alpha: isDark ? 0.22 : 0.28,
+                          ),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primary.withValues(
+                              alpha: isDark ? 0.20 : 0.26,
+                            ),
+                            blurRadius: 22,
+                            offset: const Offset(0, 14),
+                          ),
+                        ],
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                      tooltip: 'Close',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                children: [
-                  for (final item in items)
-                    _DrawerTile(
-                      icon: item.icon,
-                      label: item.label,
-                      active: _isActive(item.routeName),
-                      onTap: () => _navigate(
-                        context,
-                        routeName: item.routeName,
-                        arguments: item.arguments,
+                      child: child,
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.16),
+                            ),
+                            child: Icon(
+                              Icons.help_outline,
+                              color: scheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Need Help?',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  "We're here 24/7",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.12),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () =>
+                            _navigate(context, routeName: '/support'),
+                        child: const Text('Contact Support'),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: scheme.primary.withValues(alpha: 0.12),
-                          ),
-                          child: Icon(
-                            Icons.help_outline,
-                            color: scheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Need Help?',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                "We're here 24/7",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () =>
-                          _navigate(context, routeName: '/support'),
-                      child: const Text('Contact Support'),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -273,23 +468,72 @@ class _DrawerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: active ? scheme.primary : Colors.transparent,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: active
+                  ? LinearGradient(
+                      colors: [
+                        scheme.primary.withValues(alpha: 0.96),
+                        scheme.primary.withValues(alpha: 0.78),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: active
+                  ? null
+                  : (isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : Colors.white),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ]
+                  : isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        blurRadius: 18,
+                        offset: const Offset(0, 12),
+                      ),
+                    ]
+                  : null,
+              border: active
+                  ? null
+                  : Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.04),
+                    ),
+            ),
             child: Row(
               children: [
                 Icon(
                   icon,
                   size: 20,
-                  color: active ? scheme.onPrimary : Colors.black54,
+                  color: active
+                      ? scheme.onPrimary
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.80)
+                            : Colors.black54),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -297,7 +541,11 @@ class _DrawerTile extends StatelessWidget {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: active ? scheme.onPrimary : Colors.black87,
+                      color: active
+                          ? scheme.onPrimary
+                          : (isDark
+                                ? Colors.white.withValues(alpha: 0.92)
+                                : Colors.black87),
                     ),
                   ),
                 ),

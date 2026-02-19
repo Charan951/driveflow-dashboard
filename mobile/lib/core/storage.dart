@@ -8,6 +8,7 @@ class AppStorage {
 
   static const _tokenKey = 'access_token';
   static const _userKey = 'auth_user';
+  static const _themeModeKey = 'theme_mode';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -83,6 +84,23 @@ class AppStorage {
       await _storage.delete(key: _userKey);
     } catch (e) {
       debugPrint('Error clearing user: $e');
+    }
+  }
+
+  Future<void> setThemeMode(String mode) async {
+    try {
+      await _storage.write(key: _themeModeKey, value: mode);
+    } catch (e) {
+      debugPrint('AppStorage: Error saving theme mode: $e');
+    }
+  }
+
+  Future<String?> getThemeMode() async {
+    try {
+      return await _storage.read(key: _themeModeKey);
+    } catch (e) {
+      debugPrint('AppStorage: Error reading theme mode: $e');
+      return null;
     }
   }
 }

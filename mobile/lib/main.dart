@@ -10,8 +10,11 @@ import 'pages/insurance_page.dart';
 import 'pages/documents_page.dart';
 import 'pages/support_page.dart';
 import 'pages/main_navigation_page.dart';
+import 'pages/speshway_vehiclecare_dashboard_page.dart';
+import 'services/socket_service.dart';
 import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
+import 'state/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,12 +26,31 @@ void main() async {
     'Main: AuthProvider initialized. isAuthenticated: ${authProvider.isAuthenticated}',
   );
 
-  runApp(MyApp(authProvider: authProvider));
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadThemeMode();
+
+  final socketService = SocketService();
+  if (authProvider.isAuthenticated) {
+    socketService.init();
+  }
+
+  runApp(MyApp(
+    authProvider: authProvider,
+    themeProvider: themeProvider,
+    socketService: socketService,
+  ));
 }
 
 class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
-  const MyApp({super.key, required this.authProvider});
+  final ThemeProvider themeProvider;
+  final SocketService socketService;
+  const MyApp({
+    super.key,
+    required this.authProvider,
+    required this.themeProvider,
+    required this.socketService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,53 +58,102 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
+        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: socketService),
       ],
-      child: MaterialApp(
-        title: 'App',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          scaffoldBackgroundColor: Colors.white,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-          ),
-        ),
-        initialRoute: authProvider.isAuthenticated
-            ? authProvider.homeRoute
-            : '/',
-        routes: {
-          '/': (_) => const SplashPage(),
-          '/login': (_) => const LoginPage(),
-          '/register': (_) => const RegisterPage(),
-          '/services': (_) => const _TabRedirect(index: 1),
-          '/customer': (_) => const MainNavigationPage(),
-          '/bookings': (_) => const _TabRedirect(index: 3),
-          '/payments': (_) => const MyPaymentsPage(),
-          '/vehicles': (_) => const _TabRedirect(index: 0),
-          '/insurance': (_) => const InsurancePage(),
-          '/documents': (_) => const DocumentsPage(),
-          '/support': (_) => const SupportPage(),
-          '/profile': (_) => const _TabRedirect(index: 4),
-          '/track': (_) => const TrackBookingPage(),
-          '/merchant': (_) => const MerchantHomePage(),
-          '/staff': (_) => const StaffHomePage(),
-          '/admin': (_) => const AdminHomePage(),
-        },
-        onGenerateRoute: (settings) {
-          if (settings.name == '/auth') {
-            return MaterialPageRoute(
-              builder: (_) => const SplashPage(),
-              settings: const RouteSettings(name: '/'),
-            );
-          }
-          return null;
-        },
-        onUnknownRoute: (settings) {
-          return MaterialPageRoute(
-            builder: (_) => const SplashPage(),
-            settings: const RouteSettings(name: '/'),
+      child: Builder(
+        builder: (context) {
+          final mode = context.watch<ThemeProvider>().mode;
+
+          return MaterialApp(
+            title: 'Speshway VehicleCare',
+            debugShowCheckedModeBanner: false,
+            themeMode: mode,
+            themeAnimationDuration: Duration.zero,
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.deepPurple,
+                brightness: Brightness.light,
+              ),
+              scaffoldBackgroundColor: Colors.white,
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+              ),
+              pageTransitionsTheme: const PageTransitionsTheme(
+                builders: {
+                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
+                },
+              ),
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.deepPurple,
+                brightness: Brightness.dark,
+              ),
+              scaffoldBackgroundColor: Colors.black,
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: IconThemeData(color: Colors.white),
+              ),
+              pageTransitionsTheme: const PageTransitionsTheme(
+                builders: {
+                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
+                },
+              ),
+            ),
+            initialRoute: authProvider.isAuthenticated
+                ? authProvider.homeRoute
+                : '/',
+            routes: {
+              '/': (_) => const SplashPage(),
+              '/login': (_) => const LoginPage(),
+              '/register': (_) => const RegisterPage(),
+              '/services': (_) => const _TabRedirect(index: 1),
+              '/customer': (_) => const MainNavigationPage(),
+              '/bookings': (_) => const _TabRedirect(index: 3),
+              '/payments': (_) => const MyPaymentsPage(),
+              '/vehicles': (_) => const _TabRedirect(index: 0),
+              '/insurance': (_) => const InsurancePage(),
+              '/documents': (_) => const DocumentsPage(),
+              '/support': (_) => const SupportPage(),
+              '/profile': (_) => const _TabRedirect(index: 4),
+              '/track': (_) => const TrackBookingPage(),
+              '/speshway-dashboard': (_) =>
+                  const SpeshwayVehicleCareDashboard(),
+              '/merchant': (_) => const MerchantHomePage(),
+              '/staff': (_) => const StaffHomePage(),
+              '/admin': (_) => const AdminHomePage(),
+            },
+            onGenerateRoute: (settings) {
+              if (settings.name == '/auth') {
+                return MaterialPageRoute(
+                  builder: (_) => const SplashPage(),
+                  settings: const RouteSettings(name: '/'),
+                );
+              }
+              return null;
+            },
+            onUnknownRoute: (settings) {
+              return MaterialPageRoute(
+                builder: (_) => const SplashPage(),
+                settings: const RouteSettings(name: '/'),
+              );
+            },
           );
         },
       ),
@@ -197,5 +268,20 @@ class _RoleHomeScaffold extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }

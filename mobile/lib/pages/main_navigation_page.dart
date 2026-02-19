@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/pill_bottom_bar.dart';
 import '../state/navigation_provider.dart';
-import 'customer_dashboard_page.dart';
 import 'my_vehicles_page.dart';
 import 'service_list_page.dart';
 import 'my_bookings_page.dart';
 import 'profile_page.dart';
+import 'speshway_vehiclecare_dashboard_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -20,7 +21,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   final List<Widget> _pages = const [
     MyVehiclesPage(),
     ServiceListPage(),
-    CustomerDashboardPage(),
+    SpeshwayVehicleCareDashboard(),
     MyBookingsPage(),
     ProfilePage(),
   ];
@@ -30,17 +31,24 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     final navProvider = context.watch<NavigationProvider>();
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      extendBody: false,
-      drawer: const CustomerDrawer(currentRouteName: '/customer'),
-      body: IndexedStack(index: navProvider.selectedIndex, children: _pages),
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints.tightFor(height: 72),
-          child: PillBottomBar(
-            selectedIndex: navProvider.selectedIndex,
-            onTap: (index) => navProvider.setTab(index),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        extendBody: false,
+        drawer: const CustomerDrawer(currentRouteName: '/customer'),
+        body: IndexedStack(index: navProvider.selectedIndex, children: _pages),
+        bottomNavigationBar: Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints.tightFor(height: 72),
+            child: PillBottomBar(
+              selectedIndex: navProvider.selectedIndex,
+              onTap: (index) => navProvider.setTab(index),
+            ),
           ),
         ),
       ),

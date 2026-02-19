@@ -265,6 +265,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         if (booking != null && booking.pickupRequired == false) {
           return;
         }
+        if (booking != null &&
+            (booking.status == 'VEHICLE_AT_MERCHANT' ||
+                booking.status == 'SERVICE_STARTED' ||
+                booking.status == 'SERVICE_COMPLETED' ||
+                booking.status == 'DELIVERED' ||
+                booking.status == 'CANCELLED')) {
+          return;
+        }
         if (data is Map) {
           final role = data['role'];
           if (role != null && role.toString() != 'staff') {
@@ -291,6 +299,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         if (!mounted) return;
         final id = _bookingId;
         if (id == null || id.isEmpty) return;
+        final booking = _booking;
+        if (booking != null && booking.pickupRequired == false) return;
         if (data is Map) {
           final bookingId = data['bookingId']?.toString();
           if (bookingId != id) return;
@@ -319,7 +329,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             if (updated.status == 'VEHICLE_AT_MERCHANT' ||
                 updated.status == 'SERVICE_STARTED' ||
                 updated.status == 'SERVICE_COMPLETED' ||
-                updated.status == 'OUT_FOR_DELIVERY' ||
                 updated.status == 'DELIVERED' ||
                 updated.status == 'CANCELLED') {
               _liveLatLng = null;
@@ -334,7 +343,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             if (updated.status == 'VEHICLE_AT_MERCHANT' ||
                 updated.status == 'SERVICE_STARTED' ||
                 updated.status == 'SERVICE_COMPLETED' ||
-                updated.status == 'OUT_FOR_DELIVERY' ||
                 updated.status == 'DELIVERED' ||
                 updated.status == 'CANCELLED') {
               _liveLatLng = null;
@@ -474,10 +482,16 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final mapLatLng = booking != null && booking.pickupRequired
         ? bookingLatLng
         : (merchantLatLng ?? bookingLatLng);
-    final center =
-        mapLatLng ??
-        (booking != null && booking.pickupRequired ? _liveLatLng : null) ??
-        const LatLng(12.9716, 77.5946);
+    final center = _liveLatLng ?? mapLatLng ?? const LatLng(12.9716, 77.5946);
+    final showLiveTrackingMap =
+        booking != null &&
+        booking.pickupRequired &&
+        (booking.status == 'ASSIGNED' ||
+            booking.status == 'ACCEPTED' ||
+            booking.status == 'REACHED_CUSTOMER' ||
+            booking.status == 'VEHICLE_PICKED' ||
+            booking.status == 'REACHED_MERCHANT' ||
+            booking.status == 'OUT_FOR_DELIVERY');
 
     int currentIndex = -1;
     if (booking != null) {
@@ -518,12 +532,21 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       }
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: const Text('Track Service'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: isDark ? Colors.transparent : Colors.white,
+        surfaceTintColor: isDark ? Colors.transparent : Colors.white,
+        elevation: isDark ? 0 : null,
+        title: Text(
+          'Track Service',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -548,9 +571,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton(
@@ -566,38 +589,30 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 child: Center(child: Text('Booking not found')),
               )
             else ...[
-              Container(
-                height: 260,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(initialCenter: center, initialZoom: 13),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.carb.app',
+              if (showLiveTrackingMap) ...[
+                Container(
+                  height: 260,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: center,
+                        initialZoom: 13,
                       ),
-                      MarkerLayer(
-                        markers: [
-                          if (booking.pickupRequired) ...[
-                            if (bookingLatLng != null)
-                              Marker(
-                                point: bookingLatLng,
-                                width: 40,
-                                height: 40,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  size: 40,
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ),
-                            if (_liveLatLng != null)
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.carb.app',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            if (booking.pickupRequired && _liveLatLng != null)
                               Marker(
                                 point: _liveLatLng!,
                                 width: 40,
@@ -608,23 +623,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   color: Color(0xFFEF4444),
                                 ),
                               ),
-                          ] else if (merchantLatLng != null)
-                            Marker(
-                              point: merchantLatLng,
-                              width: 40,
-                              height: 40,
-                              child: const Icon(
-                                Icons.location_on,
-                                size: 40,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
               if (booking.pickupRequired && _nearAlertShown) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -679,9 +684,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -735,17 +746,17 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 : (merchantLatLng == null
                                       ? 'Workshop location not set'
                                       : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black87),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
                     ),
                     if (booking.pickupRequired && _liveLatLng != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.black87),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
                       ),
                     ],
                     if (booking.pickupRequired &&
@@ -754,9 +765,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       const SizedBox(height: 8),
                       Text(
                         _socketError!,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
                       ),
                     ],
                   ],
@@ -780,9 +791,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,9 +838,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     const SizedBox(height: 10),
                     Text(
                       _formatDateTime(context, booking.date),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (booking.vehicle != null)
@@ -837,7 +854,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     Text(
                       'Total: ₹${booking.totalAmount}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.black87,
+                        color: isDark ? Colors.white : Colors.black87,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -855,9 +872,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -928,7 +951,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              if (booking.paymentStatus != 'PAID') ...[
+              if (booking.paymentStatus != 'paid') ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -977,9 +1000,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -994,7 +1023,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           '₹${s.price}',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Colors.black54,
+                                color: isDark ? Colors.white70 : Colors.black54,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
