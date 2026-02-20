@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, Bell, User, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,10 +25,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   showBack = false,
   transparent = false 
 }) => {
-  const { toggleSidebar, notifications } = useAppStore();
+  const { toggleSidebar, notifications, fetchNotifications } = useAppStore();
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user, fetchNotifications]);
 
   const handleLogout = () => {
     logout();
@@ -58,7 +64,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Right - Notifications & Avatar */}
       <div className="flex items-center gap-3">
         <Link
-          to="/dashboard"
+          to={
+            user?.role === 'admin'
+              ? '/admin/my-notifications'
+              : user?.role === 'merchant'
+                ? '/merchant/notifications'
+                : user?.role === 'staff'
+                  ? '/staff/notifications'
+                  : '/notifications'
+          }
           className="relative p-2 hover:bg-muted rounded-xl transition-colors"
         >
           <Bell className="w-5 h-5" />

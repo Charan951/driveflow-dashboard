@@ -8,6 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../core/storage.dart';
+import 'background_tracking.dart';
 
 class TrackingInfo {
   final double? lat;
@@ -87,12 +88,14 @@ class StaffTrackingService {
     }
     await _ensureSocket();
     await _startPositionStream();
+    await BackgroundTracking.start(bookingId: _activeBookingId);
   }
 
   Future<void> stop() async {
     _isTracking = false;
     await _positionSub?.cancel();
     _positionSub = null;
+    await BackgroundTracking.stop();
   }
 
   Future<bool> _ensurePermissions() async {

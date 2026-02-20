@@ -23,6 +23,15 @@ export interface NotificationHistoryItem {
   };
 }
 
+export interface UserNotification {
+  _id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const notificationService = {
   sendNotification: async (data: NotificationPayload) => {
     const response = await api.post('/notifications', data);
@@ -32,7 +41,7 @@ export const notificationService = {
     const response = await api.get('/notifications/history');
     return response.data;
   },
-  getMyNotifications: async () => {
+  getMyNotifications: async (): Promise<UserNotification[]> => {
     const response = await api.get('/notifications/my');
     return response.data;
   },

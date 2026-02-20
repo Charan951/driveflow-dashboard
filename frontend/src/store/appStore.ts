@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { notificationService, UserNotification } from '../services/notificationService';
 
 interface Notification {
   id: string;
@@ -12,35 +13,43 @@ interface Notification {
 interface AppState {
   sidebarOpen: boolean;
   notifications: Notification[];
+  notificationsLoading: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  fetchNotifications: () => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
-  markAsRead: (id: string) => void;
+  markAsRead: (id: string) => Promise<void>;
   clearNotifications: () => void;
 }
 
+const mapUserNotification = (item: UserNotification): Notification => ({
+  id: item._id,
+  title: item.title,
+  message: item.message,
+  type: item.type,
+  read: item.isRead,
+  createdAt: new Date(item.createdAt),
+});
+
 export const useAppStore = create<AppState>((set) => ({
   sidebarOpen: false,
-  notifications: [
-    {
-      id: '1',
-      title: 'Service Reminder',
-      message: 'Your vehicle service is due in 3 days',
-      type: 'info',
-      read: false,
-      createdAt: new Date(),
-    },
-    {
-      id: '2',
-      title: 'Booking Confirmed',
-      message: 'Your car wash booking is confirmed for tomorrow',
-      type: 'success',
-      read: false,
-      createdAt: new Date(),
-    },
-  ],
+  notifications: [],
+  notificationsLoading: false,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  fetchNotifications: async () => {
+    set({ notificationsLoading: true });
+    try {
+      const data = await notificationService.getMyNotifications();
+      set({
+        notifications: data.map(mapUserNotification),
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      set({ notificationsLoading: false });
+    }
+  },
   addNotification: (notification) =>
     set((state) => ({
       notifications: [
@@ -53,11 +62,17 @@ export const useAppStore = create<AppState>((set) => ({
         ...state.notifications,
       ],
     })),
-  markAsRead: (id) =>
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
-    })),
+  markAsRead: async (id) => {
+    try {
+      await notificationService.markAsRead(id);
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, read: true } : n
+        ),
+      }));
+    } catch (error) {
+      console.error(error);
+    }
+  },
   clearNotifications: () => set({ notifications: [] }),
 }));

@@ -1,5 +1,6 @@
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import { sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Send a notification
 // @route   POST /api/notifications
@@ -9,19 +10,21 @@ export const sendNotification = async (req, res) => {
 
   try {
     let notifications = [];
+    let targetUserIds = [];
 
     if (targetGroup) {
       // Broadcast to group
       const query = targetGroup === 'All' ? {} : { role: targetGroup.toLowerCase() };
-      const users = await User.find(query);
+      const users = await User.find(query).select('_id');
 
-      notifications = users.map(user => ({
+      notifications = users.map((user) => ({
         recipient: user._id,
         targetGroup,
         title,
         message,
         type,
       }));
+      targetUserIds = users.map((u) => u._id);
     } else if (recipientId) {
       // Single user
       notifications.push({
@@ -30,15 +33,25 @@ export const sendNotification = async (req, res) => {
         message,
         type,
       });
+      targetUserIds = [recipientId];
     } else {
       return res.status(400).json({ message: 'Recipient or Target Group is required' });
     }
 
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
+      await Promise.all(
+        targetUserIds.map((userId) =>
+          sendPushToUser(userId, title, message, {
+            type: type || 'info',
+          }),
+        ),
+      );
     }
 
-    res.status(201).json({ message: `Notification sent to ${notifications.length} users` });
+    res
+      .status(201)
+      .json({ message: `Notification sent to ${notifications.length} users` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

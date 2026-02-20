@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/env.dart';
 import '../core/storage.dart';
+import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 
@@ -21,6 +23,7 @@ class TrackBookingPage extends StatefulWidget {
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _mapController = MapController();
+  final _api = ApiClient();
 
   bool _loading = true;
   String? _error;
@@ -31,10 +34,19 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   bool _socketConnected = false;
   String? _socketError;
   LatLng? _liveLatLng;
+  LatLng? _prevLiveLatLng;
   String? _liveName;
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
   bool _nearAlertShown = false;
+  Timer? _animTimer;
+  int _animStartMs = 0;
+  static const int _animDurationMs = 600;
+  double _bearingRad = 0.0;
+  String? _etaTextDuration;
+  String? _etaTextDistance;
+  List<Map<String, dynamic>> _pendingApprovals = [];
+  Timer? _approvalsTimer;
 
   @override
   void didChangeDependencies() {
@@ -62,6 +74,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       socket.emit('leave', 'booking_${_bookingId ?? ''}');
       socket.dispose();
     }
+    _approvalsTimer?.cancel();
     super.dispose();
   }
 
@@ -284,16 +297,53 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           final lngRaw = data['lng'];
           final nameRaw = data['name'];
           final updatedAtRaw = data['updatedAt'] ?? data['timestamp'];
-          if (latRaw is num && lngRaw is num) {
-            setState(() {
-              _liveLatLng = LatLng(latRaw.toDouble(), lngRaw.toDouble());
-              _liveName = nameRaw is String && nameRaw.trim().isNotEmpty
-                  ? nameRaw
-                  : null;
-              _liveUpdatedAt = updatedAtRaw is String
-                  ? DateTime.tryParse(updatedAtRaw)?.toLocal()
-                  : null;
+          double? lat;
+          double? lng;
+          if (latRaw is num) lat = latRaw.toDouble();
+          if (lngRaw is num) lng = lngRaw.toDouble();
+          if (lat == null && latRaw is String) {
+            final p = double.tryParse(latRaw);
+            if (p != null) lat = p;
+          }
+          if (lng == null && lngRaw is String) {
+            final p = double.tryParse(lngRaw);
+            if (p != null) lng = p;
+          }
+          if (lat != null && lng != null) {
+            final nextPos = LatLng(lat, lng);
+            final prev = _liveLatLng;
+            if (prev != null) {
+              _bearingRad = _computeBearingRad(prev, nextPos);
+            }
+            _animTimer?.cancel();
+            _prevLiveLatLng = prev ?? nextPos;
+            _animStartMs = DateTime.now().millisecondsSinceEpoch;
+            _animTimer = Timer.periodic(const Duration(milliseconds: 50), (t) {
+              final elapsed =
+                  DateTime.now().millisecondsSinceEpoch - _animStartMs;
+              final progress = (elapsed / _animDurationMs).clamp(0.0, 1.0);
+              final lerp = _lerpLatLng(_prevLiveLatLng!, nextPos, progress);
+              if (!mounted) {
+                t.cancel();
+                return;
+              }
+              setState(() {
+                _liveLatLng = lerp;
+                _liveName = nameRaw is String && nameRaw.trim().isNotEmpty
+                    ? nameRaw
+                    : null;
+                _liveUpdatedAt = updatedAtRaw is String
+                    ? DateTime.tryParse(updatedAtRaw)?.toLocal()
+                    : null;
+              });
+              try {
+                _mapController.move(lerp, 15);
+              } catch (_) {}
+              if (progress >= 1.0) {
+                t.cancel();
+              }
             });
+            _updateEtaIfNeeded(nextPos);
           }
         }
       });
@@ -381,6 +431,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       final booking = await _service.getBooking(id);
       if (mounted) {
         setState(() => _booking = booking);
+        _fetchPendingApprovals();
+        _startApprovalsTimer();
       }
     } catch (e) {
       if (mounted) {
@@ -412,6 +464,259 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   String _formatClockTime(BuildContext context, DateTime dt) {
     return TimeOfDay.fromDateTime(dt).format(context);
+  }
+
+  LatLng _lerpLatLng(LatLng a, LatLng b, double t) {
+    final tt = t.clamp(0.0, 1.0);
+    return LatLng(
+      a.latitude + (b.latitude - a.latitude) * tt,
+      a.longitude + (b.longitude - a.longitude) * tt,
+    );
+  }
+
+  double _computeBearingRad(LatLng a, LatLng b) {
+    double toRad(double v) => v * math.pi / 180.0;
+    double toDeg(double v) => v * 180.0 / math.pi;
+    final lat1 = toRad(a.latitude);
+    final lat2 = toRad(b.latitude);
+    final dLon = toRad(b.longitude - a.longitude);
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x);
+    final deg = (toDeg(brng) + 360.0) % 360.0;
+    return deg * math.pi / 180.0;
+  }
+
+  String? _resolveImageUrl(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    if (s.startsWith('/')) return '${Env.baseUrl}$s';
+    return '${Env.baseUrl}/$s';
+  }
+
+  Future<void> _updateEtaIfNeeded(LatLng staff) async {
+    final booking = _booking;
+    if (booking == null || booking.pickupRequired == false) {
+      setState(() {
+        _etaTextDuration = null;
+        _etaTextDistance = null;
+      });
+      return;
+    }
+    final destLat = booking.location?.lat;
+    final destLng = booking.location?.lng;
+    if (destLat == null || destLng == null) {
+      setState(() {
+        _etaTextDuration = null;
+        _etaTextDistance = null;
+      });
+      return;
+    }
+    final showFor = [
+      'ASSIGNED',
+      'ACCEPTED',
+      'REACHED_CUSTOMER',
+      'OUT_FOR_DELIVERY',
+    ];
+    if (!showFor.contains(booking.status)) {
+      setState(() {
+        _etaTextDuration = null;
+        _etaTextDistance = null;
+      });
+      return;
+    }
+    try {
+      final q =
+          '/tracking/eta?originLat=${staff.latitude}&originLng=${staff.longitude}&destLat=$destLat&destLng=$destLng';
+      final res = await _api.getJson(q);
+      setState(() {
+        _etaTextDuration = res['textDuration']?.toString();
+        _etaTextDistance = res['textDistance']?.toString();
+      });
+    } catch (_) {
+      // ignore failures
+    }
+  }
+
+  Future<void> _fetchPendingApprovals() async {
+    final booking = _booking;
+    if (booking == null) return;
+    final res = await _api.getAny(ApiEndpoints.approvalsMyApprovals);
+    final items = <Map<String, dynamic>>[];
+    if (res is List) {
+      for (final e in res) {
+        if (e is Map) {
+          final map = e is Map<String, dynamic>
+              ? e
+              : Map<String, dynamic>.from(e);
+          final rawRelated = map['relatedId'];
+          String relatedId = '';
+          if (rawRelated is String) {
+            relatedId = rawRelated;
+          } else if (rawRelated is Map) {
+            final inner = rawRelated;
+            final candidate = inner['_id'];
+            if (candidate is String) {
+              relatedId = candidate;
+            } else if (candidate != null) {
+              relatedId = candidate.toString();
+            } else {
+              relatedId = rawRelated.toString();
+            }
+          } else if (rawRelated != null) {
+            relatedId = rawRelated.toString();
+          }
+          final status = map['status']?.toString();
+          final type = map['type']?.toString();
+          if (relatedId == booking.id &&
+              status == 'Pending' &&
+              type == 'PartReplacement') {
+            items.add(map);
+          }
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _pendingApprovals = items;
+    });
+  }
+
+  void _startApprovalsTimer() {
+    _approvalsTimer?.cancel();
+    final booking = _booking;
+    if (booking == null || booking.id.isEmpty) return;
+    _approvalsTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _fetchPendingApprovals(),
+    );
+  }
+
+  Future<void> _handleApprovalAction(
+    String approvalId,
+    String status, {
+    String? reason,
+  }) async {
+    if (approvalId.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final body = <String, dynamic>{'status': status};
+      if (reason != null && reason.trim().isNotEmpty) {
+        body['adminComment'] = reason.trim();
+      }
+      await _api.putJson(ApiEndpoints.approvalById(approvalId), body: body);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'Approved' ? 'Request approved' : 'Request rejected',
+          ),
+        ),
+      );
+      await _fetchPendingApprovals();
+      if (status == 'Approved') {
+        final id = _bookingId;
+        if (id != null && id.isNotEmpty) {
+          final updated = await _service.getBooking(id);
+          if (!mounted) return;
+          setState(() => _booking = updated);
+        }
+      }
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'Approved'
+                ? 'Failed to approve request'
+                : 'Failed to reject request',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showRejectReasonSheet(String approvalId) async {
+    if (approvalId.isEmpty) return;
+    final controller = TextEditingController();
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Reject request',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please share the reason for rejection. This helps our team understand your concern.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                textInputAction: TextInputAction.newline,
+                decoration: const InputDecoration(
+                  hintText: 'Type your reason here',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final value = controller.text.trim();
+                        if (value.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a reason'),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(context).pop(value);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFDC2626),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Submit'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result == null || result.trim().isEmpty) return;
+    await _handleApprovalAction(approvalId, 'Rejected', reason: result);
   }
 
   String _statusLabel(String status) {
@@ -620,10 +925,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 point: _liveLatLng!,
                                 width: 40,
                                 height: 40,
-                                child: const Icon(
-                                  Icons.navigation,
-                                  size: 34,
-                                  color: Color(0xFFEF4444),
+                                child: Transform.rotate(
+                                  angle: _bearingRad,
+                                  child: const Icon(
+                                    Icons.navigation,
+                                    size: 34,
+                                    color: Color(0xFFEF4444),
+                                  ),
                                 ),
                               ),
                           ],
@@ -723,6 +1031,22 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
+                          if (_liveLatLng != null && _liveUpdatedAt != null)
+                            Text(
+                              ' • ${_formatClockTime(context, _liveUpdatedAt!)}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          if (_etaTextDuration != null &&
+                              _etaTextDistance != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                'ETA: $_etaTextDuration • $_etaTextDistance',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ),
                         ] else ...[
                           Expanded(
                             child: Text(
@@ -917,6 +1241,407 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             ),
                           ),
                         ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_pendingApprovals.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Icon(
+                              Icons.warning_amber_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Approval required',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF92400E),
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 220,
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _pendingApprovals.length,
+                          itemBuilder: (context, index) {
+                            final approval = _pendingApprovals[index];
+                            final data = approval['data'];
+                            String name = 'Part replacement';
+                            int? quantity;
+                            double? price;
+                            String? newImageUrl;
+                            String? oldImageUrl;
+                            if (data is Map) {
+                              final rawName = data['name'];
+                              if (rawName != null &&
+                                  rawName.toString().trim().isNotEmpty) {
+                                name = rawName.toString();
+                              }
+                              final rawQty = data['quantity'];
+                              if (rawQty is num) {
+                                quantity = rawQty.toInt();
+                              }
+                              final rawPrice = data['price'];
+                              if (rawPrice is num) {
+                                price = rawPrice.toDouble();
+                              }
+                              newImageUrl = _resolveImageUrl(data['image']);
+                              oldImageUrl = _resolveImageUrl(data['oldImage']);
+                            }
+                            double? total;
+                            if (quantity != null && price != null) {
+                              total = quantity * price;
+                            }
+                            final approvalId =
+                                approval['_id']?.toString() ?? '';
+                            return Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      'SC',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF92400E),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFFCD34D),
+                                            ),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      name,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodyMedium
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  if (total != null)
+                                                    Text(
+                                                      '₹${total.toStringAsFixed(2)}',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: const Color(
+                                                              0xFF111827,
+                                                            ),
+                                                          ),
+                                                    ),
+                                                ],
+                                              ),
+                                              if (quantity != null ||
+                                                  price != null)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 2,
+                                                      ),
+                                                  child: Text(
+                                                    'Qty: ${quantity ?? '-'} • Price: ₹${price != null ? price.toStringAsFixed(2) : '-'}',
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodySmall
+                                                        ?.copyWith(
+                                                          color: const Color(
+                                                            0xFF92400E,
+                                                          ),
+                                                        ),
+                                                  ),
+                                                ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          'New Part',
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    const Color(
+                                                                      0xFF4B5563,
+                                                                    ),
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                        AspectRatio(
+                                                          aspectRatio: 1,
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFF9FAFB,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    const Color(
+                                                                      0xFFE5E7EB,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            clipBehavior:
+                                                                Clip.antiAlias,
+                                                            child:
+                                                                newImageUrl !=
+                                                                    null
+                                                                ? Image.network(
+                                                                    newImageUrl,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  )
+                                                                : Center(
+                                                                    child: Text(
+                                                                      'No image',
+                                                                      style: Theme.of(context)
+                                                                          .textTheme
+                                                                          .bodySmall
+                                                                          ?.copyWith(
+                                                                            color: const Color(
+                                                                              0xFF9CA3AF,
+                                                                            ),
+                                                                          ),
+                                                                    ),
+                                                                  ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          'Old Part',
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    const Color(
+                                                                      0xFF4B5563,
+                                                                    ),
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                        AspectRatio(
+                                                          aspectRatio: 1,
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFF9FAFB,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    const Color(
+                                                                      0xFFE5E7EB,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            clipBehavior:
+                                                                Clip.antiAlias,
+                                                            child:
+                                                                oldImageUrl !=
+                                                                    null
+                                                                ? Image.network(
+                                                                    oldImageUrl,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  )
+                                                                : Center(
+                                                                    child: Text(
+                                                                      'No image',
+                                                                      style: Theme.of(context)
+                                                                          .textTheme
+                                                                          .bodySmall
+                                                                          ?.copyWith(
+                                                                            color: const Color(
+                                                                              0xFF9CA3AF,
+                                                                            ),
+                                                                          ),
+                                                                    ),
+                                                                  ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            OutlinedButton(
+                                              onPressed: approvalId.isEmpty
+                                                  ? null
+                                                  : () =>
+                                                        _showRejectReasonSheet(
+                                                          approvalId,
+                                                        ),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: const Color(
+                                                  0xFFB91C1C,
+                                                ),
+                                                side: const BorderSide(
+                                                  color: Color(0xFFFCA5A5),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                              ),
+                                              child: const Text(
+                                                'Reject',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(
+                                              onPressed: approvalId.isEmpty
+                                                  ? null
+                                                  : () => _handleApprovalAction(
+                                                      approvalId,
+                                                      'Approved',
+                                                    ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(
+                                                  0xFF22C55E,
+                                                ),
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 8,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                ),
+                                                elevation: 0,
+                                              ),
+                                              child: const Text(
+                                                'Approve',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),

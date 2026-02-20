@@ -31,6 +31,7 @@ class ApiEndpoints {
   static const String authRegister = '/auth/register';
   static const String authLogin = '/auth/login';
   static const String usersMe = '/users/me';
+  static const String notificationsRegisterToken = '/users/device-token';
   static const String services = '/services';
   static const String vehicles = '/vehicles';
   static const String fetchVehicleDetails = '/vehicles/fetch-details';
@@ -39,4 +40,6 @@ class ApiEndpoints {
   static String bookingById(String id) => '/bookings/$id';
   static const String paymentsCreateOrder = '/payments/create-order';
   static const String paymentsVerifyPayment = '/payments/verify-payment';
+  static const String approvalsMyApprovals = '/approvals/my-approvals';
+  static String approvalById(String id) => '/approvals/$id';
 }

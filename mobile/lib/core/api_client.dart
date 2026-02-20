@@ -21,7 +21,10 @@ class ApiClient {
   dynamic _decodeBody(http.Response res) {
     if (res.body.isEmpty) {
       if (res.statusCode >= 400) {
-        throw ApiException(statusCode: res.statusCode, message: 'Request failed');
+        throw ApiException(
+          statusCode: res.statusCode,
+          message: 'Request failed',
+        );
       }
       return null;
     }
@@ -94,5 +97,49 @@ class ApiClient {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<dynamic> putAny(String path, {Map<String, dynamic>? body}) async {
+    final token = await AppStorage().getToken();
+    final headers = {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+    final uri = Uri.parse('${Env.apiBaseUrl}$path');
+    try {
+      final res = await _client
+          .put(uri, headers: headers, body: jsonEncode(body ?? {}))
+          .timeout(_timeout);
+      return _decodeBody(res);
+    } on TimeoutException {
+      throw ApiException(statusCode: 408, message: 'Request timed out');
+    }
+  }
+
+  Future<Map<String, dynamic>> putJson(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final data = await putAny(path, body: body);
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<dynamic> deleteAny(String path, {Map<String, dynamic>? body}) async {
+    final token = await AppStorage().getToken();
+    final headers = {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+    final uri = Uri.parse('${Env.apiBaseUrl}$path');
+    try {
+      final res = await _client
+          .delete(uri, headers: headers, body: jsonEncode(body ?? {}))
+          .timeout(_timeout);
+      return _decodeBody(res);
+    } on TimeoutException {
+      throw ApiException(statusCode: 408, message: 'Request timed out');
+    }
   }
 }

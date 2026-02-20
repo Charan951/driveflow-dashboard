@@ -80,6 +80,11 @@ class _CustomerDrawerState extends State<CustomerDrawer>
         routeName: '/bookings',
       ),
       const _DrawerItem(
+        icon: Icons.notifications_none_outlined,
+        label: 'Notifications',
+        routeName: '/notifications',
+      ),
+      const _DrawerItem(
         icon: Icons.payments_outlined,
         label: 'My Payments',
         routeName: '/payments',

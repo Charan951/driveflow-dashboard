@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'services/background_tracking.dart';
 
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'pages/order_detail_page.dart';
 import 'pages/splash_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundTracking.configure();
   runApp(const StaffApp());
 }
 

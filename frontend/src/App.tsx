@@ -78,6 +78,7 @@ import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminDocumentsPage from "./pages/admin/AdminDocumentsPage";
 import AdminInsurancePage from "./pages/admin/AdminInsurancePage";
 import AdminStockPage from "./pages/admin/AdminStockPage";
+import MyNotificationsPage from "./pages/common/MyNotificationsPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminFeedbackPage from "./pages/admin/AdminFeedbackPage";
 import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
@@ -131,6 +132,7 @@ const App = () => (
           <Route element={<PrivateRoute allowedRoles={['customer']} />}>
             <Route element={<CustomerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/notifications" element={<MyNotificationsPage />} />
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
               <Route path="/add-vehicle" element={<AddVehiclePage />} />
@@ -151,6 +153,7 @@ const App = () => (
           <Route element={<PrivateRoute allowedRoles={['staff']} />}>
             <Route element={<StaffLayout />}>
               <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
+              <Route path="/staff/notifications" element={<MyNotificationsPage />} />
           <Route path="/staff/order/:id" element={<StaffOrderPage />} />
           <Route path="/staff/orders" element={<StaffOrdersPage />} />
         </Route>
@@ -160,6 +163,7 @@ const App = () => (
           <Route element={<PrivateRoute allowedRoles={['admin']} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/my-notifications" element={<MyNotificationsPage />} />
               <Route path="/admin/customers" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
               <Route path="/admin/vehicles" element={<AdminVehiclesPage />} />
@@ -191,6 +195,7 @@ const App = () => (
           <Route element={<PrivateRoute allowedRoles={['merchant', 'admin']} />}>
             <Route element={<MerchantLayout />}>
               <Route path="/merchant/dashboard" element={<MerchantDashboard />} />
+              <Route path="/merchant/notifications" element={<MyNotificationsPage />} />
               <Route path="/merchant/orders" element={<MerchantOrders />} />
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />
               <Route path="/merchant/stock" element={<MerchantStock />} />
