@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart' as fm;
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../core/storage.dart';
@@ -19,20 +18,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => user != null;
   bool get isInitialized => _isInitialized;
 
-  Future<void> _syncFcmToken() async {
-    if (!isAuthenticated) return;
-    try {
-      final fm.FirebaseMessaging messaging = fm.FirebaseMessaging.instance;
-      final String? token = await messaging.getToken();
-      if (token == null || token.isEmpty) return;
-      await _api.postAny(
-        ApiEndpoints.notificationsRegisterToken,
-        body: {'token': token},
-      );
-    } catch (e) {
-      debugPrint('AuthProvider: Error syncing FCM token: $e');
-    }
-  }
+  Future<void> _syncFcmToken() async {}
 
   String _messageFromError(Object error) {
     if (error is ApiException) {
@@ -134,9 +120,6 @@ class AuthProvider extends ChangeNotifier {
       } catch (e) {
         debugPrint('AuthProvider: Server refresh network error: $e');
       }
-      if (user != null) {
-        await _syncFcmToken();
-      }
     } catch (e) {
       debugPrint('AuthProvider: Fatal error in loadMe: $e');
       if (user == null) {
@@ -172,7 +155,6 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         debugPrint('AuthProvider: Login successful. User: ${user?.name}');
-        await _syncFcmToken();
         SocketService().init();
         loading = false;
         notifyListeners();
@@ -208,7 +190,6 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
-        await _syncFcmToken();
         SocketService().init();
         loading = false;
         notifyListeners();
@@ -224,18 +205,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    try {
-      final fm.FirebaseMessaging messaging = fm.FirebaseMessaging.instance;
-      final String? token = await messaging.getToken();
-      if (token != null && token.isNotEmpty) {
-        await _api.deleteAny(
-          ApiEndpoints.notificationsRegisterToken,
-          body: {'token': token},
-        );
-      }
-    } catch (e) {
-      debugPrint('AuthProvider: Error unregistering FCM token: $e');
-    }
     await _auth.logout();
     SocketService().disconnect();
     await AppStorage().clearDashboard();

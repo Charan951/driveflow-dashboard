@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart' as fm;
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'
-    as fln;
 import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
@@ -21,127 +17,10 @@ import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
 
-final fln.FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    fln.FlutterLocalNotificationsPlugin();
-
-final fln.AndroidNotificationChannel highImportanceChannel =
-    const fln.AndroidNotificationChannel(
-      'high_importance_channel',
-      'High Importance Notifications',
-      description: 'Speshway notifications',
-      importance: fln.Importance.max,
-    );
-
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(
-  fm.RemoteMessage message,
-) async {
-  await Firebase.initializeApp();
-}
-
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
-
-void _handleNotificationPayload(String? payload) {
-  if (payload == null || payload.isEmpty) return;
-  Map<String, dynamic> data;
-  try {
-    data = jsonDecode(payload) as Map<String, dynamic>;
-  } catch (_) {
-    return;
-  }
-  final navigator = rootNavigatorKey.currentState;
-  if (navigator == null) return;
-  final bookingId = data['bookingId']?.toString();
-  if (bookingId != null && bookingId.isNotEmpty) {
-    navigator.pushNamed('/track', arguments: bookingId);
-    return;
-  }
-  navigator.pushNamed('/bookings');
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp();
-  fm.FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-  const fln.AndroidInitializationSettings androidInitSettings =
-      fln.AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  const fln.InitializationSettings initSettings = fln.InitializationSettings(
-    android: androidInitSettings,
-  );
-
-  await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
-
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-        fln.AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(highImportanceChannel);
-
-  final fm.FirebaseMessaging messaging = fm.FirebaseMessaging.instance;
-  await messaging.requestPermission(
-    alert: true,
-    announcement: false,
-    badge: true,
-    carPlay: false,
-    criticalAlert: false,
-    provisional: false,
-    sound: true,
-  );
-
-  await messaging.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  fm.FirebaseMessaging.onMessage.listen((fm.RemoteMessage message) {
-    final fm.RemoteNotification? notification = message.notification;
-    final fm.AndroidNotification? android = notification?.android;
-    if (notification != null && android != null) {
-      flutterLocalNotificationsPlugin.show(
-        id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
-        notificationDetails: fln.NotificationDetails(
-          android: fln.AndroidNotificationDetails(
-            highImportanceChannel.id,
-            highImportanceChannel.name,
-            channelDescription: highImportanceChannel.description,
-            importance: fln.Importance.max,
-            priority: fln.Priority.high,
-            playSound: true,
-          ),
-        ),
-        payload: message.data.isNotEmpty
-            ? jsonEncode(message.data)
-            : jsonEncode({}),
-      );
-    }
-  });
-
-  final initialLocalDetails = await flutterLocalNotificationsPlugin
-      .getNotificationAppLaunchDetails();
-  if (initialLocalDetails?.didNotificationLaunchApp == true) {
-    _handleNotificationPayload(
-      initialLocalDetails?.notificationResponse?.payload,
-    );
-  }
-
-  final initialMessage = await messaging.getInitialMessage();
-  if (initialMessage != null) {
-    if (initialMessage.data.isNotEmpty) {
-      _handleNotificationPayload(jsonEncode(initialMessage.data));
-    }
-  }
-
-  fm.FirebaseMessaging.onMessageOpenedApp.listen((fm.RemoteMessage message) {
-    if (message.data.isNotEmpty) {
-      _handleNotificationPayload(jsonEncode(message.data));
-    }
-  });
 
   final authProvider = AuthProvider();
   debugPrint('Main: Initializing AuthProvider...');

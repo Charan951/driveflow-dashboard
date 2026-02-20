@@ -52,9 +52,6 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
-  deviceTokens: [{
-    type: String,
-  }],
   passwordResetToken: {
     type: String,
   },

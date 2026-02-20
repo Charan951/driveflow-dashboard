@@ -1,6 +1,5 @@
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
-import { sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Send a notification
 // @route   POST /api/notifications
@@ -40,13 +39,6 @@ export const sendNotification = async (req, res) => {
 
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
-      await Promise.all(
-        targetUserIds.map((userId) =>
-          sendPushToUser(userId, title, message, {
-            type: type || 'info',
-          }),
-        ),
-      );
     }
 
     res

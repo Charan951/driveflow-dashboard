@@ -1,7 +1,6 @@
 import User from '../models/User.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
-import { addDeviceToken, removeDeviceToken } from '../utils/pushService.js';
 
 // @desc    Get all users (with optional filtering)
 // @route   GET /api/users
@@ -302,30 +301,4 @@ export const updateOnlineStatus = async (req, res) => {
   }
 };
 
-// @desc    Register device token for push notifications
-// @route   POST /api/users/device-token
-// @access  Private
-export const registerDeviceToken = async (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(400).json({ message: 'Token is required' });
-  try {
-    const tokens = await addDeviceToken(req.user._id, token);
-    res.json({ tokens });
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-};
-
-// @desc    Remove device token
-// @route   DELETE /api/users/device-token
-// @access  Private
-export const unregisterDeviceToken = async (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(400).json({ message: 'Token is required' });
-  try {
-    const tokens = await removeDeviceToken(req.user._id, token);
-    res.json({ tokens });
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-};
+// Device token APIs removed – push notifications disabled
