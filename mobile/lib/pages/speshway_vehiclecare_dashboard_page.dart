@@ -1,9 +1,9 @@
-import 'dart:ui';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
+import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
@@ -30,7 +30,6 @@ class _SpeshwayVehicleCareDashboardState
   final _bookingService = BookingService();
 
   late final AnimationController _glowController;
-  final int _currentIndex = 2;
 
   bool _loading = false;
   String? _error;
@@ -48,7 +47,6 @@ class _SpeshwayVehicleCareDashboardState
   Color get _accentPurple => const Color(0xFF7C3AED);
   Color get _accentBlue => const Color(0xFF22D3EE);
   Color get _neonBlue => const Color(0xFF38BDF8);
-  Color get _cardTint => Colors.white.withValues(alpha: 0.07);
 
   @override
   void initState() {
@@ -59,7 +57,7 @@ class _SpeshwayVehicleCareDashboardState
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _load(isInitial: true);
+      _restoreAndLoad();
     });
 
     final socket = SocketService();
@@ -87,15 +85,36 @@ class _SpeshwayVehicleCareDashboardState
     }
   }
 
-  void _onExternalUpdate(dynamic _) {
-    _load();
+  void _onExternalUpdate(dynamic payload) {
+    if (!mounted) return;
+    Booking? updated;
+    if (payload is Map<String, dynamic>) {
+      updated = Booking.fromJson(payload);
+    } else if (payload is Map) {
+      updated = Booking.fromJson(Map<String, dynamic>.from(payload));
+    }
+    if (updated == null) {
+      _load();
+      return;
+    }
+    setState(() {
+      final index = _bookings.indexWhere((b) => b.id == updated!.id);
+      if (index >= 0) {
+        _bookings[index] = updated!;
+      } else {
+        _bookings = [updated!, ..._bookings];
+      }
+      _upcomingBookingCached = _computeUpcomingBooking(_bookings);
+      _recentBookings = _computeRecentBookings(_bookings);
+    });
+    _persistDashboardState();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _load();
       SocketService().init();
+      _refreshIfStale();
     }
   }
 
@@ -138,6 +157,7 @@ class _SpeshwayVehicleCareDashboardState
         _recentBookings = recent;
         _loading = false;
       });
+      await _persistDashboardState();
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
@@ -232,6 +252,95 @@ class _SpeshwayVehicleCareDashboardState
     final computed = _computeUpcomingBooking(_bookings);
     _upcomingBookingCached = computed;
     return computed;
+  }
+
+  Future<void> _refreshIfStale() async {
+    if (!mounted) return;
+    final last = _lastLoadedAt;
+    if (last == null) {
+      await _load();
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(last) > const Duration(minutes: 2)) {
+      await _load();
+    }
+  }
+
+  Future<void> _restoreAndLoad() async {
+    await _loadFromCache();
+    await _load(isInitial: true);
+  }
+
+  Future<void> _loadFromCache() async {
+    if (!mounted) return;
+    try {
+      final jsonStr = await AppStorage().getDashboardJson();
+      if (jsonStr == null || jsonStr.isEmpty) return;
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) return;
+      final map = Map<String, dynamic>.from(decoded);
+
+      final vehicles = <Vehicle>[];
+      final v = map['vehicles'];
+      if (v is List) {
+        for (final e in v) {
+          if (e is Map<String, dynamic>) {
+            vehicles.add(Vehicle.fromJson(e));
+          } else if (e is Map) {
+            vehicles.add(Vehicle.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      final bookings = <Booking>[];
+      final b = map['bookings'];
+      if (b is List) {
+        for (final e in b) {
+          if (e is Map<String, dynamic>) {
+            bookings.add(Booking.fromJson(e));
+          } else if (e is Map) {
+            bookings.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      final services = <ServiceItem>[];
+      final s = map['services'];
+      if (s is List) {
+        for (final e in s) {
+          if (e is Map<String, dynamic>) {
+            services.add(ServiceItem.fromJson(e));
+          } else if (e is Map) {
+            services.add(ServiceItem.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      if (!mounted) return;
+      final upcoming = _computeUpcomingBooking(bookings);
+      final recent = _computeRecentBookings(bookings);
+
+      setState(() {
+        _vehicles = vehicles;
+        _bookings = bookings;
+        _services = services;
+        _upcomingBookingCached = upcoming;
+        _recentBookings = recent;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _persistDashboardState() async {
+    try {
+      final map = {
+        'vehicles': _vehicles.map((v) => v.toJson()).toList(),
+        'bookings': _bookings.map((b) => b.toJson()).toList(),
+        'services': _services.map((s) => s.toJson()).toList(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      await AppStorage().setDashboardJson(jsonEncode(map));
+    } catch (_) {}
   }
 
   Booking? _computeUpcomingBooking(List<Booking> source) {
@@ -996,8 +1105,6 @@ class _FrostedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const useBlur = false;
-    const blurSigma = 0.0;
     final container = Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -1013,12 +1120,7 @@ class _FrostedCard extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
-      child: useBlur
-          ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-              child: container,
-            )
-          : container,
+      child: container,
     );
   }
 }
@@ -1032,8 +1134,6 @@ class _NeonBorderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(26);
-    const useBlur = false;
-    const blurSigma = 0.0;
     return Stack(
       children: [
         Container(
@@ -1051,51 +1151,25 @@ class _NeonBorderCard extends StatelessWidget {
         ),
         ClipRRect(
           borderRadius: borderRadius,
-          child: useBlur
-              ? BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: blurSigma,
-                    sigmaY: blurSigma,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: borderRadius,
-                      border: Border.all(
-                        color: neonColor.withValues(alpha: 0.9),
-                        width: 1.6,
-                      ),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.06),
-                          Colors.white.withValues(alpha: 0.02),
-                        ],
-                      ),
-                    ),
-                    child: child,
-                  ),
-                )
-              : Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: borderRadius,
-                    border: Border.all(
-                      color: neonColor.withValues(alpha: 0.9),
-                      width: 1.6,
-                    ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.06),
-                        Colors.white.withValues(alpha: 0.02),
-                      ],
-                    ),
-                  ),
-                  child: child,
-                ),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              border: Border.all(
+                color: neonColor.withValues(alpha: 0.9),
+                width: 1.6,
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.06),
+                  Colors.white.withValues(alpha: 0.02),
+                ],
+              ),
+            ),
+            child: child,
+          ),
         ),
       ],
     );
@@ -1141,222 +1215,6 @@ class _NeonButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GlowingHomeButton extends StatelessWidget {
-  final AnimationController controller;
-  final Color purple;
-  final Color blue;
-  final VoidCallback onTap;
-
-  const _GlowingHomeButton({
-    required this.controller,
-    required this.purple,
-    required this.blue,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        final t = 0.5 + 0.5 * controller.value;
-        final size = 72 + 4 * controller.value;
-        final blur = 24 + 12 * controller.value;
-
-        return GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: size + 20,
-            height: size + 20,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [purple.withValues(alpha: 0.1), Colors.transparent],
-              ),
-            ),
-            child: Center(
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [purple, blue]),
-                  boxShadow: [
-                    BoxShadow(
-                      color: purple.withValues(alpha: 0.7 * t),
-                      blurRadius: blur,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: blue.withValues(alpha: 0.7 * t),
-                      blurRadius: blur,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.home_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _NeonBottomNavigationBar extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-  final Color purple;
-  final Color blue;
-  final Color backgroundTint;
-
-  const _NeonBottomNavigationBar({
-    required this.currentIndex,
-    required this.onTap,
-    required this.purple,
-    required this.blue,
-    required this.backgroundTint,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final useBlur = !kIsWeb;
-    final blurSigma = useBlur ? 10.0 : 0.0;
-    return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.7),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: useBlur
-            ? BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: backgroundTint,
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      width: 1,
-                    ),
-                  ),
-                  child: BottomNavigationBar(
-                    type: BottomNavigationBarType.fixed,
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    selectedFontSize: 11,
-                    unselectedFontSize: 10,
-                    selectedItemColor: Colors.white,
-                    unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-                    showUnselectedLabels: true,
-                    currentIndex: currentIndex,
-                    onTap: onTap,
-                    items: [
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.directions_car_filled_rounded),
-                        label: 'Vehicles',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.build_circle_rounded),
-                        label: 'Services',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ),
-                        label: 'Home',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.receipt_long_rounded),
-                        label: 'Orders',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.person_rounded),
-                        label: 'Profile',
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : Container(
-                decoration: BoxDecoration(
-                  color: backgroundTint,
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    width: 1,
-                  ),
-                ),
-                child: BottomNavigationBar(
-                  type: BottomNavigationBarType.fixed,
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  selectedFontSize: 11,
-                  unselectedFontSize: 10,
-                  selectedItemColor: Colors.white,
-                  unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-                  showUnselectedLabels: true,
-                  currentIndex: currentIndex,
-                  onTap: onTap,
-                  items: [
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.directions_car_filled_rounded),
-                      label: 'Vehicles',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.build_circle_rounded),
-                      label: 'Services',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.4),
-                          ),
-                        ),
-                      ),
-                      label: 'Home',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.receipt_long_rounded),
-                      label: 'Orders',
-                    ),
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.person_rounded),
-                      label: 'Profile',
-                    ),
-                  ],
-                ),
-              ),
       ),
     );
   }

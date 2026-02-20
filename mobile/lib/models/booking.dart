@@ -48,6 +48,14 @@ class DeliveryOtp {
       verified: json['verified'] == true,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      if (expiresAt != null) 'expiresAt': expiresAt,
+      'verified': verified,
+    };
+  }
 }
 
 class Booking {
@@ -175,5 +183,45 @@ class Booking {
       merchantPhone: merchantPhone,
       deliveryOtp: deliveryOtp,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      'id': id,
+      if (orderNumber != null) 'orderNumber': orderNumber,
+      'status': status,
+      'date': date,
+      'totalAmount': totalAmount,
+      if (vehicle != null) 'vehicle': vehicle!.toJson(),
+      'services': services.map((s) => s.toJson()).toList(),
+      if (location != null) 'location': location!.toJson(),
+      'pickupRequired': pickupRequired,
+      if (notes != null) 'notes': notes,
+      if (paymentStatus != null) 'paymentStatus': paymentStatus,
+      if (createdAt != null) 'createdAt': createdAt,
+    };
+
+    final merchant = <String, dynamic>{};
+    if (merchantLocation != null) {
+      final loc = merchantLocation!.toJson();
+      if (loc.isNotEmpty) {
+        merchant['location'] = loc;
+      }
+    }
+    if (merchantName != null && merchantName!.trim().isNotEmpty) {
+      merchant['name'] = merchantName;
+    }
+    if (merchantPhone != null && merchantPhone!.trim().isNotEmpty) {
+      merchant['phone'] = merchantPhone;
+    }
+    if (merchant.isNotEmpty) {
+      map['merchant'] = merchant;
+    }
+
+    if (deliveryOtp != null) {
+      map['deliveryOtp'] = deliveryOtp!.toJson();
+    }
+
+    return map;
   }
 }

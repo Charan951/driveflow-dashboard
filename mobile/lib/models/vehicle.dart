@@ -28,4 +28,16 @@ class Vehicle {
       status: json['status']?.toString(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'make': make,
+      'model': model,
+      'year': year,
+      'licensePlate': licensePlate,
+      if (type != null) 'type': type,
+      if (status != null) 'status': status,
+    };
+  }
 }

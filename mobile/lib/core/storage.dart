@@ -9,6 +9,7 @@ class AppStorage {
   static const _tokenKey = 'access_token';
   static const _userKey = 'auth_user';
   static const _themeModeKey = 'theme_mode';
+  static const _dashboardKey = 'dashboard_state';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -84,6 +85,31 @@ class AppStorage {
       await _storage.delete(key: _userKey);
     } catch (e) {
       debugPrint('Error clearing user: $e');
+    }
+  }
+
+  Future<void> setDashboardJson(String value) async {
+    try {
+      await _storage.write(key: _dashboardKey, value: value);
+    } catch (e) {
+      debugPrint('AppStorage: Error saving dashboard json: $e');
+    }
+  }
+
+  Future<String?> getDashboardJson() async {
+    try {
+      return await _storage.read(key: _dashboardKey);
+    } catch (e) {
+      debugPrint('AppStorage: Error reading dashboard json: $e');
+      return null;
+    }
+  }
+
+  Future<void> clearDashboard() async {
+    try {
+      await _storage.delete(key: _dashboardKey);
+    } catch (e) {
+      debugPrint('Error clearing dashboard: $e');
     }
   }
 

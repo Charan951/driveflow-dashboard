@@ -47,5 +47,11 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We use your location to track active service jobs.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location even in background to update active jobs.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

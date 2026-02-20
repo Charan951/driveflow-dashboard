@@ -139,9 +139,6 @@ class _ServiceListPageState extends State<ServiceListPage> {
         builder: (sheetContext) {
           // Use the widget's context to determine theme consistency
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          final backgroundColor = isDark
-              ? const Color(0xFF1E293B)
-              : Colors.white;
           final textColor = isDark ? Colors.white : Colors.black87;
           final subTextColor = isDark ? Colors.white70 : Colors.black54;
 
@@ -514,7 +511,6 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       const SizedBox(height: 12),
                       SwitchListTile(
                         value: pickupRequired,
-                        activeColor: const Color(0xFF4F46E5),
                         onChanged: (v) => setModalState(() {
                           pickupRequired = v;
                         }),

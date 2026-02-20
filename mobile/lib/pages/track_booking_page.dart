@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -270,6 +271,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 booking.status == 'SERVICE_STARTED' ||
                 booking.status == 'SERVICE_COMPLETED' ||
                 booking.status == 'DELIVERED' ||
+                booking.status == 'COMPLETED' ||
                 booking.status == 'CANCELLED')) {
           return;
         }
@@ -344,6 +346,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 updated.status == 'SERVICE_STARTED' ||
                 updated.status == 'SERVICE_COMPLETED' ||
                 updated.status == 'DELIVERED' ||
+                updated.status == 'COMPLETED' ||
                 updated.status == 'CANCELLED') {
               _liveLatLng = null;
               _liveName = null;
@@ -970,28 +973,44 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ),
                       const SizedBox(height: 10),
                     ],
-                    _HorizontalStepper(
-                      labels: booking.pickupRequired
-                          ? [
-                              'Booking Confirmed',
-                              booking.status == 'REACHED_CUSTOMER'
-                                  ? 'Staff is waiting for pickup'
-                                  : 'Pickup Scheduled',
-                              'At Service Center',
-                              'Service In Progress',
-                              'Waiting for Staff Pickup Vehicle',
-                              'Delivered',
-                            ]
-                          : [
-                              'Booking Confirmed',
-                              'Merchant Assigned',
-                              'Vehicle at Merchant',
-                              'Service In Progress',
-                              'Service Completed',
-                              'Delivered',
-                            ],
-                      activeIndex: currentIndex,
-                      firstTimeLabel: _formatDateTime(context, booking.date),
+                    Builder(
+                      builder: (context) {
+                        final labels = booking.pickupRequired
+                            ? [
+                                'Booking Confirmed',
+                                booking.status == 'REACHED_CUSTOMER'
+                                    ? 'Staff is waiting for pickup'
+                                    : 'Pickup Scheduled',
+                                'At Service Center',
+                                'Service In Progress',
+                                'Waiting for Staff Pickup Vehicle',
+                                'Delivered',
+                              ]
+                            : [
+                                'Booking Confirmed',
+                                'Merchant Assigned',
+                                'Vehicle at Merchant',
+                                'Service In Progress',
+                                'Service Completed',
+                                'Delivered',
+                              ];
+                        final firstTime = _formatDateTime(
+                          context,
+                          booking.date,
+                        );
+                        if (labels.length >= 6) {
+                          return _TwoLineStepper(
+                            labels: labels,
+                            activeIndex: currentIndex,
+                            firstTimeLabel: firstTime,
+                          );
+                        }
+                        return _HorizontalStepper(
+                          labels: labels,
+                          activeIndex: currentIndex,
+                          firstTimeLabel: firstTime,
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1099,6 +1118,16 @@ class _HorizontalStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = labels.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barColor = isDark
+        ? const Color(0xFF374151)
+        : const Color(0xFFE5E7EB); // slate 700 / gray 200
+    final inactiveDotFill = isDark
+        ? const Color(0xFF9CA3AF)
+        : Colors.white; // slate 400
+    final inactiveDotBorder = isDark
+        ? const Color(0xFF9CA3AF)
+        : const Color(0xFFE5E7EB);
     return LayoutBuilder(
       builder: (context, c) {
         final w = c.maxWidth;
@@ -1112,7 +1141,7 @@ class _HorizontalStepper extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              height: 54,
+              height: 60,
               child: Stack(
                 alignment: Alignment.centerLeft,
                 children: [
@@ -1121,7 +1150,7 @@ class _HorizontalStepper extends StatelessWidget {
                       height: 6,
                       margin: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE5E7EB),
+                        color: barColor,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -1152,7 +1181,7 @@ class _HorizontalStepper extends StatelessWidget {
                       final completed = i <= safeIndex;
                       final isActive = i == safeIndex;
                       return SizedBox(
-                        width: i == count - 1 ? 12 : spacing,
+                        width: math.max(spacing, 96.0),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: AnimatedScale(
@@ -1160,17 +1189,17 @@ class _HorizontalStepper extends StatelessWidget {
                             duration: const Duration(milliseconds: 220),
                             curve: Curves.easeOutCubic,
                             child: Container(
-                              width: 24,
-                              height: 24,
+                              width: 26,
+                              height: 26,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: completed
                                     ? const Color(0xFF4F46E5)
-                                    : Colors.white,
+                                    : inactiveDotFill,
                                 border: Border.all(
                                   color: completed
                                       ? const Color(0xFF4F46E5)
-                                      : const Color(0xFFE5E7EB),
+                                      : inactiveDotBorder,
                                   width: 2,
                                 ),
                                 boxShadow: [
@@ -1187,7 +1216,7 @@ class _HorizontalStepper extends StatelessWidget {
                               child: completed
                                   ? const Icon(
                                       Icons.check,
-                                      size: 14,
+                                      size: 15,
                                       color: Colors.white,
                                     )
                                   : null,
@@ -1200,7 +1229,7 @@ class _HorizontalStepper extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -1211,24 +1240,29 @@ class _HorizontalStepper extends StatelessWidget {
                     final completed = i <= safeIndex;
                     final isActive = i == safeIndex;
                     final label = labels[i];
-                    final itemWidth = count <= 3 ? w / count : spacing;
+                    final itemWidth = math.max(spacing, 96.0);
                     return SizedBox(
-                      width: i == count - 1 ? 12 : itemWidth,
+                      width: itemWidth,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
                             label,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: 3,
+                            overflow: TextOverflow.visible,
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: isActive
                                   ? FontWeight.w800
                                   : FontWeight.w600,
                               color: completed
-                                  ? const Color(0xFF0F172A)
-                                  : const Color(0xFF94A3B8),
+                                  ? (isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A))
+                                  : (isDark
+                                        ? Colors.white60
+                                        : const Color(0xFF94A3B8)),
                             ),
                           ),
                           if (i == 0 && firstTimeLabel != null)
@@ -1238,6 +1272,7 @@ class _HorizontalStepper extends StatelessWidget {
                                 firstTimeLabel!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF64748B),
@@ -1255,6 +1290,156 @@ class _HorizontalStepper extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _TwoLineStepper extends StatelessWidget {
+  final List<String> labels;
+  final int activeIndex;
+  final String? firstTimeLabel;
+
+  const _TwoLineStepper({
+    required this.labels,
+    required this.activeIndex,
+    this.firstTimeLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barColor = isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    final inactiveDotFill = isDark ? const Color(0xFF9CA3AF) : Colors.white;
+    final inactiveDotBorder = isDark
+        ? const Color(0xFF9CA3AF)
+        : const Color(0xFFE5E7EB);
+    final total = labels.length;
+    final split = (total + 1) ~/ 2;
+    final top = labels.sublist(0, split);
+    final bottom = labels.sublist(split);
+
+    int topActive = activeIndex < split ? activeIndex : (split - 1);
+    if (topActive < 0) topActive = -1;
+    int bottomActive = activeIndex - split;
+    if (bottomActive < 0) bottomActive = -1;
+
+    Widget buildRowStepper(List<String> rowLabels, int rowActive) {
+      final count = rowLabels.length;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 60,
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: barColor,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: List.generate(count, (i) {
+                        final completed = i <= rowActive && rowActive >= 0;
+                        return Expanded(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: completed
+                                    ? const Color(0xFF4F46E5)
+                                    : inactiveDotFill,
+                                border: Border.all(
+                                  color: completed
+                                      ? const Color(0xFF4F46E5)
+                                      : inactiveDotBorder,
+                                  width: 2,
+                                ),
+                              ),
+                              child: completed
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 15,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List.generate(count, (i) {
+              final completed = i <= rowActive && rowActive >= 0;
+              final isActive = i == rowActive;
+              return Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      rowLabels[i],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isActive
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: completed
+                            ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                            : (isDark
+                                  ? Colors.white60
+                                  : const Color(0xFF94A3B8)),
+                      ),
+                    ),
+                    if (i == 0 && firstTimeLabel != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          firstTimeLabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        buildRowStepper(top, topActive),
+        const SizedBox(height: 16),
+        if (bottom.isNotEmpty) buildRowStepper(bottom, bottomActive),
+      ],
     );
   }
 }

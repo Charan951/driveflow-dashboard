@@ -27,4 +27,15 @@ class ServiceItem {
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      if (category != null) 'category': category,
+      if (description != null) 'description': description,
+      if (estimatedMinutes != null) 'estimatedMinutes': estimatedMinutes,
+    };
+  }
 }

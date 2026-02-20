@@ -71,6 +71,52 @@ export const initSocket = (server) => {
       
       socket.join(room);
       console.log(`Socket ${socket.id} joined room ${room}`);
+      (async () => {
+        try {
+          if (typeof room === 'string' && room.startsWith('booking_')) {
+            const bookingId = room.replace('booking_', '');
+            const booking = await Booking.findById(bookingId).select('pickupDriver technician status').lean();
+            const staffId = booking?.pickupDriver || booking?.technician;
+            if (staffId) {
+              const staff = await User.findById(staffId).select('name role location').lean();
+              const lat = staff?.location?.lat;
+              const lng = staff?.location?.lng;
+              if (typeof lat === 'number' && typeof lng === 'number') {
+                socket.emit('liveLocation', {
+                  bookingId: bookingId,
+                  userId: staffId,
+                  role: staff?.role || 'staff',
+                  name: staff?.name,
+                  lat,
+                  lng,
+                  updatedAt: staff?.location?.updatedAt || new Date()
+                });
+              }
+            }
+          } else if (room === 'admin') {
+            const staffList = await User.find({
+              role: 'staff',
+              'location.lat': { $exists: true }
+            }).select('name role location').lean();
+            for (const s of staffList) {
+              const lat = s?.location?.lat;
+              const lng = s?.location?.lng;
+              if (typeof lat === 'number' && typeof lng === 'number') {
+                socket.emit('liveLocation', {
+                  userId: s._id,
+                  role: s.role || 'staff',
+                  name: s.name,
+                  lat,
+                  lng,
+                  updatedAt: s?.location?.updatedAt || new Date()
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Join fallback emit failed:', e.message);
+        }
+      })();
     });
 
     // Leave a room

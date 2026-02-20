@@ -203,6 +203,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _auth.logout();
     SocketService().disconnect();
+    await AppStorage().clearDashboard();
     user = null;
     lastError = null;
     notifyListeners();

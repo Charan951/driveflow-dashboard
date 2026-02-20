@@ -56,6 +56,7 @@ const TrackServicePage: React.FC = () => {
   // Live Tracking State
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [eta, setEta] = useState<ETAResponse | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const etaTimer = useRef<number | null>(null);
   const nearAlertedRef = useRef<boolean>(false);
   const orderRef = useRef<Booking | null>(null);
@@ -87,7 +88,7 @@ const TrackServicePage: React.FC = () => {
       socketService.connect();
       socketService.joinRoom(`booking_${id}`);
 
-      socketService.on('liveLocation', (data: { lat?: number; lng?: number; role?: string }) => {
+      socketService.on('liveLocation', (data: { lat?: number | string; lng?: number | string; role?: string; updatedAt?: string; timestamp?: string }) => {
         const currentOrder = orderRef.current;
         if (!currentOrder) return;
         if (currentOrder.pickupRequired === false) return;
@@ -101,8 +102,15 @@ const TrackServicePage: React.FC = () => {
         ) {
           return;
         }
-        if (data.lat && data.lng) {
-          setStaffLocation({ lat: data.lat, lng: data.lng });
+        const latNum = typeof data.lat === 'string' ? Number(data.lat) : data.lat;
+        const lngNum = typeof data.lng === 'string' ? Number(data.lng) : data.lng;
+        if (typeof latNum === 'number' && isFinite(latNum) && typeof lngNum === 'number' && isFinite(lngNum)) {
+          setStaffLocation({ lat: latNum, lng: lngNum });
+          const ts = data.updatedAt || data.timestamp;
+          if (ts) {
+            const dt = new Date(ts);
+            if (!Number.isNaN(dt.getTime())) setLastUpdate(dt);
+          }
           if (
             !nearAlertedRef.current &&
             currentOrder.location &&
@@ -113,7 +121,7 @@ const TrackServicePage: React.FC = () => {
             const destLat = typeof currentOrder.location === 'object' ? currentOrder.location.lat : undefined;
             const destLng = typeof currentOrder.location === 'object' ? currentOrder.location.lng : undefined;
             if (destLat && destLng) {
-              const from = turf.point([data.lng, data.lat]);
+              const from = turf.point([lngNum, latNum]);
               const to = turf.point([destLng, destLat]);
               const d = turf.distance(from, to, { units: 'meters' });
               if (d <= 300) {
@@ -149,6 +157,7 @@ const TrackServicePage: React.FC = () => {
             updatedBooking.status === 'SERVICE_STARTED' ||
             updatedBooking.status === 'SERVICE_COMPLETED' ||
             updatedBooking.status === 'DELIVERED' ||
+            updatedBooking.status === 'COMPLETED' ||
             updatedBooking.status === 'CANCELLED'
           ) {
             setStaffLocation(null);
@@ -475,15 +484,17 @@ const TrackServicePage: React.FC = () => {
         return 4;
       case 'DELIVERED':
         return 5;
+      case 'COMPLETED':
+        return 5;
       default:
         return 0;
     }
   };
 
-  const pickupStatusFlow = PICKUP_FLOW_ORDER;
-  const noPickupStatusFlow: BookingStatus[] = NO_PICKUP_FLOW_ORDER;
+  const pickupStatusFlow: readonly BookingStatus[] = PICKUP_FLOW_ORDER;
+  const noPickupStatusFlow: readonly BookingStatus[] = NO_PICKUP_FLOW_ORDER;
 
-  const activeStatusFlow = order.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
+  const activeStatusFlow: readonly BookingStatus[] = order.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
 
   const timelineSteps = activeStatusFlow.map((s) => {
@@ -634,7 +645,11 @@ const TrackServicePage: React.FC = () => {
                     {eta.textDistance}
                   </div>
                 )}
-                {staffLocation && <span className="text-xs text-green-500 font-medium animate-pulse">● Live</span>}
+                {staffLocation && (
+                  <span className="text-xs text-green-500 font-medium animate-pulse">
+                    ● Live{lastUpdate ? ` • ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(lastUpdate)}` : ''}
+                  </span>
+                )}
               </div>
             </div>
             <div className="h-64 w-full relative bg-muted">

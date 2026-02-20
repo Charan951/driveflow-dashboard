@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -106,6 +107,14 @@ class StaffTrackingService {
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       return false;
+    }
+    if (permission == LocationPermission.whileInUse) {
+      if (Platform.isIOS) {
+        final next = await Geolocator.requestPermission();
+        if (next == LocationPermission.always) {
+          permission = next;
+        }
+      }
     }
     return true;
   }
