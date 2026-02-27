@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.route('/')
   .get(protect, merchant, getAllUsers)
-  .post(protect, admin, createUser);
+  .post(protect, merchant, createUser);
 
 router.route('/me').get(protect, getUserProfile);
 router.route('/profile').put(protect, updateUserProfile);

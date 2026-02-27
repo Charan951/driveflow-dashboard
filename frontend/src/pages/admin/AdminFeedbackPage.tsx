@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Star, ThumbsUp, MessageSquare, Trash2, User } from 'lucide-react';
+import { Search, Filter, Star, ThumbsUp, MessageSquare, Trash2, User, CheckCircle, XCircle } from 'lucide-react';
 import { reviewService, Review } from '../../services/reviewService';
 import { toast } from 'react-hot-toast';
 
@@ -34,6 +34,16 @@ const AdminFeedbackPage = () => {
       setReviews(reviews.filter(r => r._id !== id));
     } catch (error) {
       toast.error('Failed to delete review');
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, isAccepted: boolean) => {
+    try {
+      await reviewService.updateReviewStatus(id, { isAccepted });
+      toast.success(isAccepted ? 'Review accepted and visible to public' : 'Review removed from public view');
+      setReviews(reviews.map(r => r._id === id ? { ...r, isAccepted } : r));
+    } catch (error) {
+      toast.error('Failed to update status');
     }
   };
 
@@ -207,6 +217,32 @@ const AdminFeedbackPage = () => {
                     {review.target?.name || review.category}
                 </span>
             </div>
+
+            {review.category === 'Platform' && (
+              <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  {review.isAccepted ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
+                      <CheckCircle size={12} /> Accepted
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full font-medium">
+                      <ThumbsUp size={12} /> Pending Approval
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleUpdateStatus(review._id, !review.isAccepted)}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    review.isAccepted 
+                      ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {review.isAccepted ? 'Unaccept' : 'Accept Review'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

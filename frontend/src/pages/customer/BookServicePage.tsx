@@ -14,11 +14,13 @@ import {
   Droplets,
   Disc,
   Snowflake,
-  Package
+  Package,
+  Star
 } from 'lucide-react';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
+import { reviewService } from '@/services/reviewService';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
@@ -41,6 +43,7 @@ const BookServicePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [pendingFeedbackBooking, setPendingFeedbackBooking] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -58,12 +61,18 @@ const BookServicePage: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [servicesData, vehiclesData] = await Promise.all([
+      const [servicesData, vehiclesData, pendingData] = await Promise.all([
         serviceService.getServices(),
-        vehicleService.getVehicles()
+        vehicleService.getVehicles(),
+        reviewService.checkPendingFeedback()
       ]);
       setServices(servicesData);
       setVehicles(vehiclesData);
+
+      if (pendingData.hasPending) {
+        setPendingFeedbackBooking(pendingData.bookingId || null);
+        toast.error(`Please provide feedback for your previous booking (#${pendingData.orderNumber}) before booking a new service.`);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load booking data');
@@ -172,6 +181,27 @@ const BookServicePage: React.FC = () => {
         <p className="text-muted-foreground">Schedule your vehicle service in a few steps</p>
       </div>
 
+      {pendingFeedbackBooking && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center space-y-4">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+            <Star className="w-8 h-8 text-amber-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-amber-900">Feedback Required</h2>
+            <p className="text-amber-700">
+              To ensure the best quality service, we require feedback for all completed bookings.
+              Please provide feedback for your last service to continue.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(`/track/${pendingFeedbackBooking}`)}
+            className="px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors"
+          >
+            Go to Booking & Give Feedback
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="bg-destructive/15 text-destructive p-4 rounded-xl border border-destructive/20">
           <p className="font-medium">Booking Failed</p>
@@ -179,338 +209,342 @@ const BookServicePage: React.FC = () => {
         </div>
       )}
 
-      {/* Progress Steps */}
-      <div className="flex items-center justify-between bg-card rounded-2xl p-4 border border-border">
-        {steps.map((step, index) => (
-          <div key={step} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <motion.div
-                initial={false}
-                animate={{
-                  backgroundColor: index <= currentStep ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
-                  scale: index === currentStep ? 1.1 : 1,
-                }}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
-              >
-                {index < currentStep ? (
-                  <Check className="w-4 h-4 text-primary-foreground" />
-                ) : (
-                  <span className={index <= currentStep ? 'text-primary-foreground' : 'text-muted-foreground'}>
-                    {index + 1}
+      {pendingFeedbackBooking ? null : (
+        <>
+          {/* Progress Steps */}
+          <div className="flex items-center justify-between bg-card rounded-2xl p-4 border border-border">
+            {steps.map((step, index) => (
+              <div key={step} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      backgroundColor: index <= currentStep ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                      scale: index === currentStep ? 1.1 : 1,
+                    }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+                  >
+                    {index < currentStep ? (
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    ) : (
+                      <span className={index <= currentStep ? 'text-primary-foreground' : 'text-muted-foreground'}>
+                        {index + 1}
+                      </span>
+                    )}
+                  </motion.div>
+                  <span className={`text-xs mt-1 ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {step}
                   </span>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 w-8 sm:w-16 mx-2 ${index < currentStep ? 'bg-primary' : 'bg-muted'}`} />
                 )}
-              </motion.div>
-              <span className={`text-xs mt-1 ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {step}
-              </span>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`h-0.5 w-8 sm:w-16 mx-2 ${index < currentStep ? 'bg-primary' : 'bg-muted'}`} />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Step Content */}
-      <motion.div
-        key={currentStep}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        className="min-h-[400px]"
-      >
-        {/* Step 1: Select Vehicle */}
-        {currentStep === 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Select Vehicle</h2>
-            {vehicles.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No vehicles found. Please add a vehicle to your profile first.</p>
-                  <button onClick={() => navigate('/add-vehicle')} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
-                    Add Vehicle
-                  </button>
-                </div>
-            ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {vehicles.map((vehicle) => (
-                <motion.button
-                  key={vehicle._id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedVehicle(vehicle._id)}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                    selectedVehicle === vehicle._id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-16 rounded-xl bg-muted overflow-hidden">
-                      {vehicle.image ? (
-                        <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Car className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-foreground">
-                        {vehicle.year} {vehicle.make} {vehicle.model}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
-                    </div>
-                    {selectedVehicle === vehicle._id && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 2: Select Category */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Select Category</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {categories.map((category) => (
-                <motion.button
-                  key={category.id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setSelectedCategory(category.id);
-                    setSelectedServices([]); // Reset services when category changes
-                  }}
-                  className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
-                    selectedCategory === category.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-                    selectedCategory === category.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
-                  }`}>
-                    <category.icon className="w-6 h-6" />
-                  </div>
-                  <span className="font-semibold text-foreground">{category.label}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Select Service */}
-        {currentStep === 2 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Select Service</h2>
-            </div>
-            
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search services..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-              />
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              {services
-                .filter(service => {
-                  const matchesCategory = selectedCategory 
-                    ? (selectedCategory === 'Denting' 
-                        ? (service.category === 'Denting' || service.category === 'Painting')
-                        : service.category === selectedCategory)
-                    : true;
-                  const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                      service.description.toLowerCase().includes(searchTerm.toLowerCase());
-                  return matchesCategory && matchesSearch;
-                })
-                .map((service) => (
-                <motion.button
-                  key={service._id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => toggleService(service._id)}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                    selectedServices.includes(service._id)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Wrench className="w-5 h-5 text-primary" />
-                    </div>
-                    {selectedServices.includes(service._id) && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-1">{service.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{service.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">${service.price}</span>
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                      {service.duration} mins
-                    </span>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-            {services.filter(service => (selectedCategory ? service.category === selectedCategory : true)).length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>No services found in this category.</p>
               </div>
-            )}
+            ))}
           </div>
-        )}
 
-        {/* Step 4: Schedule */}
-        {currentStep === 3 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Select Date & Time</h2>
-            <SlotPicker
-              selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              onDateChange={setSelectedDate}
-              onTimeChange={setSelectedTime}
-            />
-          </div>
-        )}
-
-        {/* Step 5: Confirm */}
-        {currentStep === 4 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold">Confirm Booking</h2>
-            
-            {/* Summary */}
-            <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
-              <div className="flex items-center gap-4 pb-4 border-b border-border">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Car className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {selectedVehicleData?.year} {selectedVehicleData?.make} {selectedVehicleData?.model}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedVehicleData?.licensePlate}</p>
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-4 pb-4 border-b border-border">
-                {selectedServicesData.map(service => (
-                  <div key={service._id} className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Wrench className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-foreground">{service.name}</p>
-                      <p className="text-sm text-muted-foreground">{service.duration} mins</p>
-                    </div>
-                    <p className="text-lg font-bold text-primary">${service.price}</p>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2">
-                    <span className="font-semibold text-muted-foreground">Total</span>
-                    <span className="text-xl font-bold text-primary">${totalPrice}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedTime}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Pickup Address */}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Pickup Required?
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPickupRequired(true)}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium ${pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPickupRequired(false)}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium ${!pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
-                  >
-                    No
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {pickupRequired ? 'Our driver will collect your vehicle from your location.' : 'You will drop off the vehicle at the service center.'}
-                </p>
-              </div>
-
-              {pickupRequired && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Pickup Address
-                  </label>
-                  <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                    <LocationPicker 
-                      value={pickupLocation} 
-                      onChange={setPickupLocation}
-                      mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Navigation Buttons */}
-      <div className="flex gap-4 pt-4 border-t border-border">
-        {currentStep > 0 && (
-          <button
-            onClick={() => setCurrentStep(currentStep - 1)}
-            className="flex-1 py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+          {/* Step Content */}
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="min-h-[400px]"
           >
-            Back
-          </button>
-        )}
-        <button
-          onClick={handleNext}
-          disabled={!canProceed() || isLoading}
-          className="flex-1 py-4 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          ) : currentStep === steps.length - 1 ? (
-            'Confirm Booking'
-          ) : (
-            <>
-              Next
-              <ChevronRight className="w-5 h-5" />
-            </>
-          )}
-        </button>
-      </div>
+            {/* Step 1: Select Vehicle */}
+            {currentStep === 0 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Select Vehicle</h2>
+                {vehicles.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>No vehicles found. Please add a vehicle to your profile first.</p>
+                      <button onClick={() => navigate('/add-vehicle')} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
+                        Add Vehicle
+                      </button>
+                    </div>
+                ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {vehicles.map((vehicle) => (
+                    <motion.button
+                      key={vehicle._id}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedVehicle(vehicle._id)}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                        selectedVehicle === vehicle._id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-20 h-16 rounded-xl bg-muted overflow-hidden">
+                          {vehicle.image ? (
+                            <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Car className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-foreground">
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+                        </div>
+                        {selectedVehicle === vehicle._id && (
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Select Category */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Select Category</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {categories.map((category) => (
+                    <motion.button
+                      key={category.id}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setSelectedCategory(category.id);
+                        setSelectedServices([]); // Reset services when category changes
+                      }}
+                      className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
+                        selectedCategory === category.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:border-primary/50'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                        selectedCategory === category.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                      }`}>
+                        <category.icon className="w-6 h-6" />
+                      </div>
+                      <span className="font-semibold text-foreground">{category.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Select Service */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Select Service</h2>
+                </div>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search services..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {services
+                    .filter(service => {
+                      const matchesCategory = selectedCategory 
+                        ? (selectedCategory === 'Denting' 
+                            ? (service.category === 'Denting' || service.category === 'Painting')
+                            : service.category === selectedCategory)
+                        : true;
+                      const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                          service.description.toLowerCase().includes(searchTerm.toLowerCase());
+                      return matchesCategory && matchesSearch;
+                    })
+                    .map((service) => (
+                    <motion.button
+                      key={service._id}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toggleService(service._id)}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                        selectedServices.includes(service._id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Wrench className="w-5 h-5 text-primary" />
+                        </div>
+                        {selectedServices.includes(service._id) && (
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-1">{service.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{service.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-primary">₹{service.price}</span>
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                          {service.duration} mins
+                        </span>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+                {services.filter(service => (selectedCategory ? service.category === selectedCategory : true)).length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>No services found in this category.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 4: Schedule */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Select Date & Time</h2>
+                <SlotPicker
+                  selectedDate={selectedDate}
+                  selectedTime={selectedTime}
+                  onDateChange={setSelectedDate}
+                  onTimeChange={setSelectedTime}
+                />
+              </div>
+            )}
+
+            {/* Step 5: Confirm */}
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-semibold">Confirm Booking</h2>
+                
+                {/* Summary */}
+                <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
+                  <div className="flex items-center gap-4 pb-4 border-b border-border">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Car className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {selectedVehicleData?.year} {selectedVehicleData?.make} {selectedVehicleData?.model}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{selectedVehicleData?.licensePlate}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-4 pb-4 border-b border-border">
+                    {selectedServicesData.map(service => (
+                      <div key={service._id} className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Wrench className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-foreground">{service.name}</p>
+                          <p className="text-sm text-muted-foreground">{service.duration} mins</p>
+                        </div>
+                        <p className="text-lg font-bold text-primary">₹{service.price}</p>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-2">
+                        <span className="font-semibold text-muted-foreground">Total</span>
+                        <span className="text-xl font-bold text-primary">₹{totalPrice}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{selectedTime}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pickup Address */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Pickup Required?
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPickupRequired(true)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPickupRequired(false)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${!pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
+                      >
+                        No
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {pickupRequired ? 'Our driver will collect your vehicle from your location.' : 'You will drop off the vehicle at the service center.'}
+                    </p>
+                  </div>
+
+                  {pickupRequired && (
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Pickup Address
+                      </label>
+                      <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                        <LocationPicker 
+                          value={pickupLocation} 
+                          onChange={setPickupLocation}
+                          mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Navigation Buttons */}
+          <div className="flex gap-4 pt-4 border-t border-border">
+            {currentStep > 0 && (
+              <button
+                onClick={() => setCurrentStep(currentStep - 1)}
+                className="flex-1 py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={handleNext}
+              disabled={!canProceed() || isLoading}
+              className="flex-1 py-4 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : currentStep === steps.length - 1 ? (
+                'Confirm Booking'
+              ) : (
+                <>
+                  Next
+                  <ChevronRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

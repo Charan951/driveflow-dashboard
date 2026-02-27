@@ -13,6 +13,12 @@ export interface PaymentData {
     name: string;
     email: string;
   };
+  billing?: {
+    invoiceNumber: string;
+    invoiceDate: string;
+    fileUrl: string;
+    total: number;
+  };
 }
 
 export const paymentService = {

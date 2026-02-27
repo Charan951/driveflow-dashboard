@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -75,7 +75,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
   const markerRef = useRef<L.Marker>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const fetchAddress = async (lat: number, lng: number) => {
+  const fetchAddress = useCallback(async (lat: number, lng: number) => {
     try {
       const response = await api.get('/tracking/reverse', { params: { lat, lng } });
       if (response.data && response.data.display_name) {
@@ -87,50 +87,66 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     } catch (error) {
       console.error('Error fetching address:', error);
     }
-  };
+  }, [onChange]);
 
-  const handleGetCurrentLocation = () => {
+  const handleGetCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser.');
       return;
     }
 
+    if (isLocating) return;
+
     setIsLocating(true);
     setIsTyping(false);
-    const loadingToast = toast.loading('Getting your location...');
+    const loadingToast = toast.loading('Detecting your location...');
+
+    const onLocationSuccess = async (position: GeolocationPosition) => {
+      toast.dismiss(loadingToast);
+      const { latitude, longitude } = position.coords;
+      const newPos: [number, number] = [latitude, longitude];
+      setPosition(newPos);
+      await fetchAddress(latitude, longitude);
+      setIsLocating(false);
+    };
 
     const requestLocation = (highAccuracy: boolean) => {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          toast.dismiss(loadingToast);
-          const { latitude, longitude } = position.coords;
-          const newPos: [number, number] = [latitude, longitude];
-          setPosition(newPos);
-          await fetchAddress(latitude, longitude);
-          setIsLocating(false);
-        },
+        onLocationSuccess,
         (error) => {
           if (highAccuracy && (error.code === 2 || error.code === 3)) {
-            console.warn('High accuracy geolocation failed, falling back to low accuracy:', error);
-            toast('Weak GPS signal', { description: 'Trying approximate network location…' });
+            console.warn('High accuracy geolocation failed/timeout, falling back to network:', error);
+            toast('Improving location...', { 
+              description: 'Getting faster network-based location',
+              duration: 3000 
+            });
             requestLocation(false);
             return;
           }
           toast.dismiss(loadingToast);
           console.warn('Error getting location:', error);
-          toast.error('Failed to get location. Please enable GPS or search manually.');
+          toast.error('Could not get your exact location. Please search manually.');
           setIsLocating(false);
         },
         {
           enableHighAccuracy: highAccuracy,
-          timeout: highAccuracy ? 10000 : 15000,
-          maximumAge: highAccuracy ? 0 : 60000
+          timeout: highAccuracy ? 5000 : 10000,
+          maximumAge: highAccuracy ? 30000 : 60000
         }
       );
     };
 
-    requestLocation(true);
-  };
+    // Fast-track: try to get a recently cached location first (within 5 mins)
+    navigator.geolocation.getCurrentPosition(
+      onLocationSuccess,
+      () => requestLocation(true), // If no cache, start the high-accuracy process
+      {
+        enableHighAccuracy: false,
+        timeout: 1000, // Wait only 1s for cached/quick location
+        maximumAge: 300000 // Accept location up to 5 mins old
+      }
+    );
+  }, [fetchAddress, isLocating]);
 
   const handleDragEnd = async () => {
     const marker = markerRef.current;
@@ -141,15 +157,14 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     }
   };
 
-  // Fetch current location on mount
   useEffect(() => {
     if (!value || (typeof value === 'string' && !value) || (typeof value === 'object' && !value.address)) {
       handleGetCurrentLocation();
     }
-  }, []);
+  }, [value, handleGetCurrentLocation]);
 
   // Helper function for searching
-  const searchNominatim = async (q: string) => {
+  const searchNominatim = useCallback(async (q: string) => {
     try {
       const response = await api.get('/tracking/search', { params: { q, limit: 5, countrycodes: 'in' } });
       return response.data || [];
@@ -157,9 +172,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
       console.error('Nominatim search error:', e);
       return [];
     }
-  };
+  }, []);
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (query && isTyping && query.length > 2) {
@@ -205,12 +219,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
         setSuggestions([]);
         setShowSuggestions(false);
       }
-    }, 800); // Increased debounce time to reduce API calls
+    }, 500); // Reduced debounce time for faster search response
 
     return () => clearTimeout(timer);
-  }, [query, isTyping]);
+  }, [query, isTyping, searchNominatim]);
 
-  // Handle click outside to close suggestions
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -221,7 +234,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [wrapperRef]);
+  }, []);
 
   // Update internal query if prop changes
   useEffect(() => {

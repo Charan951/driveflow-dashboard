@@ -74,7 +74,7 @@ const AdminStockPage = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Stock Monitoring</h1>
         <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium">
-            Total Inventory Value: ${stats.totalValue.toLocaleString()}
+            Total Inventory Value: ₹{stats.totalValue.toLocaleString()}
         </div>
       </div>
 
@@ -204,7 +204,7 @@ const AdminStockPage = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                    ${product.price}
+                    ₹{product.price}
                   </td>
                   <td className="px-6 py-4">
                     {product.quantity <= product.threshold && (

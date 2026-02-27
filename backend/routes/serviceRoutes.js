@@ -11,10 +11,10 @@ const router = express.Router();
 
 router.route('/')
   .get(getServices)
-  .post(protect, admin, createService);
+  .post(protect, merchant, createService);
 
 router.route('/:id')
-  .delete(protect, admin, deleteService)
-  .put(protect, admin, updateService);
+  .delete(protect, merchant, deleteService)
+  .put(protect, merchant, updateService);
 
 export default router;

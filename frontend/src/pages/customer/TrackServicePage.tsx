@@ -10,7 +10,9 @@ import {
   CreditCard,
   Star,
   ThumbsUp,
-  Navigation
+  Navigation,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -48,8 +50,12 @@ const TrackServicePage: React.FC = () => {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   
   const [showRatingModal, setShowRatingModal] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
+  const [merchantRating, setMerchantRating] = useState(0);
+  const [merchantComment, setMerchantComment] = useState('');
+  const [platformRating, setPlatformRating] = useState(0);
+  const [platformComment, setPlatformComment] = useState('');
+  const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
 
@@ -71,7 +77,11 @@ const TrackServicePage: React.FC = () => {
         try {
             const data = await bookingService.getBookingById(id);
             setOrder(data);
-            if (data.status === 'DELIVERED') setDeliveryConfirmed(true);
+            if (data.status === 'DELIVERED' && !hasSubmittedFeedback) {
+              setDeliveryConfirmed(true);
+              // Show rating modal if delivered but not yet reviewed in this session
+              setShowRatingModal(true);
+            }
             // Restore near-alert state from session to avoid duplicate pop on reloads
             const key = `nearAlert_${id}`;
             nearAlertedRef.current = sessionStorage.getItem(key) === '1';
@@ -334,24 +344,47 @@ const TrackServicePage: React.FC = () => {
   };
 
   const handleSubmitRating = async () => {
-    if (rating === 0) {
-      toast.error('Please select a rating');
+    if (merchantRating === 0 || platformRating === 0) {
+      toast.error('Please select ratings for both merchant and platform');
       return;
     }
 
+    setIsRatingSubmitting(true);
     try {
-      await reviewService.createReview({
-        target: order?.merchant?._id,
-        booking: order?._id,
-        rating,
-        comment,
-        category: order?.merchant ? 'Merchant' : 'Platform'
-      });
+      const reviewPromises = [];
+
+      // Merchant Review
+      if (order?.merchant?._id) {
+        reviewPromises.push(
+          reviewService.createReview({
+            target: order.merchant._id,
+            booking: order._id,
+            rating: merchantRating,
+            comment: merchantComment,
+            category: 'Merchant'
+          })
+        );
+      }
+
+      // Platform Review
+      reviewPromises.push(
+        reviewService.createReview({
+          booking: order?._id,
+          rating: platformRating,
+          comment: platformComment,
+          category: 'Platform'
+        })
+      );
+
+      await Promise.all(reviewPromises);
       toast.success('Thank you for your feedback!');
+      setHasSubmittedFeedback(true);
       setShowRatingModal(false);
     } catch (error) {
-      console.error('Failed to submit review:', error);
-      toast.error('Failed to submit review');
+      console.error('Failed to submit reviews:', error);
+      toast.error('Failed to submit reviews');
+    } finally {
+      setIsRatingSubmitting(false);
     }
   };
 
@@ -679,6 +712,76 @@ const TrackServicePage: React.FC = () => {
         )}
 
         <div className="w-full space-y-6">
+          {/* Service Photos Section */}
+          {(order.serviceExecution?.beforePhotos?.length || order.serviceExecution?.duringPhotos?.length || order.serviceExecution?.afterPhotos?.length) ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6 space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary" />
+                Service Photos
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {order.serviceExecution?.beforePhotos && order.serviceExecution.beforePhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Before Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {order.serviceExecution.beforePhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`Before ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {order.serviceExecution?.duringPhotos && order.serviceExecution.duringPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">During Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {order.serviceExecution.duringPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`During ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">After Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {order.serviceExecution.afterPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`After ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : null}
+
           <div className={showTwoColumnPaymentRow ? 'grid gap-4 md:grid-cols-2 items-start' : ''}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -908,6 +1011,29 @@ const TrackServicePage: React.FC = () => {
       
 
       {/* Delivery Confirmation */}
+      {order.status === 'DELIVERED' && !hasSubmittedFeedback && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-2xl border border-border p-6 text-center space-y-4"
+        >
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Service Completed</h2>
+            <p className="text-muted-foreground">Your vehicle has been delivered. Thank you for using our service!</p>
+          </div>
+          <button
+            onClick={() => setShowRatingModal(true)}
+            className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+          >
+            <Star className="w-5 h-5" />
+            Give Feedback for Merchant & Admin
+          </button>
+        </motion.div>
+      )}
+
       {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') && !deliveryConfirmed && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -955,40 +1081,72 @@ const TrackServicePage: React.FC = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden"
             >
-              <div className="p-6 text-center space-y-6">
+              <div className="p-6 text-center space-y-6 max-h-[80vh] overflow-y-auto">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                   <ThumbsUp className="w-8 h-8 text-primary" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Rate Service</h2>
-                  <p className="text-muted-foreground">How was your experience with {order.merchant?.name}?</p>
+                  <p className="text-muted-foreground">Please share your experience with us.</p>
                 </div>
 
-                <div className="flex justify-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className="focus:outline-none"
-                    >
-                      <Star
-                        className={`w-8 h-8 transition-colors ${
-                          rating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'
-                        }`}
-                      />
-                    </button>
-                  ))}
+                {/* Merchant Review */}
+                {order?.merchant && (
+                  <div className="space-y-4 pt-4 border-t">
+                    <h3 className="font-semibold text-primary">Service Center ({order.merchant.name})</h3>
+                    <div className="flex justify-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setMerchantRating(star)}
+                          className="focus:outline-none"
+                        >
+                          <Star
+                            className={`w-7 h-7 transition-colors ${
+                              merchantRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={merchantComment}
+                      onChange={(e) => setMerchantComment(e.target.value)}
+                      placeholder="Comment for service center..."
+                      rows={3}
+                      className="w-full p-3 bg-muted/50 border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Platform Review */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="font-semibold text-primary">Platform Feedback (Admin)</h3>
+                  <div className="flex justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setPlatformRating(star)}
+                        className="focus:outline-none"
+                      >
+                        <Star
+                          className={`w-7 h-7 transition-colors ${
+                            platformRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={platformComment}
+                    onChange={(e) => setPlatformComment(e.target.value)}
+                    placeholder="Comment for platform/company..."
+                    rows={3}
+                    className="w-full p-3 bg-muted/50 border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                  />
                 </div>
 
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Share your experience..."
-                  rows={4}
-                  className="w-full p-4 bg-muted/50 border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-4">
                   <button
                     onClick={() => setShowRatingModal(false)}
                     className="flex-1 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
@@ -997,9 +1155,14 @@ const TrackServicePage: React.FC = () => {
                   </button>
                   <button
                     onClick={handleSubmitRating}
-                    className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+                    disabled={isRatingSubmitting}
+                    className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                   >
-                    Submit
+                    {isRatingSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Submit'
+                    )}
                   </button>
                 </div>
               </div>

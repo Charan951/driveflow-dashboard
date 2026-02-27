@@ -69,10 +69,15 @@ const AdminPaymentsPage = () => {
     a.click();
   };
 
-  const handleDownloadInvoice = (bookingId: string) => {
-    // Assuming the invoice URL pattern, or use a service method if needed
-    // Ideally this should use a service to get a blob or redirect
-    window.open(`${import.meta.env.VITE_API_URL}/api/bookings/${bookingId}/invoice`, '_blank');
+  const handleDownloadInvoice = (payment: PaymentData) => {
+    // If merchant has uploaded a bill, prioritize it
+    if (payment.billing?.fileUrl) {
+      window.open(payment.billing.fileUrl, '_blank');
+      return;
+    }
+    
+    // Otherwise open the generic invoice endpoint
+    window.open(`${import.meta.env.VITE_API_URL}/api/bookings/${payment.bookingId}/invoice`, '_blank');
   };
 
   if (loading) {
@@ -107,7 +112,7 @@ const AdminPaymentsPage = () => {
             <div>
               <p className="text-sm text-gray-500">Total Revenue</p>
               <h3 className="text-2xl font-bold text-gray-800 mt-1">
-                ${stats.totalRevenue.toLocaleString()}
+                ₹{stats.totalRevenue.toLocaleString()}
               </h3>
             </div>
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -126,7 +131,7 @@ const AdminPaymentsPage = () => {
             <div>
               <p className="text-sm text-gray-500">Platform Earnings</p>
               <h3 className="text-2xl font-bold text-gray-800 mt-1">
-                ${stats.platformEarnings.toLocaleString()}
+                ₹{stats.platformEarnings.toLocaleString()}
               </h3>
             </div>
             <div className="p-2 bg-green-50 text-green-600 rounded-lg">
@@ -230,10 +235,10 @@ const AdminPaymentsPage = () => {
                     {new Date(payment.date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                    ${payment.amount}
+                    ₹{payment.amount}
                   </td>
                   <td className="px-6 py-4 text-sm text-green-600 font-medium">
-                    ${payment.platformFee.toFixed(2)}
+                    ₹{payment.platformFee.toFixed(2)}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium
@@ -246,9 +251,9 @@ const AdminPaymentsPage = () => {
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => handleDownloadInvoice(payment.bookingId)}
-                      className="text-gray-400 hover:text-blue-600 transition-colors"
-                      title="Download Invoice"
+                      onClick={() => handleDownloadInvoice(payment)}
+                      className={`${payment.billing?.fileUrl ? 'text-blue-600' : 'text-gray-400'} hover:text-blue-800 transition-colors`}
+                      title={payment.billing?.fileUrl ? "View Merchant's Uploaded Bill" : "Download Invoice"}
                     >
                       <FileText size={20} />
                     </button>

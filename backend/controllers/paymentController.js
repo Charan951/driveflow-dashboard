@@ -99,6 +99,7 @@ export const getAllPayments = async (req, res) => {
       paymentId: booking.paymentId,
       platformFee: booking.platformFee || 0,
       merchantEarnings: booking.merchantEarnings || 0,
+      billing: booking.billing, // Include billing info (invoice uploaded by merchant)
     }));
     
     res.json(payments);

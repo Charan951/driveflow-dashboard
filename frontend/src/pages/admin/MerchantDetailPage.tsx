@@ -63,7 +63,18 @@ const AdminMerchantDetailPage: React.FC = () => {
   if (!merchant) return null;
 
   const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
-  const activeOrders = bookings.filter(b => ['Booked', 'Pickup Assigned', 'In Garage', 'Servicing'].includes(b.status)).length;
+  const activeOrders = bookings.filter(b => [
+    'CREATED', 
+    'ASSIGNED', 
+    'ACCEPTED', 
+    'REACHED_CUSTOMER', 
+    'VEHICLE_PICKED', 
+    'REACHED_MERCHANT', 
+    'VEHICLE_AT_MERCHANT', 
+    'SERVICE_STARTED',
+    'SERVICE_COMPLETED',
+    'OUT_FOR_DELIVERY'
+  ].includes(b.status)).length;
   const lowStockItems = products.filter(p => p.quantity <= p.threshold).length;
 
   return (

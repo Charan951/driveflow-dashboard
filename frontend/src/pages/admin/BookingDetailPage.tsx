@@ -19,7 +19,10 @@ import {
   Clock,
   Store,
   Shield,
-  Signal
+  Signal,
+  ImageIcon,
+  FileText,
+  Download
 } from 'lucide-react';
 import * as turf from '@turf/turf';
 
@@ -27,6 +30,7 @@ const BookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [userBookings, setUserBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [merchants, setMerchants] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
@@ -46,6 +50,13 @@ const BookingDetailPage: React.FC = () => {
           userService.getAllUsers()
         ]);
         setBooking(bookingData);
+
+        // Fetch user's other bookings
+        if (bookingData.user) {
+          const userId = typeof bookingData.user === 'object' ? bookingData.user._id : bookingData.user;
+          const userHistory = await bookingService.getUserBookings(userId);
+          setUserBookings(userHistory.filter((b: Booking) => b._id !== id));
+        }
         
         // Helper to sort staff by Online Status and Proximity
         const sortStaff = (staffList: User[]) => {
@@ -247,6 +258,56 @@ const BookingDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Customer Booking History */}
+          <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" /> Booking History
+            </h3>
+            {userBookings.length > 0 ? (
+              <div className="space-y-3">
+                {userBookings.slice(0, 5).map((prevBooking) => (
+                  <div 
+                    key={prevBooking._id}
+                    onClick={() => navigate(`/admin/bookings/${prevBooking._id}`)}
+                    className="p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        #{prevBooking.orderNumber ?? prevBooking._id.slice(-6).toUpperCase()}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        prevBooking.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+                        prevBooking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {prevBooking.status}
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium truncate">
+                      {Array.isArray(prevBooking.services) 
+                        ? (prevBooking.services as Service[]).map(s => typeof s === 'object' ? s.name : 'Service').join(', ')
+                        : 'Service'}
+                    </div>
+                    <div className="flex justify-between items-center mt-2 text-[10px] text-muted-foreground">
+                      <span>{new Date(prevBooking.date).toLocaleDateString()}</span>
+                      <span className="font-bold text-foreground">₹{prevBooking.totalAmount}</span>
+                    </div>
+                  </div>
+                ))}
+                {userBookings.length > 5 && (
+                  <button 
+                    onClick={() => navigate(`/admin/users/${customer?._id}`)}
+                    className="w-full text-center text-xs text-primary hover:underline pt-1"
+                  >
+                    View all {userBookings.length} bookings
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic text-center py-2">No previous bookings found.</p>
+            )}
+          </div>
+
           {booking.pickupRequired && booking.prePickupPhotos && booking.prePickupPhotos.length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
@@ -325,6 +386,51 @@ const BookingDetailPage: React.FC = () => {
                 </div>
              </div>
           </div>
+
+          {booking.billing && booking.billing.invoiceNumber && (
+            <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" /> Merchant Invoice
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Invoice #:</span>
+                  <span className="font-medium">{booking.billing.invoiceNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span>{booking.billing.invoiceDate ? new Date(booking.billing.invoiceDate).toLocaleDateString() : 'N/A'}</span>
+                </div>
+                <div className="pt-2 border-t border-border space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Parts Total:</span>
+                    <span>₹{booking.billing.partsTotal || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Labour Cost:</span>
+                    <span>₹{booking.billing.labourCost || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">GST:</span>
+                    <span>₹{booking.billing.gst || 0}</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-1">
+                    <span>Total:</span>
+                    <span>₹{booking.billing.total || 0}</span>
+                  </div>
+                </div>
+                {booking.billing.fileUrl && (
+                  <button
+                    onClick={() => window.open(booking.billing!.fileUrl, '_blank')}
+                    className="w-full mt-2 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    View Uploaded Bill
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Center/Right Column - Booking Details & Actions */}
@@ -460,6 +566,72 @@ const BookingDetailPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Service Media Section */}
+          {(booking.serviceExecution?.beforePhotos?.length || booking.serviceExecution?.duringPhotos?.length || booking.serviceExecution?.afterPhotos?.length) ? (
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary" />
+                Service Photos
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {booking.serviceExecution?.beforePhotos && booking.serviceExecution.beforePhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Before Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {booking.serviceExecution.beforePhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`Before ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {booking.serviceExecution?.duringPhotos && booking.serviceExecution.duringPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">During Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {booking.serviceExecution.duringPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`During ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {booking.serviceExecution?.afterPhotos && booking.serviceExecution.afterPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">After Service</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {booking.serviceExecution.afterPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`After ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {/* Assignment Panel */}
           <div className="bg-card rounded-2xl border border-border p-6">

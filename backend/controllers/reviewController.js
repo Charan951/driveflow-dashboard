@@ -1,14 +1,19 @@
 import Review from '../models/Review.js';
+import Booking from '../models/Booking.js';
 
 // @desc    Get public reviews
 // @route   GET /api/reviews/public
 // @access  Public
 export const getPublicReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({ isVisible: true })
+    const reviews = await Review.find({ 
+      category: 'Platform', 
+      isAccepted: true,
+      isVisible: true 
+    })
       .populate('reviewer', 'name')
       .sort({ createdAt: -1 })
-      .limit(10); // Limit to latest 10 reviews
+      .limit(10);
     res.json(reviews);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -25,6 +30,38 @@ export const getAllReviews = async (req, res) => {
       .populate('target', 'name email role')
       .sort({ createdAt: -1 });
     res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Check for pending feedback on delivered/completed bookings
+// @route   GET /api/reviews/check-pending-feedback
+// @access  Private
+export const checkPendingFeedback = async (req, res) => {
+  try {
+    const deliveredBookings = await Booking.find({
+      user: req.user._id,
+      status: { $in: ['DELIVERED', 'COMPLETED'] }
+    });
+
+    for (const booking of deliveredBookings) {
+      const reviews = await Review.find({ booking: booking._id });
+      const categories = reviews.map(r => r.category);
+      
+      const hasMerchantReview = categories.includes('Merchant');
+      const hasPlatformReview = categories.includes('Platform');
+
+      if (!hasMerchantReview || !hasPlatformReview) {
+        return res.json({ 
+          hasPending: true, 
+          bookingId: booking._id,
+          orderNumber: booking.orderNumber || booking._id.toString().slice(-6).toUpperCase()
+        });
+      }
+    }
+
+    res.json({ hasPending: false });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -89,5 +126,26 @@ export const deleteReview = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update review status (isAccepted/isVisible)
+// @route   PUT /api/reviews/:id/status
+// @access  Private/Admin
+export const updateReviewStatus = async (req, res) => {
+  const { isAccepted, isVisible } = req.body;
+  try {
+    const review = await Review.findById(req.params.id);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    if (isAccepted !== undefined) review.isAccepted = isAccepted;
+    if (isVisible !== undefined) review.isVisible = isVisible;
+
+    const updatedReview = await review.save();
+    res.json(updatedReview);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 };

@@ -6,12 +6,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/env.dart';
 import '../core/storage.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
+import '../services/review_service.dart';
 
 class TrackBookingPage extends StatefulWidget {
   const TrackBookingPage({super.key});
@@ -22,6 +24,7 @@ class TrackBookingPage extends StatefulWidget {
 
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
+  final _reviewService = ReviewService();
   final _mapController = MapController();
   final _api = ApiClient();
 
@@ -39,6 +42,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
   bool _nearAlertShown = false;
+  bool _hasMerchantReview = false;
+  bool _hasPlatformReview = false;
+  bool _isReviewLoading = false;
   Timer? _animTimer;
   int _animStartMs = 0;
   static const int _animDurationMs = 600;
@@ -433,6 +439,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         setState(() => _booking = booking);
         _fetchPendingApprovals();
         _startApprovalsTimer();
+        if (booking.status == 'DELIVERED' || booking.status == 'COMPLETED') {
+          _fetchReviewsStatus(booking.id);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -443,6 +452,284 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _fetchReviewsStatus(String bookingId) async {
+    try {
+      final reviews = await _reviewService.getBookingReviews(bookingId);
+      final hasMerchant = reviews.any((r) => r['category'] == 'Merchant');
+      final hasPlatform = reviews.any((r) => r['category'] == 'Platform');
+      if (mounted) {
+        setState(() {
+          _hasMerchantReview = hasMerchant;
+          _hasPlatformReview = hasPlatform;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showReviewDialog() async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    int merchantRating = 5;
+    int platformRating = 5;
+    final merchantCommentController = TextEditingController();
+    final platformCommentController = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final isComplete = _hasMerchantReview && _hasPlatformReview;
+
+            if (isComplete) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 64,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Feedback Submitted',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Thank you for sharing your experience with us!',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Rate your experience',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (!_hasMerchantReview) ...[
+                      Text(
+                        'Service Center Rating',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          5,
+                          (i) => IconButton(
+                            onPressed: () =>
+                                setModalState(() => merchantRating = i + 1),
+                            icon: Icon(
+                              i < merchantRating
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TextField(
+                        controller: merchantCommentController,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Share your thoughts about the service...',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    if (!_hasPlatformReview) ...[
+                      Text(
+                        'Platform Experience Rating',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          5,
+                          (i) => IconButton(
+                            onPressed: () =>
+                                setModalState(() => platformRating = i + 1),
+                            icon: Icon(
+                              i < platformRating
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TextField(
+                        controller: platformCommentController,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Share your thoughts about our app...',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    ElevatedButton(
+                      onPressed: _isReviewLoading
+                          ? null
+                          : () async {
+                              setModalState(() => _isReviewLoading = true);
+                              try {
+                                if (!_hasMerchantReview) {
+                                  await _reviewService.createReview(
+                                    bookingId: booking.id,
+                                    rating: merchantRating,
+                                    comment: merchantCommentController.text
+                                        .trim(),
+                                    category: 'Merchant',
+                                  );
+                                }
+                                if (!_hasPlatformReview) {
+                                  await _reviewService.createReview(
+                                    bookingId: booking.id,
+                                    rating: platformRating,
+                                    comment: platformCommentController.text
+                                        .trim(),
+                                    category: 'Platform',
+                                  );
+                                }
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Thank you for your feedback!',
+                                      ),
+                                    ),
+                                  );
+                                  _fetchReviewsStatus(booking.id);
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to submit review: $e',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                setModalState(() => _isReviewLoading = false);
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isReviewLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Submit Review',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showImagePreview(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (context, _, __) => const Icon(
+                  Icons.broken_image,
+                  color: Colors.white,
+                  size: 50,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   DateTime? _parseDate(String value) {
@@ -720,6 +1007,19 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   }
 
   String _statusLabel(String status) {
+    final booking = _booking;
+    if (booking != null &&
+        booking.pickupRequired &&
+        status == 'ACCEPTED' &&
+        booking.status == 'REACHED_CUSTOMER') {
+      return 'Staff waiting at your location';
+    }
+    if (booking != null &&
+        booking.pickupRequired &&
+        status == 'OUT_FOR_DELIVERY') {
+      return 'Waiting for staff pickup vehicle';
+    }
+
     switch (status) {
       case 'CREATED':
         return 'Booked';
@@ -742,7 +1042,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       case 'SERVICE_COMPLETED':
         return 'Ready';
       case 'OUT_FOR_DELIVERY':
-        return 'Waiting for Staff Pickup';
+        return 'Out for Delivery';
       case 'DELIVERED':
         return 'Delivered';
       case 'COMPLETED':
@@ -751,6 +1051,84 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         return 'Cancelled';
       default:
         return status;
+    }
+  }
+
+  Future<void> _handleMarkAtMerchant() async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Arrival'),
+        content: const Text(
+          'This button will work only when you are near the workshop (within 200 meters). We will check your location now.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final merchantLat = booking.merchantLocation?.lat;
+    final merchantLng = booking.merchantLocation?.lng;
+
+    if (merchantLat == null || merchantLng == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Workshop location is not available')),
+      );
+      return;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        merchantLat,
+        merchantLng,
+      );
+
+      if (distance > 200) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You are not close enough to the workshop (within 200 m)',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final updated = await _service.updateBookingStatus(
+        booking.id,
+        'VEHICLE_AT_MERCHANT',
+      );
+      if (!mounted) return;
+      setState(() => _booking = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Status updated to At Merchant')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
     }
   }
 
@@ -806,37 +1184,33 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     int currentIndex = -1;
     if (booking != null) {
       final s = booking.status;
-      if (booking.pickupRequired) {
-        if (s == 'CREATED') {
+      switch (s) {
+        case 'CREATED':
           currentIndex = 0;
-        } else if (s == 'ASSIGNED' ||
-            s == 'ACCEPTED' ||
-            s == 'REACHED_CUSTOMER' ||
-            s == 'VEHICLE_PICKED') {
+          break;
+        case 'ASSIGNED':
+        case 'ACCEPTED':
+        case 'REACHED_CUSTOMER':
           currentIndex = 1;
-        } else if (s == 'REACHED_MERCHANT' || s == 'VEHICLE_AT_MERCHANT') {
+          break;
+        case 'VEHICLE_PICKED':
+        case 'REACHED_MERCHANT':
+        case 'VEHICLE_AT_MERCHANT':
           currentIndex = 2;
-        } else if (s == 'SERVICE_STARTED') {
+          break;
+        case 'SERVICE_STARTED':
           currentIndex = 3;
-        } else if (s == 'SERVICE_COMPLETED' || s == 'OUT_FOR_DELIVERY') {
+          break;
+        case 'SERVICE_COMPLETED':
+        case 'OUT_FOR_DELIVERY':
           currentIndex = 4;
-        } else if (s == 'DELIVERED' || s == 'COMPLETED') {
+          break;
+        case 'DELIVERED':
+        case 'COMPLETED':
           currentIndex = 5;
-        }
-      } else {
-        if (s == 'CREATED') {
+          break;
+        default:
           currentIndex = 0;
-        } else if (s == 'ASSIGNED') {
-          currentIndex = 1;
-        } else if (s == 'VEHICLE_AT_MERCHANT') {
-          currentIndex = 2;
-        } else if (s == 'SERVICE_STARTED') {
-          currentIndex = 3;
-        } else if (s == 'SERVICE_COMPLETED') {
-          currentIndex = 4;
-        } else if (s == 'DELIVERED' || s == 'COMPLETED') {
-          currentIndex = 5;
-        }
       }
     }
 
@@ -1170,13 +1544,54 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (booking.vehicle != null)
-                      Text(
-                        '${booking.vehicle!.make} ${booking.vehicle!.model} • ${booking.vehicle!.licensePlate}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    if (booking.vehicle != null) ...[
+                      Row(
+                        children: [
+                          if (booking.vehicle!.image != null)
+                            Container(
+                              width: 60,
+                              height: 60,
+                              margin: const EdgeInsets.only(right: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.1)
+                                      : const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.network(
+                                  _resolveImageUrl(booking.vehicle!.image)!,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${booking.vehicle!.make} ${booking.vehicle!.model}',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  booking.vehicle!.licensePlate,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       'Total: ₹${booking.totalAmount}',
@@ -1708,13 +2123,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     : 'Pickup Scheduled',
                                 'At Service Center',
                                 'Service In Progress',
-                                'Waiting for Staff Pickup Vehicle',
+                                booking.status == 'OUT_FOR_DELIVERY'
+                                    ? 'Out for Delivery'
+                                    : 'Service Completed',
                                 'Delivered',
                               ]
                             : [
                                 'Booking Confirmed',
                                 'Merchant Assigned',
-                                'Vehicle at Merchant',
+                                'At Service Center',
                                 'Service In Progress',
                                 'Service Completed',
                                 'Delivered',
@@ -1740,6 +2157,58 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ],
                 ),
               ),
+              if (booking.status == 'REACHED_MERCHANT') ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _handleMarkAtMerchant,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'I have arrived at Workshop',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if ((booking.status == 'DELIVERED' ||
+                      booking.status == 'COMPLETED') &&
+                  (!_hasMerchantReview || !_hasPlatformReview)) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _showReviewDialog,
+                    icon: const Icon(Icons.star),
+                    label: const Text(
+                      'Rate your experience',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               if (booking.paymentStatus != 'paid') ...[
                 SizedBox(
@@ -1775,6 +2244,111 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 ),
                 const SizedBox(height: 24),
               ],
+              if (booking.prePickupPhotos.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Pre-Pickup Photos',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 100,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: booking.prePickupPhotos.length,
+                    separatorBuilder: (context, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final url = _resolveImageUrl(
+                        booking.prePickupPhotos[index],
+                      )!;
+                      return GestureDetector(
+                        onTap: () => _showImagePreview(url),
+                        child: Container(
+                          width: 100,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.network(url, fit: BoxFit.cover),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (booking.postServicePhotos.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Post-Service Photos',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 100,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: booking.postServicePhotos.length,
+                    separatorBuilder: (context, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final url = _resolveImageUrl(
+                        booking.postServicePhotos[index],
+                      )!;
+                      return GestureDetector(
+                        onTap: () => _showImagePreview(url),
+                        child: Container(
+                          width: 100,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.network(url, fit: BoxFit.cover),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (booking.invoiceUrl != null) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(_resolveImageUrl(booking.invoiceUrl)!),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.download),
+                    label: const Text('Download Invoice'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
               Text(
                 'Services',
                 style: Theme.of(

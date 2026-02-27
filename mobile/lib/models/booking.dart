@@ -75,6 +75,9 @@ class Booking {
   final String? merchantName;
   final String? merchantPhone;
   final DeliveryOtp? deliveryOtp;
+  final List<String> prePickupPhotos;
+  final List<String> postServicePhotos;
+  final String? invoiceUrl;
 
   Booking({
     required this.id,
@@ -93,6 +96,9 @@ class Booking {
     this.merchantName,
     this.merchantPhone,
     this.deliveryOtp,
+    this.prePickupPhotos = const [],
+    this.postServicePhotos = const [],
+    this.invoiceUrl,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -157,6 +163,24 @@ class Booking {
       deliveryOtp = DeliveryOtp.fromJson(dd);
     }
 
+    final prePickupPhotos = <String>[];
+    final inspPhotos = json['inspection']?['photos'];
+    if (inspPhotos is List) {
+      for (final p in inspPhotos) {
+        if (p != null) prePickupPhotos.add(p.toString());
+      }
+    }
+
+    final postServicePhotos = <String>[];
+    final afterPhotos = json['serviceExecution']?['afterPhotos'];
+    if (afterPhotos is List) {
+      for (final p in afterPhotos) {
+        if (p != null) postServicePhotos.add(p.toString());
+      }
+    }
+
+    final invoiceUrl = json['billing']?['fileUrl']?.toString();
+
     return Booking(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       orderNumber: json['orderNumber'] is num
@@ -182,6 +206,11 @@ class Booking {
       merchantName: merchantName,
       merchantPhone: merchantPhone,
       deliveryOtp: deliveryOtp,
+      prePickupPhotos: prePickupPhotos,
+      postServicePhotos: postServicePhotos,
+      invoiceUrl: invoiceUrl != null && invoiceUrl.isNotEmpty
+          ? invoiceUrl
+          : null,
     );
   }
 

@@ -65,6 +65,16 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
+  Future<Booking> updateBookingStatus(String id, String status) async {
+    final res = await _api.putAny(
+      '${ApiEndpoints.bookings}/$id/status',
+      body: {'status': status},
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
   Future<Map<String, dynamic>> createRazorpayOrder(String bookingId) async {
     return await _api.postJson(
       ApiEndpoints.paymentsCreateOrder,

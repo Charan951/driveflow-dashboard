@@ -286,12 +286,7 @@ const StaffOrderPage: React.FC = () => {
         }
       }
       if (newStatus === 'OUT_FOR_DELIVERY') {
-        const otpCode = updated.deliveryOtp?.code;
-        if (otpCode) {
-          toast.info(`Delivery OTP for customer: ${otpCode}`);
-        } else {
-          toast.info('Delivery OTP sent to customer');
-        }
+        toast.info('Delivery OTP sent to customer');
         if (order.location) {
           const loc =
             typeof order.location === 'object'
@@ -412,20 +407,21 @@ const StaffOrderPage: React.FC = () => {
     if (!order) return;
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
-    if (files.length !== 4) {
-      toast.error('Please select exactly 4 photos');
-      e.target.value = '';
-      return;
-    }
+    
     try {
       setIsUploadingPrePickup(true);
       const loadingToast = toast.loading('Uploading pre-pickup photos...');
       const res = await uploadService.uploadFiles(files);
-      const urls = (res.files || []).map((f: { url: string }) => f.url);
-      await bookingService.updateBookingDetails(order._id, { prePickupPhotos: urls });
-      setOrder({ ...order, prePickupPhotos: urls });
+      const newUrls = (res.files || []).map((f: { url: string }) => f.url);
+      
+      const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+      const updatedPhotos = [...currentPhotos, ...newUrls];
+      
+      await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
+      setOrder({ ...order, prePickupPhotos: updatedPhotos });
+      
       toast.dismiss(loadingToast);
-      toast.success('Pre-pickup photos uploaded');
+      toast.success(`${newUrls.length} photos uploaded`);
     } catch (error) {
       console.error(error);
       toast.error('Failed to upload pre-pickup photos');
@@ -508,20 +504,6 @@ const StaffOrderPage: React.FC = () => {
         )}
       </div>
 
-      {order.status === 'OUT_FOR_DELIVERY' && order.deliveryOtp?.code && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium text-indigo-700">Delivery OTP for customer</p>
-            <p className="text-[11px] text-indigo-600">
-              Ask the customer to share this code at the time of delivery.
-            </p>
-          </div>
-          <div className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 font-mono text-sm font-semibold tracking-[0.3em] text-indigo-700">
-            {order.deliveryOtp.code}
-          </div>
-        </div>
-      )}
-
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
           <h3 className="font-medium">Order Actions</h3>
@@ -560,7 +542,7 @@ const StaffOrderPage: React.FC = () => {
               {isPrePickupPhase
                 ? isUploadingPrePickup
                   ? 'Uploading...'
-                  : 'Upload 4 Photos'
+                  : 'Upload Photos'
                 : 'Upload Photo'}
             </Button>
           </div>
@@ -734,7 +716,7 @@ const StaffOrderPage: React.FC = () => {
                   disabled={isUploadingPrePickup || order.status !== 'REACHED_CUSTOMER'}
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  {isUploadingPrePickup ? 'Uploading...' : 'Upload 4 Photos'}
+                  {isUploadingPrePickup ? 'Uploading...' : 'Upload Photos'}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">

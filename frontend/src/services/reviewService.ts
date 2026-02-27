@@ -49,4 +49,14 @@ export const reviewService = {
     const response = await api.get(`/reviews/target/${targetId}`);
     return response.data;
   },
+
+  updateReviewStatus: async (id: string, status: { isAccepted?: boolean; isVisible?: boolean }) => {
+    const response = await api.put(`/reviews/${id}/status`, status);
+    return response.data;
+  },
+
+  checkPendingFeedback: async (): Promise<{ hasPending: boolean; bookingId?: string; orderNumber?: string }> => {
+    const response = await api.get('/reviews/check-pending-feedback');
+    return response.data;
+  },
 };

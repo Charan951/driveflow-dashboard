@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER } from '@/lib/statusFlow';
 
 interface BillUploadPanelProps {
   booking: Booking;
@@ -84,9 +85,28 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             }
         });
 
+        // Automatically move status to SERVICE_COMPLETED
+        // We do this if the status is currently anywhere before SERVICE_COMPLETED
+        const activeFlow = booking.pickupRequired ? PICKUP_FLOW_ORDER : NO_PICKUP_FLOW_ORDER;
+        const currentIndex = activeFlow.indexOf(booking.status as any);
+        const completedIndex = activeFlow.indexOf('SERVICE_COMPLETED' as any);
+
+        if (currentIndex < completedIndex && currentIndex !== -1) {
+            await bookingService.updateBookingStatus(booking._id, 'SERVICE_COMPLETED');
+            
+            // Also set jobEndTime if not set
+            if (!booking.serviceExecution?.jobEndTime) {
+                await bookingService.updateBookingDetails(booking._id, {
+                    serviceExecution: {
+                        jobEndTime: new Date().toISOString()
+                    }
+                });
+            }
+        }
+
         setIsUploaded(true);
         onUploadComplete();
-        toast.success('Bill uploaded and details saved');
+        toast.success('Bill uploaded and service marked as completed');
     } catch (error) {
         console.error(error);
         toast.error('Failed to save bill details');

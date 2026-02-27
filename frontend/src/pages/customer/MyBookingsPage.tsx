@@ -38,8 +38,10 @@ const MyBookingsPage = () => {
   // Review Dialog State
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
+  const [merchantRating, setMerchantRating] = useState(5);
+  const [merchantComment, setMerchantComment] = useState('');
+  const [platformRating, setPlatformRating] = useState(5);
+  const [platformComment, setPlatformComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
@@ -96,8 +98,10 @@ const MyBookingsPage = () => {
 
   const handleReviewClick = (booking: Booking) => {
     setSelectedBooking(booking);
-    setRating(5);
-    setComment('');
+    setMerchantRating(5);
+    setMerchantComment('');
+    setPlatformRating(5);
+    setPlatformComment('');
     setReviewOpen(true);
   };
 
@@ -106,26 +110,45 @@ const MyBookingsPage = () => {
 
     setSubmittingReview(true);
     try {
-      await reviewService.createReview({
-        booking: selectedBooking._id,
-        rating,
-        comment,
-        category: selectedBooking.merchant ? 'Merchant' : 'Platform',
-        target: selectedBooking.merchant?._id
-      });
-      toast.success('Review submitted successfully!');
+      const reviewPromises = [];
+
+      // Merchant Review
+      if (selectedBooking.merchant) {
+        reviewPromises.push(
+          reviewService.createReview({
+            booking: selectedBooking._id,
+            rating: merchantRating,
+            comment: merchantComment,
+            category: 'Merchant',
+            target: selectedBooking.merchant?._id
+          })
+        );
+      }
+
+      // Platform Review
+      reviewPromises.push(
+        reviewService.createReview({
+          booking: selectedBooking._id,
+          rating: platformRating,
+          comment: platformComment,
+          category: 'Platform'
+        })
+      );
+
+      await Promise.all(reviewPromises);
+      toast.success('Reviews submitted successfully!');
       setReviewOpen(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to submit review');
+      toast.error(error.response?.data?.message || 'Failed to submit reviews');
     } finally {
       setSubmittingReview(false);
     }
   };
 
-  const activeBookings = bookings.filter(b => !['Delivered', 'Cancelled', 'Completed'].includes(b.status));
-  const pastBookings = bookings.filter(b => ['Delivered', 'Cancelled', 'Completed'].includes(b.status));
+  const activeBookings = bookings.filter(b => !['DELIVERED', 'CANCELLED', 'COMPLETED'].includes(b.status));
+  const pastBookings = bookings.filter(b => ['DELIVERED', 'CANCELLED', 'COMPLETED'].includes(b.status));
 
   const renderBookingsTable = (bookingsList: Booking[], emptyMessage: string) => {
       if (bookingsList.length === 0) {
@@ -343,49 +366,87 @@ const MyBookingsPage = () => {
       </Tabs>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Write a Review</DialogTitle>
             <DialogDescription>
-              Share your experience with this service.
+              Share your experience with our platform and the service center.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex flex-col gap-2">
-              <Label>Rating</Label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRating(star)}
-                    className="focus:outline-none transition-transform hover:scale-110"
-                  >
-                    <Star
-                      className={`w-8 h-8 ${
-                        star <= rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
-                      }`}
-                    />
-                  </button>
-                ))}
+          <div className="grid gap-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
+            {selectedBooking?.merchant && (
+              <div className="space-y-4 pb-4 border-b">
+                <h3 className="font-semibold text-primary">Service Center Feedback</h3>
+                <div className="flex flex-col gap-2">
+                  <Label>Merchant Rating</Label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setMerchantRating(star)}
+                        className="focus:outline-none transition-transform hover:scale-110"
+                      >
+                        <Star
+                          className={`w-8 h-8 ${
+                            star <= merchantRating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="merchant-comment">Merchant Comment</Label>
+                  <Textarea
+                    id="merchant-comment"
+                    value={merchantComment}
+                    onChange={(e) => setMerchantComment(e.target.value)}
+                    placeholder="Tell us about the workshop service..."
+                    className="col-span-3"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="comment">Comment</Label>
-              <Textarea
-                id="comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Tell us about your experience..."
-                className="col-span-3"
-              />
+            )}
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-primary">Platform Feedback</h3>
+              <div className="flex flex-col gap-2">
+                <Label>Platform Rating</Label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setPlatformRating(star)}
+                      className="focus:outline-none transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-8 h-8 ${
+                          star <= platformRating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="platform-comment">Platform Comment</Label>
+                <Textarea
+                  id="platform-comment"
+                  value={platformComment}
+                  onChange={(e) => setPlatformComment(e.target.value)}
+                  placeholder="Tell us about your experience with our app/company..."
+                  className="col-span-3"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
             <Button onClick={submitReview} disabled={submittingReview}>
               {submittingReview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Review
+              Submit Reviews
             </Button>
           </DialogFooter>
         </DialogContent>

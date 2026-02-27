@@ -11,7 +11,7 @@ const Careers = () => {
       department: "Service Operations",
       location: "Auto City, AC",
       type: "Full-time",
-      salary: "$60k - $85k"
+      salary: "₹8L - ₹12L"
     },
     {
       id: 2,
@@ -19,7 +19,7 @@ const Careers = () => {
       department: "Customer Success",
       location: "Remote / Hybrid",
       type: "Full-time",
-      salary: "$45k - $60k"
+      salary: "₹5L - ₹8L"
     },
     {
       id: 3,
@@ -27,7 +27,7 @@ const Careers = () => {
       department: "Engineering",
       location: "Remote",
       type: "Full-time",
-      salary: "$90k - $130k"
+      salary: "₹12L - ₹25L"
     },
     {
       id: 4,
@@ -35,7 +35,7 @@ const Careers = () => {
       department: "Logistics",
       location: "Auto City, AC",
       type: "Full-time",
-      salary: "$55k - $75k"
+      salary: "₹7L - ₹10L"
     }
   ];
 

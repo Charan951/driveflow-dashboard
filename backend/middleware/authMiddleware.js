@@ -15,35 +15,42 @@ export const protect = async (req, res, next) => {
 
       req.user = await User.findById(decoded.id).select('-password');
 
+      if (!req.user) {
+        console.log('Protect Middleware - User not found in DB');
+        return res.status(401).json({ message: 'Not authorized, user not found' });
+      }
+
       if (!req.user.isApproved) {
+        console.log('Protect Middleware - User not approved:', req.user.email);
         return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
       }
 
-      next();
+      return next();
     } catch (error) {
       console.error('Protect Middleware - Error:', error.message);
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
   }
 
   if (!token) {
     console.log('Protect Middleware - No Token Found');
-    res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
 
 export const admin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
+  if (req.user && req.user.role?.toLowerCase() === 'admin') {
+    return next();
   } else {
-    res.status(401).json({ message: 'Not authorized as an admin' });
+    return res.status(401).json({ message: 'Not authorized as an admin' });
   }
 };
 
 export const merchant = (req, res, next) => {
-  if (req.user && (req.user.role === 'merchant' || req.user.role === 'admin')) {
-    next();
+  const role = req.user?.role?.toLowerCase();
+  if (req.user && (role === 'merchant' || role === 'admin')) {
+    return next();
   } else {
-    res.status(401).json({ message: 'Not authorized as a merchant' });
+    return res.status(401).json({ message: 'Not authorized as a merchant' });
   }
 };

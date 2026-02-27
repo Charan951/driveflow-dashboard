@@ -275,12 +275,7 @@ const StaffOrdersPage: React.FC = () => {
         setActiveBookingId(selectedOrderForStatus._id);
       }
       if (newStatus === 'OUT_FOR_DELIVERY') {
-        const otpCode = updated.deliveryOtp?.code;
-        if (otpCode) {
-          toast.success(`Status updated. Delivery OTP for customer: ${otpCode}`);
-        } else {
-          toast.success('Status updated successfully. Delivery OTP sent to customer');
-        }
+        toast.success('Status updated successfully. Delivery OTP sent to customer');
       } else {
         toast.success('Status updated successfully');
       }

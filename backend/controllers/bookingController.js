@@ -1,6 +1,7 @@
 import Booking from '../models/Booking.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
+import Review from '../models/Review.js';
 import { getIO } from '../socket.js';
 import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
@@ -13,6 +14,26 @@ export const createBooking = async (req, res) => {
   const { vehicleId, serviceIds, date, notes, location, pickupRequired } = req.body;
 
   try {
+    // Check for pending feedback on delivered/completed bookings
+    const deliveredBookings = await Booking.find({
+      user: req.user._id,
+      status: { $in: ['DELIVERED', 'COMPLETED'] }
+    });
+
+    for (const booking of deliveredBookings) {
+      const reviews = await Review.find({ booking: booking._id });
+      const categories = reviews.map(r => r.category);
+      
+      const hasMerchantReview = categories.includes('Merchant');
+      const hasPlatformReview = categories.includes('Platform');
+
+      if (!hasMerchantReview || !hasPlatformReview) {
+        return res.status(400).json({ 
+          message: `Please provide feedback for your previous booking (#${booking.orderNumber || booking._id.toString().slice(-6).toUpperCase()}) before booking a new service.` 
+        });
+      }
+    }
+
     // Basic validation for pickup preference
     if (pickupRequired === true) {
       const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
@@ -87,18 +108,14 @@ export const createBooking = async (req, res) => {
       throw lastError || new Error('Failed to create booking with unique order number');
     }
     
-    // Send confirmation email
+    // Send confirmation email (asynchronously)
     if (req.user.email) {
       const serviceNames = services.map(s => s.name).join(', ');
-      try {
-        await sendEmail(
-          req.user.email,
-          'Booking Confirmation - DriveFlow',
-          `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing DriveFlow!`
-        );
-      } catch (emailError) {
-        console.error('Email sending failed:', emailError);
-      }
+      sendEmail(
+        req.user.email,
+        'Booking Confirmation - DriveFlow',
+        `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing DriveFlow!`
+      ).catch(emailError => console.error('Email sending failed:', emailError));
     }
 
     res.status(201).json(createdBooking);
@@ -434,7 +451,16 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       booking.status = canonTo;
-      const updatedBooking = await booking.save();
+      const savedBooking = await booking.save();
+
+      // Populate fields before returning to frontend
+      const updatedBooking = await Booking.findById(savedBooking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('merchant', 'name email phone location')
+        .populate('pickupDriver', 'name email phone')
+        .populate('technician', 'name email phone');
 
       // Emit socket event for real-time updates
       try {
@@ -451,14 +477,14 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       // Send status update email
-      if (booking.user && booking.user.email) {
+      if (updatedBooking.user && updatedBooking.user.email) {
         await sendEmail(
-          booking.user.email,
+          updatedBooking.user.email,
           'Booking Status Update - DriveFlow',
-          `Dear ${booking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
+          `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
         );
       }
-      await sendPushToUser(booking.user?._id, 'Booking Update', `Status updated to ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(booking._id) });
+      await sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Status updated to ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) });
 
       res.json(updatedBooking);
     } else {

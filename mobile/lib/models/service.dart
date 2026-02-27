@@ -4,6 +4,7 @@ class ServiceItem {
   final num price;
   final String? category;
   final String? description;
+  final String? image;
   final num? estimatedMinutes;
 
   ServiceItem({
@@ -12,6 +13,7 @@ class ServiceItem {
     required this.price,
     this.category,
     this.description,
+    this.image,
     this.estimatedMinutes,
   });
 
@@ -22,6 +24,7 @@ class ServiceItem {
       price: (json['price'] ?? 0) as num,
       category: json['category']?.toString(),
       description: json['description']?.toString(),
+      image: json['image']?.toString(),
       estimatedMinutes: json['estimatedMinutes'] is num
           ? (json['estimatedMinutes'] as num)
           : null,
@@ -35,6 +38,7 @@ class ServiceItem {
       'price': price,
       if (category != null) 'category': category,
       if (description != null) 'description': description,
+      if (image != null) 'image': image,
       if (estimatedMinutes != null) 'estimatedMinutes': estimatedMinutes,
     };
   }

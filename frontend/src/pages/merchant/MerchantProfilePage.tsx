@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { User as UserIcon, Mail, Phone, MapPin, Save, Store, Crosshair } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
+import api from '@/services/api';
 import { toast } from 'sonner';
 
 const MerchantProfilePage: React.FC = () => {
@@ -39,27 +40,76 @@ const MerchantProfilePage: React.FC = () => {
   };
 
   const handleGetLocation = () => {
-    if ('geolocation' in navigator) {
-      toast.loading('Fetching your location...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          toast.dismiss();
+    if (!('geolocation' in navigator)) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    const loadingToast = toast.loading('Detecting your location...');
+
+    const onLocationSuccess = async (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      
+      setFormData(prev => ({
+        ...prev,
+        lat: latitude,
+        lng: longitude
+      }));
+
+      // Try to reverse geocode to get the address
+      try {
+        const response = await api.get('/tracking/reverse', { 
+          params: { lat: latitude, lng: longitude } 
+        });
+        if (response.data && response.data.display_name) {
           setFormData(prev => ({
             ...prev,
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
+            address: response.data.display_name
           }));
-          toast.success('Location fetched successfully!');
-        },
+        }
+      } catch (error) {
+        console.error('Reverse geocoding failed:', error);
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success('Location detected!');
+    };
+
+    const requestLocation = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        onLocationSuccess,
         (error) => {
-          toast.dismiss();
+          if (highAccuracy && (error.code === 2 || error.code === 3)) {
+            // Fallback to low accuracy if GPS is weak
+            requestLocation(false);
+            return;
+          }
+          toast.dismiss(loadingToast);
           console.error('Error getting location:', error);
-          toast.error('Failed to get location. Please enable location services.');
+          if (error.code === 3) {
+            toast.error('Location request timed out. Please enter manually.');
+          } else {
+            toast.error('Failed to get location. Please enable location services.');
+          }
+        },
+        {
+          enableHighAccuracy: highAccuracy,
+          timeout: highAccuracy ? 5000 : 10000,
+          maximumAge: highAccuracy ? 30000 : 60000
         }
       );
-    } else {
-      toast.error('Geolocation is not supported by your browser.');
-    }
+    };
+
+    // Fast-track: try cached location first
+    navigator.geolocation.getCurrentPosition(
+      onLocationSuccess,
+      () => requestLocation(true),
+      {
+        enableHighAccuracy: false,
+        timeout: 1000,
+        maximumAge: 300000
+      }
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

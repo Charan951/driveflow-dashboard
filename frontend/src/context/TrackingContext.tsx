@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { socketService } from '@/services/socket';
 import { updateMyLocation, updateOnlineStatus } from '@/services/trackingService';
 import { useAuthStore } from '@/store/authStore';
@@ -48,11 +48,11 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const activeBookingIdRef = useRef<string | null>(null);
 
-  const setActiveBookingId = (id: string | null) => {
+  const setActiveBookingId = useCallback((id: string | null) => {
     _setActiveBookingId(id);
-  };
+  }, []);
 
-  const handlePositionUpdate = async (position: GeolocationPosition) => {
+  const handlePositionUpdate = useCallback(async (position: GeolocationPosition) => {
     const { latitude, longitude } = position.coords;
     const now = Date.now();
     
@@ -89,12 +89,12 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('Failed to update server', err);
     }
-  };
+  }, [user?._id, user?.role, user?.subRole]);
 
   // Attempt native background tracking if available (Capacitor/Cordova)
   const bgRef = useRef<{ stop?: () => Promise<void> | void } | null>(null);
 
-  const tryStartNativeBackground = async () => {
+  const tryStartNativeBackground = useCallback(async () => {
     try {
       const capWindow = window as unknown as {
         Capacitor?: { Plugins?: Record<string, unknown> };
@@ -229,12 +229,12 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         };
       }
-    } catch {
-      // Ignore plugin errors on web
+    } catch (error) {
+      console.error('Native background tracking failed', error);
     }
-  };
+  }, [user?._id, user?.role, user?.subRole]);
 
-  const startTracking = () => {
+  const startTracking = useCallback(() => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
       return;
@@ -280,7 +280,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           // If high accuracy fails with timeout or unavailable, try low accuracy
           if (highAccuracy && (err.code === 2 || err.code === 3)) { // POSITION_UNAVAILABLE or TIMEOUT
              console.warn('High accuracy failed, switching to low accuracy...', err);
-             toast('Weak GPS signal', { description: 'Switching to network location...' });
+             // toast('Improving signal...', { description: 'Using network location for tracking' });
              startWatch(false);
           } else {
              console.error('Tracking error:', err);
@@ -291,14 +291,15 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 toast.error('Location permission denied. Please enable location services.');
              } else if (!highAccuracy) {
                 // Only show error toast if we are already in low accuracy mode or it's a different error
-                toast.error(`Location error: ${err.message || 'Unknown error'}`);
+                // toast.error(`Location error: ${err.message || 'Unknown error'}`);
+                console.error(`Location tracking error: ${err.message}`);
              }
           }
         },
         {
           enableHighAccuracy: highAccuracy,
-          timeout: 20000,
-          maximumAge: 5000
+          timeout: highAccuracy ? 8000 : 15000,
+          maximumAge: highAccuracy ? 5000 : 30000
         }
       );
     };
@@ -308,9 +309,9 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Start native background if available (no-op on web)
     tryStartNativeBackground();
-  };
+  }, [handlePositionUpdate, tryStartNativeBackground, user?._id]);
 
-  const stopTracking = () => {
+  const stopTracking = useCallback(() => {
     if (watchId.current !== null) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
@@ -328,7 +329,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Set status to offline
     updateOnlineStatus(false).catch(err => console.error('Failed to set offline status', err));
-  };
+  }, []);
 
   useEffect(() => {
     activeBookingIdRef.current = activeBookingId;
@@ -343,15 +344,12 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [activeBookingId, isTracking, startTracking]);
 
-  // Restore tracking on mount if persisted
   useEffect(() => {
     if (isTracking) {
       startTracking();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isTracking, startTracking]);
 
-  // Auto-clear activeBookingId when next milestone is reached
   useEffect(() => {
     if (!activeBookingId) return;
     socketService.connect();

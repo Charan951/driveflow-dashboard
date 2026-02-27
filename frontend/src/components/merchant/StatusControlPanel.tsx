@@ -33,16 +33,24 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   if (booking.pickupRequired) {
     if (booking.status === 'REACHED_MERCHANT') nextStatus = 'VEHICLE_AT_MERCHANT';
     else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
-    else if (booking.status === 'SERVICE_STARTED') nextStatus = 'SERVICE_COMPLETED';
+    else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
+    else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
+    else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
   } else {
     if (booking.status === 'ACCEPTED') nextStatus = 'VEHICLE_AT_MERCHANT';
     else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
-    else if (booking.status === 'SERVICE_STARTED') nextStatus = 'SERVICE_COMPLETED';
+    else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
+    else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'DELIVERED';
   }
 
   const handleStatusChange = async (status: BookingStatus | string) => {
     // Validation before completing
     if (status === 'SERVICE_COMPLETED') {
+        if (!booking.billing?.fileUrl) {
+            toast.error('Please upload and submit the bill in the "Billing" tab before completing the service.');
+            return;
+        }
+        
         if (!booking.qc?.completedAt) {
             // Optional: warn but allow, or block. User didn't specify QC check strictness.
             // Keeping it permissive for now or just warning.
@@ -170,14 +178,21 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {nextStatus && (
+        {nextStatus ? (
             <button
                 onClick={() => handleStatusChange(nextStatus)}
                 disabled={loading}
                 className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
             >
-                Move to {nextStatus}
+                Move to {STATUS_LABELS[nextStatus as keyof typeof STATUS_LABELS] || nextStatus}
             </button>
+        ) : (
+            booking.status === 'SERVICE_STARTED' && (
+                <div className="flex-1 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Go to <strong>Billing</strong> tab to upload bill and complete service.</span>
+                </div>
+            )
         )}
         
         {booking.status !== 'Completed' && booking.status !== 'Delivered' && booking.status !== 'On Hold' && (

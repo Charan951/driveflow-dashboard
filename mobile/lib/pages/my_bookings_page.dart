@@ -382,6 +382,8 @@ class _BookingCardState extends State<_BookingCard>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = widget.statusColor;
+    final isRateable = widget.statusLabel == 'Delivered';
+
     IconData iconForTitle(String title) {
       final v = title.toLowerCase();
       if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
@@ -645,6 +647,38 @@ class _BookingCardState extends State<_BookingCard>
                         ),
                       ),
                       const Spacer(),
+                      if (isRateable)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.star,
+                                  size: 14,
+                                  color: Colors.black87,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Rate Now',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       Icon(
                         Icons.chevron_right,
                         color: isDark ? Colors.white60 : Colors.black38,

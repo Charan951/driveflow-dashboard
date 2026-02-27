@@ -6,15 +6,26 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import '../core/env.dart';
 import '../state/navigation_provider.dart';
 import '../models/booking.dart';
 import '../services/catalog_service.dart';
 import '../services/booking_service.dart';
 import '../services/vehicle_service.dart';
+import '../services/review_service.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null) return null;
+  final s = raw.trim();
+  if (s.isEmpty) return null;
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (s.startsWith('/')) return '${Env.baseUrl}$s';
+  return '${Env.baseUrl}/$s';
+}
 
 class ServiceListPage extends StatefulWidget {
   const ServiceListPage({super.key});
@@ -106,6 +117,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
   }) async {
     final messenger = ScaffoldMessenger.of(context);
     final notesController = TextEditingController();
+    final reviewService = ReviewService();
 
     try {
       final auth = context.read<AuthProvider>();
@@ -120,6 +132,40 @@ class _ServiceListPageState extends State<ServiceListPage> {
         await Navigator.pushNamed(context, '/login');
         return;
       }
+
+      // Check for pending feedback
+      try {
+        final pending = await reviewService.checkPendingFeedback();
+        if (pending['hasPending'] == true) {
+          final bookingId = pending['bookingId']?.toString();
+          if (bookingId != null && mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Feedback Required'),
+                content: Text(
+                  'Please provide feedback for your previous booking (#${pending['orderNumber']}) before booking a new service.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(
+                        context,
+                        '/track-booking',
+                        arguments: bookingId,
+                      );
+                    },
+                    child: const Text('Go to Booking'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+        }
+      } catch (_) {}
 
       List<Vehicle> vehicles = const [];
       try {
@@ -436,6 +482,34 @@ class _ServiceListPageState extends State<ServiceListPage> {
                               '₹${s.price}',
                               style: TextStyle(color: subTextColor),
                             ),
+                            secondary: s.image != null
+                                ? Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.1,
+                                              )
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(7),
+                                      child: Image.network(
+                                        _resolveImageUrl(s.image)!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, _, __) =>
+                                            const Icon(
+                                              Icons.broken_image,
+                                              size: 20,
+                                            ),
+                                      ),
+                                    ),
+                                  )
+                                : null,
                             controlAffinity: ListTileControlAffinity.leading,
                           ),
                         );
@@ -1088,6 +1162,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
                   return _ServiceCard(
                     title: s.name,
                     price: s.price,
+                    image: s.image,
+                    duration: s.estimatedMinutes,
                     onTap: () => _openBookServiceFlow(
                       initialService: s,
                       services: items,
@@ -1156,11 +1232,15 @@ class _SummaryRow extends StatelessWidget {
 class _ServiceCard extends StatefulWidget {
   final String title;
   final num price;
+  final String? image;
+  final num? duration;
   final VoidCallback onTap;
 
   const _ServiceCard({
     required this.title,
     required this.price,
+    this.image,
+    this.duration,
     required this.onTap,
   });
 
@@ -1206,6 +1286,8 @@ class _ServiceCardState extends State<_ServiceCard>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final imageUrl = _resolveImageUrl(widget.image);
+
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
@@ -1239,7 +1321,7 @@ class _ServiceCardState extends State<_ServiceCard>
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: FractionallySizedBox(
-                    widthFactor: 0.18,
+                    widthFactor: 0.22,
                     child: ClipRRect(
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(18),
@@ -1263,41 +1345,73 @@ class _ServiceCardState extends State<_ServiceCard>
               ),
               Row(
                 children: [
-                  AnimatedBuilder(
-                    animation: _glowController,
-                    builder: (context, child) {
-                      final t = _glowController.value;
-                      final glow = 0.12 + 0.10 * t;
-                      return Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          gradient: RadialGradient(
-                            center: Alignment(0, -0.2 + 0.2 * t),
-                            colors: [
-                              const Color(0xFF22D3EE).withValues(alpha: 0.9),
-                              const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                  if (imageUrl != null)
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, __) {
+                            return Container(
+                              color: isDark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[200],
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                size: 20,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    )
+                  else
+                    AnimatedBuilder(
+                      animation: _glowController,
+                      builder: (context, child) {
+                        final t = _glowController.value;
+                        final glow = 0.12 + 0.10 * t;
+                        return Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: RadialGradient(
+                              center: Alignment(0, -0.2 + 0.2 * t),
+                              colors: [
+                                const Color(0xFF22D3EE).withValues(alpha: 0.9),
+                                const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF22D3EE,
+                                ).withValues(alpha: glow),
+                                blurRadius: 18,
+                                spreadRadius: 1.2,
+                              ),
                             ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF22D3EE,
-                              ).withValues(alpha: glow),
-                              blurRadius: 18,
-                              spreadRadius: 1.2,
-                            ),
-                          ],
-                        ),
-                        child: child,
-                      );
-                    },
-                    child: Icon(
-                      _iconForTitle(widget.title),
-                      color: Colors.white,
+                          child: child,
+                        );
+                      },
+                      child: Icon(
+                        _iconForTitle(widget.title),
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -1311,12 +1425,42 @@ class _ServiceCardState extends State<_ServiceCard>
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          '₹${widget.price}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: isDark ? Colors.white70 : Colors.black54,
+                        Row(
+                          children: [
+                            Text(
+                              '₹${widget.price}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            if (widget.duration != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white30
+                                      : Colors.black26,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${widget.duration} mins',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black54,
+                                    ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
