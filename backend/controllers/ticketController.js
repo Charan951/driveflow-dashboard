@@ -1,4 +1,5 @@
 import Ticket from '../models/Ticket.js';
+import { getIO } from '../socket.js';
 
 // @desc    Get all tickets (Admin/Support)
 // @route   GET /api/tickets/all
@@ -8,6 +9,7 @@ export const getAllTickets = async (req, res) => {
     const tickets = await Ticket.find({})
       .populate('user', 'name email phone')
       .populate('assignedTo', 'name')
+      .populate('messages.sender', 'name role')
       .sort({ createdAt: -1 });
     res.json(tickets);
   } catch (error) {
@@ -29,12 +31,23 @@ export const createTicket = async (req, res) => {
       priority,
       messages: [{
         sender: req.user._id,
+        role: req.user.role,
         message,
       }],
     });
 
     const createdTicket = await ticket.save();
-    res.status(201).json(createdTicket);
+    const populatedTicket = await Ticket.findById(createdTicket._id).populate('messages.sender', 'name role');
+    
+    // Emit socket event
+    try {
+      const io = getIO();
+      io.to('admin').emit('ticketCreated', populatedTicket);
+    } catch (error) {
+      console.error('Socket emit failed:', error.message);
+    }
+
+    res.status(201).json(populatedTicket);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -45,7 +58,9 @@ export const createTicket = async (req, res) => {
 // @access  Private
 export const getUserTickets = async (req, res) => {
   try {
-    const tickets = await Ticket.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const tickets = await Ticket.find({ user: req.user._id })
+      .populate('messages.sender', 'name role')
+      .sort({ createdAt: -1 });
     res.json(tickets);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -110,6 +125,7 @@ export const addMessage = async (req, res) => {
     if (ticket) {
       const newMessage = {
         sender: req.user._id,
+        role: req.user.role, // Redundant field for easier frontend detection
         message,
         createdAt: new Date(),
       };
@@ -122,7 +138,19 @@ export const addMessage = async (req, res) => {
       }
 
       await ticket.save();
-      res.json(ticket);
+      const populatedTicket = await Ticket.findById(ticket._id).populate('messages.sender', 'name role');
+
+      // Emit socket event
+      try {
+        const io = getIO();
+        io.to('admin').emit('ticketUpdated', populatedTicket);
+        io.to(`ticket_${ticket._id}`).emit('ticketUpdated', populatedTicket);
+        io.to(`user_${ticket.user}`).emit('ticketUpdated', populatedTicket);
+      } catch (error) {
+        console.error('Socket emit failed:', error.message);
+      }
+
+      res.json(populatedTicket);
     } else {
       res.status(404).json({ message: 'Ticket not found' });
     }

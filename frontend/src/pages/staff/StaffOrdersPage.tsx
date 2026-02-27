@@ -23,8 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useTracking } from '@/context/TrackingContext';
+import { useTracking } from '@/hooks/use-tracking';
 import { getETA, ETAResponse } from '@/services/trackingService';
+
+const ACTIVE_STATUSES = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'VEHICLE_AT_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING'];
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,8 +44,6 @@ const StaffOrdersPage: React.FC = () => {
   const [newStatus, setNewStatus] = useState<string>('');
   const [etaByBooking, setEtaByBooking] = useState<Record<string, ETAResponse>>({});
   const etaTimeoutRef = useRef<number | null>(null);
-
-  const activeStatuses = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'VEHICLE_AT_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING'];
 
   const fetchData = async () => {
     try {
@@ -65,11 +65,11 @@ const StaffOrdersPage: React.FC = () => {
   // Auto-bind an active booking to enable live sharing to customers/merchants
   useEffect(() => {
     if (activeBookingId) return;
-    const candidate = bookings.find(b => activeStatuses.includes(b.status));
+    const candidate = bookings.find(b => ACTIVE_STATUSES.includes(b.status));
     if (candidate) {
       setActiveBookingId(candidate._id);
     }
-  }, [bookings, activeBookingId]);
+  }, [bookings, activeBookingId, setActiveBookingId]);
 
   useEffect(() => {
     let result = bookings;
@@ -77,9 +77,9 @@ const StaffOrdersPage: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter((b) => {
-        const idMatch = b._id.toLowerCase().includes(query) || (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query));
+        const idMatch = (b._id?.toLowerCase() || '').includes(query) || (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query));
         const userName =
-          typeof b.user === 'object' && b.user !== null ? b.user.name.toLowerCase() : '';
+          typeof b.user === 'object' && b.user !== null ? (b.user.name?.toLowerCase() || '') : '';
         const userMatch = userName.includes(query);
         return idMatch || userMatch;
       });
@@ -87,7 +87,7 @@ const StaffOrdersPage: React.FC = () => {
 
     if (statusFilter !== 'all') {
       if (statusFilter === 'active') {
-        result = result.filter(b => activeStatuses.includes(b.status));
+        result = result.filter(b => ACTIVE_STATUSES.includes(b.status));
       } else if (statusFilter === 'completed') {
         result = result.filter(b => ['Ready', 'Delivered', 'Completed', 'DELIVERED', 'COMPLETED'].includes(b.status));
       } else {
@@ -137,7 +137,7 @@ const StaffOrdersPage: React.FC = () => {
         etaTimeoutRef.current = null;
       }
     };
-  }, [trackingLocation?.lat, trackingLocation?.lng, filteredBookings]);
+  }, [trackingLocation, filteredBookings]);
 
   const handleUploadClick = (orderId: string) => {
     setSelectedOrderForUpload(orderId);

@@ -59,6 +59,12 @@ export const initSocket = (server) => {
   io.on('connection', (socket) => {
     console.log(`New client connected: ${socket.id} (User: ${socket.user?.name || 'Guest'})`);
 
+    // Automatically join user room if authenticated
+    if (socket.user) {
+      socket.join(`user_${socket.user._id}`);
+      console.log(`User ${socket.user.name} joined room user_${socket.user._id}`);
+    }
+
     // Join a specific room
     socket.on('join', (room) => {
       // Security check for admin room

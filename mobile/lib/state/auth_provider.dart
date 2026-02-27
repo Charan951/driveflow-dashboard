@@ -205,11 +205,47 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _auth.logout();
-    SocketService().disconnect();
-    await AppStorage().clearDashboard();
-    user = null;
+    loading = true;
+    notifyListeners();
+    try {
+      await _auth.logout();
+      SocketService().disconnect();
+      await AppStorage().clearDashboard();
+      user = null;
+      lastError = null;
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateProfile({
+    String? name,
+    String? email,
+    String? phone,
+    List<SavedAddress>? addresses,
+    List<PaymentMethod>? paymentMethods,
+  }) async {
+    loading = true;
     lastError = null;
     notifyListeners();
+    try {
+      final updatedUser = await _auth.updateProfile(
+        name: name,
+        email: email,
+        phone: phone,
+        addresses: addresses,
+        paymentMethods: paymentMethods,
+      );
+      if (updatedUser != null) {
+        user = updatedUser;
+      }
+    } catch (e) {
+      lastError = _messageFromError(e);
+      rethrow;
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
   }
 }

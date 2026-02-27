@@ -16,6 +16,7 @@ import '../services/review_service.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../state/auth_provider.dart';
+import '../models/user.dart';
 import '../widgets/customer_drawer.dart';
 
 String? _resolveImageUrl(String? raw) {
@@ -195,9 +196,21 @@ class _ServiceListPageState extends State<ServiceListPage> {
               : null;
           var selectedDateTime = DateTime.now().add(const Duration(days: 1));
           var pickupRequired = false;
-          LatLng? selectedLatLng;
-          String? selectedAddress;
+          final user = context.read<AuthProvider>().user;
+          final addresses = user?.addresses ?? [];
+          final defaultAddress = addresses.isEmpty
+              ? null
+              : addresses.firstWhere(
+                  (a) => a.isDefault,
+                  orElse: () => addresses.first,
+                );
+
+          LatLng? selectedLatLng = defaultAddress != null
+              ? LatLng(defaultAddress.lat, defaultAddress.lng)
+              : null;
+          String? selectedAddress = defaultAddress?.address;
           var locating = false;
+          var showMap = addresses.isEmpty;
           var resolvingAddress = false;
           final mapController = MapController();
           final selectedServiceIds = <String>{initialService.id};
@@ -325,11 +338,13 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     return;
                   }
                   final pos = await Geolocator.getCurrentPosition(
-                    desiredAccuracy: LocationAccuracy.high,
+                    desiredAccuracy: LocationAccuracy.best,
+                    timeLimit: const Duration(seconds: 15),
                   );
                   await setSelectedLocation(
                     LatLng(pos.latitude, pos.longitude),
                   );
+                  mapController.move(LatLng(pos.latitude, pos.longitude), 18);
                 } catch (e) {
                   messenger.showSnackBar(SnackBar(content: Text(e.toString())));
                 } finally {
@@ -482,7 +497,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
                               '₹${s.price}',
                               style: TextStyle(color: subTextColor),
                             ),
-                            secondary: s.image != null
+                            secondary:
+                                (s.image != null &&
+                                    _resolveImageUrl(s.image) != null)
                                 ? Container(
                                     width: 48,
                                     height: 48,
@@ -595,107 +612,178 @@ class _ServiceListPageState extends State<ServiceListPage> {
                       ),
                       const SizedBox(height: 6),
                       if (pickupRequired) ...[
-                        Text(
-                          'Pickup location',
-                          style: Theme.of(sheetContext).textTheme.titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: textColor,
-                              ),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          height: 220,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.1)
-                                  : const Color(0xFFE5E7EB),
+                        if (user?.addresses.isNotEmpty ?? false) ...[
+                          Text(
+                            'Select from Saved Addresses',
+                            style: Theme.of(sheetContext).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: user!.addresses.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final addr = user.addresses[index];
+                                final isSelected =
+                                    selectedAddress == addr.address && !showMap;
+                                return FilterChip(
+                                  label: Text(addr.label),
+                                  selected: isSelected,
+                                  onSelected: (v) {
+                                    if (v) {
+                                      setSelectedLocation(
+                                        LatLng(addr.lat, addr.lng),
+                                      );
+                                      setModalState(() {
+                                        selectedAddress = addr.address;
+                                        showMap = false;
+                                      });
+                                    }
+                                  },
+                                );
+                              },
                             ),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: FlutterMap(
-                              mapController: mapController,
-                              options: MapOptions(
-                                initialCenter: current,
-                                initialZoom: 14,
-                                onTap: (_, latLng) =>
-                                    setSelectedLocation(latLng),
-                              ),
-                              children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName: 'com.carb.app',
+                          const SizedBox(height: 8),
+                          ActionChip(
+                            label: const Text('Other / Custom Location'),
+                            onPressed: () {
+                              setModalState(() {
+                                showMap = true;
+                                selectedAddress = null;
+                              });
+                            },
+                            avatar: const Icon(
+                              Icons.add_location_alt,
+                              size: 16,
+                            ),
+                            backgroundColor: showMap
+                                ? Theme.of(context).primaryColor
+                                : null,
+                            labelStyle: TextStyle(
+                              color: showMap ? Colors.white : null,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (showMap) ...[
+                          Text(
+                            'Pickup location',
+                            style: Theme.of(sheetContext).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
                                 ),
-                                MarkerLayer(
-                                  markers: [
-                                    if (selectedLatLng != null)
-                                      Marker(
-                                        point: selectedLatLng!,
-                                        width: 40,
-                                        height: 40,
-                                        child: const Icon(
-                                          Icons.location_on,
-                                          size: 40,
-                                          color: Color(0xFFEF4444),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            height: 220,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: FlutterMap(
+                                mapController: mapController,
+                                options: MapOptions(
+                                  initialCenter: current,
+                                  initialZoom: 14,
+                                  onTap: (_, latLng) =>
+                                      setSelectedLocation(latLng),
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName: 'com.carb.app',
+                                  ),
+                                  MarkerLayer(
+                                    markers: [
+                                      if (selectedLatLng != null)
+                                        Marker(
+                                          point: selectedLatLng!,
+                                          width: 40,
+                                          height: 40,
+                                          child: const Icon(
+                                            Icons.location_on,
+                                            size: 40,
+                                            color: Color(0xFFEF4444),
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: locating ? null : useCurrentLocation,
-                                icon: const Icon(Icons.my_location),
-                                label: Text(
-                                  locating ? 'Locating...' : 'Use my location',
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: isDark ? Colors.white : null,
-                                  side: isDark
-                                      ? BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.2,
-                                          ),
-                                        )
-                                      : null,
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: locating
+                                      ? null
+                                      : useCurrentLocation,
+                                  icon: const Icon(Icons.my_location),
+                                  label: Text(
+                                    locating
+                                        ? 'Locating...'
+                                        : 'Use my location',
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark
+                                        ? Colors.white
+                                        : null,
+                                    side: isDark
+                                        ? BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: selectedLatLng == null
-                                    ? null
-                                    : () => setModalState(() {
-                                        selectedLatLng = null;
-                                        selectedAddress = null;
-                                        resolvingAddress = false;
-                                      }),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: isDark ? Colors.white : null,
-                                  side: isDark
-                                      ? BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.2,
-                                          ),
-                                        )
-                                      : null,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: selectedLatLng == null
+                                      ? null
+                                      : () => setModalState(() {
+                                          selectedLatLng = null;
+                                          selectedAddress = null;
+                                          resolvingAddress = false;
+                                        }),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark
+                                        ? Colors.white
+                                        : null,
+                                    side: isDark
+                                        ? BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  child: const Text('Clear'),
                                 ),
-                                child: const Text('Clear'),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(12),

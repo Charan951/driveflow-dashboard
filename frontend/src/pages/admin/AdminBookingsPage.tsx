@@ -75,10 +75,10 @@ const AdminBookingsPage: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(b => 
-        b._id.toLowerCase().includes(query) ||
+        (b._id?.toLowerCase() || '').includes(query) ||
         (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
-        (typeof b.user === 'object' && b.user.name.toLowerCase().includes(query)) ||
-        (typeof b.vehicle === 'object' && b.vehicle.licensePlate.toLowerCase().includes(query))
+        (typeof b.user === 'object' && b.user?.name?.toLowerCase().includes(query)) ||
+        (typeof b.vehicle === 'object' && b.vehicle?.licensePlate?.toLowerCase().includes(query))
       );
     }
 

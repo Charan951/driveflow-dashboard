@@ -1,8 +1,13 @@
 import api from './api';
 
 export const ticketService = {
-  getAllTickets: async () => {
+  getMyTickets: async () => {
     const response = await api.get('/tickets');
+    return response.data;
+  },
+
+  getAllTickets: async () => {
+    const response = await api.get('/tickets/all');
     return response.data;
   },
 

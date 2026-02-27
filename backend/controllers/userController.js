@@ -69,6 +69,12 @@ export const updateUserProfile = async (req, res) => {
       if (req.body.phone) {
         user.phone = req.body.phone;
       }
+      if (req.body.addresses) {
+        user.addresses = req.body.addresses;
+      }
+      if (req.body.paymentMethods) {
+        user.paymentMethods = req.body.paymentMethods;
+      }
       if (typeof req.body.isShopOpen !== 'undefined') {
         user.isShopOpen = req.body.isShopOpen;
 
@@ -113,6 +119,8 @@ export const updateUserProfile = async (req, res) => {
         role: updatedUser.role,
         phone: updatedUser.phone,
         location: updatedUser.location,
+        addresses: updatedUser.addresses,
+        paymentMethods: updatedUser.paymentMethods,
         token: req.body.token, // Usually we don't return token on update, but preserving if needed
       });
     } else {

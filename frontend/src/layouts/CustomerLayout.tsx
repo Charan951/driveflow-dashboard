@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import BottomNav from '@/components/BottomNav';
 import PageTransition from '@/components/PageTransition';
-import { TrackingProvider } from '@/context/TrackingContext';
+import { TrackingProvider } from '@/context/TrackingProvider';
 
 interface CustomerLayoutProps {
   children?: React.ReactNode;

@@ -34,6 +34,7 @@ const ticketSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    role: String,
     message: {
       type: String,
       required: true,

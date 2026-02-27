@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
-import { TrackingProvider } from '@/context/TrackingContext';
-import { useTracking } from '@/context/TrackingContext';
+import { TrackingProvider } from '@/context/TrackingProvider';
+import { useTracking } from '@/hooks/use-tracking';
 
 const staffMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },

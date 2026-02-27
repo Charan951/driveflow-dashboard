@@ -44,7 +44,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
     try {
       final items = await _service.listMyBookings(forceRefresh: true);
-      items.sort((a, b) => b.date.compareTo(a.date));
+      items.sort((a, b) {
+        final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
+        final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
+        final cmp = cb.compareTo(ca);
+        if (cmp != 0) return cmp;
+        return b.date.compareTo(a.date);
+      });
       if (mounted) setState(() => _bookings = items);
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {

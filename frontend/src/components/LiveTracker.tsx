@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTracking } from '@/context/TrackingContext';
+import { useTracking } from '@/hooks/use-tracking';
 import { Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 

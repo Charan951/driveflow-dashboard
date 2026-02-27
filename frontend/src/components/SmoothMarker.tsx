@@ -8,6 +8,7 @@ interface SmoothMarkerProps extends Omit<MarkerProps, 'position'> {
 
 export const SmoothMarker: React.FC<SmoothMarkerProps> = ({ position, ...props }) => {
   const [currentPosition, setCurrentPosition] = useState(position);
+  const currentPosRef = useRef(position);
   const requestRef = useRef<number>();
   const startTimeRef = useRef<number | null>(null);
   const startPosRef = useRef(position);
@@ -15,13 +16,19 @@ export const SmoothMarker: React.FC<SmoothMarkerProps> = ({ position, ...props }
   const duration = 2000; // 2 seconds animation to match update interval mostly
 
   useEffect(() => {
+    currentPosRef.current = currentPosition;
+  }, [currentPosition]);
+
+  const [lat, lng] = position;
+
+  useEffect(() => {
     // If position hasn't changed effectively, do nothing
-    if (position[0] === targetPosRef.current[0] && position[1] === targetPosRef.current[1]) {
+    if (lat === targetPosRef.current[0] && lng === targetPosRef.current[1]) {
       return;
     }
 
-    startPosRef.current = currentPosition;
-    targetPosRef.current = position;
+    startPosRef.current = currentPosRef.current;
+    targetPosRef.current = [lat, lng];
     startTimeRef.current = null;
     
     const animate = (time: number) => {
@@ -29,9 +36,9 @@ export const SmoothMarker: React.FC<SmoothMarkerProps> = ({ position, ...props }
       const progress = (time - startTimeRef.current) / duration;
       
       if (progress < 1) {
-        const lat = startPosRef.current[0] + (targetPosRef.current[0] - startPosRef.current[0]) * progress;
-        const lng = startPosRef.current[1] + (targetPosRef.current[1] - startPosRef.current[1]) * progress;
-        setCurrentPosition([lat, lng]);
+        const currentLat = startPosRef.current[0] + (targetPosRef.current[0] - startPosRef.current[0]) * progress;
+        const currentLng = startPosRef.current[1] + (targetPosRef.current[1] - startPosRef.current[1]) * progress;
+        setCurrentPosition([currentLat, currentLng]);
         requestRef.current = requestAnimationFrame(animate);
       } else {
         setCurrentPosition(targetPosRef.current);
@@ -43,7 +50,7 @@ export const SmoothMarker: React.FC<SmoothMarkerProps> = ({ position, ...props }
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [position[0], position[1]]); // Trigger when target position changes
+  }, [lat, lng]); // Trigger when target position changes
 
   return <Marker position={currentPosition} {...props} />;
 };

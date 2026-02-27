@@ -360,6 +360,13 @@ class _SpeshwayVehicleCareDashboardState
     if (source.isEmpty) return const [];
     final sorted = [...source];
     sorted.sort((a, b) {
+      // Primary: Created At (descending) - Newest bookings first
+      final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
+      final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
+      final cmp = cb.compareTo(ca);
+      if (cmp != 0) return cmp;
+
+      // Secondary: Service Date (descending)
       final da = _parseDate(a.date) ?? DateTime(1900);
       final db = _parseDate(b.date) ?? DateTime(1900);
       return db.compareTo(da);

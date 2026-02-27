@@ -40,9 +40,10 @@ interface Suggestion {
   lon: string;
 }
 
-// Component to handle map clicks
-const MapClickHandler = ({ setPosition, fetchAddress }: { 
+// Component to handle map clicks and zoom
+const MapEventsHandler = ({ setPosition, setZoom, fetchAddress }: { 
   setPosition: (pos: [number, number]) => void,
+  setZoom: (z: number) => void,
   fetchAddress: (lat: number, lng: number) => void
 }) => {
   const map = useMapEvents({
@@ -51,16 +52,19 @@ const MapClickHandler = ({ setPosition, fetchAddress }: {
       setPosition([lat, lng]);
       await fetchAddress(lat, lng);
     },
+    zoomend: () => {
+      setZoom(map.getZoom());
+    }
   });
   return null;
 };
 
 // Component to update map center
-const MapUpdater = ({ center }: { center: [number, number] }) => {
+const MapUpdater = ({ center, zoom }: { center: [number, number], zoom?: number }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, map.getZoom());
-  }, [center, map]);
+    map.flyTo(center, zoom || map.getZoom());
+  }, [center, map, zoom]);
   return null;
 };
 
@@ -69,6 +73,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [position, setPosition] = useState<[number, number]>([20.5937, 78.9629]); // Default to India center
+  const [zoom, setZoom] = useState(13);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -106,6 +111,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
       const { latitude, longitude } = position.coords;
       const newPos: [number, number] = [latitude, longitude];
       setPosition(newPos);
+      setZoom(18); // Zoom in on detection
       await fetchAddress(latitude, longitude);
       setIsLocating(false);
     };
@@ -253,6 +259,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     const lon = parseFloat(suggestion.lon);
     setIsTyping(false);
     setPosition([lat, lon]);
+    setZoom(16); // Zoom in on suggestion
     setQuery(suggestion.display_name);
     onChange({ address: suggestion.display_name, lat, lng: lon });
     setShowSuggestions(false);
@@ -335,11 +342,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
               dragend: handleDragEnd
             }}
           />
-          <MapClickHandler 
+          <MapEventsHandler 
             setPosition={setPosition} 
+            setZoom={setZoom}
             fetchAddress={fetchAddress}
           />
-          <MapUpdater center={position} />
+          <MapUpdater center={position} zoom={zoom} />
         </MapContainer>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400">

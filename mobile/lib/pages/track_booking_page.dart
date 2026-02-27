@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 import '../core/env.dart';
 import '../core/storage.dart';
@@ -53,6 +55,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   String? _etaTextDistance;
   List<Map<String, dynamic>> _pendingApprovals = [];
   Timer? _approvalsTimer;
+  List<LatLng> _routePoints = [];
 
   @override
   void didChangeDependencies() {
@@ -86,6 +89,30 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   static const _adminUpiId = '6301028401@axl';
   static const _adminName = 'DriveFlow Admin';
+
+  Future<void> _fetchRoute(LatLng start, LatLng end) async {
+    try {
+      final url = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson',
+      );
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final routes = data['routes'] as List;
+        if (routes.isNotEmpty) {
+          final geometry = routes[0]['geometry'];
+          final coordinates = geometry['coordinates'] as List;
+          setState(() {
+            _routePoints = coordinates
+                .map((c) => LatLng(c[1].toDouble(), c[0].toDouble()))
+                .toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching route: $e');
+    }
+  }
 
   Future<void> _handlePayment() async {
     final booking = _booking;
@@ -350,6 +377,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               }
             });
             _updateEtaIfNeeded(nextPos);
+
+            // Fetch route if not yet fetched or periodically
+            if (_routePoints.isEmpty) {
+              final destLat = booking?.location?.lat;
+              final destLng = booking?.location?.lng;
+              if (destLat != null && destLng != null) {
+                _fetchRoute(nextPos, LatLng(destLat, destLng));
+              }
+            }
           }
         }
       });
@@ -1292,8 +1328,29 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.carb.app',
                         ),
+                        PolylineLayer(
+                          polylines: [
+                            if (_routePoints.isNotEmpty)
+                              Polyline(
+                                points: _routePoints,
+                                color: const Color(0xFF4F46E5),
+                                strokeWidth: 4,
+                              ),
+                          ],
+                        ),
                         MarkerLayer(
                           markers: [
+                            if (mapLatLng != null)
+                              Marker(
+                                point: mapLatLng,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(
+                                  Icons.person_pin_circle,
+                                  size: 40,
+                                  color: Color(0xFF22C55E),
+                                ),
+                              ),
                             if (booking.pickupRequired && _liveLatLng != null)
                               Marker(
                                 point: _liveLatLng!,
@@ -1302,7 +1359,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 child: Transform.rotate(
                                   angle: _bearingRad,
                                   child: const Icon(
-                                    Icons.navigation,
+                                    Icons.two_wheeler,
                                     size: 34,
                                     color: Color(0xFFEF4444),
                                   ),

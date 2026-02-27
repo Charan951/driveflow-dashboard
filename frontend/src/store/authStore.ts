@@ -13,6 +13,19 @@ interface User {
   role: UserRole;
   subRole?: UserSubRole;
   isShopOpen?: boolean;
+  addresses?: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isDefault: boolean;
+  }[];
+  paymentMethods?: {
+    type: string;
+    label: string;
+    details?: string;
+    isDefault: boolean;
+  }[];
 }
 
 interface AuthState {

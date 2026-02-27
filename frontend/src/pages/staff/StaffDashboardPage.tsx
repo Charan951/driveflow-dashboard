@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
 import { uploadService } from '@/services/uploadService';
 import CounterCard from '@/components/CounterCard';
-import { useTracking } from '@/context/TrackingContext';
+import { useTracking } from '@/hooks/use-tracking';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import {

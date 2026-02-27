@@ -124,8 +124,8 @@ const AdminMerchantsPage: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(u => 
-        u.name.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
+        (u.name?.toLowerCase() || '').includes(query) ||
+        (u.email?.toLowerCase() || '').includes(query) ||
         (u.phone && u.phone.includes(query))
       );
     }

@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, MessageSquare, AlertCircle, CheckCircle, Clock, User } from 'lucide-react';
 import { ticketService } from '../../services/ticketService';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
+import { useAuthStore } from '../../store/authStore';
+import { socketService } from '../../services/socket';
 
 interface TicketMessage {
   sender: {
     _id: string;
     name?: string;
+    role?: string;
   };
+  role?: string; // Fallback role field on message
   message: string;
   createdAt: string;
 }
@@ -17,6 +21,8 @@ interface Ticket {
   _id: string;
   subject: string;
   status: string;
+  category: string;
+  priority: string;
   user: {
     _id: string;
     name: string;
@@ -26,6 +32,7 @@ interface Ticket {
 }
 
 const AdminSupportPage = () => {
+  const { user: currentUser } = useAuthStore();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
@@ -35,7 +42,29 @@ const AdminSupportPage = () => {
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+
+    // Connect socket and listen for updates
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const handleUpdate = (data: Ticket) => {
+      setTickets(prev => prev.map(t => t._id === data._id ? data : t));
+      setSelectedTicket(prev => prev && prev._id === data._id ? data : prev);
+    };
+
+    const handleCreate = (data: Ticket) => {
+      setTickets(prev => [data, ...prev]);
+    };
+
+    socketService.on('ticketUpdated', handleUpdate);
+    socketService.on('ticketCreated', handleCreate);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('ticketUpdated', handleUpdate);
+      socketService.off('ticketCreated', handleCreate);
+    };
+  }, []); // Back to empty array, using functional updates to state
 
   const fetchTickets = async () => {
     try {
@@ -77,12 +106,22 @@ const AdminSupportPage = () => {
     }
   };
 
+  const handleTicketSelect = async (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    try {
+      const fullTicket = await ticketService.getTicketById(ticket._id);
+      setSelectedTicket(fullTicket);
+    } catch (error) {
+      console.error('Failed to fetch ticket details:', error);
+    }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
     const matchesSearch = 
-      ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket._id.toLowerCase().includes(searchTerm.toLowerCase());
+      (ticket.subject?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (ticket.user?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (ticket._id?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -154,7 +193,7 @@ const AdminSupportPage = () => {
             {filteredTickets.map(ticket => (
                 <div 
                     key={ticket._id}
-                    onClick={() => setSelectedTicket(ticket)}
+                    onClick={() => handleTicketSelect(ticket)}
                     className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedTicket?._id === ticket._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
                 >
                     <div className="flex justify-between items-start mb-1">
@@ -163,7 +202,7 @@ const AdminSupportPage = () => {
                         }`}>
                             {ticket.priority}
                         </span>
-                        <span className="text-xs text-gray-400">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                        <span className="text-xs text-gray-400">{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'N/A'}</span>
                     </div>
                     <h4 className="font-medium text-gray-800 truncate">{ticket.subject}</h4>
                     <p className="text-sm text-gray-500 truncate">{ticket.messages[0]?.message}</p>
@@ -206,7 +245,7 @@ const AdminSupportPage = () => {
                         </div>
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                             <span className="flex items-center"><User size={16} className="mr-1"/> {selectedTicket.user?.name}</span>
-                            <span className="flex items-center"><Clock size={16} className="mr-1"/> {new Date(selectedTicket.createdAt).toLocaleString()}</span>
+                            <span className="flex items-center"><Clock size={16} className="mr-1"/> {selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : 'N/A'}</span>
                             <span>Category: {selectedTicket.category}</span>
                         </div>
                     </div>
@@ -226,22 +265,44 @@ const AdminSupportPage = () => {
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {selectedTicket.messages.map((msg, index) => (
-                        <div key={index} className={`flex ${msg.sender._id === selectedTicket.user._id ? 'justify-start' : 'justify-end'}`}>
-                            <div className={`max-w-[80%] rounded-xl p-4 ${
-                                msg.sender._id === selectedTicket.user._id 
-                                    ? 'bg-gray-100 text-gray-800 rounded-tl-none' 
-                                    : 'bg-blue-600 text-white rounded-tr-none'
-                            }`}>
-                                <p className="text-sm">{msg.message}</p>
-                                <div className={`text-xs mt-2 ${
-                                    msg.sender._id === selectedTicket.user._id ? 'text-gray-400' : 'text-blue-100'
+                    {selectedTicket.messages.map((msg, index) => {
+                        const messageRole = msg.role || msg.sender?.role;
+                        const isAdmin = messageRole === 'admin';
+                        const isStaff = messageRole === 'staff';
+                        const isSelf = msg.sender?._id === currentUser?._id;
+                        
+                        return (
+                            <div key={index} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] rounded-xl p-4 shadow-sm border ${
+                                    isSelf 
+                                        ? 'bg-blue-600 text-white rounded-tr-none border-blue-500' 
+                                        : isAdmin
+                                            ? 'bg-blue-50 text-blue-900 rounded-tl-none border-blue-200'
+                                            : isStaff
+                                                ? 'bg-orange-100 text-orange-900 rounded-tl-none border-orange-200'
+                                                : 'bg-gray-100 text-gray-800 rounded-tl-none border-gray-200'
                                 }`}>
-                                    {new Date(msg.createdAt).toLocaleString()}
+                                    <p className="text-sm font-medium">{msg.message}</p>
+                                    <div className={`text-[10px] mt-2 flex items-center gap-2 ${
+                                        isSelf ? 'text-blue-100' : 'text-gray-500'
+                                    }`}>
+                                        <Clock size={10} />
+                                        {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : 'N/A'}
+                                        {isAdmin && (
+                                            <span className={`${isSelf ? 'bg-white/20' : 'bg-blue-500/10'} px-1.5 py-0.5 rounded font-bold uppercase tracking-wider flex items-center gap-1`}>
+                                                <CheckCircle size={8} /> Support Team
+                                            </span>
+                                        )}
+                                        {isStaff && (
+                                            <span className="bg-orange-500/10 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1">
+                                                <User size={8} /> Staff
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Reply Box */}

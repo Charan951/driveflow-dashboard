@@ -52,6 +52,23 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  addresses: [
+    {
+      label: { type: String, default: 'Home' },
+      address: { type: String, required: true },
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true },
+      isDefault: { type: Boolean, default: false }
+    }
+  ],
+  paymentMethods: [
+    {
+      type: { type: String, enum: ['card', 'upi', 'wallet'], required: true },
+      label: { type: String, required: true }, // e.g., "HDFC Card", "GPay UPI"
+      details: { type: String }, // e.g., "**** 1234"
+      isDefault: { type: Boolean, default: false }
+    }
+  ],
   passwordResetToken: {
     type: String,
   },

@@ -186,7 +186,7 @@ const TrackServicePage: React.FC = () => {
         // For now, let's just leave room.
       };
     }
-  }, [id]);
+  }, [id, hasSubmittedFeedback]);
 
   const fetchPendingApprovals = useCallback(async () => {
     if (!order?._id) return;

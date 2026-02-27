@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { bookingService, Booking } from '@/services/bookingService';
 import { useAuthStore } from '@/store/authStore';
-import { useTracking } from '@/context/TrackingContext';
+import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
 import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle } from 'lucide-react';
@@ -103,7 +103,7 @@ const StaffOrderPage: React.FC = () => {
              }
         }
     }
-  }, [order, staffLocation, isUpdating]);
+  }, [order, staffLocation, isUpdating, handleStatusUpdate]);
 
   // Compute ETA for current leg (to customer during pickup; to merchant after pick; to customer during delivery)
   useEffect(() => {
@@ -147,18 +147,9 @@ const StaffOrderPage: React.FC = () => {
         etaTimerRef.current = null;
       }
     };
-  }, [
-    order?._id,
-    order?.status,
-    order?.location?.lat,
-    order?.location?.lng,
-    order?.merchant?.location?.lat,
-    order?.merchant?.location?.lng,
-    staffLocation?.lat,
-    staffLocation?.lng,
-  ]);
+  }, [order, staffLocation]);
 
-  const handleStatusUpdate = async (newStatus: string) => {
+  const handleStatusUpdate = React.useCallback(async (newStatus: string) => {
     if (!order) return;
 
     if (newStatus === 'REACHED_CUSTOMER') {
@@ -322,7 +313,7 @@ const StaffOrderPage: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
-  };
+  }, [order, staffLocation]);
 
   const handleNavigate = () => {
     const isHeadingToMerchant =

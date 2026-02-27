@@ -11,6 +11,19 @@ export interface User {
   isShopOpen?: boolean;
   lastSeen?: string;
   phone?: string;
+  addresses?: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isDefault: boolean;
+  }[];
+  paymentMethods?: {
+    type: string;
+    label: string;
+    details?: string;
+    isDefault: boolean;
+  }[];
   location?: {
     lat?: number;
     lng?: number;

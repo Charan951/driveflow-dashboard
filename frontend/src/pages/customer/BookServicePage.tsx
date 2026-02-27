@@ -21,6 +21,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
 import { reviewService } from '@/services/reviewService';
+import { useAuthStore } from '@/store/authStore';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
@@ -30,8 +31,10 @@ const steps = ['Vehicle', 'Category', 'Service', 'Schedule', 'Confirm'];
 const BookServicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [showCustomLocation, setShowCustomLocation] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -109,7 +112,13 @@ const BookServicePage: React.FC = () => {
     );
   };
 
-  const handleNext = () => {
+  useEffect(() => {
+    if (user && (!user.addresses || user.addresses.length === 0)) {
+      setShowCustomLocation(true);
+    }
+  }, [user]);
+
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -502,13 +511,53 @@ const BookServicePage: React.FC = () => {
                       <label className="block text-sm font-medium text-foreground mb-2">
                         Pickup Address
                       </label>
-                      <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                        <LocationPicker 
-                          value={pickupLocation} 
-                          onChange={setPickupLocation}
-                          mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
-                        />
-                      </div>
+                      
+                      {user?.addresses && user.addresses.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs text-muted-foreground mb-2">Select from saved addresses:</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                            {user.addresses.map((addr, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => {
+                                  setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
+                                  setShowCustomLocation(false);
+                                  toast.success(`Selected ${addr.label}`);
+                                }}
+                                className={`px-3 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap ${
+                                  pickupLocation.address === addr.address && !showCustomLocation
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-muted/50 text-foreground border-border hover:border-primary hover:bg-muted'
+                                }`}
+                              >
+                                {addr.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => setShowCustomLocation(true)}
+                              className={`px-3 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap ${
+                                showCustomLocation
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-muted/50 text-foreground border-border hover:border-primary hover:bg-muted'
+                              }`}
+                            >
+                              Other / Custom Location
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {showCustomLocation && (
+                        <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                          <LocationPicker 
+                            value={pickupLocation} 
+                            onChange={setPickupLocation}
+                            mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
