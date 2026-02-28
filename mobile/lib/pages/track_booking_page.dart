@@ -114,23 +114,22 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final booking = _booking;
     if (booking == null) return;
 
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('UPI payment is available only in the mobile app'),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isPaymentLoading = true);
     try {
-      await _showUpiOptions(booking);
+      await _service.processDummyPayment(booking.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment Successful!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _load(booking.id); // Reload to update status
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Payment action failed: $e'),
+          content: Text('Payment failed: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -140,6 +139,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       }
     }
   }
+
+  // Removed Razorpay specific logic
+  /*
+  Future<void> _showUpiOptions(Booking booking) async {
+    // ...
+  }
+  */
 
   Future<void> _showUpiOptions(Booking booking) async {
     await showModalBottomSheet<void>(
@@ -305,9 +311,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       next.on('liveLocation', (data) {
         if (!mounted) return;
         final booking = _booking;
-        if (booking != null && booking.pickupRequired == false) {
-          return;
-        }
         if (booking != null &&
             (booking.status == 'VEHICLE_AT_MERCHANT' ||
                 booking.status == 'SERVICE_STARTED' ||
@@ -375,8 +378,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         if (!mounted) return;
         final id = _bookingId;
         if (id == null || id.isEmpty) return;
-        final booking = _booking;
-        if (booking != null && booking.pickupRequired == false) return;
         if (data is Map) {
           final bookingId = data['bookingId']?.toString();
           if (bookingId != id) return;
@@ -760,7 +761,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
   }
 
-  String _formatDateTime(BuildContext context, String value) {
+  String _formatDateTime(BuildContext context, String? value) {
+    if (value == null || value.isEmpty) return '';
     final dt = _parseDate(value);
     if (dt == null) return value;
     final date =
@@ -1028,8 +1030,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
     if (booking != null &&
         booking.pickupRequired &&
-        status == 'OUT_FOR_DELIVERY') {
-      return 'Waiting for staff pickup vehicle';
+        status == 'OUT_FOR_DELIVERY' &&
+        booking.paymentStatus != 'paid') {
+      return 'Waiting for payment';
     }
 
     switch (status) {
@@ -1520,10 +1523,171 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-              ] else
-                const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.two_wheeler, size: 20, color: Color(0xFF4F46E5)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Driver Details',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (booking.driverName != null) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                booking.driverName!,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (booking.driverPhone != null)
+                                Text(
+                                  booking.driverPhone!,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
+                                ),
+                            ],
+                          ),
+                          if (booking.driverPhone != null)
+                            IconButton(
+                              onPressed: () => launchUrl(Uri.parse('tel:${booking.driverPhone}')),
+                              icon: const Icon(Icons.phone, color: Color(0xFF22C55E)),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFDCFCE7),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ] else
+                      Text(
+                        'your driver details provided shortly',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.storefront, size: 20, color: Color(0xFF4F46E5)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Service Center',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (booking.merchantName != null) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                booking.merchantName!,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (booking.merchantPhone != null)
+                                Text(
+                                  booking.merchantPhone!,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
+                                ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              if (booking.merchantPhone != null)
+                                IconButton(
+                                  onPressed: () => launchUrl(Uri.parse('tel:${booking.merchantPhone}')),
+                                  icon: const Icon(Icons.phone, color: Color(0xFF22C55E)),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: const Color(0xFFDCFCE7),
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () {
+                                  final phone = booking.merchantPhone?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                  if (phone.isNotEmpty) {
+                                    launchUrl(
+                                      Uri.parse('https://wa.me/$phone?text=Hi, I have a query about order #${booking.orderNumber ?? booking.id}'),
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.message, color: Color(0xFF4F46E5)),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEEF2FF),
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ] else
+                      Text(
+                        'your authorised service center details provide shortly',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+               Container(
+                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.06)
@@ -2097,6 +2261,58 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               ],
               const SizedBox(height: 24),
               Text(
+                'Detailed Status',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _StatusRow(
+                      label: 'Inspection',
+                      isCompleted: booking.inspectionCompletedAt != null,
+                      time: _formatDateTime(context, booking.inspectionCompletedAt),
+                      isDark: isDark,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1),
+                    ),
+                    _StatusRow(
+                      label: 'Service & QC',
+                      isCompleted: booking.qcCompletedAt != null,
+                      time: _formatDateTime(context, booking.qcCompletedAt),
+                      isDark: isDark,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1),
+                    ),
+                    _StatusRow(
+                      label: 'Payment',
+                      isCompleted: booking.paymentStatus == 'paid',
+                      time: booking.paymentStatus == 'paid' ? 'Completed' : 'Pending',
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
                 'Service Progress',
                 style: Theme.of(
                   context,
@@ -2156,9 +2372,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     : 'Pickup Scheduled',
                                 'At Service Center',
                                 'Service In Progress',
-                                booking.status == 'OUT_FOR_DELIVERY'
-                                    ? 'Out for Delivery'
-                                    : 'Service Completed',
+                                booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid'
+                                    ? 'Waiting for Payment'
+                                    : (booking.status == 'OUT_FOR_DELIVERY'
+                                        ? 'Out for Delivery'
+                                        : 'Service Completed'),
                                 'Delivered',
                               ]
                             : [
@@ -2166,7 +2384,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 'Merchant Assigned',
                                 'At Service Center',
                                 'Service In Progress',
-                                'Service Completed',
+                                booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid'
+                                    ? 'Waiting for Payment'
+                                    : 'Service Completed',
                                 'Delivered',
                               ];
                         final firstTime = _formatDateTime(
@@ -2243,36 +2463,71 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 ),
               ],
               const SizedBox(height: 24),
-              if (booking.paymentStatus != 'paid') ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isPaymentLoading ? null : _handlePayment,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isPaymentLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Pay Now',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+              if (booking.status == 'SERVICE_COMPLETED' &&
+                  booking.paymentStatus != 'paid') ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF6366F1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.payment, color: Color(0xFF4F46E5)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Payment Required',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF4F46E5),
+                                ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Service is completed. Please pay ₹${booking.totalAmount} to proceed with vehicle delivery.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF4B5563),
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isPaymentLoading ? null : _handlePayment,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isPaymentLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Pay Now',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -2432,6 +2687,57 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StatusRow extends StatelessWidget {
+  final String label;
+  final bool isCompleted;
+  final String time;
+  final bool isDark;
+
+  const _StatusRow({
+    required this.label,
+    required this.isCompleted,
+    required this.time,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted ? const Color(0xFF22C55E) : const Color(0xFF94A3B8),
+          ),
+          child: Icon(
+            isCompleted ? Icons.check : Icons.access_time,
+            size: 12,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+          ),
+        ),
+        Text(
+          time,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+        ),
+      ],
     );
   }
 }

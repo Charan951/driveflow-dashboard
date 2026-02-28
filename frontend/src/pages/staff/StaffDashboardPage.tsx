@@ -89,7 +89,7 @@ const StaffDashboardPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
-      if (newStatus === 'VEHICLE_PICKED' && selectedOrderForStatus.pickupRequired) {
+      if (newStatus === 'VEHICLE_PICKED') {
         const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
         if (photos.length < 4) {
           toast.dismiss(loadingToast);

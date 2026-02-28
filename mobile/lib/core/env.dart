@@ -39,6 +39,7 @@ class ApiEndpoints {
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
   static String bookingById(String id) => '/bookings/$id';
+  static const String paymentsDummyPay = '/payments/dummy-pay';
   static const String paymentsCreateOrder = '/payments/create-order';
   static const String paymentsVerifyPayment = '/payments/verify-payment';
   static const String approvalsMyApprovals = '/approvals/my-approvals';

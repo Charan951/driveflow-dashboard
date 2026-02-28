@@ -17,7 +17,6 @@ export interface Booking {
     lat?: number;
     lng?: number;
   };
-  pickupRequired: boolean;
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentId?: string;
   createdAt: string;
@@ -34,7 +33,6 @@ export interface Booking {
     };
   };
   pickupDriver?: { _id: string; name: string; email: string; phone?: string };
-  technician?: { _id: string; name: string; email: string; phone?: string };
   media?: string[];
   parts?: {
     product?: string | { _id: string; name: string; price: number };
@@ -46,6 +44,7 @@ export interface Booking {
     photos?: string[];
     damageReport?: string;
     additionalParts?: { name: string; price: number; quantity: number; approved: boolean; approvalStatus?: 'Pending' | 'Approved' | 'Rejected'; image?: string; oldImage?: string }[];
+    completedAt?: string;
   };
   delay?: {
     isDelayed: boolean;
@@ -116,7 +115,6 @@ export const bookingService = {
       lat?: number;
       lng?: number;
     };
-    pickupRequired: boolean;
   }) => {
     const response = await api.post('/bookings', data);
     return response.data;
@@ -168,7 +166,7 @@ export const bookingService = {
     return response.data;
   },
 
-  assignBooking: async (id: string, data: { merchantId?: string; driverId?: string; technicianId?: string; slot?: string }) => {
+  assignBooking: async (id: string, data: { merchantId?: string; driverId?: string; slot?: string }) => {
     const response = await api.put(`/bookings/${id}/assign`, data);
     return response.data;
   },

@@ -13,40 +13,9 @@ interface ServiceExecutionPanelProps {
 
 const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
-  const [technicianId, setTechnicianId] = useState(booking.technician?._id || '');
   const [notes, setNotes] = useState(booking.serviceExecution?.notes || '');
-  const [technicians, setTechnicians] = useState<User[]>([]);
   const [extraCostReason, setExtraCostReason] = useState('');
   const [extraCostAmount, setExtraCostAmount] = useState('');
-
-  useEffect(() => {
-    const fetchTechnicians = async () => {
-      try {
-        // Fetch staff with subRole 'Technician' or just role 'staff'
-        // Adjust filter based on your business logic
-        const staff = await userService.getAllUsers({ role: 'staff', subRole: 'Technician' });
-        setTechnicians(staff);
-      } catch (error) {
-        console.error('Failed to fetch technicians', error);
-        toast.error('Failed to load technicians');
-      }
-    };
-
-    fetchTechnicians();
-  }, []);
-
-  const handleAssignTechnician = async () => {
-    setLoading(true);
-    try {
-      await bookingService.assignBooking(booking._id, { technicianId });
-      toast.success('Technician assigned successfully');
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to assign technician');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUpdateExecution = async () => {
     setLoading(true);
@@ -128,34 +97,6 @@ const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
-            <div className="space-y-2">
-                <label className="text-sm font-medium">Assign Technician</label>
-                <div className="flex gap-2">
-                    <select
-                        value={technicianId}
-                        onChange={(e) => setTechnicianId(e.target.value)}
-                        className="flex-1 p-2 border border-input rounded-lg"
-                    >
-                        <option value="">Select Technician</option>
-                        {technicians.map(t => (
-                            <option key={t._id} value={t._id}>{t.name}</option>
-                        ))}
-                    </select>
-                    <button
-                        onClick={handleAssignTechnician}
-                        disabled={loading || !technicianId}
-                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/90"
-                    >
-                        Assign
-                    </button>
-                </div>
-                {booking.technician && (
-                    <p className="text-sm text-green-600">
-                        Currently assigned: <span className="font-medium">{booking.technician.name}</span>
-                    </p>
-                )}
-            </div>
-
             <div className="space-y-2">
                 <label className="text-sm font-medium">Job Timing</label>
                 <div className="grid grid-cols-2 gap-4">

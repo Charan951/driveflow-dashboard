@@ -177,12 +177,8 @@ const AdminTrackingPage: React.FC = () => {
                 const isDriver = typeof updatedBooking.pickupDriver === 'object' 
                     ? updatedBooking.pickupDriver?._id === s._id 
                     : updatedBooking.pickupDriver === s._id;
-                    
-                const isTechnician = typeof updatedBooking.technician === 'object'
-                    ? updatedBooking.technician?._id === s._id
-                    : updatedBooking.technician === s._id;
                 
-                if (isDriver || isTechnician) {
+                if (isDriver) {
                     // Update current job status
                     return {
                         ...s,
@@ -403,7 +399,7 @@ const AdminTrackingPage: React.FC = () => {
 
   const handleAssetClick = (item: TrackedStaff | TrackedVehicle) => {
     setSelectedItem(item);
-    if (mapInstance) {
+    if (mapInstance && item.location?.lat && item.location?.lng) {
       mapInstance.flyTo([item.location.lat, item.location.lng], 16, { duration: 1.5 });
     }
   };
@@ -577,13 +573,13 @@ const AdminTrackingPage: React.FC = () => {
                       </p>
                       <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
                         <MapPin className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate max-w-[120px]" title={item.location.address || `${item.location.lat}, ${item.location.lng}`}>
-                          {item.location.address || `${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}`}
+                        <span className="truncate max-w-[120px]" title={item.location?.address || (item.location?.lat ? `${item.location.lat}, ${item.location.lng}` : 'No location')}>
+                          {item.location?.address || (item.location?.lat ? `${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}` : 'No location')}
                         </span>
                         <span className="mx-1">•</span>
                         <Clock className="w-3 h-3 flex-shrink-0" />
                         <span className="whitespace-nowrap">
-                          {item.location.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
+                          {item.location?.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
                             ? formatDistanceToNow(new Date(item.location.updatedAt), { addSuffix: true })
                             : 'Unknown time'}
                         </span>
@@ -625,7 +621,7 @@ const AdminTrackingPage: React.FC = () => {
                </Marker>
              )}
              
-             {filteredItems().map((item) => (
+             {filteredItems().filter(item => item.location?.lat && item.location?.lng).map((item) => (
                <SmoothMarker 
                  key={item._id}
                  position={[item.location.lat, item.location.lng]}
@@ -653,7 +649,9 @@ const AdminTrackingPage: React.FC = () => {
                        </div>
                      )}
                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(item.location.updatedAt).toLocaleTimeString()}
+                        {item.location?.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
+                            ? new Date(item.location.updatedAt).toLocaleTimeString()
+                            : 'Unknown time'}
                      </p>
                    </div>
                  </Popup>

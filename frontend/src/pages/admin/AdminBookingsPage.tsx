@@ -204,11 +204,6 @@ const AdminBookingsPage: React.FC = () => {
                             ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
                             : 'Service'}
                       </div>
-                      {booking.pickupRequired && (
-                        <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
-                          <Truck className="w-3 h-3" /> Pickup Req.
-                        </div>
-                      )}
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col">
@@ -222,7 +217,7 @@ const AdminBookingsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4 text-sm">
-                      {booking.technician?.name || booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>}
+                      {booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>}
                     </td>
                     <td className="p-4">
                       {getStatusBadge(booking.status)}

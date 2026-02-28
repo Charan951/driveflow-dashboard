@@ -12,7 +12,8 @@ import {
   ThumbsUp,
   Navigation,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Truck
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -101,7 +102,6 @@ const TrackServicePage: React.FC = () => {
       socketService.on('liveLocation', (data: { lat?: number | string; lng?: number | string; role?: string; updatedAt?: string; timestamp?: string }) => {
         const currentOrder = orderRef.current;
         if (!currentOrder) return;
-        if (currentOrder.pickupRequired === false) return;
         if (data.role && data.role !== 'staff') return;
         if (
           currentOrder.status === 'VEHICLE_AT_MERCHANT' ||
@@ -147,8 +147,6 @@ const TrackServicePage: React.FC = () => {
       // Server-side proximity notification
       socketService.on('nearbyStaff', (payload: { bookingId: string; distanceMeters?: number }) => {
         if (!id || String(payload?.bookingId) !== String(id)) return;
-        const currentOrder = orderRef.current;
-        if (currentOrder && currentOrder.pickupRequired === false) return;
         if (!nearAlertedRef.current) {
           nearAlertedRef.current = true;
           sessionStorage.setItem(`nearAlert_${id}`, '1');
@@ -229,7 +227,7 @@ const TrackServicePage: React.FC = () => {
   }, [order?._id, fetchPendingApprovals]);
 
   useEffect(() => {
-    if (!order || !staffLocation || order.pickupRequired === false) {
+    if (!order || !staffLocation) {
       setEta(null);
       return;
     }
@@ -278,48 +276,6 @@ const TrackServicePage: React.FC = () => {
           console.error(`Failed to ${status.toLowerCase()} request`, error);
           toast.error(`Failed to ${status.toLowerCase()} request`);
       }
-  };
-
-  const handleMarkAtMerchant = async () => {
-    if (!order?._id) return;
-    const confirmed = window.confirm(
-      'This button will work only when you are near the workshop (within 200 meters). We will check your location now.'
-    );
-    if (!confirmed) return;
-
-    const merchantLat = order.merchant?.location?.lat;
-    const merchantLng = order.merchant?.location?.lng;
-    if (!merchantLat || !merchantLng) {
-      toast.error('Workshop location is not available');
-      return;
-    }
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return;
-    }
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 30000
-        });
-      });
-      const from = turf.point([position.coords.longitude, position.coords.latitude]);
-      const to = turf.point([merchantLng, merchantLat]);
-      const distance = turf.distance(from, to, { units: 'meters' });
-      if (distance > 200) {
-        toast.error('You are not close enough to the workshop (within 200 m)');
-        return;
-      }
-      await bookingService.updateBookingStatus(order._id, 'VEHICLE_AT_MERCHANT');
-      setOrder(prev => prev ? { ...prev, status: 'VEHICLE_AT_MERCHANT' } : null);
-      toast.success('Status updated to At Merchant');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      const message = err.response?.data?.message || 'Failed to update status';
-      toast.error(message);
-    }
   };
 
   const handleConfirmDelivery = async () => {
@@ -415,72 +371,16 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const loadRazorpay = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const handlePayment = async () => {
     if (!order) return;
     
     setIsPaymentLoading(true);
-    const res = await loadRazorpay();
-
-    if (!res) {
-      toast.error('Razorpay SDK failed to load. Are you online?');
-      setIsPaymentLoading(false);
-      return;
-    }
 
     try {
-      const orderData = await paymentService.createOrder(order._id);
-      
-      interface RazorpayHandlerResponse {
-        razorpay_order_id: string;
-        razorpay_payment_id: string;
-        razorpay_signature: string;
-      }
-
-      const options: RazorpayOptions = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || '', 
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'Vehicle Care',
-        description: 'Service Payment',
-        order_id: orderData.id,
-        handler: async function (response: RazorpayHandlerResponse) {
-          try {
-            await paymentService.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              bookingId: order._id
-            });
-            toast.success('Payment Successful!');
-            const updatedOrder = await bookingService.getBookingById(order._id);
-            setOrder(updatedOrder);
-          } catch (err) {
-            console.error('Payment Verification Error', err);
-            toast.error('Payment verification failed');
-          }
-        },
-        prefill: {
-            name: typeof order.user === 'object' ? order.user.name : '',
-            email: typeof order.user === 'object' ? order.user.email : '',
-            contact: typeof order.user === 'object' ? order.user.phone : ''
-        },
-        theme: {
-            color: '#3399cc'
-        }
-      };
-
-      const paymentObject = new window.Razorpay(options);
-      paymentObject.open();
+      await paymentService.processDummyPayment(order._id);
+      toast.success('Payment Successful!');
+      const updatedOrder = await bookingService.getBookingById(order._id);
+      setOrder(updatedOrder);
     } catch (error) {
         console.error("Payment Error", error);
         toast.error("Payment failed to initialize");
@@ -524,19 +424,16 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const pickupStatusFlow: readonly BookingStatus[] = PICKUP_FLOW_ORDER;
-  const noPickupStatusFlow: readonly BookingStatus[] = NO_PICKUP_FLOW_ORDER;
-
-  const activeStatusFlow: readonly BookingStatus[] = order.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
+  const activeStatusFlow: readonly BookingStatus[] = PICKUP_FLOW_ORDER;
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
 
   const timelineSteps = activeStatusFlow.map((s) => {
     const index = activeStatusFlow.indexOf(s);
     const isCompleted = index <= currentStatusIndex;
     const label =
-      order.pickupRequired && s === 'ACCEPTED' && order.status === 'REACHED_CUSTOMER'
+      s === 'ACCEPTED' && order.status === 'REACHED_CUSTOMER'
         ? 'Staff waiting at your location'
-        : (order.pickupRequired && s === 'OUT_FOR_DELIVERY'
+        : (s === 'OUT_FOR_DELIVERY'
             ? 'Waiting for staff pickup vehicle'
             : STATUS_LABELS[s]);
 
@@ -557,13 +454,8 @@ const TrackServicePage: React.FC = () => {
   const merchantPhone = order.merchant?.phone;
   const merchantLat = order.merchant?.location?.lat;
   const merchantLng = order.merchant?.location?.lng;
-  const hasDirectionsCard =
-    !order.pickupRequired &&
-    !!order.merchant &&
-    (merchantLat || order.merchant.location?.address) &&
-    ['ASSIGNED', 'ACCEPTED'].includes(order.status);
   const hasApprovalsChat = pendingApprovals.length > 0;
-  const hasRightColumnContent = hasDirectionsCard || hasApprovalsChat;
+  const hasRightColumnContent = hasApprovalsChat;
   const showTwoColumnPaymentRow = hasRightColumnContent;
 
   return (
@@ -615,31 +507,6 @@ const TrackServicePage: React.FC = () => {
         </div>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-card rounded-2xl border border-border overflow-hidden"
-      >
-        <div className="p-4 border-b border-border">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary" />
-            Service Location
-          </h2>
-        </div>
-        
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">Address</p>
-          <p className="mt-1 font-medium text-foreground">
-            {order.pickupRequired
-              ? (typeof order.location === 'string' 
-                  ? order.location 
-                  : (order.location?.address || 'Location not available'))
-              : (order.merchant?.location?.address || 'Service center address not available')}
-          </p>
-        </div>
-      </motion.div>
-
       {/* Progress Timeline */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -652,7 +519,7 @@ const TrackServicePage: React.FC = () => {
       </motion.div>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
-        {order.pickupRequired && ([
+        {([
           'ASSIGNED',
           'ACCEPTED',
           'REACHED_CUSTOMER',
@@ -817,80 +684,6 @@ const TrackServicePage: React.FC = () => {
 
             {hasRightColumnContent && (
               <div className="space-y-4">
-                {hasDirectionsCard && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-card rounded-2xl border border-border p-6 space-y-4"
-                  >
-                    <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-                      <Navigation className="w-5 h-5 text-primary" />
-                      Get Directions
-                    </h2>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Navigate from your current location to {order.merchant?.name}.
-                    </p>
-                    <button
-                      onClick={() => {
-                        const destUrlParam = merchantLat && merchantLng
-                          ? `${merchantLat},${merchantLng}`
-                          : encodeURIComponent(order.merchant?.location?.address || '');
-                        
-                        const openWith = (origin?: { lat: number; lng: number }) => {
-                          let url = `https://www.google.com/maps/dir/?api=1&destination=${destUrlParam}`;
-                          if (origin?.lat && origin?.lng) {
-                            url += `&origin=${origin.lat},${origin.lng}`;
-                          }
-                          window.open(url, '_blank');
-                        };
-                        
-                        try {
-                          let done = false;
-                          const timer = window.setTimeout(() => {
-                            if (!done) {
-                              done = true;
-                              openWith();
-                            }
-                          }, 5000);
-                          if (navigator.geolocation) {
-                            navigator.geolocation.getCurrentPosition(
-                              (pos) => {
-                                if (done) return;
-                                done = true;
-                                window.clearTimeout(timer);
-                                openWith({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                              },
-                              () => {
-                                if (done) return;
-                                done = true;
-                                window.clearTimeout(timer);
-                                openWith();
-                              },
-                              { enableHighAccuracy: true, timeout: 4500, maximumAge: 30000 }
-                            );
-                          } else {
-                            openWith();
-                          }
-                        } catch {
-                          openWith();
-                        }
-                      }}
-                      className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      Get Directions to Workshop
-                    </button>
-                    {['ASSIGNED', 'ACCEPTED'].includes(order.status) && (
-                      <button
-                        onClick={handleMarkAtMerchant}
-                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors"
-                      >
-                        I have reached the workshop
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-
                 {hasApprovalsChat && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -982,27 +775,67 @@ const TrackServicePage: React.FC = () => {
             transition={{ delay: 0.05 }}
             className="bg-card rounded-2xl border border-border p-4"
           >
+            <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-primary" />
+              Driver Details
+            </h2>
+            <div className="flex items-center justify-between">
+              {order.pickupDriver ? (
+                <>
+                  <div>
+                    <p className="font-medium text-foreground">{order.pickupDriver.name}</p>
+                    {order.pickupDriver.phone && <p className="text-sm text-muted-foreground">{order.pickupDriver.phone}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {order.pickupDriver.phone && (
+                      <a
+                        href={`tel:${order.pickupDriver.phone}`}
+                        className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                      >
+                        <Phone className="w-5 h-5 text-foreground" />
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Your driver details provided shortly</p>
+              )}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl border border-border p-4"
+          >
             <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">{merchantName}</p>
-                {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
-                {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCallMerchant}
-                  className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                >
-                  <Phone className="w-5 h-5 text-foreground" />
-                </button>
-                <button
-                  onClick={handleChatMerchant}
-                  className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-                >
-                  <MessageCircle className="w-5 h-5 text-primary-foreground" />
-                </button>
-              </div>
+              {order.merchant ? (
+                <>
+                  <div>
+                    <p className="font-medium text-foreground">{merchantName}</p>
+                    {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
+                    {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCallMerchant}
+                      className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                    >
+                      <Phone className="w-5 h-5 text-foreground" />
+                    </button>
+                    <button
+                      onClick={handleChatMerchant}
+                      className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+                    >
+                      <MessageCircle className="w-5 h-5 text-primary-foreground" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Your authorised service center details provide shortly</p>
+              )}
             </div>
           </motion.div>
         </div>

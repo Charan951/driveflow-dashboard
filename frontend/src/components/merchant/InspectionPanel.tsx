@@ -76,7 +76,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (isFinal: boolean = false) => {
     setLoading(true);
     try {
       // 0. Upload images first
@@ -135,10 +135,16 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
         return { ...rest, approvalStatus };
       });
 
+      const inspectionUpdate: BookingDetailsUpdate['inspection'] = {
+        additionalParts: partsToSave
+      };
+
+      if (isFinal && inspectionUpdate) {
+        inspectionUpdate.completedAt = new Date().toISOString();
+      }
+
       await bookingService.updateBookingDetails(booking._id, {
-        inspection: {
-          additionalParts: partsToSave
-        },
+        inspection: inspectionUpdate,
         parts: approvedParts
       });
 
@@ -173,7 +179,9 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
           requestCount++;
       }
 
-      if (requestCount > 0) {
+      if (isFinal) {
+        toast.success('Inspection completed successfully');
+      } else if (requestCount > 0) {
         toast.success(`Additional parts saved. ${requestCount} approval request(s) sent.`);
       } else {
         toast.success('Additional parts saved');
@@ -188,12 +196,22 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     }
   };
 
+  const isCompleted = !!booking.inspection?.completedAt;
+
   return (
     <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <AlertTriangle className="w-5 h-5 text-yellow-600" />
-        Additional Parts
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            Additional Parts
+        </h3>
+        {isCompleted && (
+            <div className="flex items-center gap-1 text-green-600 font-medium text-sm">
+                <CheckCircle className="w-4 h-4" />
+                Inspection Completed
+            </div>
+        )}
+      </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -214,7 +232,8 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
           </div>
           <button
             onClick={handleAddPart}
-            className="text-sm text-primary flex items-center gap-1 hover:underline"
+            disabled={isCompleted}
+            className={`text-sm flex items-center gap-1 hover:underline ${isCompleted ? 'text-gray-400 cursor-not-allowed' : 'text-primary'}`}
           >
             <Plus className="w-4 h-4" /> Add Part
           </button>
@@ -226,6 +245,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
 
         {additionalParts.map((part, index: number) => {
           const isApproved = part.approvalStatus === 'Approved' || part.approved;
+          const isDisabled = isApproved || isCompleted;
           return (
           <div key={index} className="flex flex-col gap-3 bg-muted/30 p-3 rounded-lg border border-border">
             <div className="flex items-center gap-3">
@@ -235,7 +255,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 value={part.name}
                 onChange={(e) => handlePartChange(index, 'name', e.target.value)}
                 className="flex-1 p-2 border border-input rounded-md text-sm"
-                disabled={isApproved}
+                disabled={isDisabled}
                 />
                 <input
                 type="number"
@@ -244,7 +264,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 onChange={(e) => handlePartChange(index, 'quantity', parseInt(e.target.value))}
                 className="w-16 p-2 border border-input rounded-md text-sm"
                 min="1"
-                disabled={isApproved}
+                disabled={isDisabled}
                 />
                 <input
                 type="number"
@@ -253,10 +273,10 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                 onChange={(e) => handlePartChange(index, 'price', parseFloat(e.target.value))}
                 className="w-24 p-2 border border-input rounded-md text-sm"
                 min="0"
-                disabled={isApproved}
+                disabled={isDisabled}
                 />
                 
-                {part.approvalStatus === 'Approved' || part.approved ? (
+                {isApproved ? (
                   <div title="Approved by customer" className="text-green-500">
                     <CheckCircle className="w-5 h-5" />
                   </div>
@@ -272,11 +292,11 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
 
                 <button
                 onClick={() => {
-                  if (isApproved) return;
+                  if (isDisabled) return;
                   handleRemovePart(index);
                 }}
-                disabled={isApproved}
-                className={`p-2 rounded-md ${isApproved ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
+                disabled={isDisabled}
+                className={`p-2 rounded-md ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
                 >
                 <Trash2 className="w-4 h-4" />
                 </button>
@@ -290,13 +310,13 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleImageChange(index, e, 'new')}
-                        disabled={isApproved}
+                        disabled={isDisabled}
                         className="hidden"
                         id={`part-image-${index}`}
                     />
                     <label 
                         htmlFor={`part-image-${index}`} 
-                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
+                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
                         title="Upload New Part Image"
                     >
                         {part.imageFile || part.image ? (
@@ -320,13 +340,13 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleImageChange(index, e, 'old')}
-                        disabled={isApproved}
+                        disabled={isDisabled}
                         className="hidden"
                         id={`part-old-image-${index}`}
                     />
                     <label 
                         htmlFor={`part-old-image-${index}`} 
-                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
+                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
                         title="Upload Old Part Image"
                     >
                         {part.oldImageFile || part.oldImage ? (
@@ -348,13 +368,20 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
         })}
       </div>
 
-      <div className="pt-4 border-t">
+      <div className="pt-4 border-t flex gap-4">
         <button
-          onClick={handleSave}
-          disabled={loading}
-          className="flex items-center justify-center gap-2 w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          onClick={() => handleSave(false)}
+          disabled={loading || isCompleted}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 border rounded-lg transition-colors font-medium ${isCompleted ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200' : 'bg-white text-gray-700 hover:bg-gray-50 border-input'}`}
         >
-          {loading ? 'Saving...' : 'Save Additional Parts'}
+          {loading ? 'Saving...' : 'Save Draft'}
+        </button>
+        <button
+          onClick={() => handleSave(true)}
+          disabled={loading || isCompleted}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 text-white rounded-lg transition-colors font-medium ${isCompleted ? 'bg-green-600/50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+        >
+          {loading ? 'Completing...' : 'Confirm Inspection'}
         </button>
       </div>
     </div>

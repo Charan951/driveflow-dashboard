@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplets, Check, Clock, X, Car } from 'lucide-react';
+import { Droplets, Check, Clock, X, Car, MapPin } from 'lucide-react';
 import SlotPicker from '@/components/SlotPicker';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { staggerContainer, staggerItem, overlayVariants, modalVariants } from '@/animations/variants';
 import { toast } from 'sonner';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/authStore';
 
 const CarWashPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
@@ -18,12 +21,20 @@ const CarWashPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
+  const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (user && (!user.addresses || user.addresses.length === 0)) {
+      setShowCustomLocation(true);
+    }
+  }, [user]);
 
   const fetchData = async () => {
     try {
@@ -57,6 +68,11 @@ const CarWashPage: React.FC = () => {
   const handleConfirmBooking = async () => {
     if (!selectedPackage || !selectedDate || !selectedTime || !selectedVehicle) return;
 
+    if (!pickupLocation.address.trim()) {
+      toast.error('Please select a pickup location');
+      return;
+    }
+
     setIsBooking(true);
     try {
       const [timePart, modifier] = selectedTime.split(' ');
@@ -74,7 +90,7 @@ const CarWashPage: React.FC = () => {
         vehicleId: selectedVehicle,
         serviceIds: [selectedPackage],
         date: bookingDate.toISOString(),
-        pickupRequired: false,
+        location: pickupLocation,
         notes: "Booked via Car Wash Page"
       };
 
@@ -250,13 +266,69 @@ const CarWashPage: React.FC = () => {
                   onDateChange={setSelectedDate}
                   onTimeChange={setSelectedTime}
                 />
+
+                {/* Pickup Location Selection */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Pickup Location</h3>
+                  
+                  {user?.addresses && user.addresses.length > 0 && (
+                    <div className="space-y-2">
+                      {user.addresses.map((addr, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
+                            setShowCustomLocation(false);
+                          }}
+                          className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-colors text-left ${
+                            pickupLocation.address === addr.address && !showCustomLocation
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            <MapPin className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{addr.label}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{addr.address}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {user?.addresses && user.addresses.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => {
+                          setShowCustomLocation(!showCustomLocation);
+                          if (!showCustomLocation) setPickupLocation({ address: '' });
+                        }}
+                        className="text-sm text-primary font-medium hover:underline flex items-center gap-1"
+                      >
+                        {showCustomLocation ? 'Cancel Custom Address' : '+ Use Custom Address'}
+                      </button>
+                    </div>
+                  )}
+
+                  {(showCustomLocation || !user?.addresses || user.addresses.length === 0) && (
+                    <div className="mt-3">
+                      <LocationPicker 
+                        value={pickupLocation} 
+                        onChange={setPickupLocation}
+                        mapClassName="h-[200px] w-full rounded-xl"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Footer */}
               <div className="sticky bottom-0 p-4 border-t border-border bg-card">
                 <button
                   onClick={handleConfirmBooking}
-                  disabled={!selectedDate || !selectedTime || !selectedVehicle || isBooking}
+                  disabled={!selectedDate || !selectedTime || !selectedVehicle || !pickupLocation.address || isBooking}
                   className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isBooking ? (

@@ -66,6 +66,8 @@ const PublicServices = () => {
       case 'Detailing': return 'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&q=80&w=800';
       case 'AC': return 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=800';
       case 'Accessories': return 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=800';
+      case 'Insurance': return 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&q=80&w=800';
+      case 'Battery': return 'https://images.unsplash.com/photo-1620939511593-29937a54457e?auto=format&fit=crop&q=80&w=800';
       default: return 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800';
     }
   };
@@ -75,37 +77,31 @@ const PublicServices = () => {
     if (s.vehicleType !== 'Car') return false;
 
     if (serviceParam) {
-      // Flexible matching: check if service name includes the param OR category matches
       const paramLower = serviceParam.toLowerCase();
       
-      // Direct category matches (e.g. "Accessories" -> "Accessories")
+      // 1. Exact match (case insensitive)
+      if (s.name.toLowerCase() === paramLower) return true;
+      
+      // 2. Category match
       if (s.category.toLowerCase() === paramLower) return true;
       
-      // Name matches (e.g. "Premium Car Wash" -> matches "Car Wash")
-      if (s.name.toLowerCase().includes(paramLower)) return true;
-
-      // Specific mappings based on PublicNavbar items
+      // 3. Mapping match
       const mappings: Record<string, string[]> = {
-        'periodic service': ['Periodic'],
-        'periodic maintenance': ['Periodic'],
-        'engine repair': ['Repair'],
-        'minor/major repairs': ['Repair'],
-        'denting & painting': ['Denting', 'Painting'],
-        'car body shop': ['Denting', 'Painting'],
-        'wash & polish': ['Wash', 'Detailing'],
-        'car wash': ['Wash'],
-        'car detailing': ['Detailing'],
-        'teflon coating': ['Detailing'],
-        'silencer coating': ['Detailing', 'Other'],
-        'air conditioning': ['AC'],
-        'accessories': ['Accessories'],
-        'tyres & battery': ['Tyres']
+        'general service': ['Periodic'],
+        'body shop': ['Painting', 'Repair'],
+        'insurance claim': ['Insurance'],
+        'amaron': ['Battery'],
+        'exide': ['Battery'],
+        'tyres': ['Tyres']
       };
 
       const mappedCategories = mappings[paramLower];
-      if (mappedCategories) {
-        return mappedCategories.includes(s.category);
+      if (mappedCategories && mappedCategories.includes(s.category)) {
+        return true;
       }
+
+      // 4. Fallback search (substring match)
+      if (s.name.toLowerCase().includes(paramLower)) return true;
 
       return false;
     }
@@ -113,8 +109,8 @@ const PublicServices = () => {
     return true;
   });
 
-  const displayServices = (categoryParam && serviceParam) ? filteredServices : services;
-  const isDetailView = !!(categoryParam && serviceParam);
+  const displayServices = (serviceParam || categoryParam) ? filteredServices : services;
+  const isDetailView = !!serviceParam;
 
   const handleBookNow = (service: Service) => {
     if (isAuthenticated) {
@@ -140,14 +136,14 @@ const PublicServices = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Hero Section */}
-      <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[300px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=2000"
+            src={isDetailView && displayServices.length > 0 ? (displayServices[0].image || getServiceFallbackImage(displayServices[0].category)) : "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=2000"}
             alt="Services Background" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"></div>
         </div>
         
         <div className="container mx-auto px-4 text-center relative z-10 text-white">
@@ -156,12 +152,21 @@ const PublicServices = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              {isDetailView ? serviceParam : 'Our Services'}
+            {isDetailView && (
+              <button 
+                onClick={() => navigate('/services')}
+                className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-white/70 hover:text-white transition-colors bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm"
+              >
+                <ArrowRight className="w-4 h-4 rotate-180" />
+                Back to All Services
+              </button>
+            )}
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+              {isDetailView && displayServices.length > 0 ? displayServices[0].name : 'Our Services'}
             </h1>
-            <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              {isDetailView 
-                ? `Professional ${serviceParam} for your Car`
+            <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
+              {isDetailView && displayServices.length > 0
+                ? displayServices[0].description
                 : 'Comprehensive automotive care solutions designed for your convenience and safety.'}
             </p>
           </motion.div>
@@ -169,7 +174,7 @@ const PublicServices = () => {
       </section>
 
       {/* Services List */}
-      <div className="container mx-auto px-4 py-16 -mt-20 relative z-20">
+      <div className="container mx-auto px-4 py-12 -mt-10 relative z-20">
         {displayServices.length === 0 ? (
            <div className="bg-card/50 backdrop-blur-sm rounded-3xl p-12 shadow-xl border border-border/50 text-center">
              <h3 className="text-2xl font-semibold mb-4">No services found</h3>
@@ -182,6 +187,88 @@ const PublicServices = () => {
                </button>
              </Link>
            </div>
+        ) : isDetailView ? (
+          <div className="max-w-5xl mx-auto">
+            {displayServices.map((service) => (
+              <motion.div 
+                key={service._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-border"
+              >
+                <div className="flex flex-col lg:flex-row">
+                  {/* Left Side: Large Image */}
+                  <div className="lg:w-1/2 relative h-[300px] lg:h-auto min-h-[400px]">
+                    <img 
+                      src={(service.image && service.image.trim() !== '') ? service.image : getServiceFallbackImage(service.category)} 
+                      alt={service.name} 
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:bg-gradient-to-r" />
+                    <div className="absolute bottom-8 left-8 text-white">
+                      <div className="bg-primary/90 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest mb-4 inline-block">
+                        {service.category}
+                      </div>
+                      <h2 className="text-4xl font-black">{service.name}</h2>
+                    </div>
+                  </div>
+
+                  {/* Right Side: Details */}
+                  <div className="lg:w-1/2 p-10 lg:p-14 space-y-10 flex flex-col justify-between">
+                    <div className="space-y-8">
+                      <div>
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">Description</h3>
+                        <p className="text-xl text-foreground/80 leading-relaxed font-medium italic">
+                          "{service.description}"
+                        </p>
+                      </div>
+
+                      {service.features && service.features.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-6">What's Included</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {service.features.map((feature, i) => (
+                              <div key={i} className="flex items-center gap-3 bg-muted/50 p-4 rounded-2xl border border-border/50 group hover:border-primary/50 transition-colors">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                  <CheckCircle className="w-5 h-5 text-primary" />
+                                </div>
+                                <span className="text-sm font-semibold text-foreground/90">{feature}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-10 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-8">
+                      <div className="flex items-center gap-6">
+                        <div className="text-center sm:text-left">
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Service Price</p>
+                          <p className="text-4xl font-black text-primary">₹{service.price}</p>
+                        </div>
+                        <div className="h-10 w-px bg-border hidden sm:block" />
+                        <div className="text-center sm:text-left">
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Duration</p>
+                          <div className="flex items-center gap-2 text-foreground/80 font-bold">
+                            <Clock className="w-4 h-4 text-primary" />
+                            {service.duration} mins
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleBookNow(service)}
+                        className="w-full sm:w-auto px-10 py-5 bg-primary text-primary-foreground rounded-2xl font-black text-lg hover:bg-primary/90 transition-all hover:scale-105 shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+                      >
+                        Book Now
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         ) : (
         <div className="grid gap-12"> 
           {/* Changed from space-y-24 to grid gap-12 for better handling of multiple items */}

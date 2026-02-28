@@ -27,7 +27,7 @@ const staticServices = [
   { 
     icon: Wrench, 
     title: 'Maintenance', 
-    description: 'Complete vehicle servicing and repairs by certified mechanics.', 
+    description: 'Complete vehicle servicing and repairs by certified professionals.', 
     color: 'bg-blue-500', 
     image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800',
     link: '/services?category=Cars&service=Periodic%20Maintenance'
@@ -61,7 +61,7 @@ const staticServices = [
 const howItWorks = [
   { step: 1, title: 'Add Your Vehicle', description: 'Register your vehicle details in our system' },
   { step: 2, title: 'Book a Service', description: 'Choose from our wide range of services' },
-  { step: 3, title: 'We Pick Up', description: 'Our team picks up your vehicle at your location' },
+  { step: 3, title: 'Pickup & Service', description: 'Our driver picks up your vehicle for service' },
   { step: 4, title: 'Track & Relax', description: 'Real-time updates on your service status' },
 ];
 
@@ -348,7 +348,7 @@ const HomePage: React.FC = () => {
                   { icon: Truck, title: "Free Pickup & Delivery", desc: "We handle the logistics so you don't have to." },
                   { icon: Clock, title: "Real-time Tracking", desc: "Monitor your service status every step of the way." },
                   { icon: CheckCircle, title: "Quality Guaranteed", desc: "100% satisfaction promise on all services." },
-                  { icon: Users, title: "Expert Technicians", desc: "Verified professionals with years of experience." }
+                  { icon: Users, title: "Expert Professionals", desc: "Verified professionals with years of experience." }
                 ].map((item, index) => (
                   <div key={index} className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">

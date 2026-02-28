@@ -254,7 +254,7 @@ const StaffOrdersPage: React.FC = () => {
     if (!selectedOrderForStatus || !newStatus) return;
     try {
       const loadingToast = toast.loading('Updating status...');
-      if (newStatus === 'VEHICLE_PICKED' && selectedOrderForStatus.pickupRequired) {
+      if (newStatus === 'VEHICLE_PICKED') {
         const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
         if (photos.length < 4) {
           toast.dismiss(loadingToast);
@@ -454,7 +454,7 @@ const StaffOrdersPage: React.FC = () => {
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {activeStatuses.map((status) => (
+                {ACTIVE_STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
                     {status}
                   </SelectItem>

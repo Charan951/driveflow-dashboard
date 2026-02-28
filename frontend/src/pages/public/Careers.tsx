@@ -7,7 +7,7 @@ const Careers = () => {
   const positions = [
     {
       id: 1,
-      title: "Senior Automotive Technician",
+      title: "Senior Service Coordinator",
       department: "Service Operations",
       location: "Auto City, AC",
       type: "Full-time",

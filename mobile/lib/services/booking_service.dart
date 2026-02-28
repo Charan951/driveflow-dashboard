@@ -15,7 +15,6 @@ class BookingService {
     required DateTime date,
     String? notes,
     BookingLocation? location,
-    bool pickupRequired = false,
   }) async {
     final res = await _api.postAny(
       ApiEndpoints.bookings,
@@ -25,7 +24,6 @@ class BookingService {
         'date': date.toIso8601String(),
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
         if (location != null) 'location': location.toJson(),
-        'pickupRequired': pickupRequired,
       },
     );
     if (res is Map<String, dynamic>) return Booking.fromJson(res);
@@ -73,6 +71,13 @@ class BookingService {
     if (res is Map<String, dynamic>) return Booking.fromJson(res);
     if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Map<String, dynamic>> processDummyPayment(String bookingId) async {
+    return await _api.postJson(
+      ApiEndpoints.paymentsDummyPay,
+      body: {'bookingId': bookingId},
+    );
   }
 
   Future<Map<String, dynamic>> createRazorpayOrder(String bookingId) async {

@@ -20,96 +20,94 @@ class PillBottomBar extends StatelessWidget {
 
     final gradient = isDark
         ? LinearGradient(
-            colors: [
-              const Color(0xFF020617).withValues(alpha: useBlur ? 0.95 : 0.98),
-              const Color(0xFF020617).withValues(alpha: useBlur ? 0.92 : 0.98),
-            ],
+            colors: [const Color(0xFF1E293B), const Color(0xFF0F172A)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
-        : LinearGradient(
-            colors: [
-              Colors.white.withValues(alpha: useBlur ? 0.85 : 0.95),
-              Colors.white.withValues(alpha: useBlur ? 0.75 : 0.95),
-            ],
+        : const LinearGradient(
+            colors: [Colors.white, Colors.white],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
 
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.10)
-        : Colors.white.withValues(alpha: 0.40);
+        : Colors.grey.withValues(alpha: 0.10);
 
     final shadowColor = isDark
-        ? Colors.black.withValues(alpha: useBlur ? 0.65 : 0.50)
-        : Colors.black.withValues(alpha: useBlur ? 0.16 : 0.10);
+        ? Colors.black.withValues(alpha: 0.50)
+        : Colors.black.withValues(alpha: 0.08);
 
     return SizedBox(
-      height: 72,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: useBlur ? 24 : 12,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Expanded(
-                    child: GlassNavItem(
-                      icon: Icons.directions_car_filled_outlined,
-                      isActive: selectedIndex == 0,
-                      inactiveColor: inactive,
-                      onTap: () => onTap(0),
-                    ),
+      height: 80,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(
+                  child: GlassNavItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Services',
+                    isActive: selectedIndex == 0,
+                    inactiveColor: inactive,
+                    onTap: () => onTap(0),
                   ),
-                  Expanded(
-                    child: GlassNavItem(
-                      icon: Icons.calendar_month_outlined,
-                      isActive: selectedIndex == 1,
-                      inactiveColor: inactive,
-                      onTap: () => onTap(1),
-                    ),
+                ),
+                Expanded(
+                  child: GlassNavItem(
+                    icon: Icons.shield_outlined,
+                    label: 'Insurance',
+                    isActive: selectedIndex == 1,
+                    inactiveColor: inactive,
+                    onTap: () => onTap(1),
                   ),
-                  const SizedBox(width: 62),
-                  Expanded(
-                    child: GlassNavItem(
-                      icon: Icons.receipt_long_outlined,
-                      isActive: selectedIndex == 3,
-                      inactiveColor: inactive,
-                      onTap: () => onTap(3),
-                    ),
+                ),
+                const SizedBox(width: 72),
+                Expanded(
+                  child: GlassNavItem(
+                    icon: Icons.water_drop_outlined,
+                    label: 'Car Wash',
+                    isActive: selectedIndex == 3,
+                    inactiveColor: inactive,
+                    onTap: () => onTap(3),
                   ),
-                  Expanded(
-                    child: GlassNavItem(
-                      icon: Icons.person_outline,
-                      isActive: selectedIndex == 4,
-                      inactiveColor: inactive,
-                      onTap: () => onTap(4),
-                    ),
+                ),
+                Expanded(
+                  child: GlassNavItem(
+                    icon: Icons.battery_full_outlined,
+                    label: 'Tires',
+                    isActive: selectedIndex == 4,
+                    inactiveColor: inactive,
+                    onTap: () => onTap(4),
                   ),
-                ],
-              ),
-              CenterNavAction(
+                ),
+              ],
+            ),
+            Positioned(
+              top: -20,
+              child: CenterNavAction(
                 isActive: selectedIndex == 2,
                 onTap: () => onTap(2),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -134,35 +132,27 @@ class CenterNavAction extends StatelessWidget {
       end: Alignment.bottomRight,
     );
 
-    return SizedBox(
+    return Container(
       width: 56,
       height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(999),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.transparent,
-            ),
-            child: isActive
-                ? ShaderMask(
-                    shaderCallback: (bounds) => gradient.createShader(bounds),
-                    child: const Icon(
-                      Icons.home_filled,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  )
-                : const Icon(
-                    Icons.home_filled,
-                    color: Color(0xFF94A3B8),
-                    size: 28,
-                  ),
+          child: const Center(
+            child: Icon(Icons.home_outlined, color: Colors.white, size: 28),
           ),
         ),
       ),
@@ -172,6 +162,7 @@ class CenterNavAction extends StatelessWidget {
 
 class GlassNavItem extends StatelessWidget {
   final IconData icon;
+  final String label;
   final bool isActive;
   final Color inactiveColor;
   final VoidCallback onTap;
@@ -179,6 +170,7 @@ class GlassNavItem extends StatelessWidget {
   const GlassNavItem({
     super.key,
     required this.icon,
+    required this.label,
     required this.isActive,
     required this.inactiveColor,
     required this.onTap,
@@ -198,20 +190,33 @@ class GlassNavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: const BoxDecoration(color: Colors.transparent),
-        child: Center(
-          child: AnimatedScale(
-            scale: isActive ? 1.25 : 1.0,
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutBack,
-            child: isActive
-                ? ShaderMask(
-                    shaderCallback: (bounds) => gradient.createShader(bounds),
-                    child: Icon(icon, color: Colors.white, size: 28),
-                  )
-                : Icon(icon, color: inactiveColor, size: 26),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: isActive ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutBack,
+              child: isActive
+                  ? ShaderMask(
+                      shaderCallback: (bounds) => gradient.createShader(bounds),
+                      child: Icon(icon, color: Colors.white, size: 24),
+                    )
+                  : Icon(icon, color: inactiveColor, size: 24),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? const Color(0xFF2563EB) : inactiveColor,
+              ),
+            ),
+          ],
         ),
       ),
     );

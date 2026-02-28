@@ -147,9 +147,27 @@ const OrderDetail: React.FC = () => {
             <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="inspection">Inspection</TabsTrigger>
-                <TabsTrigger value="service">Service</TabsTrigger>
-                <TabsTrigger value="qc">QC Check</TabsTrigger>
-                <TabsTrigger value="billing">Billing</TabsTrigger>
+                <TabsTrigger 
+                    value="service"
+                    disabled={!booking.inspection?.completedAt}
+                    title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                >
+                    Service
+                </TabsTrigger>
+                <TabsTrigger 
+                    value="qc"
+                    disabled={!booking.inspection?.completedAt}
+                    title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                >
+                    QC Check
+                </TabsTrigger>
+                <TabsTrigger 
+                    value="billing"
+                    disabled={!booking.qc?.completedAt}
+                    title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                >
+                    Billing
+                </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -250,8 +268,8 @@ const OrderDetail: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Live Tracking Map for Staff (pickup bookings) */}
-                        {booking.pickupRequired && ([
+                        {/* Live Tracking Map for Staff */}
+                        {([
                           'ASSIGNED',
                           'ACCEPTED',
                           'REACHED_CUSTOMER',

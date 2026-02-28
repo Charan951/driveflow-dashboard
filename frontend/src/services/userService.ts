@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
-  subRole?: 'Driver' | 'Technician' | 'Support' | 'Manager' | null;
+  subRole?: 'Driver' | 'Support' | 'Manager' | null;
   status?: 'Active' | 'Inactive' | 'On Leave';
   isOnline?: boolean;
   isShopOpen?: boolean;

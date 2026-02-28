@@ -3,26 +3,44 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
 
 const serviceCategories = [
   {
-    title: "Cars",
+    title: "1. Services",
     items: [
-      "Periodic Maintenance",
-      "Car Wash",
-      "Denting & Painting",
-      "Car Detailing",
-      "Air Conditioning",
-      "Car Body Shop"
+      { name: "General Service", path: "/services?service=General Service" },
+      { name: "Body Shop", path: "/services?service=Body Shop" },
+      { name: "Insurance Claim", path: "/services?service=Insurance Claim" }
     ]
+  },
+  {
+    title: "2. CAR WASH",
+    items: [
+      { name: "Exterior only (45 mins)", path: "/services?service=Exterior only (45 mins)" },
+      { name: "Interior + Exterior (60–70 mins)", path: "/services?service=Interior + Exterior (60–70 mins)" },
+      { name: "Interior + Exterior + Underbody (90 mins)", path: "/services?service=Interior + Exterior + Underbody (90 mins)" }
+    ]
+  },
+  {
+    title: "3. TYRES & BATTERY",
+    items: [
+      { name: "Default OEM size", path: "/services?service=Default OEM size" },
+      { name: "Customer can opt change", path: "/services?service=Customer can opt change" },
+      { name: "Battery - Amaron", path: "/services?service=Amaron Battery" },
+      { name: "Battery - Exide", path: "/services?service=Exide Battery" }
+    ]
+  },
+  {
+    title: "4. INSURANCE",
+    path: "/services?service=Insurance",
+    items: [] // Ensure it doesn't crash if items is missing
   }
 ];
 
@@ -68,47 +86,73 @@ const PublicNavbar: React.FC = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
-          {links.map((link) => {
-            if (link.name === 'Services') {
-              return (
-                <DropdownMenu key={link.name}>
-                  <DropdownMenuTrigger className={`flex items-center gap-1 text-sm font-medium transition-colors outline-none ${
-                    location.pathname.startsWith('/services')
-                      ? 'text-primary'
-                      : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
-                  }`}>
-                    {link.name}
-                    <ChevronDown className="w-4 h-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    {serviceCategories[0].items.map((item) => (
-                      <DropdownMenuItem key={item} asChild>
-                        <Link 
-                          to={`/services?category=${encodeURIComponent(serviceCategories[0].title)}&service=${encodeURIComponent(item)}`}
-                          className="cursor-pointer w-full"
-                        >
-                          {item}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            }
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname === link.path
-                    ? 'text-primary'
-                    : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
-                }`}
-              >
-                {link.name}
-              </Link>
-            );
-          })}
+          <NavigationMenu>
+            <NavigationMenuList className="gap-6">
+              {links.map((link) => {
+                if (link.name === 'Services') {
+                  return (
+                    <NavigationMenuItem key={link.name}>
+                      <NavigationMenuTrigger className={`flex items-center gap-1 text-sm font-medium transition-colors outline-none bg-transparent hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent p-0 h-auto ${
+                        location.pathname.startsWith('/services')
+                          ? 'text-primary'
+                          : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
+                      }`}>
+                        {link.name}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
+                          {serviceCategories.map((category) => (
+                            <div key={category.title} className="space-y-3">
+                              <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
+                              <div className="flex flex-col gap-2">
+                                {category.items ? (
+                                  category.items.map((item) => (
+                                    <NavigationMenuLink key={item.name} asChild>
+                                      <Link 
+                                        to={item.path}
+                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1"
+                                      >
+                                        {item.name}
+                                      </Link>
+                                    </NavigationMenuLink>
+                                  ))
+                                ) : (
+                                  <NavigationMenuLink asChild>
+                                    <Link 
+                                      to={category.path!}
+                                      className="text-sm text-muted-foreground hover:text-primary transition-colors py-1"
+                                    >
+                                      View Insurance
+                                    </Link>
+                                  </NavigationMenuLink>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  );
+                }
+                return (
+                  <NavigationMenuItem key={link.path}>
+                    <NavigationMenuLink asChild>
+                      <Link
+                        to={link.path}
+                        className={`text-sm font-medium transition-colors ${
+                          location.pathname === link.path
+                            ? 'text-primary'
+                            : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
+                        }`}
+                      >
+                        {link.name}
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                );
+              })}
+            </NavigationMenuList>
+          </NavigationMenu>
         </div>
 
         <div className="hidden md:flex items-center gap-4">
@@ -146,24 +190,66 @@ const PublicNavbar: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border bg-card"
+            className="md:hidden border-t border-border bg-card overflow-y-auto max-h-[calc(100vh-64px)]"
           >
-            <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-              {links.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setIsOpen(false)}
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === link.path
-                      ? 'text-primary'
-                      : 'text-foreground hover:text-primary'
-                  }`}
-                >
-                  {link.name}
-                </Link>
-              ))}
-              <div className="flex flex-col gap-3 pt-4 border-t border-border">
+            <div className="container mx-auto px-4 py-6 flex flex-col gap-2">
+              {links.map((link) => {
+                if (link.name === 'Services') {
+                  return (
+                    <div key={link.name} className="flex flex-col gap-2">
+                      <div className="text-sm font-semibold text-primary uppercase tracking-wider px-2 py-1">
+                        {link.name}
+                      </div>
+                      <div className="flex flex-col gap-4 pl-4 border-l border-border ml-2 my-2">
+                        {serviceCategories.map((category) => (
+                          <div key={category.title} className="flex flex-col gap-2">
+                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                              {category.title}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              {category.items ? (
+                                category.items.map((item) => (
+                                  <Link
+                                    key={item.name}
+                                    to={item.path}
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-sm text-foreground hover:text-primary transition-colors py-1.5"
+                                  >
+                                    {item.name}
+                                  </Link>
+                                ))
+                              ) : (
+                                <Link
+                                  to={category.path!}
+                                  onClick={() => setIsOpen(false)}
+                                  className="text-sm text-foreground hover:text-primary transition-colors py-1.5"
+                                >
+                                  View Insurance
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`text-sm font-medium transition-colors px-2 py-2 rounded-lg ${
+                      location.pathname === link.path
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                );
+              })}
+              <div className="flex flex-col gap-3 pt-6 mt-4 border-t border-border">
                 <Link 
                   to="/login"
                   onClick={() => setIsOpen(false)}

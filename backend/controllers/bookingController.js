@@ -11,7 +11,7 @@ import { sendPushToUser } from '../utils/pushService.js';
 // @route   POST /api/bookings
 // @access  Private
 export const createBooking = async (req, res) => {
-  const { vehicleId, serviceIds, date, notes, location, pickupRequired } = req.body;
+  const { vehicleId, serviceIds, date, notes, location } = req.body;
 
   try {
     // Check for pending feedback on delivered/completed bookings
@@ -34,12 +34,10 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // Basic validation for pickup preference
-    if (pickupRequired === true) {
-      const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
-      if (!hasAddress) {
-        return res.status(400).json({ message: 'Pickup address is required when pickup is requested' });
-      }
+    // Pickup address is now always required
+    const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
+    if (!hasAddress) {
+      return res.status(400).json({ message: 'Pickup address is required' });
     }
 
     const Service = (await import('../models/Service.js')).default;
@@ -66,7 +64,6 @@ export const createBooking = async (req, res) => {
           orderNumber,
           notes,
           location,
-          pickupRequired,
           totalAmount,
         });
 
@@ -138,12 +135,7 @@ export const getMyBookings = async (req, res) => {
     let query = { user: req.user._id };
 
     if (req.user.role === 'staff') {
-      query = {
-        $or: [
-          { pickupDriver: req.user._id },
-          { technician: req.user._id }
-        ]
-      };
+      query = { pickupDriver: req.user._id };
     } else if (req.user.role === 'merchant') {
       // Merchants see bookings assigned to them, and their own personal bookings
       query = {
@@ -240,7 +232,6 @@ export const getAllBookings = async (req, res) => {
       .populate('services')
       .populate('merchant', 'name email phone')
       .populate('pickupDriver', 'name email phone')
-      .populate('technician', 'name email phone')
       .lean();
     res.json(bookings);
   } catch (error) {
@@ -258,8 +249,7 @@ export const getBookingById = async (req, res) => {
       .populate('vehicle')
       .populate('services')
       .populate('merchant', 'name email phone location')
-      .populate('pickupDriver', 'name email phone')
-      .populate('technician', 'name email phone');
+      .populate('pickupDriver', 'name email phone');
     
     if (booking) {
       // Check if user is authorized (admin, merchant, or booking owner)
@@ -267,8 +257,7 @@ export const getBookingById = async (req, res) => {
       const isAdmin = req.user.role === 'admin';
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
       const isAssignedStaff = req.user.role === 'staff' && (
-        (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician._id.toString() === req.user._id.toString())
+        (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString())
       );
       
       if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
@@ -293,7 +282,7 @@ export const getBookingById = async (req, res) => {
 // @route   PUT /api/bookings/:id/assign
 // @access  Private/Admin
 export const assignBooking = async (req, res) => {
-  const { merchantId, driverId, technicianId, slot } = req.body;
+  const { merchantId, driverId, slot } = req.body;
 
   try {
     const booking = await Booking.findById(req.params.id);
@@ -301,18 +290,14 @@ export const assignBooking = async (req, res) => {
     if (booking) {
       if (merchantId) booking.merchant = merchantId;
       if (driverId) booking.pickupDriver = driverId;
-      if (technicianId) booking.technician = technicianId;
       if (slot) booking.date = slot; // Assuming date stores the slot time as well
 
       // Automatic status update rules
-      // - If pickup is required: need both merchant and driver to move to ASSIGNED
-      // - If pickup is NOT required: merchant alone is enough to move to ASSIGNED
+      // - Now always requires both merchant and driver to move to ACCEPTED
       if (booking.status === 'CREATED') {
-        const canAssign =
-          (!booking.pickupRequired && booking.merchant) ||
-          (booking.pickupRequired && booking.merchant && booking.pickupDriver);
+        const canAssign = booking.merchant && booking.pickupDriver;
         if (canAssign) {
-          booking.status = 'ASSIGNED';
+          booking.status = 'ACCEPTED';
         }
       }
 
@@ -324,8 +309,7 @@ export const assignBooking = async (req, res) => {
         .populate('vehicle')
         .populate('services')
         .populate('merchant', 'name email phone location')
-        .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone');
+        .populate('pickupDriver', 'name email phone');
 
       // Emit real-time update for admin and booking-specific listeners
       try {
@@ -359,15 +343,11 @@ export const updateBookingStatus = async (req, res) => {
       const isAdmin = req.user.role === 'admin';
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant.toString() === req.user._id.toString();
       const isAssignedStaff = req.user.role === 'staff' && (
-        (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician.toString() === req.user._id.toString())
+        (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString())
       );
 
       if (isOwner && !isAdmin && !isAssignedMerchant && !isAssignedStaff) {
         const allowedStatuses = ['DELIVERED'];
-        if (!booking.pickupRequired && status === 'VEHICLE_AT_MERCHANT') {
-          allowedStatuses.push('VEHICLE_AT_MERCHANT');
-        }
         if (!allowedStatuses.includes(status)) {
           return res.status(401).json({ message: 'Not authorized to set this status' });
         }
@@ -389,7 +369,7 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
-      if (canonTo === 'VEHICLE_PICKED' && booking.pickupRequired) {
+      if (canonTo === 'VEHICLE_PICKED') {
         const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
         if (photos.length < 4) {
           return res.status(400).json({ message: 'Please upload 4 vehicle photos before picking up the vehicle' });
@@ -459,8 +439,7 @@ export const updateBookingStatus = async (req, res) => {
         .populate('vehicle')
         .populate('services')
         .populate('merchant', 'name email phone location')
-        .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone');
+        .populate('pickupDriver', 'name email phone');
 
       // Emit socket event for real-time updates
       try {
@@ -604,7 +583,12 @@ export const updateBookingDetails = async (req, res) => {
       if (delay) booking.delay = { ...booking.delay, ...delay };
       if (serviceExecution) booking.serviceExecution = { ...booking.serviceExecution, ...serviceExecution };
       if (qc) booking.qc = { ...booking.qc, ...qc };
-      if (billing) booking.billing = { ...booking.billing, ...billing };
+      if (billing) {
+        booking.billing = { ...booking.billing, ...billing };
+        if (billing.total) {
+          booking.totalAmount = billing.total;
+        }
+      }
       if (revisit) booking.revisit = { ...booking.revisit, ...revisit };
       
       if (parts) {

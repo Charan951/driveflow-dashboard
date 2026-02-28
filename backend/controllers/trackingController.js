@@ -26,23 +26,28 @@ const haversineMeters = (lat1, lon1, lat2, lon2) => {
 // @access  Private/Admin
 export const getLiveLocations = async (req, res) => {
   try {
-    // 1. Fetch active staff (Drivers & Technicians)
+    // 1. Fetch active staff (Drivers/Technicians) - Also include Admins who are online
     const activeStaff = await User.find({
-      role: 'staff',
-      status: 'Active',
-      'location.lat': { $exists: true }
-    }).select('name subRole location phone email isOnline lastSeen').lean();
+      $or: [
+        { role: 'staff' },
+        { role: 'admin', isOnline: true }
+      ],
+      status: { $ne: 'Inactive' }
+    }).select('name role subRole location phone email isOnline lastSeen').lean();
 
-    // Enrich staff with active booking info (Optimized: Single query)
+    // Enrich staff with active booking info
     const staffIds = activeStaff.map(s => s._id);
     const activeBookings = await Booking.find({
-      $or: [{ pickupDriver: { $in: staffIds } }, { technician: { $in: staffIds } }],
-      status: { $in: ['Pickup Assigned', 'In Garage', 'Inspection Started', 'Repair In Progress', 'QC Pending', 'Ready', 'Delivered'] }
+      $or: [
+        { pickupDriver: { $in: staffIds } },
+        { technician: { $in: staffIds } }
+      ],
+      status: { $nin: ['CANCELLED', 'DELIVERED', 'COMPLETED'] }
     }).select('location status date pickupDriver technician').lean();
 
     const staffWithJobs = activeStaff.map(staff => {
       const activeBooking = activeBookings.find(b => 
-        (b.pickupDriver && b.pickupDriver.toString() === staff._id.toString()) || 
+        (b.pickupDriver && b.pickupDriver.toString() === staff._id.toString()) ||
         (b.technician && b.technician.toString() === staff._id.toString())
       );
       return { ...staff, currentJob: activeBooking || null };
@@ -54,11 +59,9 @@ export const getLiveLocations = async (req, res) => {
       'location.lat': { $exists: true }
     }).select('make model licensePlate status location type user').populate('user', 'name').lean();
 
-    // 3. Fetch merchants with location (Fetch all, regardless of open status)
-    // Force restart comment: Updated selection logic
+    // 3. Fetch merchants (Fetch all, regardless of open status)
     const activeMerchants = await User.find({
-      role: 'merchant',
-      'location.lat': { $exists: true }
+      role: 'merchant'
     }).select('name role location phone email isOnline lastSeen isShopOpen').lean();
 
     res.json({

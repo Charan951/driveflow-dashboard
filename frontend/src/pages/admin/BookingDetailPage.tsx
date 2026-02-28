@@ -34,12 +34,10 @@ const BookingDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [merchants, setMerchants] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
-  const [technicians, setTechnicians] = useState<User[]>([]);
 
   // Assignment States
   const [selectedMerchant, setSelectedMerchant] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
-  const [selectedTechnician, setSelectedTechnician] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,10 +108,6 @@ const BookingDetailPage: React.FC = () => {
         setDrivers(sortStaff(usersData.filter((u: User) => 
           u.role === 'staff' && (!u.subRole || u.subRole === 'Driver')
         )));
-        
-        setTechnicians(sortStaff(usersData.filter((u: User) => 
-          u.role === 'staff' && (!u.subRole || u.subRole === 'Technician')
-        ))); 
 
         // Helper to safely get ID
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +121,6 @@ const BookingDetailPage: React.FC = () => {
         // Set initial values
         if (bookingData.merchant) setSelectedMerchant(getResourceId(bookingData.merchant));
         if (bookingData.pickupDriver) setSelectedDriver(getResourceId(bookingData.pickupDriver));
-        if (bookingData.technician) setSelectedTechnician(getResourceId(bookingData.technician));
 
       } catch (error) {
         console.error(error);
@@ -177,8 +170,7 @@ const BookingDetailPage: React.FC = () => {
     try {
       await bookingService.assignBooking(booking._id, {
         merchantId: selectedMerchant || undefined,
-        driverId: selectedDriver || undefined,
-        technicianId: selectedTechnician || undefined
+        driverId: selectedDriver || undefined
       });
       
       // Refetch to get populated data back
@@ -216,23 +208,21 @@ const BookingDetailPage: React.FC = () => {
                 'bg-blue-100 text-blue-800'}`}>
               {booking.status}
             </span>
-            {booking.pickupRequired && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
-                {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length >= 4 ? (
-                  <>
-                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                    <span className="text-green-700">Pickup photos ready</span>
-                  </>
-                ) : (
-                  <>
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-amber-600">
-                      {Array.isArray(booking.prePickupPhotos) ? `${booking.prePickupPhotos.length}/4 photos` : '0/4 photos'}
-                    </span>
-                  </>
-                )}
-              </span>
-            )}
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+              {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length >= 4 ? (
+                <>
+                  <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                  <span className="text-green-700">Pickup photos ready</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-amber-600">
+                    {Array.isArray(booking.prePickupPhotos) ? `${booking.prePickupPhotos.length}/4 photos` : '0/4 photos'}
+                  </span>
+                </>
+              )}
+            </span>
           </h1>
           <p className="text-muted-foreground text-sm">Created on {new Date(booking.createdAt).toLocaleString()}</p>
         </div>
@@ -308,7 +298,7 @@ const BookingDetailPage: React.FC = () => {
             )}
           </div>
 
-          {booking.pickupRequired && booking.prePickupPhotos && booking.prePickupPhotos.length > 0 && (
+          {booking.prePickupPhotos && booking.prePickupPhotos.length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
                 <Shield className="w-5 h-5 text-primary" /> Pre-Pickup Vehicle Photos
@@ -456,18 +446,6 @@ const BookingDetailPage: React.FC = () => {
                    <div className="flex items-center gap-2 mt-1">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       <span>{new Date(booking.date).toLocaleDateString()}</span>
-                   </div>
-                </div>
-                <div>
-                   <label className="text-xs text-muted-foreground uppercase font-medium">Pickup Required</label>
-                   <div className="flex items-center gap-2 mt-1">
-                      {booking.pickupRequired ? (
-                         <span className="flex items-center gap-1 text-amber-600 text-sm font-medium">
-                            <Truck className="w-4 h-4" /> Yes, Pickup Requested
-                         </span>
-                      ) : (
-                         <span className="text-sm">No</span>
-                      )}
                    </div>
                 </div>
                 {booking.location && (
@@ -645,7 +623,7 @@ const BookingDetailPage: React.FC = () => {
                 </button>
              </h3>
              
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                    <label className="text-sm font-medium flex items-center gap-2">
                       <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
@@ -678,67 +656,30 @@ const BookingDetailPage: React.FC = () => {
                    </select>
                 </div>
 
-                {booking.pickupRequired ? (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                       <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
-                    </label>
-                    <select 
-                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"
-                       value={selectedDriver}
-                       onChange={(e) => setSelectedDriver(e.target.value)}
-                    >
-                       <option value="">Select Driver...</option>
-                       {drivers.map(d => {
-                         let label = d.name;
-                         if (d.isOnline) label += " 🟢 (Online)";
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
-                            try {
-                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                               const to = turf.point([d.location.lng!, d.location.lat!]);
-                               const dist = turf.distance(from, to, { units: 'kilometers' });
-                               label += ` - ${dist.toFixed(1)}km`;
-                            } catch (e) { /* ignore */ }
-                         }
-                         return <option key={d._id} value={d._id}>{label}</option>;
-                       })}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
-                    </label>
-                    <div className="text-xs text-muted-foreground p-2 border border-dashed border-border rounded-lg">
-                      Pickup not required. Driver assignment is not needed.
-                    </div>
-                  </div>
-                )}
-
                 <div className="space-y-2">
-                   <label className="text-sm font-medium flex items-center gap-2">
-                      <Wrench className="w-4 h-4 text-muted-foreground" /> Technician
-                   </label>
-                   <select 
-                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
-                      value={selectedTechnician}
-                      onChange={(e) => setSelectedTechnician(e.target.value)}
-                   >
-                      <option value="">Select Technician...</option>
-                      {technicians.map(t => {
-                        let label = t.name;
-                        if (t.isOnline) label += " 🟢 (Online)";
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && t.location?.lat) {
-                           try {
-                              const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                              const to = turf.point([t.location.lng!, t.location.lat!]);
-                              const dist = turf.distance(from, to, { units: 'kilometers' });
-                              label += ` - ${dist.toFixed(1)}km`;
-                           } catch (e) { /* ignore */ }
-                        }
-                        return <option key={t._id} value={t._id}>{label}</option>;
-                      })}
-                   </select>
+                  <label className="text-sm font-medium flex items-center gap-2">
+                     <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
+                  </label>
+                  <select 
+                     className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                     value={selectedDriver}
+                     onChange={(e) => setSelectedDriver(e.target.value)}
+                  >
+                     <option value="">Select Driver...</option>
+                     {drivers.map(d => {
+                       let label = d.name;
+                       if (d.isOnline) label += " 🟢 (Online)";
+                       if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                          try {
+                             const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                             const to = turf.point([d.location.lng!, d.location.lat!]);
+                             const dist = turf.distance(from, to, { units: 'kilometers' });
+                             label += ` - ${dist.toFixed(1)}km`;
+                          } catch (e) { /* ignore */ }
+                       }
+                       return <option key={d._id} value={d._id}>{label}</option>;
+                     })}
+                  </select>
                 </div>
              </div>
           </div>
@@ -747,43 +688,32 @@ const BookingDetailPage: React.FC = () => {
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
             <div className="flex flex-wrap gap-2">
-               {(booking.pickupRequired
-                  ? [
-                      { label: 'Created', value: 'CREATED' },
-                      { label: 'Assigned', value: 'ASSIGNED' },
-                      { label: 'Accepted', value: 'ACCEPTED' },
-                      { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
-                      { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
-                      { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
-                      { label: 'Service Started', value: 'SERVICE_STARTED' },
-                      { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
-                      { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
-                      { label: 'Delivered', value: 'DELIVERED' },
-                      { label: 'Cancelled', value: 'CANCELLED' }
-                    ]
-                  : [
-                      { label: 'Created', value: 'CREATED' },
-                      { label: 'Assigned', value: 'ASSIGNED' },
-                      { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
-                      { label: 'Service Started', value: 'SERVICE_STARTED' },
-                      { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
-                      { label: 'Delivered', value: 'DELIVERED' },
-                      { label: 'Cancelled', value: 'CANCELLED' }
-                    ]
-                 ).map((item) => (
-                   <button
-                      key={item.value}
-                      onClick={() => handleStatusUpdate(item.value)}
-                      disabled={booking.status === item.value}
-                      className={`px-3 py-2 rounded-lg text-sm border transition-colors
-                         ${booking.status === item.value 
-                            ? 'bg-primary text-primary-foreground border-primary' 
-                            : 'hover:bg-muted border-border'}`}
-                   >
-                      {item.label}
-                   </button>
-                ))}
-             </div>
+               {[
+                  { label: 'Created', value: 'CREATED' },
+                  { label: 'Assigned', value: 'ASSIGNED' },
+                  { label: 'Accepted', value: 'ACCEPTED' },
+                  { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
+                  { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
+                  { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
+                  { label: 'Service Started', value: 'SERVICE_STARTED' },
+                  { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
+                  { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
+                  { label: 'Delivered', value: 'DELIVERED' },
+                  { label: 'Cancelled', value: 'CANCELLED' }
+               ].map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => handleStatusUpdate(s.value)}
+                    disabled={booking.status === s.value}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all
+                      ${booking.status === s.value 
+                        ? 'bg-primary text-primary-foreground shadow-md' 
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}
+                  >
+                    {s.label}
+                  </button>
+               ))}
+            </div>
           </div>
         </div>
       </div>

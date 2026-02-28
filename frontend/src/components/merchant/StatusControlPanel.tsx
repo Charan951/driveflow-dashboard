@@ -12,7 +12,6 @@ interface StatusControlPanelProps {
 
 const DELAY_REASONS = [
   'Waiting for parts',
-  'Technician unavailable',
   'Customer approval pending',
   'Other'
 ];
@@ -23,38 +22,39 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
   const [delayNote, setDelayNote] = useState('');
 
-  const pickupStatusFlow = PICKUP_FLOW_ORDER;
-  const noPickupStatusFlow: BookingStatus[] = NO_PICKUP_FLOW_ORDER;
-
-  const activeStatusFlow: BookingStatus[] = booking.pickupRequired ? pickupStatusFlow : noPickupStatusFlow;
+  const activeStatusFlow = PICKUP_FLOW_ORDER;
   const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);
 
   let nextStatus = '';
-  if (booking.pickupRequired) {
-    if (booking.status === 'REACHED_MERCHANT') nextStatus = 'VEHICLE_AT_MERCHANT';
-    else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
-    else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
-    else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
-    else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
-  } else {
-    if (booking.status === 'ACCEPTED') nextStatus = 'VEHICLE_AT_MERCHANT';
-    else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
-    else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
-    else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'DELIVERED';
-  }
+  if (booking.status === 'REACHED_MERCHANT') nextStatus = 'VEHICLE_AT_MERCHANT';
+  else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
+  else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
+  else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
+  else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
 
   const handleStatusChange = async (status: BookingStatus | string) => {
     // Validation before completing
     if (status === 'SERVICE_COMPLETED') {
+        if (!booking.inspection?.completedAt) {
+            toast.error('Please complete the Inspection in the "Inspection" tab.');
+            return;
+        }
+
+        if (!booking.qc?.completedAt) {
+            toast.error('Please complete the QC Check in the "QC Check" tab.');
+            return;
+        }
+
         if (!booking.billing?.fileUrl) {
             toast.error('Please upload and submit the bill in the "Billing" tab before completing the service.');
             return;
         }
-        
-        if (!booking.qc?.completedAt) {
-            // Optional: warn but allow, or block. User didn't specify QC check strictness.
-            // Keeping it permissive for now or just warning.
-            // toast.warning('QC Checklist not completed.'); 
+    }
+
+    if (status === 'OUT_FOR_DELIVERY') {
+        if (booking.paymentStatus !== 'paid') {
+            toast.error('Please wait for the customer to complete the payment before moving to Out For Delivery.');
+            return;
         }
     }
 
@@ -121,6 +121,9 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
     }
   };
 
+  const nextActionLabel = STATUS_LABELS[nextStatus as keyof typeof STATUS_LABELS] || nextStatus;
+  const isWaitingForPayment = booking.status === 'SERVICE_COMPLETED' && booking.paymentStatus !== 'paid';
+
   return (
     <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
       <div className="flex items-center justify-between">
@@ -128,13 +131,20 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
           <Activity className="w-5 h-5 text-primary" />
           Status & Workflow
         </h3>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            booking.status === 'SERVICE_COMPLETED' || booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-            booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-            'bg-blue-100 text-blue-800'
-        }`}>
-            {booking.status}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              booking.status === 'SERVICE_COMPLETED' || booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+              booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+              'bg-blue-100 text-blue-800'
+          }`}>
+              {booking.status}
+          </span>
+          {booking.paymentStatus === 'paid' ? (
+            <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider">● Paid</span>
+          ) : (
+            <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">○ {booking.paymentStatus}</span>
+          )}
+        </div>
       </div>
 
       {/* Workflow Progress */}
@@ -179,13 +189,25 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
 
       <div className="flex flex-wrap gap-3">
         {nextStatus ? (
-            <button
-                onClick={() => handleStatusChange(nextStatus)}
-                disabled={loading}
-                className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
-            >
-                Move to {STATUS_LABELS[nextStatus as keyof typeof STATUS_LABELS] || nextStatus}
-            </button>
+            <div className="flex-1 space-y-3">
+              {isWaitingForPayment && (
+                <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Waiting for Customer Payment (₹{booking.totalAmount}). Cannot move to Out For Delivery.</span>
+                </div>
+              )}
+              <button
+                  onClick={() => handleStatusChange(nextStatus)}
+                  disabled={loading || isWaitingForPayment}
+                  className={`w-full py-2 px-4 rounded-lg transition-colors font-medium ${
+                    isWaitingForPayment 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
+              >
+                  Move to {nextActionLabel}
+              </button>
+            </div>
         ) : (
             booking.status === 'SERVICE_STARTED' && (
                 <div className="flex-1 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-sm flex items-center gap-2">

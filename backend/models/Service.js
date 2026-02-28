@@ -21,7 +21,7 @@ const serviceSchema = mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['Periodic', 'Repair', 'Wash', 'Tyres', 'Denting', 'Painting', 'Detailing', 'AC', 'Accessories', 'Other'],
+      enum: ['Periodic', 'Repair', 'Wash', 'Tyres', 'Denting', 'Painting', 'Detailing', 'AC', 'Accessories', 'Insurance', 'Battery', 'Other'],
     },
     vehicleType: {
       type: String,

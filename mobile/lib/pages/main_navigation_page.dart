@@ -9,6 +9,7 @@ import 'service_list_page.dart';
 import 'my_bookings_page.dart';
 import 'profile_page.dart';
 import 'speshway_vehiclecare_dashboard_page.dart';
+import 'insurance_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -19,8 +20,8 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
   final List<Widget> _pages = const [
-    MyVehiclesPage(),
     ServiceListPage(),
+    InsurancePage(),
     SpeshwayVehicleCareDashboard(),
     MyBookingsPage(),
     ProfilePage(),
@@ -44,7 +45,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         bottomNavigationBar: Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
           child: ConstrainedBox(
-            constraints: const BoxConstraints.tightFor(height: 72),
+            constraints: const BoxConstraints.tightFor(height: 80),
             child: PillBottomBar(
               selectedIndex: navProvider.selectedIndex,
               onTap: (index) => navProvider.setTab(index),

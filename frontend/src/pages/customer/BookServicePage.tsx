@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   ChevronRight, 
@@ -15,8 +15,12 @@ import {
   Disc,
   Snowflake,
   Package,
-  Star
+  Star,
+  Shield,
+  Locate,
+  Loader2
 } from 'lucide-react';
+import api from '@/services/api';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
@@ -25,24 +29,45 @@ import { useAuthStore } from '@/store/authStore';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
-const steps = ['Vehicle', 'Category', 'Service', 'Schedule', 'Confirm'];
+const steps = ['Vehicle', 'Category', 'Sub-category', 'Schedule', 'Confirm'];
 
 const BookServicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+
+  // Handle category from search params
+  useEffect(() => {
+    const categoryParam = searchParams.get('category') || 'Periodic';
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+      setSelectedSubCategory(null);
+      setSelectedServices([]);
+      // If we are past Step 1, we might want to stay in Step 1 or 2
+      if (currentStep > 1) {
+        setCurrentStep(1);
+      }
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
-  const [pickupRequired, setPickupRequired] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -83,23 +108,22 @@ const BookServicePage: React.FC = () => {
   };
 
   const categories = [
-    { id: 'Periodic', label: 'Periodic Service', icon: Wrench },
-    { id: 'Repair', label: 'Engine Repair', icon: Wrench },
-    { id: 'Detailing', label: 'Detailing & Coating', icon: Sparkles },
-    { id: 'Denting', label: 'Denting & Painting', icon: Hammer },
-    { id: 'Wash', label: 'Wash & Polish', icon: Droplets },
-    { id: 'Tyres', label: 'Tyres & Wheels', icon: Disc },
-    { id: 'AC', label: 'AC Service', icon: Snowflake },
-    { id: 'Accessories', label: 'Accessories', icon: Package },
+    { id: 'Periodic', label: '1. SERVICES', icon: Wrench, subcategories: ['General Service', 'Body Shop', 'Insurance Claim'] },
+    { id: 'Wash', label: '2. CAR WASH', icon: Droplets, subcategories: ['Exterior only (45 mins)', 'Interior + Exterior (60–70 mins)', 'Interior + Exterior + Underbody (90 mins)'] },
+    { id: 'Tyres', label: '3. TYRES & BATTERY', icon: Disc, subcategories: ['Default OEM size', 'Customer can opt change', 'Amaron Battery', 'Exide Battery'] },
+    { id: 'Insurance', label: '4. INSURANCE', icon: Shield, subcategories: ['INSURANCE'] },
   ];
 
   const canProceed = () => {
     switch (currentStep) {
       case 0: return selectedVehicle !== null;
       case 1: return selectedCategory !== null;
-      case 2: return selectedServices.length > 0;
-      case 3: return selectedDate !== null && selectedTime !== null;
-      case 4: return pickupRequired ? pickupLocation.address.trim() !== '' : true;
+      case 2: return selectedSubCategory !== null;
+      case 3: 
+        const isScheduleComplete = selectedDate !== null && selectedTime !== null;
+        const isAddressComplete = pickupLocation.address.trim() !== '';
+        return isScheduleComplete && isAddressComplete;
+      case 4: return true;
       default: return false;
     }
   };
@@ -144,28 +168,16 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
-      let locationData: { address: string; lat?: number; lng?: number } | undefined = undefined;
-      if (pickupRequired) {
-        locationData = { address: pickupLocation.address };
-        if (typeof pickupLocation.lat === 'number' && !isNaN(pickupLocation.lat)) {
-          locationData.lat = pickupLocation.lat;
-        }
-        if (typeof pickupLocation.lng === 'number' && !isNaN(pickupLocation.lng)) {
-          locationData.lng = pickupLocation.lng;
-        }
-      }
-
       const bookingData = {
         vehicleId: selectedVehicle,
         serviceIds: selectedServices,
         date: bookingDate.toISOString(),
-        ...(locationData ? { location: locationData } : {}),
-        pickupRequired,
+        location: pickupLocation.address.trim() !== '' ? pickupLocation : undefined,
         notes: ""
       };
 
       const newBooking = await bookingService.createBooking(bookingData);
-      toast.success(pickupRequired ? 'Booking confirmed! We\'ll pick up your vehicle soon.' : 'Booking confirmed! Please drop off your vehicle at the service center.');
+      toast.success('Booking confirmed! We have scheduled your service.');
       navigate(`/track/${newBooking._id}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -313,122 +325,223 @@ const BookServicePage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 2: Select Category */}
+            {/* Step 1: Select Category */}
             {currentStep === 1 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Select Category</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {categories.map((category) => (
+              <div className="space-y-6">
+                <h2 className="text-lg font-semibold text-foreground">Select Service Category</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {categories.map((cat) => (
                     <motion.button
-                      key={category.id}
+                      key={cat.id}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
-                        setSelectedCategory(category.id);
-                        setSelectedServices([]); // Reset services when category changes
+                        setSelectedCategory(cat.id);
+                        setSelectedSubCategory(null);
+                        setSelectedServices([]);
+                        setCurrentStep(2);
                       }}
-                      className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
-                        selectedCategory === category.id
-                          ? 'border-primary bg-primary/5'
+                      className={`flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
+                        selectedCategory === cat.id
+                          ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
                           : 'border-border bg-card hover:border-primary/50'
                       }`}
                     >
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-                        selectedCategory === category.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                        selectedCategory === cat.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
                       }`}>
-                        <category.icon className="w-6 h-6" />
+                        <cat.icon className="w-8 h-8" />
                       </div>
-                      <span className="font-semibold text-foreground">{category.label}</span>
+                      <div className="text-center">
+                        <span className="font-bold text-foreground block">{cat.label.replace(/^\d+\.\s+/, '')}</span>
+                      </div>
+                      {selectedCategory === cat.id && (
+                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                      )}
                     </motion.button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Step 3: Select Service */}
+            {/* Step 2: Select Sub-category */}
             {currentStep === 2 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Select Service</h2>
+                  <h2 className="text-lg font-semibold">
+                    Select Sub-category
+                  </h2>
                 </div>
-                
-                {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search services..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories.find(c => c.id === selectedCategory)?.subcategories.map((sub) => (
+                    <motion.button
+                      key={sub}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setSelectedSubCategory(sub);
+                        // Find matching service and auto-select it
+                        const matchingService = services.find(s => 
+                          s.name.toLowerCase() === sub.toLowerCase() || 
+                          s.name.toLowerCase().includes(sub.toLowerCase())
+                        );
+                        if (matchingService) {
+                          setSelectedServices([matchingService._id]);
+                          // Auto proceed to next step (Schedule)
+                          setCurrentStep(3);
+                        }
+                      }}
+                      className={`flex items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
+                        selectedSubCategory === sub
+                          ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                          : 'border-border bg-card hover:border-primary/50'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        selectedSubCategory === sub ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                      }`}>
+                        <Wrench className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <span className="font-bold text-foreground block">{sub}</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
+                          {categories.find(c => c.id === selectedCategory)?.label.replace(/^\d+\.\s+/, '')}
+                        </span>
+                      </div>
+                      {selectedSubCategory === sub && (
+                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                      )}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Schedule */}
+            {currentStep === 3 && (
+              <div className="space-y-8">
+                <div className="bg-card rounded-[2rem] border-2 border-border p-8 shadow-sm">
+                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Calendar className="w-6 h-6 text-primary" />
+                    Select Schedule
+                  </h2>
+                  <SlotPicker
+                    selectedDate={selectedDate}
+                    selectedTime={selectedTime}
+                    onDateChange={setSelectedDate}
+                    onTimeChange={setSelectedTime}
                   />
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {services
-                    .filter(service => {
-                      const matchesCategory = selectedCategory 
-                        ? (selectedCategory === 'Denting' 
-                            ? (service.category === 'Denting' || service.category === 'Painting')
-                            : service.category === selectedCategory)
-                        : true;
-                      const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                          service.description.toLowerCase().includes(searchTerm.toLowerCase());
-                      return matchesCategory && matchesSearch;
-                    })
-                    .map((service) => (
-                    <motion.button
-                      key={service._id}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleService(service._id)}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                        selectedServices.includes(service._id)
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <Wrench className="w-5 h-5 text-primary" />
-                        </div>
-                        {selectedServices.includes(service._id) && (
-                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="w-4 h-4 text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-1">{service.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{service.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary">₹{service.price}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                          {service.duration} mins
-                        </span>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-                {services.filter(service => (selectedCategory ? service.category === selectedCategory : true)).length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>No services found in this category.</p>
+                <div className="bg-card rounded-[2rem] border-2 border-border p-8 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                      <MapPin className="w-6 h-6 text-primary" />
+                      Customer Location
+                    </h2>
                   </div>
-                )}
+
+                  <div className="space-y-6">
+                    {user?.addresses && user.addresses.length > 0 && (
+                      <div className="space-y-3">
+                        <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                          Choose From Saved Addresses
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {user.addresses.map((addr, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
+                                setShowCustomLocation(false);
+                                toast.success(`Selected ${addr.label}`);
+                              }}
+                              className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
+                                pickupLocation.address === addr.address && !showCustomLocation
+                                  ? 'border-primary bg-primary/5 shadow-md'
+                                  : 'border-border bg-muted/20 hover:border-primary/30'
+                              }`}
+                            >
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                pickupLocation.address === addr.address && !showCustomLocation ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                              }`}>
+                                <MapPin className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-foreground truncate">{addr.label}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-1">{addr.address}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={cn("pt-4", user?.addresses?.length > 0 && "border-t border-border/50")}>
+                      {user?.addresses?.length > 0 && (
+                        <div className="flex items-center justify-between mb-4">
+                          <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                            Or Enter Custom Address
+                          </label>
+                          <button
+                            onClick={() => {
+                              setShowCustomLocation(!showCustomLocation);
+                              if (!showCustomLocation) {
+                                setPickupLocation({ address: '' });
+                              }
+                            }}
+                            className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
+                          >
+                            {showCustomLocation ? 'Cancel' : '+ Add Custom'}
+                          </button>
+                        </div>
+                      )}
+
+                      {(showCustomLocation || !user?.addresses || user.addresses.length === 0) ? (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-muted/30 rounded-2xl border-2 border-border overflow-hidden p-4"
+                        >
+                          {(!user?.addresses || user.addresses.length === 0) && (
+                             <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest block mb-4">
+                               Enter Pickup Address
+                             </label>
+                          )}
+                          <LocationPicker 
+                            value={pickupLocation} 
+                            onChange={setPickupLocation}
+                            mapClassName="h-[300px] w-full rounded-xl mt-4 border-2 border-border shadow-inner"
+                          />
+                        </motion.div>
+                      ) : !pickupLocation.address && (
+                        <div className="text-center py-8 bg-muted/20 rounded-2xl border-2 border-dashed border-border">
+                          <p className="text-sm text-muted-foreground font-medium">Please select a saved address or enter a custom address.</p>
+                        </div>
+                      )}
+
+                      {pickupLocation.address && !showCustomLocation && user?.addresses?.length > 0 && (
+                        <div className="flex items-start gap-4 p-4 bg-primary/5 rounded-2xl border-2 border-primary/20">
+                           <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                             <Check className="w-5 h-5" />
+                           </div>
+                           <div>
+                             <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Selected Location</p>
+                             <p className="text-sm font-bold text-foreground leading-relaxed">{pickupLocation.address}</p>
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Step 4: Schedule */}
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Select Date & Time</h2>
-                <SlotPicker
-                  selectedDate={selectedDate}
-                  selectedTime={selectedTime}
-                  onDateChange={setSelectedDate}
-                  onTimeChange={setSelectedTime}
-                />
-              </div>
-            )}
-
-            {/* Step 5: Confirm */}
+            {/* Step 4: Confirm */}
             {currentStep === 4 && (
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold">Confirm Booking</h2>
@@ -466,7 +579,7 @@ const BookServicePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 pb-4 border-b border-border">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                       <Calendar className="w-6 h-6 text-primary" />
                     </div>
@@ -477,89 +590,16 @@ const BookServicePage: React.FC = () => {
                       <p className="text-sm text-muted-foreground">{selectedTime}</p>
                     </div>
                   </div>
-                </div>
 
-                {/* Pickup Address */}
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Pickup Required?
-                    </label>
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setPickupRequired(true)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
-                      >
-                        Yes
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPickupRequired(false)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${!pickupRequired ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}
-                      >
-                        No
-                      </button>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <MapPin className="w-6 h-6 text-primary" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {pickupRequired ? 'Our driver will collect your vehicle from your location.' : 'You will drop off the vehicle at the service center.'}
-                    </p>
-                  </div>
-
-                  {pickupRequired && (
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Pickup Address
-                      </label>
-                      
-                      {user?.addresses && user.addresses.length > 0 && (
-                        <div className="mb-4">
-                          <p className="text-xs text-muted-foreground mb-2">Select from saved addresses:</p>
-                          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                            {user.addresses.map((addr, index) => (
-                              <button
-                                key={index}
-                                type="button"
-                                onClick={() => {
-                                  setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
-                                  setShowCustomLocation(false);
-                                  toast.success(`Selected ${addr.label}`);
-                                }}
-                                className={`px-3 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap ${
-                                  pickupLocation.address === addr.address && !showCustomLocation
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'bg-muted/50 text-foreground border-border hover:border-primary hover:bg-muted'
-                                }`}
-                              >
-                                {addr.label}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => setShowCustomLocation(true)}
-                              className={`px-3 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap ${
-                                showCustomLocation
-                                  ? 'bg-primary text-primary-foreground border-primary'
-                                  : 'bg-muted/50 text-foreground border-border hover:border-primary hover:bg-muted'
-                              }`}
-                            >
-                              Other / Custom Location
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {showCustomLocation && (
-                        <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                          <LocationPicker 
-                            value={pickupLocation} 
-                            onChange={setPickupLocation}
-                            mapClassName="h-[300px] w-full rounded-lg mt-4 border border-border"
-                          />
-                        </div>
-                      )}
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Customer Location</p>
+                      <p className="text-sm font-bold text-foreground leading-relaxed">{pickupLocation.address}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}

@@ -135,7 +135,6 @@ const AdminStaffPage: React.FC = () => {
     if (role === 'admin') return <Shield className="w-5 h-5 text-purple-600" />;
     switch (subRole) {
       case 'Driver': return <Truck className="w-5 h-5 text-blue-600" />;
-      case 'Technician': return <Wrench className="w-5 h-5 text-orange-600" />;
       case 'Support': return <UserIcon className="w-5 h-5 text-green-600" />;
       default: return <UserIcon className="w-5 h-5 text-gray-600" />;
     }
@@ -146,7 +145,7 @@ const AdminStaffPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold mb-1">Staff Management</h1>
-          <p className="text-muted-foreground">Manage drivers, technicians, and support staff.</p>
+          <p className="text-muted-foreground">Manage drivers and support staff.</p>
         </div>
         
         <button 
@@ -172,7 +171,7 @@ const AdminStaffPage: React.FC = () => {
         </div>
         
         <div className="flex gap-2 overflow-x-auto">
-          {['all', 'Driver', 'Technician', 'Support', 'Admin'].map((role) => (
+          {['all', 'Driver', 'Support', 'Admin'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
@@ -317,7 +316,6 @@ const AdminStaffPage: React.FC = () => {
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 >
                   <option value="Driver">Pickup Driver</option>
-                  <option value="Technician">Technician</option>
                   <option value="Support">Support Agent</option>
                   <option value="Manager">Manager</option>
                 </select>

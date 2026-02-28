@@ -62,13 +62,14 @@ const bookingSchema = mongoose.Schema(
         },
         image: String,
         oldImage: String
-      }]
+      }],
+      completedAt: Date
     },
     delay: {
       isDelayed: { type: Boolean, default: false },
       reason: { 
         type: String, 
-        enum: ['Waiting for parts', 'Technician unavailable', 'Customer approval pending', 'Other'] 
+        enum: ['Waiting for parts', 'Customer approval pending', 'Other'] 
       },
       note: String,
       startTime: Date
@@ -138,20 +139,11 @@ const bookingSchema = mongoose.Schema(
       lat: { type: Number },
       lng: { type: Number }
     },
-    pickupRequired: {
-      type: Boolean,
-      default: false,
-    },
     merchant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
     pickupDriver: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      index: true,
-    },
-    technician: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       index: true,

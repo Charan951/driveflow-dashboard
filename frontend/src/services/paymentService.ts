@@ -22,6 +22,13 @@ export interface PaymentData {
 }
 
 export const paymentService = {
+  // Dummy payment (replaces Razorpay)
+  processDummyPayment: async (bookingId: string) => {
+    const response = await api.post('/payments/dummy-pay', { bookingId });
+    return response.data;
+  },
+
+  // Legacy Razorpay endpoints (Keeping for backward compatibility, though they will return 410)
   createOrder: async (bookingId: string) => {
     const response = await api.post('/payments/create-order', { bookingId });
     return response.data;

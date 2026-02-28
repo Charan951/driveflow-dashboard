@@ -67,9 +67,12 @@ class BookingDetail {
   final String date;
   final BookingLocation? location;
   final BookingLocation? merchantLocation;
-  final bool pickupRequired;
   final String? vehicleName;
   final List<String> prePickupPhotos;
+  final String? paymentStatus;
+  final num? totalAmount;
+  final String? inspectionCompletedAt;
+  final String? qcCompletedAt;
 
   BookingDetail({
     required this.id,
@@ -78,9 +81,12 @@ class BookingDetail {
     required this.date,
     required this.location,
     required this.merchantLocation,
-    required this.pickupRequired,
     required this.vehicleName,
     required this.prePickupPhotos,
+    this.paymentStatus,
+    this.totalAmount,
+    this.inspectionCompletedAt,
+    this.qcCompletedAt,
   });
 
   factory BookingDetail.fromJson(Map<String, dynamic> json) {
@@ -134,11 +140,14 @@ class BookingDetail {
       date: (json['date'] ?? '').toString(),
       location: location,
       merchantLocation: merchantLocation,
-      pickupRequired: (json['pickupRequired'] ?? false) == true,
       vehicleName: vehicleName,
       prePickupPhotos: (json['prePickupPhotos'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
+      paymentStatus: json['paymentStatus']?.toString(),
+      totalAmount: json['totalAmount'] as num?,
+      inspectionCompletedAt: json['inspection']?['completedAt']?.toString(),
+      qcCompletedAt: json['qc']?['completedAt']?.toString(),
     );
   }
 }

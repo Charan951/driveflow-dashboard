@@ -67,7 +67,6 @@ class Booking {
   final Vehicle? vehicle;
   final List<ServiceItem> services;
   final BookingLocation? location;
-  final bool pickupRequired;
   final String? notes;
   final String? paymentStatus;
   final String? createdAt;
@@ -78,6 +77,10 @@ class Booking {
   final List<String> prePickupPhotos;
   final List<String> postServicePhotos;
   final String? invoiceUrl;
+  final String? driverName;
+  final String? driverPhone;
+  final String? inspectionCompletedAt;
+  final String? qcCompletedAt;
 
   Booking({
     required this.id,
@@ -88,7 +91,6 @@ class Booking {
     required this.vehicle,
     required this.services,
     required this.location,
-    required this.pickupRequired,
     required this.notes,
     required this.paymentStatus,
     required this.createdAt,
@@ -99,6 +101,10 @@ class Booking {
     this.prePickupPhotos = const [],
     this.postServicePhotos = const [],
     this.invoiceUrl,
+    this.driverName,
+    this.driverPhone,
+    this.inspectionCompletedAt,
+    this.qcCompletedAt,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -180,6 +186,17 @@ class Booking {
     }
 
     final invoiceUrl = json['billing']?['fileUrl']?.toString();
+    final inspectionCompletedAt = json['inspection']?['completedAt']
+        ?.toString();
+    final qcCompletedAt = json['qc']?['completedAt']?.toString();
+
+    String? driverName;
+    String? driverPhone;
+    final driver = json['pickupDriver'];
+    if (driver is Map) {
+      driverName = driver['name']?.toString();
+      driverPhone = driver['phone']?.toString();
+    }
 
     return Booking(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
@@ -192,7 +209,6 @@ class Booking {
       vehicle: vehicle,
       services: services,
       location: location,
-      pickupRequired: (json['pickupRequired'] ?? false) == true,
       notes: (json['notes'] ?? '').toString().trim().isEmpty
           ? null
           : (json['notes'] ?? '').toString(),
@@ -211,6 +227,10 @@ class Booking {
       invoiceUrl: invoiceUrl != null && invoiceUrl.isNotEmpty
           ? invoiceUrl
           : null,
+      driverName: driverName,
+      driverPhone: driverPhone,
+      inspectionCompletedAt: inspectionCompletedAt,
+      qcCompletedAt: qcCompletedAt,
     );
   }
 
@@ -224,7 +244,6 @@ class Booking {
       if (vehicle != null) 'vehicle': vehicle!.toJson(),
       'services': services.map((s) => s.toJson()).toList(),
       if (location != null) 'location': location!.toJson(),
-      'pickupRequired': pickupRequired,
       if (notes != null) 'notes': notes,
       if (paymentStatus != null) 'paymentStatus': paymentStatus,
       if (createdAt != null) 'createdAt': createdAt,

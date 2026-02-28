@@ -101,7 +101,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       _updatingStatus = true;
     });
     try {
-      if (status == 'VEHICLE_PICKED' && booking.pickupRequired) {
+      if (status == 'VEHICLE_PICKED') {
         if (booking.prePickupPhotos.length < 4) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -204,20 +204,25 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         }
         await _service.verifyDeliveryOtp(booking.id, otp);
       }
+      if (status == 'OUT_FOR_DELIVERY') {
+        if (booking.paymentStatus != 'paid') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Customer payment is pending. Please wait for payment before picking up the vehicle.',
+              ),
+            ),
+          );
+          setState(() {
+            _updatingStatus = false;
+          });
+          return;
+        }
+      }
       await _service.updateBookingStatus(booking.id, status);
-      if (!mounted) return;
-      setState(() {
-        _booking = BookingDetail(
-          id: booking.id,
-          status: status,
-          date: booking.date,
-          location: booking.location,
-          merchantLocation: booking.merchantLocation,
-          pickupRequired: booking.pickupRequired,
-          vehicleName: booking.vehicleName,
-          prePickupPhotos: booking.prePickupPhotos,
-        );
-      });
+      await _load(
+        booking.id,
+      ); // Reload to get full updated object with all fields
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
@@ -590,17 +595,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                             key: ValueKey(booking.status),
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (booking.status == 'ASSIGNED')
-                                SizedBox(
-                                  height: 44,
-                                  child: FilledButton(
-                                    onPressed: _updatingStatus
-                                        ? null
-                                        : () => _updateStatus('ACCEPTED'),
-                                    child: const Text('Accept Job'),
-                                  ),
-                                )
-                              else if (booking.status == 'ACCEPTED')
+                              if (booking.status == 'ASSIGNED' ||
+                                  booking.status == 'ACCEPTED')
                                 SizedBox(
                                   height: 44,
                                   child: FilledButton(
@@ -667,15 +663,67 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   ),
                                 )
                               else if (booking.status == 'SERVICE_COMPLETED')
-                                SizedBox(
-                                  height: 44,
-                                  child: FilledButton(
-                                    onPressed: _updatingStatus
-                                        ? null
-                                        : () =>
-                                              _updateStatus('OUT_FOR_DELIVERY'),
-                                    child: const Text('Out for Delivery'),
-                                  ),
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (booking.paymentStatus != 'paid')
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFEF3C7),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFF59E0B),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.warning_amber_rounded,
+                                                size: 16,
+                                                color: Color(0xFFB45309),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Waiting for Customer Payment (₹${booking.totalAmount ?? '0'})',
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: const Color(
+                                                          0xFF92400E,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    SizedBox(
+                                      height: 44,
+                                      child: FilledButton(
+                                        onPressed:
+                                            _updatingStatus ||
+                                                booking.paymentStatus != 'paid'
+                                            ? null
+                                            : () => _updateStatus(
+                                                'OUT_FOR_DELIVERY',
+                                              ),
+                                        child: const Text('Out for Delivery'),
+                                      ),
+                                    ),
+                                  ],
                                 )
                               else if (booking.status == 'OUT_FOR_DELIVERY')
                                 SizedBox(

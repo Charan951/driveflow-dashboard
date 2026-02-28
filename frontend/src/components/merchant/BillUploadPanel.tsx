@@ -59,6 +59,19 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if Inspection is completed
+    if (!booking.inspection?.completedAt) {
+      toast.error('Please complete the Inspection in the "Inspection" tab before uploading the bill.');
+      return;
+    }
+
+    // Check if QC is completed
+    if (!booking.qc?.completedAt) {
+      toast.error('Please complete the QC Check in the "QC Check" tab before uploading the bill.');
+      return;
+    }
+
     if (!file && !isUploaded) {
       toast.error('Please upload a bill image or PDF');
       return;
@@ -87,7 +100,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
         // Automatically move status to SERVICE_COMPLETED
         // We do this if the status is currently anywhere before SERVICE_COMPLETED
-        const activeFlow = booking.pickupRequired ? PICKUP_FLOW_ORDER : NO_PICKUP_FLOW_ORDER;
+        const activeFlow = PICKUP_FLOW_ORDER;
         const currentIndex = activeFlow.indexOf(booking.status as (typeof activeFlow)[number]);
         const completedIndex = activeFlow.indexOf('SERVICE_COMPLETED' as (typeof activeFlow)[number]);
 

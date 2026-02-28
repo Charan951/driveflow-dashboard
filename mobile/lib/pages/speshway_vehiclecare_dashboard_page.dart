@@ -589,11 +589,8 @@ class _SpeshwayVehicleCareDashboardState
         : 'Vehicle service';
     final dateLabel = _formatDate(context, booking.date);
     final timeLabel = _formatTime(context, booking.date);
-    final locationLabel = booking.pickupRequired
-        ? (booking.location?.address ?? 'Pickup service scheduled')
-        : (booking.merchantLocation?.address ??
-              booking.merchantName ??
-              'Service center assigned');
+    final locationLabel =
+        booking.location?.address ?? 'Pickup service scheduled';
 
     return _NeonBorderCard(
       neonColor: _neonBlue,
