@@ -46,7 +46,7 @@ class ReviewService {
         'rating': rating,
         'comment': comment,
         'category': category,
-        if (targetId != null) 'target': targetId,
+        'target': targetId,
       },
     );
   }

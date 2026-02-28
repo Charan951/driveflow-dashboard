@@ -26,7 +26,8 @@ const serviceSchema = mongoose.Schema(
     vehicleType: {
       type: String,
       required: true,
-      enum: ['Car', 'Bike'],
+      enum: ['Car'],
+      default: 'Car',
     },
     image: {
       type: String,

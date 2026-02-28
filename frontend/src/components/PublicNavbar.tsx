@@ -14,19 +14,6 @@ import {
 
 const serviceCategories = [
   {
-    title: "Two Wheelers",
-    items: [
-      "Periodic Service",
-      "Engine Repair",
-      "Minor/Major Repairs",
-      "Teflon Coating",
-      "Silencer Coating",
-      "Denting & Painting",
-      "Accessories",
-      "Wash & Polish"
-    ]
-  },
-  {
     title: "Cars",
     items: [
       "Periodic Maintenance",
@@ -94,24 +81,15 @@ const PublicNavbar: React.FC = () => {
                     <ChevronDown className="w-4 h-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    {serviceCategories.map((category) => (
-                      <DropdownMenuSub key={category.title}>
-                        <DropdownMenuSubTrigger className="cursor-pointer">
-                          {category.title}
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-48">
-                          {category.items.map((item) => (
-                            <DropdownMenuItem key={item} asChild>
-                              <Link 
-                                to={`/services?category=${encodeURIComponent(category.title)}&service=${encodeURIComponent(item)}`}
-                                className="cursor-pointer w-full"
-                              >
-                                {item}
-                              </Link>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
+                    {serviceCategories[0].items.map((item) => (
+                      <DropdownMenuItem key={item} asChild>
+                        <Link 
+                          to={`/services?category=${encodeURIComponent(serviceCategories[0].title)}&service=${encodeURIComponent(item)}`}
+                          className="cursor-pointer w-full"
+                        >
+                          {item}
+                        </Link>
+                      </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>

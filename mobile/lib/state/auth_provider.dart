@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
-import '../core/env.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -9,7 +8,6 @@ import '../services/socket_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _auth = AuthService();
-  final ApiClient _api = ApiClient();
   User? user;
   bool loading = false;
   bool _isInitialized = false;
@@ -17,8 +15,6 @@ class AuthProvider extends ChangeNotifier {
 
   bool get isAuthenticated => user != null;
   bool get isInitialized => _isInitialized;
-
-  Future<void> _syncFcmToken() async {}
 
   String _messageFromError(Object error) {
     if (error is ApiException) {
@@ -55,12 +51,15 @@ class AuthProvider extends ChangeNotifier {
     try {
       final token = await AppStorage().getToken();
       if (token == null || token.isEmpty) {
+        debugPrint('AuthProvider: No token found in storage.');
         user = null;
         loading = false;
         _isInitialized = true;
         notifyListeners();
         return;
       }
+
+      debugPrint('AuthProvider: Token found, loading cached user...');
 
       // 1. Try to load from local storage first
       final cachedUserJson = await AppStorage().getUserJson();
@@ -75,51 +74,32 @@ class AuthProvider extends ChangeNotifier {
           }
 
           if (cachedUser != null) {
+            debugPrint(
+              'AuthProvider: Successfully loaded user from cache: ${cachedUser.name}',
+            );
             user = cachedUser;
-            // Notify so UI can show cached user immediately
+            _isInitialized = true;
+            loading = false;
             notifyListeners();
+
+            // Initialize socket service with cached session
+            SocketService().init();
+
+            // Start background refresh without awaiting it
+            _refreshUserInBackground();
+            return;
           }
         } catch (e) {
           debugPrint('AuthProvider: Error decoding cached user: $e');
         }
-      }
-
-      // If we don't have a user yet, show loading state
-      if (user == null) {
-        loading = true;
-        notifyListeners();
       } else {
-        SocketService().init();
+        debugPrint('AuthProvider: No cached user found in storage.');
       }
 
-      // 2. Refresh from server in background
-      try {
-        final fresh = await _auth.me();
-        if (fresh != null) {
-          final oldUserJson = user != null ? jsonEncode(user!.toJson()) : null;
-          final newUserJson = jsonEncode(fresh.toJson());
-
-          user = fresh;
-          await AppStorage().setUserJson(newUserJson);
-
-          // Only notify if the user data actually changed from the cached version
-          if (oldUserJson != newUserJson) {
-            debugPrint('AuthProvider: User updated from server (data changed)');
-            notifyListeners();
-          } else {
-            debugPrint('AuthProvider: User data from server matches cache');
-          }
-        }
-      } on ApiException catch (e) {
-        if (e.statusCode == 401) {
-          await AppStorage().clearToken();
-          await AppStorage().clearUser();
-          user = null;
-          notifyListeners();
-        }
-      } catch (e) {
-        debugPrint('AuthProvider: Server refresh network error: $e');
-      }
+      // If we don't have a cached user, we must wait for the server
+      loading = true;
+      notifyListeners();
+      await _refreshUserInBackground();
     } catch (e) {
       debugPrint('AuthProvider: Fatal error in loadMe: $e');
       if (user == null) {
@@ -129,6 +109,44 @@ class AuthProvider extends ChangeNotifier {
       loading = false;
       _isInitialized = true;
       notifyListeners();
+    }
+  }
+
+  Future<void> _refreshUserInBackground() async {
+    try {
+      debugPrint('AuthProvider: Refreshing user data from server...');
+      final fresh = await _auth.me();
+      if (fresh != null) {
+        final oldUserJson = user != null ? jsonEncode(user!.toJson()) : null;
+        final newUserJson = jsonEncode(fresh.toJson());
+
+        user = fresh;
+        await AppStorage().setUserJson(newUserJson);
+
+        // Only notify if the user data actually changed from the cached version
+        if (oldUserJson != newUserJson) {
+          debugPrint('AuthProvider: User updated from server (data changed)');
+          notifyListeners();
+        } else {
+          debugPrint('AuthProvider: User data from server matches cache');
+        }
+        SocketService().init();
+      }
+    } on ApiException catch (e) {
+      debugPrint(
+        'AuthProvider: Server refresh failed with ApiException: ${e.statusCode} - ${e.message}',
+      );
+      if (e.statusCode == 401) {
+        debugPrint(
+          'AuthProvider: Token invalid or expired (401), clearing session.',
+        );
+        await AppStorage().clearToken();
+        await AppStorage().clearUser();
+        user = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('AuthProvider: Server refresh network error: $e');
     }
   }
 

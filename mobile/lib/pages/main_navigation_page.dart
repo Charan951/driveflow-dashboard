@@ -38,7 +38,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         SystemNavigator.pop();
       },
       child: Scaffold(
-        extendBody: false,
+        extendBody: true,
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
         body: IndexedStack(index: navProvider.selectedIndex, children: _pages),
         bottomNavigationBar: Padding(

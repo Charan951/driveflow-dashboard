@@ -19,14 +19,12 @@ class CustomerDashboardPage extends StatefulWidget {
   State<CustomerDashboardPage> createState() => _CustomerDashboardPageState();
 }
 
-class _CustomerDashboardPageState extends State<CustomerDashboardPage>
-    with SingleTickerProviderStateMixin {
+class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   final _scrollController = ScrollController();
   String? _selectedVehicleId;
-  late final AnimationController _introController;
 
   bool _loading = false;
   String? _error;
@@ -38,10 +36,6 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
   @override
   void initState() {
     super.initState();
-    _introController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 720),
-    )..forward();
 
     // Load data after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,7 +47,6 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
 
   @override
   void dispose() {
-    _introController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -198,27 +191,8 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final width = MediaQuery.of(context).size.width;
-    final isMobile = width < 600;
     final rawName = (user?.name ?? '').trim();
     final firstName = rawName.isEmpty ? '' : rawName.split(' ').first;
-
-    Widget enter(double start, Widget child) {
-      final curve = CurvedAnimation(
-        parent: _introController,
-        curve: Interval(start, 1, curve: Curves.easeOutCubic),
-      );
-      return FadeTransition(
-        opacity: curve,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.06),
-            end: Offset.zero,
-          ).animate(curve),
-          child: child,
-        ),
-      );
-    }
 
     return Scaffold(
       extendBody: true,
@@ -251,14 +225,10 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
               ),
               padding: EdgeInsets.fromLTRB(16, 14, 16, 110 + bottomInset),
               children: [
-                enter(
-                  0.0,
-                  _GreetingHeader(
-                    controller: _introController,
-                    greeting: _greeting(),
-                    name: firstName,
-                    tagline: 'Track your service status',
-                  ),
+                _GreetingHeader(
+                  greeting: _greeting(),
+                  name: firstName,
+                  tagline: 'Track your service status',
                 ),
                 const SizedBox(height: 8),
                 if (_loading && _vehicles.isEmpty && _bookings.isEmpty)
@@ -291,35 +261,29 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage>
                     ),
                   )
                 else ...[
-                  enter(
-                    isMobile ? 0.12 : 0.0,
-                    RepaintBoundary(
-                      child: _UpcomingBookingCard(
-                        booking: _upcomingBooking(),
-                        vehicles: _vehicles,
-                        selectedVehicleId: _selectedVehicleId,
-                        onSelectVehicle: (id) => setState(() {
-                          _selectedVehicleId = id;
-                        }),
-                        statusLabel: _statusLabel,
-                        formatDate: (v) => _formatDate(context, v),
-                        formatTime: (v) => _formatTime(context, v),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_vehicles.isEmpty) enter(0.12, const _AddVehicleCta()),
-                  const SizedBox(height: 16),
-                  enter(0.22, _QuickServicesSection(services: _services)),
-                  const SizedBox(height: 16),
-                  enter(
-                    0.34,
-                    _RecentBookingsSection(
-                      bookings: _bookings,
+                  RepaintBoundary(
+                    child: _UpcomingBookingCard(
+                      booking: _upcomingBooking(),
+                      vehicles: _vehicles,
+                      selectedVehicleId: _selectedVehicleId,
+                      onSelectVehicle: (id) => setState(() {
+                        _selectedVehicleId = id;
+                      }),
                       statusLabel: _statusLabel,
                       formatDate: (v) => _formatDate(context, v),
                       formatTime: (v) => _formatTime(context, v),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_vehicles.isEmpty) const _AddVehicleCta(),
+                  const SizedBox(height: 16),
+                  _QuickServicesSection(services: _services),
+                  const SizedBox(height: 16),
+                  _RecentBookingsSection(
+                    bookings: _bookings,
+                    statusLabel: _statusLabel,
+                    formatDate: (v) => _formatDate(context, v),
+                    formatTime: (v) => _formatTime(context, v),
                   ),
                 ],
               ],
@@ -461,9 +425,7 @@ class _UpcomingBookingCard extends StatelessWidget {
       return InkWell(
         onTap: () => onSelectVehicle(v.id),
         borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+        child: Container(
           width: 98,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -536,9 +498,9 @@ class _UpcomingBookingCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 28,
-              offset: const Offset(0, 18),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -572,38 +534,30 @@ class _UpcomingBookingCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: progress),
-                  duration: const Duration(milliseconds: 720),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, _) {
-                    final label = '${(value * 100).round()}%';
-                    return SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            value: value,
-                            strokeWidth: 6,
-                            backgroundColor: const Color(0xFFE2E8F0),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF38BDF8),
-                            ),
-                          ),
-                          Text(
-                            label,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 6,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF38BDF8),
+                        ),
                       ),
-                    );
-                  },
+                      Text(
+                        '$percent%',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -720,50 +674,41 @@ class _UpcomingBookingCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 720),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Progress',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: const Color(0xFF64748B),
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$percent%',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: const Color(0xFF0F172A),
-                                fontWeight: FontWeight.w900,
-                              ),
-                        ),
-                      ],
+                    Text(
+                      'Progress',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: value,
-                        minHeight: 8,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF38BDF8),
-                        ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$percent%',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
-                );
-              },
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF38BDF8),
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (vehicles.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -999,80 +944,70 @@ class _VehicleMiniCard extends StatefulWidget {
 }
 
 class _VehicleMiniCardState extends State<_VehicleMiniCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        child: Container(
-          width: 190,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 12),
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE9FE),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FE),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.directions_car_filled_outlined,
-                  color: Color(0xFF4F46E5),
-                ),
+              child: const Icon(
+                Icons.directions_car_filled_outlined,
+                color: Color(0xFF4F46E5),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
-                      ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F172A),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF64748B),
-                        fontWeight: FontWeight.w700,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+          ],
         ),
       ),
     );
@@ -1090,8 +1025,6 @@ class _QuickServiceTile extends StatefulWidget {
 }
 
 class _QuickServiceTileState extends State<_QuickServiceTile> {
-  bool _pressed = false;
-
   IconData _iconForTitle(String title) {
     final v = title.toLowerCase();
     if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
@@ -1112,52 +1045,44 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
     final icon = _iconForTitle(widget.title);
     return GestureDetector(
       onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        child: Container(
-          width: 118,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 12),
+      child: Container(
+        width: 118,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(18),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(icon, color: const Color(0xFF2563EB)),
+              child: Icon(icon, color: const Color(0xFF2563EB)),
+            ),
+            const Spacer(),
+            Text(
+              widget.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F172A),
               ),
-              const Spacer(),
-              Text(
-                widget.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1165,13 +1090,11 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
 }
 
 class _GreetingHeader extends StatelessWidget {
-  final AnimationController controller;
   final String greeting;
   final String name;
   final String tagline;
 
   const _GreetingHeader({
-    required this.controller,
     required this.greeting,
     required this.name,
     required this.tagline,
@@ -1194,23 +1117,6 @@ class _GreetingHeader extends StatelessWidget {
       fontWeight: weight,
       foreground: Paint()..shader = shader,
       height: 1.05,
-    );
-  }
-
-  Widget _line(Animation<double> anim, double start, Widget child) {
-    final curve = CurvedAnimation(
-      parent: anim,
-      curve: Interval(start, start + 0.6, curve: Curves.easeOutCubic),
-    );
-    return FadeTransition(
-      opacity: curve,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.18),
-          end: Offset.zero,
-        ).animate(curve),
-        child: child,
-      ),
     );
   }
 
@@ -1243,72 +1149,60 @@ class _GreetingHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _line(
-                  controller,
-                  0.0,
-                  Text(
-                    greeting,
-                    style: _gradientStyle(
-                      context,
-                      colors: const [
-                        Color(0xFF34D399),
-                        Color(0xFF22D3EE),
-                        Color(0xFF60A5FA),
-                      ],
-                      size: 28,
-                    ),
+                Text(
+                  greeting,
+                  style: _gradientStyle(
+                    context,
+                    colors: const [
+                      Color(0xFF34D399),
+                      Color(0xFF22D3EE),
+                      Color(0xFF60A5FA),
+                    ],
+                    size: 28,
                   ),
                 ),
-                _line(
-                  controller,
-                  0.12,
-                  Text(
-                    name.isEmpty ? 'Guest' : name,
-                    style: _gradientStyle(
-                      context,
-                      colors: const [Color(0xFFF59E0B), Color(0xFFEF4444)],
-                      size: 30,
-                    ),
+                Text(
+                  name.isEmpty ? 'Guest' : name,
+                  style: _gradientStyle(
+                    context,
+                    colors: const [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                    size: 30,
                   ),
                 ),
-                _line(
-                  controller,
-                  0.24,
-                  Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE0F2FE), Color(0xFFFCE7F3)],
                     ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFE0F2FE), Color(0xFFFCE7F3)],
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22C55E),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF22C55E),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
+                      const SizedBox(width: 8),
+                      Text(
+                        tagline,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          tagline,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],

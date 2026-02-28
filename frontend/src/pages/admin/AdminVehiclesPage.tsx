@@ -104,7 +104,6 @@ const AdminVehiclesPage: React.FC = () => {
             >
               <option value="all">All Types</option>
               <option value="Car">Car</option>
-              <option value="Bike">Bike</option>
             </select>
             <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           </div>

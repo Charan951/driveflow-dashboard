@@ -13,8 +13,8 @@ class AppStorage {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-      // Adding these to be safer
+      encryptedSharedPreferences: false,
+      sharedPreferencesName: 'speshway_storage',
       resetOnError: true,
     ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),

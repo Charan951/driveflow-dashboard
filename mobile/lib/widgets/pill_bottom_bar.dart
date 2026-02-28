@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -28,8 +29,8 @@ class PillBottomBar extends StatelessWidget {
           )
         : LinearGradient(
             colors: [
-              Colors.white.withValues(alpha: useBlur ? 0.78 : 0.95),
-              Colors.white.withValues(alpha: useBlur ? 0.62 : 0.95),
+              Colors.white.withValues(alpha: useBlur ? 0.85 : 0.95),
+              Colors.white.withValues(alpha: useBlur ? 0.75 : 0.95),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -128,7 +129,7 @@ class CenterNavAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const gradient = LinearGradient(
-      colors: [Color(0xFF22D3EE), Color(0xFF4F46E5)],
+      colors: [Color(0xFF22D3EE), Color(0xFF2563EB)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -144,22 +145,24 @@ class CenterNavAction extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutCubic,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.32),
-                  blurRadius: isActive ? 28 : 22,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.85),
-                width: 2,
-              ),
+              color: Colors.transparent,
             ),
-            child: const Icon(Icons.home_filled, color: Colors.white, size: 28),
+            child: isActive
+                ? ShaderMask(
+                    shaderCallback: (bounds) => gradient.createShader(bounds),
+                    child: const Icon(
+                      Icons.home_filled,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  )
+                : const Icon(
+                    Icons.home_filled,
+                    color: Color(0xFF94A3B8),
+                    size: 28,
+                  ),
           ),
         ),
       ),
@@ -184,11 +187,10 @@ class GlassNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const gradient = LinearGradient(
-      colors: [Color(0xFF22D3EE), Color(0xFF4F46E5), Color(0xFFF472B6)],
+      colors: [Color(0xFF22D3EE), Color(0xFF2563EB), Color(0xFF60A5FA)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
-    final fg = isActive ? Colors.white : inactiveColor;
 
     return InkWell(
       onTap: onTap,
@@ -197,26 +199,18 @@ class GlassNavItem extends StatelessWidget {
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: isActive ? gradient : null,
-          color: isActive ? null : Colors.transparent,
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF22D3EE).withValues(alpha: 0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: Center(
           child: AnimatedScale(
-            scale: isActive ? 1.15 : 1.0,
+            scale: isActive ? 1.25 : 1.0,
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutBack,
-            child: Icon(icon, color: fg, size: 26),
+            child: isActive
+                ? ShaderMask(
+                    shaderCallback: (bounds) => gradient.createShader(bounds),
+                    child: Icon(icon, color: Colors.white, size: 28),
+                  )
+                : Icon(icon, color: inactiveColor, size: 26),
           ),
         ),
       ),

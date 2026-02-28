@@ -13,7 +13,6 @@ import { SmoothMarker } from '@/components/SmoothMarker';
 import { Booking } from '@/services/bookingService';
 import { 
   Car, 
-  Bike, 
   User, 
   Navigation, 
   RefreshCw, 
@@ -378,9 +377,7 @@ const AdminTrackingPage: React.FC = () => {
     }
     if ('type' in item) {
       // It's vehicle
-      return item.type === 'Bike' 
-        ? <Bike className="w-5 h-5 text-white" /> 
-        : <Car className="w-5 h-5 text-white" />;
+      return <Car className="w-5 h-5 text-white" />;
     }
     // It's staff
     return <User className="w-5 h-5 text-white" />;

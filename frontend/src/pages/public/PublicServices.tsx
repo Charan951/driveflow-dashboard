@@ -11,7 +11,6 @@ import {
   Clock,
   CreditCard,
   Car,
-  Bike
 } from 'lucide-react';
 import { serviceService, Service } from '@/services/serviceService';
 import { useAuthStore } from '@/store/authStore';
@@ -25,7 +24,7 @@ const PublicServices = () => {
   const { isAuthenticated, role } = useAuthStore();
   const navigate = useNavigate();
 
-  const categoryParam = searchParams.get('category'); // "Two Wheelers" or "Cars"
+  const categoryParam = searchParams.get('category'); // "Cars"
   const serviceParam = searchParams.get('service'); // "Periodic Service", "Teflon Coating", etc.
 
   useEffect(() => {
@@ -71,15 +70,9 @@ const PublicServices = () => {
     }
   };
 
-  const getVehicleType = (cat: string | null): 'Bike' | 'Car' | null => {
-    if (cat === 'Two Wheelers') return 'Bike';
-    if (cat === 'Cars') return 'Car';
-    return null;
-  };
-
   const filteredServices = services.filter(s => {
-    const targetVehicleType = getVehicleType(categoryParam);
-    if (targetVehicleType && s.vehicleType !== targetVehicleType) return false;
+    // Only show Car services
+    if (s.vehicleType !== 'Car') return false;
 
     if (serviceParam) {
       // Flexible matching: check if service name includes the param OR category matches
@@ -168,7 +161,7 @@ const PublicServices = () => {
             </h1>
             <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
               {isDetailView 
-                ? `Professional ${serviceParam} for your ${categoryParam === 'Two Wheelers' ? 'Bike' : 'Car'}`
+                ? `Professional ${serviceParam} for your Car`
                 : 'Comprehensive automotive care solutions designed for your convenience and safety.'}
             </p>
           </motion.div>
@@ -212,11 +205,7 @@ const PublicServices = () => {
                   className="w-full h-[400px] object-cover transform group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg">
-                  {service.vehicleType === 'Car' ? (
-                    <Car className="w-8 h-8 text-primary" />
-                  ) : (
-                    <Bike className="w-8 h-8 text-primary" />
-                  )}
+                  <Car className="w-8 h-8 text-primary" />
                 </div>
               </div>
             </div>

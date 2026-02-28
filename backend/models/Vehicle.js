@@ -15,7 +15,7 @@ const vehicleSchema = new mongoose.Schema({
   vin: { type: String },
   mileage: { type: Number },
   fuelType: { type: String },
-  type: { type: String, enum: ['Car', 'Bike'], default: 'Car' },
+  type: { type: String, enum: ['Car'], default: 'Car' },
   status: { type: String, enum: ['Idle', 'On Route', 'In Service'], default: 'Idle' },
   location: {
     lat: { type: Number },

@@ -23,7 +23,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
@@ -134,7 +134,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'VEHICLE_AT_MERCHANT':
       case 'JOB_CARD':
       case 'SERVICE_STARTED':
-        return const Color(0xFF7C3AED);
+        return const Color(0xFF3B82F6);
       case 'SERVICE_COMPLETED':
       case 'OUT_FOR_DELIVERY':
         return const Color(0xFFF59E0B);
@@ -163,22 +163,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         titleSpacing: 0,
         title: Row(
           children: [
-            Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentBlue.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: IconButton(
+                ],
+              ),
+              child: Builder(
+                builder: (context) => IconButton(
                   icon: const Icon(Icons.menu),
                   color: Colors.white,
                   tooltip: 'Menu',
@@ -363,24 +361,14 @@ class _BookingCard extends StatefulWidget {
   State<_BookingCard> createState() => _BookingCardState();
 }
 
-class _BookingCardState extends State<_BookingCard>
-    with SingleTickerProviderStateMixin {
-  bool _pressed = false;
-
-  late final AnimationController _glowController;
-
+class _BookingCardState extends State<_BookingCard> {
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -407,294 +395,241 @@ class _BookingCardState extends State<_BookingCard>
 
     return GestureDetector(
       onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFE5E7EB),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 12),
-              ),
-            ],
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E7EB),
           ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FractionallySizedBox(
-                    widthFactor: 0.26,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(18),
-                        bottomRight: Radius.circular(18),
-                      ),
-                      child: AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          final t = _glowController.value;
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  accent.withValues(alpha: 0.10 + 0.10 * t),
-                                  accent.withValues(alpha: 0.28 + 0.12 * t),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                          );
-                        },
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: 0.26,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(18),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            accent.withValues(alpha: 0.15),
+                            accent.withValues(alpha: 0.35),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          final t = _glowController.value;
-                          final base = accent;
-                          return Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              gradient: RadialGradient(
-                                center: Alignment(0, -0.2 + 0.2 * t),
-                                colors: [
-                                  base.withValues(alpha: 0.85),
-                                  base.withValues(alpha: 0.25),
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: base.withValues(
-                                    alpha: 0.25 + 0.25 * t,
-                                  ),
-                                  blurRadius: 16,
-                                  spreadRadius: 1.2,
-                                ),
-                              ],
-                            ),
-                            child: child,
-                          );
-                        },
-                        child: Icon(
-                          iconForTitle(widget.title),
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Booking #${widget.orderNumber ?? widget.id}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            if (widget.categoryLabel != null &&
-                                widget.categoryLabel!.trim().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(999),
-                                    color: accent.withValues(alpha: 0.08),
-                                  ),
-                                  child: Text(
-                                    widget.categoryLabel!.toUpperCase(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: accent,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.6,
-                                        ),
-                                  ),
-                                ),
-                              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: RadialGradient(
+                          center: const Alignment(0, -0.2),
+                          colors: [
+                            accent.withValues(alpha: 0.85),
+                            accent.withValues(alpha: 0.25),
                           ],
                         ),
                       ),
-                      AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          final t = _glowController.value;
-                          final base = widget.statusColor;
-                          final highlight = Color.lerp(
-                            base,
-                            Colors.white,
-                            0.18,
-                          )!;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(999),
-                              gradient: LinearGradient(
-                                colors: [
-                                  base.withValues(alpha: 0.20 + 0.10 * t),
-                                  highlight.withValues(alpha: 0.32),
-                                ],
-                                begin: Alignment(-1 + t, 0),
-                                end: Alignment(1 - t, 0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: base.withValues(alpha: 0.30 * t),
-                                  blurRadius: 16,
-                                  spreadRadius: 0.6,
-                                ),
-                              ],
-                            ),
-                            child: child,
-                          );
-                        },
-                        child: Text(
-                          widget.statusLabel,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                      child: Icon(
+                        iconForTitle(widget.title),
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Booking #${widget.orderNumber ?? widget.id}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
+                          if (widget.categoryLabel != null &&
+                              widget.categoryLabel!.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: accent.withValues(alpha: 0.08),
+                                ),
+                                child: Text(
+                                  widget.categoryLabel!.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: accent,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                      ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: LinearGradient(
+                          colors: [
+                            widget.statusColor.withValues(alpha: 0.25),
+                            Color.lerp(
+                              widget.statusColor,
+                              Colors.white,
+                              0.18,
+                            )!.withValues(alpha: 0.32),
+                          ],
+                          begin: const Alignment(-1, 0),
+                          end: const Alignment(1, 0),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.schedule,
-                        size: 16,
+                      child: Text(
+                        widget.statusLabel,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.dateTimeLabel,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isDark ? Colors.white70 : Colors.black54,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        widget.dateTimeLabel,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if (widget.subtitle != null) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    widget.title,
+                    widget.subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
-                  ),
-                  if (widget.subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
-                  if (widget.extra != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.extra!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white60 : Colors.black45,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Text(
-                        '₹${widget.amount}',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (isRateable)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.star,
-                                  size: 14,
-                                  color: Colors.black87,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Rate Now',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: isDark ? Colors.white60 : Colors.black38,
-                      ),
-                    ],
                   ),
                 ],
-              ),
-            ],
-          ),
+                if (widget.extra != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.extra!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isDark ? Colors.white60 : Colors.black45,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      '₹${widget.amount}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (isRateable)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.star, size: 14, color: Colors.black87),
+                              SizedBox(width: 4),
+                              Text(
+                                'Rate Now',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: isDark ? Colors.white60 : Colors.black38,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -320,7 +320,7 @@ class _SplashBackground extends StatelessWidget {
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x334F46E5), Color(0x00000000)],
+                colors: [Color(0x332563EB), Color(0x00000000)],
               ),
             ),
           ),

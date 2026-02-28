@@ -13,6 +13,7 @@ import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
+import '../widgets/customer_drawer.dart';
 
 class SpeshwayVehicleCareDashboard extends StatefulWidget {
   const SpeshwayVehicleCareDashboard({super.key});
@@ -24,12 +25,10 @@ class SpeshwayVehicleCareDashboard extends StatefulWidget {
 
 class _SpeshwayVehicleCareDashboardState
     extends State<SpeshwayVehicleCareDashboard>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
-
-  late final AnimationController _glowController;
 
   bool _loading = false;
   String? _error;
@@ -40,11 +39,10 @@ class _SpeshwayVehicleCareDashboardState
   List<Booking> _bookings = [];
   Booking? _upcomingBookingCached;
   List<Booking> _recentBookings = [];
-  final Set<int> _pressedQuickServiceIndices = {};
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
   Color get _neonBlue => const Color(0xFF38BDF8);
 
@@ -52,10 +50,7 @@ class _SpeshwayVehicleCareDashboardState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _restoreAndLoad();
     });
@@ -70,7 +65,6 @@ class _SpeshwayVehicleCareDashboardState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _glowController.dispose();
     final socket = SocketService();
     socket.removeListener(_onSocketConnectionChanged);
     socket.off('bookingUpdated', _onExternalUpdate);
@@ -380,6 +374,7 @@ class _SpeshwayVehicleCareDashboardState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
+      drawer: const CustomerDrawer(currentRouteName: '/customer'),
       body: Stack(
         children: [
           if (isDark)
@@ -504,6 +499,17 @@ class _SpeshwayVehicleCareDashboardState
 
     return Row(
       children: [
+        _FrostedCard(
+          borderRadius: 16,
+          padding: EdgeInsets.zero,
+          child: IconButton(
+            icon: const Icon(Icons.menu),
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,31 +523,17 @@ class _SpeshwayVehicleCareDashboardState
                 ),
               ),
               const SizedBox(height: 4),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 700),
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, (1 - value) * 8),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Text(
-                  firstName.isNotEmpty ? '$greeting, $firstName' : greeting,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
+              Text(
+                firstName.isNotEmpty ? '$greeting, $firstName' : greeting,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
         ),
-        _GlassIconButton(icon: Icons.search_rounded, onTap: () {}),
       ],
     );
   }
@@ -753,158 +745,113 @@ class _SpeshwayVehicleCareDashboardState
             final item = items[index];
             final theme = Theme.of(context);
             final category = item.category?.trim();
-            final isPressed = _pressedQuickServiceIndices.contains(index);
             return InkWell(
               borderRadius: BorderRadius.circular(18),
-              onHighlightChanged: (v) {
-                setState(() {
-                  if (v) {
-                    _pressedQuickServiceIndices.add(index);
-                  } else {
-                    _pressedQuickServiceIndices.remove(index);
-                  }
-                });
-              },
               onTap: item.source == null
                   ? null
                   : () {
                       final nav = context.read<NavigationProvider>();
                       nav.navigateTo('/services', arguments: item.source!);
                     },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                transform: Matrix4.identity()
-                  ..translate(0.0, isPressed ? 2.0 : 0.0)
-                  ..scale(isPressed ? 0.97 : 1.0),
-                child: _FrostedCard(
-                  borderRadius: 18,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 10,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (category != null && category.isNotEmpty) ...[
-                        AnimatedBuilder(
-                          animation: _glowController,
-                          builder: (context, child) {
-                            final t = _glowController.value;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(999),
-                                gradient: LinearGradient(
-                                  begin: Alignment(-1 + t, 0),
-                                  end: Alignment(1 - t, 0),
-                                  colors: [
-                                    _accentPurple.withValues(alpha: 0.9),
-                                    _accentBlue.withValues(alpha: 0.9),
-                                  ],
-                                ),
-                              ),
-                              child: child,
-                            );
-                          },
-                          child: Text(
-                            category.toUpperCase(),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white,
-                              fontSize: 8,
-                              letterSpacing: 0.8,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          final t = _glowController.value;
-                          final scale = 0.94 + 0.12 * t;
-                          return Transform.scale(
-                            scale: scale,
-                            child: Hero(
-                              tag: item.source != null
-                                  ? 'service-hero-${item.source!.id}'
-                                  : 'service-hero-${item.label}',
+              child: _FrostedCard(
+                borderRadius: 18,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Category badge area with fixed height to ensure icons align
+                    SizedBox(
+                      height: 20,
+                      child: (category != null && category.isNotEmpty)
+                          ? Center(
                               child: Container(
-                                width: 34,
-                                height: 34,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: RadialGradient(
-                                    center: Alignment(0, -0.2 + 0.2 * t),
+                                  borderRadius: BorderRadius.circular(999),
+                                  gradient: LinearGradient(
+                                    begin: const Alignment(-1, 0),
+                                    end: const Alignment(1, 0),
                                     colors: [
+                                      _accentPurple.withValues(alpha: 0.9),
                                       _accentBlue.withValues(alpha: 0.9),
-                                      _accentPurple.withValues(alpha: 0.3),
                                     ],
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: _accentBlue.withValues(alpha: 0.8),
-                                      blurRadius: 18,
-                                      spreadRadius: 1.2,
-                                    ),
-                                  ],
                                 ),
-                                child: child,
+                                child: Text(
+                                  category.toUpperCase(),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 7,
+                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        child: Center(
-                          child: Icon(item.icon, size: 20, color: Colors.white),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: const Alignment(0, -0.2),
+                          colors: [
+                            _accentBlue.withValues(alpha: 0.9),
+                            _accentPurple.withValues(alpha: 0.4),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      child: Center(
+                        child: Icon(item.icon, size: 20, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Label area with fixed height for 2 lines to ensure prices align
+                    SizedBox(
+                      height: 32,
+                      child: Center(
+                        child: Text(
+                          item.label,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.95)
+                                : const Color(0xFF0F172A),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (item.price != null && item.price! > 0) ...[
                       Text(
-                        item.label,
+                        _formatPrice(item.price!),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.95)
+                              ? Colors.white.withValues(alpha: 0.8)
                               : const Color(0xFF0F172A),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (item.price != null && item.price! > 0) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatPrice(item.price!),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.8)
-                                : const Color(0xFF0F172A),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                      if (item.estimatedMinutes != null &&
-                          item.estimatedMinutes! > 0) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${item.estimatedMinutes!.round()} min',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.6)
-                                : const Color(0xFF64748B),
-                            fontSize: 9,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
             );
@@ -1112,22 +1059,31 @@ class _FrostedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final container = Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFE2E8F0).withValues(alpha: 0.6),
           width: 1,
         ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: child,
-    );
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: container,
     );
   }
 }
@@ -1140,45 +1096,34 @@ class _NeonBorderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderRadius = BorderRadius.circular(26);
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            boxShadow: [
-              BoxShadow(
-                color: neonColor.withValues(alpha: 0.7),
-                blurRadius: 25,
-                spreadRadius: 1,
-                offset: const Offset(0, 0),
-              ),
-            ],
-          ),
-        ),
-        ClipRRect(
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
           borderRadius: borderRadius,
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: borderRadius,
-              border: Border.all(
-                color: neonColor.withValues(alpha: 0.9),
-                width: 1.6,
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.06),
-                  Colors.white.withValues(alpha: 0.02),
-                ],
-              ),
-            ),
-            child: child,
+          border: Border.all(
+            color: neonColor.withValues(alpha: isDark ? 0.5 : 0.35),
+            width: 1.2,
+          ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    Colors.white.withValues(alpha: 0.08),
+                    Colors.white.withValues(alpha: 0.04),
+                  ]
+                : [
+                    Colors.white.withValues(alpha: 0.9),
+                    Colors.white.withValues(alpha: 0.6),
+                  ],
           ),
         ),
-      ],
+        child: child,
+      ),
     );
   }
 }
@@ -1203,13 +1148,6 @@ class _NeonButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: blue.withValues(alpha: 0.7),
-              blurRadius: 18,
-              spreadRadius: 1,
-            ),
-          ],
           gradient: LinearGradient(colors: [purple, blue]),
         ),
         child: Padding(

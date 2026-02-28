@@ -8,20 +8,12 @@ export const getServices = async (req, res) => {
   try {
     const query = {};
 
-    // Handle vehicleType
-    if (vehicleType) {
-      query.vehicleType = vehicleType;
-    }
+    // Handle vehicleType (Default to Car as per requirement)
+    query.vehicleType = 'Car';
 
-    // Handle category (frontend sends "Two Wheelers" or "Cars" as category, or actual backend categories)
-    if (category) {
-      if (category === 'Two Wheelers') {
-        query.vehicleType = 'Bike';
-      } else if (category === 'Cars') {
-        query.vehicleType = 'Car';
-      } else {
-        query.category = category;
-      }
+    // Handle category
+    if (category && category !== 'Cars') {
+      query.category = category;
     }
 
     // Handle service name search

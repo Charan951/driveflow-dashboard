@@ -12,8 +12,7 @@ class SupportPage extends StatefulWidget {
   State<SupportPage> createState() => _SupportPageState();
 }
 
-class _SupportPageState extends State<SupportPage>
-    with SingleTickerProviderStateMixin {
+class _SupportPageState extends State<SupportPage> {
   final _ticketService = TicketService();
   final _socketService = SocketService();
   List<SupportTicket> _tickets = [];
@@ -25,17 +24,12 @@ class _SupportPageState extends State<SupportPage>
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
-  late final AnimationController _glowController;
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
     _loadCurrentUser();
     _loadTickets();
     _initSocket();
@@ -193,7 +187,7 @@ class _SupportPageState extends State<SupportPage>
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: category,
+                initialValue: category,
                 decoration: const InputDecoration(
                   labelText: 'Category',
                   border: OutlineInputBorder(),
@@ -252,7 +246,6 @@ class _SupportPageState extends State<SupportPage>
   @override
   void dispose() {
     _socketService.off('ticketUpdated', _onTicketUpdated);
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -281,8 +274,8 @@ class _SupportPageState extends State<SupportPage>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _accentBlue.withValues(alpha: 0.4),
-                        blurRadius: 14,
+                        color: _accentBlue.withValues(alpha: 0.2),
+                        blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -385,12 +378,12 @@ class _SupportPageState extends State<SupportPage>
                                   boxShadow: [
                                     BoxShadow(
                                       color: isDark
-                                          ? Colors.black.withValues(alpha: 0.45)
+                                          ? Colors.black.withValues(alpha: 0.35)
                                           : Colors.black.withValues(
-                                              alpha: 0.06,
+                                              alpha: 0.04,
                                             ),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 16),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 10),
                                     ),
                                   ],
                                 ),
@@ -399,45 +392,25 @@ class _SupportPageState extends State<SupportPage>
                                   children: [
                                     Row(
                                       children: [
-                                        AnimatedBuilder(
-                                          animation: _glowController,
-                                          builder: (context, child) {
-                                            final t = _glowController.value;
-                                            return Container(
-                                              width: 44,
-                                              height: 44,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                gradient: RadialGradient(
-                                                  center: Alignment(
-                                                    0,
-                                                    -0.2 + 0.2 * t,
-                                                  ),
-                                                  colors: [
-                                                    _accentBlue.withValues(
-                                                      alpha: 0.85,
-                                                    ),
-                                                    _accentBlue.withValues(
-                                                      alpha: 0.25,
-                                                    ),
-                                                  ],
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            gradient: RadialGradient(
+                                              center: const Alignment(0, -0.2),
+                                              colors: [
+                                                _accentBlue.withValues(
+                                                  alpha: 0.85,
                                                 ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: _accentBlue
-                                                        .withValues(
-                                                          alpha:
-                                                              0.30 + 0.10 * t,
-                                                        ),
-                                                    blurRadius: 18,
-                                                    spreadRadius: 1.2,
-                                                  ),
-                                                ],
-                                              ),
-                                              child: child,
-                                            );
-                                          },
+                                                _accentBlue.withValues(
+                                                  alpha: 0.25,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                           child: const Icon(
                                             Icons.support_agent_outlined,
                                             color: Colors.white,

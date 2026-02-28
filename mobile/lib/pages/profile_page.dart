@@ -17,27 +17,19 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage>
-    with SingleTickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage> {
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
-
-  late final AnimationController _glowController;
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -58,22 +50,20 @@ class _ProfilePageState extends State<ProfilePage>
         titleSpacing: 0,
         title: Row(
           children: [
-            Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentBlue.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: IconButton(
+                ],
+              ),
+              child: Builder(
+                builder: (context) => IconButton(
                   icon: const Icon(Icons.menu),
                   color: Colors.white,
                   tooltip: 'Menu',
@@ -143,43 +133,27 @@ class _ProfilePageState extends State<ProfilePage>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 20,
-                              offset: const Offset(0, 12),
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
                         child: Row(
                           children: [
-                            AnimatedBuilder(
-                              animation: _glowController,
-                              builder: (context, child) {
-                                final t = _glowController.value;
-                                return Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(18),
-                                    gradient: RadialGradient(
-                                      center: Alignment(0, -0.2 + 0.2 * t),
-                                      colors: [
-                                        _accentPurple.withValues(alpha: 0.85),
-                                        _accentPurple.withValues(alpha: 0.25),
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: _accentPurple.withValues(
-                                          alpha: 0.30 + 0.10 * t,
-                                        ),
-                                        blurRadius: 18,
-                                        spreadRadius: 1.2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: child,
-                                );
-                              },
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                gradient: RadialGradient(
+                                  center: const Alignment(0, -0.2),
+                                  colors: [
+                                    _accentPurple.withValues(alpha: 0.85),
+                                    _accentPurple.withValues(alpha: 0.25),
+                                  ],
+                                ),
+                              ),
                               child: const Icon(
                                 Icons.person_outline,
                                 color: Colors.white,
@@ -339,12 +313,15 @@ class _ProfilePageState extends State<ProfilePage>
                     name: nameController.text,
                     phone: phoneController.text,
                   );
-                  if (context.mounted) Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 } catch (e) {
-                  if (context.mounted)
+                  if (context.mounted) {
                     ScaffoldMessenger.of(
                       context,
                     ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
                 }
               },
               child: const Text('Save Changes'),
@@ -471,7 +448,7 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: label,
+                  initialValue: label,
                   decoration: const InputDecoration(
                     labelText: 'Label',
                     border: OutlineInputBorder(),
@@ -572,12 +549,15 @@ class _ProfilePageState extends State<ProfilePage>
                             await context.read<AuthProvider>().updateProfile(
                               addresses: newList,
                             );
-                            if (context.mounted) Navigator.pop(context);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
                           } catch (e) {
-                            if (context.mounted)
+                            if (context.mounted) {
                               messenger.showSnackBar(
                                 SnackBar(content: Text('Error: $e')),
                               );
+                            }
                           }
                         },
                   child: const Text('Add Address'),
@@ -602,10 +582,11 @@ class _ProfilePageState extends State<ProfilePage>
     try {
       await context.read<AuthProvider>().updateProfile(addresses: newList);
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
@@ -641,7 +622,7 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 items: ['card', 'upi', 'wallet']
                     .map(
                       (e) => DropdownMenuItem(
@@ -687,12 +668,15 @@ class _ProfilePageState extends State<ProfilePage>
                     await context.read<AuthProvider>().updateProfile(
                       paymentMethods: newList,
                     );
-                    if (context.mounted) Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   } catch (e) {
-                    if (context.mounted)
+                    if (context.mounted) {
                       ScaffoldMessenger.of(
                         context,
                       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
                   }
                 },
                 child: const Text('Add Payment Method'),
@@ -716,10 +700,11 @@ class _ProfilePageState extends State<ProfilePage>
     try {
       await context.read<AuthProvider>().updateProfile(paymentMethods: newList);
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 }

@@ -12,24 +12,16 @@ class CustomerDrawer extends StatefulWidget {
   State<CustomerDrawer> createState() => _CustomerDrawerState();
 }
 
-class _CustomerDrawerState extends State<CustomerDrawer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _glowController;
-
+class _CustomerDrawerState extends State<CustomerDrawer> {
   bool _isActive(String routeName) => widget.currentRouteName == routeName;
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -62,120 +54,97 @@ class _CustomerDrawerState extends State<CustomerDrawer>
     }
   }
 
+  static const List<_DrawerItem> _drawerItems = [
+    _DrawerItem(
+      icon: Icons.dashboard_outlined,
+      label: 'Dashboard',
+      routeName: '/customer',
+    ),
+    _DrawerItem(
+      icon: Icons.calendar_month_outlined,
+      label: 'My Bookings',
+      routeName: '/bookings',
+    ),
+    _DrawerItem(
+      icon: Icons.payments_outlined,
+      label: 'My Payments',
+      routeName: '/payments',
+    ),
+    _DrawerItem(
+      icon: Icons.directions_car_filled_outlined,
+      label: 'My Vehicles',
+      routeName: '/vehicles',
+    ),
+    _DrawerItem(
+      icon: Icons.settings_suggest_outlined,
+      label: 'Services',
+      routeName: '/services',
+    ),
+    _DrawerItem(
+      icon: Icons.add_task_outlined,
+      label: 'Book Service',
+      routeName: '/services',
+      arguments: {'openBookHint': true},
+    ),
+    _DrawerItem(
+      icon: Icons.local_car_wash_outlined,
+      label: 'Car Wash',
+      routeName: '/services',
+      arguments: {'filter': 'car_wash', 'title': 'Car Wash'},
+    ),
+    _DrawerItem(
+      icon: Icons.battery_charging_full_outlined,
+      label: 'Tires & Battery',
+      routeName: '/services',
+      arguments: {'filter': 'tires_battery', 'title': 'Tires & Battery'},
+    ),
+    _DrawerItem(
+      icon: Icons.shield_outlined,
+      label: 'Insurance',
+      routeName: '/insurance',
+    ),
+    _DrawerItem(
+      icon: Icons.description_outlined,
+      label: 'Documents',
+      routeName: '/documents',
+    ),
+    _DrawerItem(
+      icon: Icons.support_agent_outlined,
+      label: 'Support',
+      routeName: '/support',
+    ),
+    _DrawerItem(
+      icon: Icons.person_outline,
+      label: 'Profile',
+      routeName: '/profile',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.mode == ThemeMode.dark;
 
-    final items = <_DrawerItem>[
-      const _DrawerItem(
-        icon: Icons.dashboard_outlined,
-        label: 'Dashboard',
-        routeName: '/customer',
-      ),
-      const _DrawerItem(
-        icon: Icons.calendar_month_outlined,
-        label: 'My Bookings',
-        routeName: '/bookings',
-      ),
-      const _DrawerItem(
-        icon: Icons.notifications_none_outlined,
-        label: 'Notifications',
-        routeName: '/notifications',
-      ),
-      const _DrawerItem(
-        icon: Icons.payments_outlined,
-        label: 'My Payments',
-        routeName: '/payments',
-      ),
-      const _DrawerItem(
-        icon: Icons.directions_car_filled_outlined,
-        label: 'My Vehicles',
-        routeName: '/vehicles',
-      ),
-      const _DrawerItem(
-        icon: Icons.settings_suggest_outlined,
-        label: 'Services',
-        routeName: '/services',
-      ),
-      const _DrawerItem(
-        icon: Icons.add_task_outlined,
-        label: 'Book Service',
-        routeName: '/services',
-        arguments: {'openBookHint': true},
-      ),
-      const _DrawerItem(
-        icon: Icons.local_car_wash_outlined,
-        label: 'Car Wash',
-        routeName: '/services',
-        arguments: {'filter': 'car_wash', 'title': 'Car Wash'},
-      ),
-      const _DrawerItem(
-        icon: Icons.battery_charging_full_outlined,
-        label: 'Tires & Battery',
-        routeName: '/services',
-        arguments: {'filter': 'tires_battery', 'title': 'Tires & Battery'},
-      ),
-      const _DrawerItem(
-        icon: Icons.shield_outlined,
-        label: 'Insurance',
-        routeName: '/insurance',
-      ),
-      const _DrawerItem(
-        icon: Icons.description_outlined,
-        label: 'Documents',
-        routeName: '/documents',
-      ),
-      const _DrawerItem(
-        icon: Icons.support_agent_outlined,
-        label: 'Support',
-        routeName: '/support',
-      ),
-      const _DrawerItem(
-        icon: Icons.person_outline,
-        label: 'Profile',
-        routeName: '/profile',
-      ),
-    ];
+    final topLight = Colors.white;
+    final midLight = Colors.white;
+    final topDark = const Color(0xFF020617);
+    final bgGradient = isDark
+        ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [topDark, const Color(0xFF020617)],
+          )
+        : const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white],
+          );
 
     return Drawer(
       width: 288,
-      child: AnimatedBuilder(
-        animation: _glowController,
-        builder: (context, child) {
-          final t = _glowController.value;
-          final topLight = Color.lerp(
-            const Color(0xFFE0F2FE),
-            const Color(0xFFF3E8FF),
-            t,
-          )!;
-          final midLight = Color.lerp(
-            const Color(0xFFE0F2FE),
-            const Color(0xFFDBEAFE),
-            t,
-          )!;
-          final topDark = Color.lerp(
-            const Color(0xFF020617),
-            const Color(0xFF0F172A),
-            0.5 + 0.2 * t,
-          )!;
-          final bgGradient = isDark
-              ? LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [topDark, const Color(0xFF020617)],
-                )
-              : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [topLight, midLight, Colors.white],
-                );
-          return Container(
-            decoration: BoxDecoration(gradient: bgGradient),
-            child: child,
-          );
-        },
+      child: Container(
+        decoration: BoxDecoration(gradient: bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -185,38 +154,26 @@ class _CustomerDrawerState extends State<CustomerDrawer>
                   padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
                   child: Row(
                     children: [
-                      AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          final t = _glowController.value;
-                          final start = const Color(0xFF7C3AED);
-                          final end = const Color(0xFF22D3EE);
-                          return Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color.lerp(start, end, t)!,
-                                  Color.lerp(end, start, t)!,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: start.withValues(
-                                    alpha: isDark ? 0.38 : 0.24,
-                                  ),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 14),
-                                ),
-                              ],
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF22D3EE)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withValues(alpha: isDark ? 0.28 : 0.16),
+                              blurRadius: 12,
+                              offset: const Offset(0, 8),
                             ),
-                            child: child,
-                          );
-                        },
+                          ],
+                        ),
                         child: const Icon(
                           Icons.directions_car_filled,
                           color: Colors.white,
@@ -324,7 +281,7 @@ class _CustomerDrawerState extends State<CustomerDrawer>
                         ],
                       ),
                     ),
-                    for (final item in items)
+                    for (final item in _drawerItems)
                       _DrawerTile(
                         icon: item.icon,
                         label: item.label,
@@ -340,20 +297,18 @@ class _CustomerDrawerState extends State<CustomerDrawer>
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                child: AnimatedBuilder(
-                  animation: _glowController,
-                  builder: (context, child) {
-                    final t = _glowController.value;
+                child: Builder(
+                  builder: (context) {
                     final isDark =
                         Theme.of(context).brightness == Brightness.dark;
                     final primary = scheme.primary;
                     final secondary = scheme.secondary;
                     final topColor = isDark
-                        ? primary.withValues(alpha: 0.16 + 0.10 * t)
+                        ? primary.withValues(alpha: 0.22)
                         : Color.lerp(
                             primary.withValues(alpha: 0.26),
                             secondary.withValues(alpha: 0.22),
-                            0.5 + 0.3 * t,
+                            0.5,
                           )!;
                     final bottomColor = isDark
                         ? primary.withValues(alpha: 0.05)
@@ -376,63 +331,64 @@ class _CustomerDrawerState extends State<CustomerDrawer>
                         boxShadow: [
                           BoxShadow(
                             color: primary.withValues(
-                              alpha: isDark ? 0.20 : 0.26,
+                              alpha: isDark ? 0.12 : 0.16,
                             ),
-                            blurRadius: 22,
-                            offset: const Offset(0, 14),
+                            blurRadius: 12,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                      child: child,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                ),
+                                child: Icon(
+                                  Icons.help_outline,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Need Help?',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      "We're here 24/7",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () =>
+                                _navigate(context, routeName: '/support'),
+                            child: const Text('Contact Support'),
+                          ),
+                        ],
+                      ),
                     );
                   },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.16),
-                            ),
-                            child: Icon(
-                              Icons.help_outline,
-                              color: scheme.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Need Help?',
-                                  style: TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  "We're here 24/7",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () =>
-                            _navigate(context, routeName: '/support'),
-                        child: const Text('Contact Support'),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
@@ -483,9 +439,7 @@ class _DrawerTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
@@ -507,17 +461,9 @@ class _DrawerTile extends StatelessWidget {
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.35),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
-                      ),
-                    ]
-                  : isDark
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        blurRadius: 18,
-                        offset: const Offset(0, 12),
+                        color: scheme.primary.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
                     ]
                   : null,

@@ -23,7 +23,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
@@ -251,16 +251,11 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
                       ),
                       const SizedBox(height: 10),
                       DropdownMenu<String>(
-                        initialSelection: type,
-                        enabled: !saving,
+                        initialSelection: 'Car',
+                        enabled: false,
                         dropdownMenuEntries: const [
                           DropdownMenuEntry(value: 'Car', label: 'Car'),
-                          DropdownMenuEntry(value: 'Bike', label: 'Bike'),
                         ],
-                        onSelected: (v) {
-                          if (v == null) return;
-                          setModalState(() => type = v);
-                        },
                         label: const Text('Type'),
                       ),
                       const SizedBox(height: 14),
@@ -306,22 +301,20 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
         titleSpacing: 0,
         title: Row(
           children: [
-            Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentBlue.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: IconButton(
+                ],
+              ),
+              child: Builder(
+                builder: (context) => IconButton(
                   icon: const Icon(Icons.menu),
                   color: Colors.white,
                   tooltip: 'Menu',
@@ -480,29 +473,21 @@ class _VehicleCard extends StatefulWidget {
   State<_VehicleCard> createState() => _VehicleCardState();
 }
 
-class _VehicleCardState extends State<_VehicleCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _glowController;
-
+class _VehicleCardState extends State<_VehicleCard> {
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
   Color _accentForType(String? type) {
     final t = type?.toLowerCase() ?? '';
     if (t.contains('bike')) return const Color(0xFF22D3EE);
-    return const Color(0xFF4F46E5);
+    return const Color(0xFF2563EB);
   }
 
   String _typeLabel(String? type) {
@@ -536,9 +521,9 @@ class _VehicleCardState extends State<_VehicleCard>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 16),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -554,23 +539,17 @@ class _VehicleCardState extends State<_VehicleCard>
                     topRight: Radius.circular(18),
                     bottomRight: Radius.circular(18),
                   ),
-                  child: AnimatedBuilder(
-                    animation: _glowController,
-                    builder: (context, child) {
-                      final t = _glowController.value;
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              accent.withValues(alpha: 0.10 + 0.10 * t),
-                              accent.withValues(alpha: 0.24 + 0.12 * t),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      );
-                    },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          accent.withValues(alpha: 0.15),
+                          accent.withValues(alpha: 0.35),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -578,33 +557,19 @@ class _VehicleCardState extends State<_VehicleCard>
           ),
           Row(
             children: [
-              AnimatedBuilder(
-                animation: _glowController,
-                builder: (context, child) {
-                  final t = _glowController.value;
-                  return Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: RadialGradient(
-                        center: Alignment(0, -0.2 + 0.2 * t),
-                        colors: [
-                          accent.withValues(alpha: 0.85),
-                          accent.withValues(alpha: 0.25),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: accent.withValues(alpha: 0.25 + 0.25 * t),
-                          blurRadius: 18,
-                          spreadRadius: 1.2,
-                        ),
-                      ],
-                    ),
-                    child: child,
-                  );
-                },
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.2),
+                    colors: [
+                      accent.withValues(alpha: 0.85),
+                      accent.withValues(alpha: 0.25),
+                    ],
+                  ),
+                ),
                 child: Icon(_iconForType(v.type), color: Colors.white),
               ),
               const SizedBox(width: 12),

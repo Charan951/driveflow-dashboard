@@ -23,7 +23,7 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
@@ -242,22 +242,14 @@ class _PaymentCard extends StatefulWidget {
   State<_PaymentCard> createState() => _PaymentCardState();
 }
 
-class _PaymentCardState extends State<_PaymentCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _glowController;
-
+class _PaymentCardState extends State<_PaymentCard> {
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -303,9 +295,9 @@ class _PaymentCardState extends State<_PaymentCard>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 24,
-              offset: const Offset(0, 16),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -321,23 +313,17 @@ class _PaymentCardState extends State<_PaymentCard>
                       topRight: Radius.circular(18),
                       bottomRight: Radius.circular(18),
                     ),
-                    child: AnimatedBuilder(
-                      animation: _glowController,
-                      builder: (context, child) {
-                        final t = _glowController.value;
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                accent.withValues(alpha: 0.10 + 0.10 * t),
-                                accent.withValues(alpha: 0.24 + 0.12 * t),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                        );
-                      },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            accent.withValues(alpha: 0.15),
+                            accent.withValues(alpha: 0.35),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -348,35 +334,19 @@ class _PaymentCardState extends State<_PaymentCard>
               children: [
                 Row(
                   children: [
-                    AnimatedBuilder(
-                      animation: _glowController,
-                      builder: (context, child) {
-                        final t = _glowController.value;
-                        return Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: RadialGradient(
-                              center: Alignment(0, -0.2 + 0.2 * t),
-                              colors: [
-                                accent.withValues(alpha: 0.85),
-                                accent.withValues(alpha: 0.25),
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: accent.withValues(
-                                  alpha: 0.25 + 0.25 * t,
-                                ),
-                                blurRadius: 16,
-                                spreadRadius: 1.2,
-                              ),
-                            ],
-                          ),
-                          child: child,
-                        );
-                      },
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: RadialGradient(
+                          center: const Alignment(0, -0.2),
+                          colors: [
+                            accent.withValues(alpha: 0.85),
+                            accent.withValues(alpha: 0.25),
+                          ],
+                        ),
+                      ),
                       child: Icon(
                         _iconForTitle(title),
                         color: Colors.white,
@@ -435,41 +405,26 @@ class _PaymentCardState extends State<_PaymentCard>
                         ],
                       ),
                     ),
-                    AnimatedBuilder(
-                      animation: _glowController,
-                      builder: (context, child) {
-                        final t = _glowController.value;
-                        final highlight = Color.lerp(
-                          accent,
-                          Colors.white,
-                          0.18,
-                        )!;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            gradient: LinearGradient(
-                              colors: [
-                                accent.withValues(alpha: 0.20 + 0.10 * t),
-                                highlight.withValues(alpha: 0.32),
-                              ],
-                              begin: Alignment(-1 + t, 0),
-                              end: Alignment(1 - t, 0),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: accent.withValues(alpha: 0.30 * t),
-                                blurRadius: 16,
-                                spreadRadius: 0.6,
-                              ),
-                            ],
-                          ),
-                          child: child,
-                        );
-                      },
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: LinearGradient(
+                          colors: [
+                            accent.withValues(alpha: 0.25),
+                            Color.lerp(
+                              accent,
+                              Colors.white,
+                              0.18,
+                            )!.withValues(alpha: 0.32),
+                          ],
+                          begin: const Alignment(-1, 0),
+                          end: const Alignment(1, 0),
+                        ),
+                      ),
                       child: Text(
                         statusText,
                         style: const TextStyle(

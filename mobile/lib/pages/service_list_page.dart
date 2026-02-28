@@ -16,7 +16,6 @@ import '../services/review_service.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../state/auth_provider.dart';
-import '../models/user.dart';
 import '../widgets/customer_drawer.dart';
 
 String? _resolveImageUrl(String? raw) {
@@ -44,7 +43,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
@@ -518,7 +517,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
                                       child: Image.network(
                                         _resolveImageUrl(s.image)!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, _, __) =>
+                                        errorBuilder: (context, _, _) =>
                                             const Icon(
                                               Icons.broken_image,
                                               size: 20,
@@ -627,7 +626,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: user!.addresses.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(width: 8),
                               itemBuilder: (context, index) {
                                 final addr = user.addresses[index];
@@ -1043,25 +1042,22 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         Row(
                           children: [
                             if (step == 1)
-                              Hero(
-                                tag: 'service-hero-${initialService.id}',
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  margin: const EdgeInsets.only(right: 10),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isDark
-                                        ? const Color(0xFF0C4A6E)
-                                        : const Color(0xFFE0F2FE),
-                                  ),
-                                  child: Icon(
-                                    Icons.build_rounded,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
-                                    size: 18,
-                                  ),
+                              Container(
+                                width: 32,
+                                height: 32,
+                                margin: const EdgeInsets.only(right: 10),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark
+                                      ? const Color(0xFF0C4A6E)
+                                      : const Color(0xFFE0F2FE),
+                                ),
+                                child: Icon(
+                                  Icons.build_rounded,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                  size: 18,
                                 ),
                               ),
                             Expanded(
@@ -1166,22 +1162,20 @@ class _ServiceListPageState extends State<ServiceListPage> {
         titleSpacing: 0,
         title: Row(
           children: [
-            Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentBlue.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: IconButton(
+                ],
+              ),
+              child: Builder(
+                builder: (context) => IconButton(
                   icon: const Icon(Icons.menu),
                   color: Colors.white,
                   tooltip: 'Menu',
@@ -1336,23 +1330,14 @@ class _ServiceCard extends StatefulWidget {
   State<_ServiceCard> createState() => _ServiceCardState();
 }
 
-class _ServiceCardState extends State<_ServiceCard>
-    with SingleTickerProviderStateMixin {
-  bool _pressed = false;
-  late final AnimationController _glowController;
-
+class _ServiceCardState extends State<_ServiceCard> {
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -1378,189 +1363,170 @@ class _ServiceCardState extends State<_ServiceCard>
 
     return GestureDetector(
       onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFE5E7EB),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 18,
-                offset: const Offset(0, 12),
-              ),
-            ],
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E7EB),
           ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FractionallySizedBox(
-                    widthFactor: 0.22,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(18),
-                        bottomRight: Radius.circular(18),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF22D3EE).withValues(alpha: 0.12),
-                              const Color(0xFF4F46E5).withValues(alpha: 0.22),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: 0.22,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(18),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF22D3EE).withValues(alpha: 0.12),
+                            const Color(0xFF2563EB).withValues(alpha: 0.22),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  if (imageUrl != null)
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : const Color(0xFFE5E7EB),
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, __) {
-                            return Container(
-                              color: isDark
-                                  ? Colors.grey[800]
-                                  : Colors.grey[200],
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                size: 20,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    )
-                  else
-                    AnimatedBuilder(
-                      animation: _glowController,
-                      builder: (context, child) {
-                        final t = _glowController.value;
-                        final glow = 0.12 + 0.10 * t;
-                        return Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: RadialGradient(
-                              center: Alignment(0, -0.2 + 0.2 * t),
-                              colors: [
-                                const Color(0xFF22D3EE).withValues(alpha: 0.9),
-                                const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF22D3EE,
-                                ).withValues(alpha: glow),
-                                blurRadius: 18,
-                                spreadRadius: 1.2,
-                              ),
-                            ],
-                          ),
-                          child: child,
-                        );
-                      },
-                      child: Icon(
-                        _iconForTitle(widget.title),
-                        color: Colors.white,
+            ),
+            Row(
+              children: [
+                if (imageUrl != null)
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
                       ),
                     ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, _, _) {
+                          return Container(
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              size: 20,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.2),
+                        colors: [
+                          const Color(0xFF22D3EE).withValues(alpha: 0.9),
+                          const Color(0xFF2563EB).withValues(alpha: 0.3),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF22D3EE,
+                          ).withValues(alpha: 0.12),
+                          blurRadius: 18,
+                          spreadRadius: 1.2,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
+                      ],
+                    ),
+                    child: Icon(
+                      _iconForTitle(widget.title),
+                      color: Colors.white,
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            '₹${widget.price}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          if (widget.duration != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white30 : Colors.black26,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Text(
-                              '₹${widget.price}',
+                              '${widget.duration} mins',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: isDark
                                         ? Colors.white70
                                         : Colors.black54,
-                                    fontWeight: FontWeight.w700,
                                   ),
                             ),
-                            if (widget.duration != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 4,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.white30
-                                      : Colors.black26,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${widget.duration} mins',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: isDark
-                                          ? Colors.white70
-                                          : Colors.black54,
-                                    ),
-                              ),
-                            ],
                           ],
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: isDark ? Colors.white60 : Colors.black38,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: isDark ? Colors.white60 : Colors.black38,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

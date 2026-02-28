@@ -144,7 +144,7 @@ const HomePage: React.FC = () => {
             description: service.description,
             color: config.color,
             image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800',
-            link: `/services?category=${service.vehicleType === 'Bike' ? 'Two Wheelers' : 'Cars'}&service=${encodeURIComponent(service.name)}`
+            link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`
           };
         });
         setServices(mappedServices);

@@ -7,7 +7,7 @@ export interface Service {
   price: number;
   duration: number;
   category: 'Periodic' | 'Repair' | 'Wash' | 'Tyres' | 'Denting' | 'Painting' | 'Detailing' | 'AC' | 'Accessories' | 'Other';
-  vehicleType: 'Car' | 'Bike';
+  vehicleType: 'Car';
   image?: string;
   features?: string[];
 }

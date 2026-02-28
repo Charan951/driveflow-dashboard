@@ -78,13 +78,11 @@ class AuthService {
     List<PaymentMethod>? paymentMethods,
   }) async {
     final body = {
-      if (name != null) 'name': name,
-      if (email != null) 'email': email,
-      if (phone != null) 'phone': phone,
-      if (addresses != null)
-        'addresses': addresses.map((e) => e.toJson()).toList(),
-      if (paymentMethods != null)
-        'paymentMethods': paymentMethods.map((e) => e.toJson()).toList(),
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'addresses': addresses?.map((e) => e.toJson()).toList(),
+      'paymentMethods': paymentMethods?.map((e) => e.toJson()).toList(),
     };
 
     final res = await _api.putJson(ApiEndpoints.usersProfile, body: body);

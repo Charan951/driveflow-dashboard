@@ -198,11 +198,10 @@ const AdminServicesPage: React.FC = () => {
                     <label className="text-sm font-medium">Vehicle Type</label>
                     <select 
                       value={formData.vehicleType}
-                      onChange={e => setFormData({...formData, vehicleType: e.target.value as Service['vehicleType']})}
-                      className="w-full mt-1 p-2 border rounded-lg bg-muted/50"
+                      disabled
+                      className="w-full mt-1 p-2 border rounded-lg bg-muted/20 cursor-not-allowed"
                     >
                       <option value="Car">Car</option>
-                      <option value="Bike">Bike</option>
                     </select>
                   </div>
                 </div>

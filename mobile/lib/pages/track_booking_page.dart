@@ -39,7 +39,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   bool _socketConnected = false;
   String? _socketError;
   LatLng? _liveLatLng;
-  LatLng? _prevLiveLatLng;
   String? _liveName;
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
@@ -47,9 +46,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   bool _hasMerchantReview = false;
   bool _hasPlatformReview = false;
   bool _isReviewLoading = false;
-  Timer? _animTimer;
-  int _animStartMs = 0;
-  static const int _animDurationMs = 600;
   double _bearingRad = 0.0;
   String? _etaTextDuration;
   String? _etaTextDistance;
@@ -348,34 +344,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             if (prev != null) {
               _bearingRad = _computeBearingRad(prev, nextPos);
             }
-            _animTimer?.cancel();
-            _prevLiveLatLng = prev ?? nextPos;
-            _animStartMs = DateTime.now().millisecondsSinceEpoch;
-            _animTimer = Timer.periodic(const Duration(milliseconds: 50), (t) {
-              final elapsed =
-                  DateTime.now().millisecondsSinceEpoch - _animStartMs;
-              final progress = (elapsed / _animDurationMs).clamp(0.0, 1.0);
-              final lerp = _lerpLatLng(_prevLiveLatLng!, nextPos, progress);
-              if (!mounted) {
-                t.cancel();
-                return;
-              }
-              setState(() {
-                _liveLatLng = lerp;
-                _liveName = nameRaw is String && nameRaw.trim().isNotEmpty
-                    ? nameRaw
-                    : null;
-                _liveUpdatedAt = updatedAtRaw is String
-                    ? DateTime.tryParse(updatedAtRaw)?.toLocal()
-                    : null;
-              });
-              try {
-                _mapController.move(lerp, 15);
-              } catch (_) {}
-              if (progress >= 1.0) {
-                t.cancel();
-              }
+            if (!mounted) return;
+            setState(() {
+              _liveLatLng = nextPos;
+              _liveName = nameRaw is String && nameRaw.trim().isNotEmpty
+                  ? nameRaw
+                  : null;
+              _liveUpdatedAt = updatedAtRaw is String
+                  ? DateTime.tryParse(updatedAtRaw)?.toLocal()
+                  : null;
             });
+            try {
+              _mapController.move(nextPos, 15);
+            } catch (_) {}
+
             _updateEtaIfNeeded(nextPos);
 
             // Fetch route if not yet fetched or periodically
@@ -677,19 +659,21 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     category: 'Platform',
                                   );
                                 }
-                                if (mounted) {
+                                if (context.mounted) {
                                   Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Thank you for your feedback!',
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Thank you for your feedback!',
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                   _fetchReviewsStatus(booking.id);
                                 }
                               } catch (e) {
-                                if (mounted) {
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -703,7 +687,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
+                        backgroundColor: const Color(0xFF2563EB),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -747,7 +731,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               child: Image.network(
                 url,
                 fit: BoxFit.contain,
-                errorBuilder: (context, _, __) => const Icon(
+                errorBuilder: (context, _, _) => const Icon(
                   Icons.broken_image,
                   color: Colors.white,
                   size: 50,
@@ -787,14 +771,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   String _formatClockTime(BuildContext context, DateTime dt) {
     return TimeOfDay.fromDateTime(dt).format(context);
-  }
-
-  LatLng _lerpLatLng(LatLng a, LatLng b, double t) {
-    final tt = t.clamp(0.0, 1.0);
-    return LatLng(
-      a.latitude + (b.latitude - a.latitude) * tt,
-      a.longitude + (b.longitude - a.longitude) * tt,
-    );
   }
 
   double _computeBearingRad(LatLng a, LatLng b) {
@@ -1333,7 +1309,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             if (_routePoints.isNotEmpty)
                               Polyline(
                                 points: _routePoints,
-                                color: const Color(0xFF4F46E5),
+                                color: const Color(0xFF2563EB),
                                 strokeWidth: 4,
                               ),
                           ],
@@ -1587,7 +1563,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF4F46E5),
+                              color: Color(0xFF2563EB),
                             ),
                           ),
                         ),
@@ -2516,17 +2492,12 @@ class _HorizontalStepper extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0, end: progress),
-                          duration: const Duration(milliseconds: 720),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, _) => Container(
-                            width: (w - 24) * value,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4F46E5),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
+                        child: Container(
+                          width: (w - 24) * progress,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4F46E5),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
@@ -2540,43 +2511,38 @@ class _HorizontalStepper extends StatelessWidget {
                         width: math.max(spacing, 96.0),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: AnimatedScale(
-                            scale: isActive ? 1.1 : 1.0,
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            child: Container(
-                              width: 26,
-                              height: 26,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: completed
+                                  ? const Color(0xFF4F46E5)
+                                  : inactiveDotFill,
+                              border: Border.all(
                                 color: completed
                                     ? const Color(0xFF4F46E5)
-                                    : inactiveDotFill,
-                                border: Border.all(
-                                  color: completed
-                                      ? const Color(0xFF4F46E5)
-                                      : inactiveDotBorder,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  if (isActive)
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF4F46E5,
-                                      ).withValues(alpha: 0.2),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                ],
+                                    : inactiveDotBorder,
+                                width: 2,
                               ),
-                              child: completed
-                                  ? const Icon(
-                                      Icons.check,
-                                      size: 15,
-                                      color: Colors.white,
-                                    )
-                                  : null,
+                              boxShadow: [
+                                if (isActive)
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF4F46E5,
+                                    ).withValues(alpha: 0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                              ],
                             ),
+                            child: completed
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 15,
+                                    color: Colors.white,
+                                  )
+                                : null,
                           ),
                         ),
                       );

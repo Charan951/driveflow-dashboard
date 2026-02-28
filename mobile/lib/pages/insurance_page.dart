@@ -9,25 +9,19 @@ class InsurancePage extends StatefulWidget {
   State<InsurancePage> createState() => _InsurancePageState();
 }
 
-class _InsurancePageState extends State<InsurancePage>
-    with SingleTickerProviderStateMixin {
+class _InsurancePageState extends State<InsurancePage> {
   Color get _backgroundStart => const Color(0xFF020617);
   Color get _backgroundEnd => const Color(0xFF020617);
-  Color get _accentPurple => const Color(0xFF7C3AED);
+  Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
-  late final AnimationController _glowController;
+
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -132,10 +126,10 @@ class _InsurancePageState extends State<InsurancePage>
                           boxShadow: [
                             BoxShadow(
                               color: isDark
-                                  ? Colors.black.withValues(alpha: 0.45)
-                                  : Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 24,
-                              offset: const Offset(0, 16),
+                                  ? Colors.black.withValues(alpha: 0.35)
+                                  : Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 16,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
@@ -144,39 +138,19 @@ class _InsurancePageState extends State<InsurancePage>
                           children: [
                             Row(
                               children: [
-                                AnimatedBuilder(
-                                  animation: _glowController,
-                                  builder: (context, child) {
-                                    final t = _glowController.value;
-                                    return Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        gradient: RadialGradient(
-                                          center: Alignment(0, -0.2 + 0.2 * t),
-                                          colors: [
-                                            _accentPurple.withValues(
-                                              alpha: 0.85,
-                                            ),
-                                            _accentPurple.withValues(
-                                              alpha: 0.25,
-                                            ),
-                                          ],
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: _accentPurple.withValues(
-                                              alpha: 0.30 + 0.10 * t,
-                                            ),
-                                            blurRadius: 18,
-                                            spreadRadius: 1.2,
-                                          ),
-                                        ],
-                                      ),
-                                      child: child,
-                                    );
-                                  },
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: RadialGradient(
+                                      center: const Alignment(0, -0.2),
+                                      colors: [
+                                        _accentPurple.withValues(alpha: 0.85),
+                                        _accentPurple.withValues(alpha: 0.25),
+                                      ],
+                                    ),
+                                  ),
                                   child: const Icon(
                                     Icons.shield_outlined,
                                     color: Colors.white,

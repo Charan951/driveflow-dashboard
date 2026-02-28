@@ -59,8 +59,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     // Start loading session immediately in background
     final loadMeFuture = auth.loadMe();
 
-    // Wait for at least 2.5 seconds to show splash animation nicely
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // Wait for at least 800 milliseconds to show splash animation nicely
+    await Future.delayed(const Duration(milliseconds: 800));
 
     debugPrint('Splash: Animation delay finished, waiting for loadMe...');
 
@@ -87,7 +87,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       _navigated = true;
       navigator.pushReplacementNamed(auth.homeRoute);
     } else {
-      debugPrint('Splash: Not authenticated, waiting for user interaction');
+      debugPrint('Splash: Not authenticated, navigating to login');
+      _navigated = true;
+      navigator.pushReplacementNamed('/login');
     }
   }
 
@@ -191,16 +193,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                                     ?.copyWith(color: Colors.white70),
                               ),
                               const SizedBox(height: 26),
-                              AnimatedBuilder(
-                                animation: _bgController,
-                                builder: (context, _) {
-                                  final t = _bgController.value;
-                                  return _LetsStartButton(
-                                    t: t,
-                                    onPressed: _onInteract,
-                                  );
-                                },
-                              ),
+                              // Automatic transition, no button needed
                             ],
                           ),
                         ),
@@ -244,8 +237,8 @@ class _LetsStartButton extends StatelessWidget {
                       end: Alignment(1 + drift, 1),
                       colors: [
                         const Color(0xFF22D3EE).withValues(alpha: 0.35),
-                        const Color(0xFF4F46E5).withValues(alpha: 0.30),
-                        const Color(0xFFF472B6).withValues(alpha: 0.28),
+                        const Color(0xFF2563EB).withValues(alpha: 0.30),
+                        const Color(0xFF60A5FA).withValues(alpha: 0.28),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(18),
@@ -322,8 +315,8 @@ class _LetsStartButton extends StatelessWidget {
                     end: Alignment(1 + drift, 1),
                     colors: [
                       const Color(0xFF22D3EE).withValues(alpha: 0.35),
-                      const Color(0xFF4F46E5).withValues(alpha: 0.30),
-                      const Color(0xFFF472B6).withValues(alpha: 0.28),
+                      const Color(0xFF2563EB).withValues(alpha: 0.30),
+                      const Color(0xFF60A5FA).withValues(alpha: 0.28),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(18),
@@ -436,7 +429,7 @@ class _SplashBackground extends StatelessWidget {
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x334F46E5), Color(0x00000000)],
+                colors: [Color(0x332563EB), Color(0x00000000)],
               ),
             ),
           ),

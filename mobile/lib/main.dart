@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'pages/splash_page.dart';
@@ -23,14 +22,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final authProvider = AuthProvider();
-  debugPrint('Main: Initializing AuthProvider...');
-  await authProvider.loadMe();
-  debugPrint(
-    'Main: AuthProvider initialized. isAuthenticated: ${authProvider.isAuthenticated}',
-  );
-
   final themeProvider = ThemeProvider();
-  await themeProvider.loadThemeMode();
+
+  debugPrint('Main: Starting initialization...');
+  await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
+  debugPrint(
+    'Main: Initialized. isAuthenticated: ${authProvider.isAuthenticated}',
+  );
 
   final socketService = SocketService();
   if (authProvider.isAuthenticated) {
@@ -75,11 +73,11 @@ class MyApp extends StatelessWidget {
             title: 'Speshway VehicleCare',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
-            themeAnimationDuration: Duration.zero,
+            themeAnimationDuration: const Duration(milliseconds: 150),
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.deepPurple,
+                seedColor: Colors.blue,
                 brightness: Brightness.light,
               ),
               scaffoldBackgroundColor: Colors.white,
@@ -101,7 +99,7 @@ class MyApp extends StatelessWidget {
             darkTheme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.deepPurple,
+                seedColor: Colors.blue,
                 brightness: Brightness.dark,
               ),
               scaffoldBackgroundColor: Colors.black,
@@ -124,7 +122,8 @@ class MyApp extends StatelessWidget {
             ),
             initialRoute: '/',
             routes: {
-              '/': (_) => const SplashPage(),
+              '/': (_) => const RootGate(),
+              '/splash': (_) => const SplashPage(),
               '/login': (_) => const LoginPage(),
               '/register': (_) => const RegisterPage(),
               '/services': (_) => const _TabRedirect(index: 1),
@@ -147,7 +146,9 @@ class MyApp extends StatelessWidget {
             onGenerateRoute: (settings) {
               if (settings.name == '/auth') {
                 return MaterialPageRoute(
-                  builder: (_) => const SplashPage(),
+                  builder: (_) => authProvider.isAuthenticated
+                      ? const MainNavigationPage()
+                      : const SplashPage(),
                   settings: const RouteSettings(name: '/'),
                 );
               }
@@ -155,7 +156,9 @@ class MyApp extends StatelessWidget {
             },
             onUnknownRoute: (settings) {
               return MaterialPageRoute(
-                builder: (_) => const SplashPage(),
+                builder: (_) => authProvider.isAuthenticated
+                    ? const MainNavigationPage()
+                    : const SplashPage(),
                 settings: const RouteSettings(name: '/'),
               );
             },
@@ -179,6 +182,30 @@ class _TabRedirect extends StatelessWidget {
       nav.setTab(index, arguments: args as Map<String, dynamic>?);
     });
     return const MainNavigationPage();
+  }
+}
+
+class RootGate extends StatelessWidget {
+  const RootGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
+    // Wait until initialization is complete
+    if (!auth.isInitialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (auth.isAuthenticated) {
+      final role = auth.user?.role;
+      if (role == 'merchant') return const MerchantHomePage();
+      if (role == 'staff') return const StaffHomePage();
+      if (role == 'admin') return const AdminHomePage();
+      return const MainNavigationPage();
+    }
+
+    return const SplashPage();
   }
 }
 
