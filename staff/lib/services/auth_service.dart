@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/env.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
+import 'socket_service.dart';
 
 class AuthService {
   final ApiClient _api = ApiClient();
@@ -34,6 +35,9 @@ class AuthService {
     await storage.setToken(token);
     await storage.setUserJson(jsonEncode(response));
 
+    // Reconnect socket with new token
+    await SocketService().reconnect();
+
     return StaffUser.fromJson(response);
   }
 
@@ -48,6 +52,9 @@ class AuthService {
     final storage = AppStorage();
     await storage.clearToken();
     await storage.clearUser();
+
+    // Reconnect socket to clear old auth
+    await SocketService().reconnect();
   }
 
   Future<void> updateOnlineStatus(bool isOnline) async {

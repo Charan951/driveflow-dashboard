@@ -54,6 +54,11 @@ class SocketService extends ChangeNotifier {
     });
   }
 
+  Future<void> reconnect() async {
+    disconnect();
+    await init();
+  }
+
   void on(String event, Function(dynamic) callback) {
     _socket?.on(event, callback);
   }

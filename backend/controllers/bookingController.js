@@ -7,6 +7,32 @@ import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser } from '../utils/pushService.js';
 
+const emitBookingUpdate = (booking) => {
+  try {
+    const io = getIO();
+    const bookingId = booking._id.toString();
+    
+    // Notify admin
+    io.to('admin').emit('bookingUpdated', booking);
+    
+    // Notify specific booking room
+    io.to(`booking_${bookingId}`).emit('bookingUpdated', booking);
+    
+    // Notify relevant users
+    const usersToNotify = [
+      booking.user?._id || booking.user,
+      booking.merchant?._id || booking.merchant,
+      booking.pickupDriver?._id || booking.pickupDriver,
+    ].filter(id => id); // Remove null/undefined
+
+    usersToNotify.forEach(userId => {
+      io.to(`user_${userId.toString()}`).emit('bookingUpdated', booking);
+    });
+  } catch (err) {
+    console.error('Socket emit error (emitBookingUpdate):', err);
+  }
+};
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private
@@ -119,15 +145,13 @@ export const createBooking = async (req, res) => {
 
     // Emit socket event for real-time updates
     try {
-      const io = getIO();
-      // Populate for admin
+      // Populate for real-time consumers
       const populated = await Booking.findById(createdBooking._id)
         .populate('user', 'id name email phone')
         .populate('vehicle')
         .populate('services');
         
-      io.to('admin').emit('bookingCreated', populated || createdBooking);
-      io.to(`user_${req.user._id}`).emit('bookingCreated', populated || createdBooking);
+      emitBookingUpdate(populated || createdBooking);
     } catch (err) {
       console.error('Socket emit error (createBooking):', err);
     }
@@ -326,17 +350,8 @@ export const assignBooking = async (req, res) => {
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone');
 
-      // Emit real-time update for admin, booking-specific, and user-specific listeners
-      try {
-        const io = getIO();
-        io.to('admin').emit('bookingUpdated', populated);
-        io.to(`booking_${booking._id}`).emit('bookingUpdated', populated);
-        if (booking.user) {
-          io.to(`user_${booking.user}`).emit('bookingUpdated', populated);
-        }
-      } catch (e) {
-        console.error('Socket emit error (assignBooking):', e);
-      }
+      // Emit real-time update for all stakeholders
+      emitBookingUpdate(populated);
 
       res.json(populated);
     } else {
@@ -460,27 +475,16 @@ export const updateBookingStatus = async (req, res) => {
         .populate('pickupDriver', 'name email phone');
 
       // Emit socket event for real-time updates
-      try {
-        const io = getIO();
-        
-        // Notify admin
-        io.to('admin').emit('bookingUpdated', updatedBooking);
-        
-        // Notify specific booking room (for customer/staff/merchant)
-        io.to(`booking_${booking._id}`).emit('bookingUpdated', updatedBooking);
-        
-        // Notify user
-        if (booking.user) {
-          const userId = typeof booking.user === 'object' ? booking.user._id : booking.user;
-          io.to(`user_${userId}`).emit('bookingUpdated', updatedBooking);
+      emitBookingUpdate(updatedBooking);
 
-          if (canonTo === 'CANCELLED') {
-            io.to(`user_${userId}`).emit('bookingCancelled', { id: updatedBooking._id, status: 'CANCELLED' });
-          }
+      if (canonTo === 'CANCELLED' && booking.user) {
+        try {
+          const io = getIO();
+          const userId = typeof booking.user === 'object' ? booking.user._id : booking.user;
+          io.to(`user_${userId}`).emit('bookingCancelled', { id: updatedBooking._id, status: 'CANCELLED' });
+        } catch (err) {
+          console.error('Socket emit error (bookingCancelled):', err);
         }
-        
-      } catch (err) {
-        console.error('Socket emit error:', err);
       }
 
       // Send status update email
@@ -649,23 +653,7 @@ export const updateBookingDetails = async (req, res) => {
         .populate('pickupDriver', 'name email phone');
 
       // Emit socket event for real-time updates
-      try {
-        const io = getIO();
-        
-        // Notify admin
-        io.to('admin').emit('bookingUpdated', populated);
-        
-        // Notify specific booking room (for customer/staff/merchant)
-        io.to(`booking_${booking._id}`).emit('bookingUpdated', populated);
-        
-        // Notify user
-        if (booking.user) {
-          io.to(`user_${booking.user}`).emit('bookingUpdated', populated);
-        }
-        
-      } catch (err) {
-        console.error('Socket emit error (updateBookingDetails):', err);
-      }
+      emitBookingUpdate(populated);
 
       res.json(populated);
     } else {

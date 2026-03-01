@@ -74,6 +74,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   }
 
   Future<void> _logout() async {
+    await _trackingService.stop();
     await _authService.logout();
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
@@ -148,16 +149,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
       await _trackingService.start();
       _updateActiveBookingId();
-      try {
-        await _authService.updateOnlineStatus(true);
-      } catch (_) {}
     }
-  }
-
-  Future<void> _setOffline() async {
-    try {
-      await _authService.updateOnlineStatus(false);
-    } catch (_) {}
   }
 
   void _updateActiveBookingId() {
