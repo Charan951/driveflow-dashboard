@@ -71,6 +71,13 @@ class BookingDetail {
   final List<String> prePickupPhotos;
   final String? paymentStatus;
   final num? totalAmount;
+  final bool pickupRequired;
+  final InspectionData? inspection;
+  final QCData? qc;
+  final ServiceExecutionData? serviceExecution;
+  final BillingData? billing;
+  final List<PartItem> parts;
+  final UserSummary? user;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
 
@@ -79,12 +86,19 @@ class BookingDetail {
     this.orderNumber,
     required this.status,
     required this.date,
-    required this.location,
-    required this.merchantLocation,
-    required this.vehicleName,
+    this.location,
+    this.merchantLocation,
+    this.vehicleName,
     required this.prePickupPhotos,
     this.paymentStatus,
     this.totalAmount,
+    this.pickupRequired = true,
+    this.inspection,
+    this.qc,
+    this.serviceExecution,
+    this.billing,
+    this.parts = const [],
+    this.user,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
   });
@@ -99,37 +113,27 @@ class BookingDetail {
     }
 
     BookingLocation? merchantLocation;
-    final m = json['merchant'];
-    if (m is Map<String, dynamic> || m is Map) {
-      final mm = m is Map<String, dynamic>
-          ? m
-          : Map<String, dynamic>.from(m as Map);
-      final mLoc = mm['location'];
-      if (mLoc is Map<String, dynamic>) {
-        merchantLocation = BookingLocation.fromJson(mLoc);
-      } else if (mLoc is Map) {
-        merchantLocation = BookingLocation.fromJson(
-          Map<String, dynamic>.from(mLoc),
-        );
-      }
+    final mloc = json['merchant']?['location'];
+    if (mloc is Map<String, dynamic>) {
+      merchantLocation = BookingLocation.fromJson(mloc);
+    } else if (mloc is Map) {
+      merchantLocation = BookingLocation.fromJson(
+        Map<String, dynamic>.from(mloc),
+      );
     }
 
-    String? vehicleName;
-    final vehicle = json['vehicle'];
-    if (vehicle is Map<String, dynamic> || vehicle is Map) {
-      final v = vehicle is Map<String, dynamic>
-          ? vehicle
-          : Map<String, dynamic>.from(vehicle as Map);
-      final make = v['make']?.toString();
-      final model = v['model']?.toString();
-      final plate = v['licensePlate']?.toString();
-      final parts = <String>[];
-      if (make != null && make.isNotEmpty) parts.add(make);
-      if (model != null && model.isNotEmpty) parts.add(model);
-      if (plate != null && plate.isNotEmpty) parts.add(plate);
-      final label = parts.join(' ');
-      vehicleName = label.isEmpty ? null : label;
-    }
+    final vehicle = json['vehicle'] as Map<String, dynamic>?;
+    final make = vehicle?['make']?.toString();
+    final model = vehicle?['model']?.toString();
+    final plate = vehicle?['licensePlate']?.toString();
+    final vehicleName = [
+      if (make != null && make.isNotEmpty) make,
+      if (model != null && model.isNotEmpty) model,
+      if (plate != null && plate.isNotEmpty) plate,
+    ].join(' ');
+
+    final photos =
+        (json['prePickupPhotos'] as List?)?.whereType<String>().toList() ?? [];
 
     return BookingDetail(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
@@ -140,14 +144,227 @@ class BookingDetail {
       date: (json['date'] ?? '').toString(),
       location: location,
       merchantLocation: merchantLocation,
-      vehicleName: vehicleName,
-      prePickupPhotos: (json['prePickupPhotos'] as List<dynamic>? ?? [])
-          .map((e) => e.toString())
-          .toList(),
+      vehicleName: vehicleName.isEmpty ? null : vehicleName,
+      prePickupPhotos: photos,
       paymentStatus: json['paymentStatus']?.toString(),
-      totalAmount: json['totalAmount'] as num?,
+      totalAmount: json['totalAmount'] is num
+          ? (json['totalAmount'] as num)
+          : null,
+      pickupRequired: json['pickupRequired'] as bool? ?? true,
+      inspection: json['inspection'] != null
+          ? InspectionData.fromJson(json['inspection'])
+          : null,
+      qc: json['qc'] != null ? QCData.fromJson(json['qc']) : null,
+      serviceExecution: json['serviceExecution'] != null
+          ? ServiceExecutionData.fromJson(json['serviceExecution'])
+          : null,
+      billing: json['billing'] != null
+          ? BillingData.fromJson(json['billing'])
+          : null,
+      parts:
+          (json['parts'] as List?)?.map((p) => PartItem.fromJson(p)).toList() ??
+          [],
+      user: json['user'] != null ? UserSummary.fromJson(json['user']) : null,
       inspectionCompletedAt: json['inspection']?['completedAt']?.toString(),
       qcCompletedAt: json['qc']?['completedAt']?.toString(),
+    );
+  }
+}
+
+class UserSummary {
+  final String id;
+  final String name;
+  final String? email;
+  final String? phone;
+
+  UserSummary({required this.id, required this.name, this.email, this.phone});
+
+  factory UserSummary.fromJson(Map<String, dynamic> json) {
+    return UserSummary(
+      id: json['_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Guest',
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
+    );
+  }
+}
+
+class InspectionData {
+  final List<String> photos;
+  final String? damageReport;
+  final String? completedAt;
+  final List<AdditionalPart> additionalParts;
+
+  InspectionData({
+    this.photos = const [],
+    this.damageReport,
+    this.completedAt,
+    this.additionalParts = const [],
+  });
+
+  factory InspectionData.fromJson(Map<String, dynamic> json) {
+    return InspectionData(
+      photos: (json['photos'] as List?)?.whereType<String>().toList() ?? [],
+      damageReport: json['damageReport']?.toString(),
+      completedAt: json['completedAt']?.toString(),
+      additionalParts:
+          (json['additionalParts'] as List?)
+              ?.map((p) => AdditionalPart.fromJson(p))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class AdditionalPart {
+  final String name;
+  final num price;
+  final num quantity;
+  final bool approved;
+  final String? approvalStatus;
+  final String? image;
+  final String? oldImage;
+
+  AdditionalPart({
+    required this.name,
+    required this.price,
+    required this.quantity,
+    required this.approved,
+    this.approvalStatus,
+    this.image,
+    this.oldImage,
+  });
+
+  factory AdditionalPart.fromJson(Map<String, dynamic> json) {
+    return AdditionalPart(
+      name: json['name']?.toString() ?? '',
+      price: json['price'] is num ? (json['price'] as num) : 0,
+      quantity: json['quantity'] is num ? (json['quantity'] as num) : 0,
+      approved: json['approved'] as bool? ?? false,
+      approvalStatus: json['approvalStatus']?.toString(),
+      image: json['image']?.toString(),
+      oldImage: json['oldImage']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'price': price,
+      'quantity': quantity,
+      'approved': approved,
+      'approvalStatus': approvalStatus,
+      'image': image,
+      'oldImage': oldImage,
+    };
+  }
+}
+
+class QCData {
+  final bool testRide;
+  final bool safetyChecks;
+  final bool noLeaks;
+  final bool noErrorLights;
+  final String? completedAt;
+  final String? notes;
+
+  QCData({
+    required this.testRide,
+    required this.safetyChecks,
+    required this.noLeaks,
+    required this.noErrorLights,
+    this.completedAt,
+    this.notes,
+  });
+
+  factory QCData.fromJson(Map<String, dynamic> json) {
+    return QCData(
+      testRide: json['testRide'] as bool? ?? false,
+      safetyChecks: json['safetyChecks'] as bool? ?? false,
+      noLeaks: json['noLeaks'] as bool? ?? false,
+      noErrorLights: json['noErrorLights'] as bool? ?? false,
+      completedAt: json['completedAt']?.toString(),
+      notes: json['notes']?.toString(),
+    );
+  }
+}
+
+class ServiceExecutionData {
+  final String? jobStartTime;
+  final String? jobEndTime;
+  final List<String> beforePhotos;
+  final List<String> duringPhotos;
+  final List<String> afterPhotos;
+  final String? notes;
+
+  ServiceExecutionData({
+    this.jobStartTime,
+    this.jobEndTime,
+    this.beforePhotos = const [],
+    this.duringPhotos = const [],
+    this.afterPhotos = const [],
+    this.notes,
+  });
+
+  factory ServiceExecutionData.fromJson(Map<String, dynamic> json) {
+    return ServiceExecutionData(
+      jobStartTime: json['jobStartTime']?.toString(),
+      jobEndTime: json['jobEndTime']?.toString(),
+      beforePhotos:
+          (json['beforePhotos'] as List?)?.whereType<String>().toList() ?? [],
+      duringPhotos:
+          (json['duringPhotos'] as List?)?.whereType<String>().toList() ?? [],
+      afterPhotos:
+          (json['afterPhotos'] as List?)?.whereType<String>().toList() ?? [],
+      notes: json['notes']?.toString(),
+    );
+  }
+}
+
+class BillingData {
+  final String? invoiceNumber;
+  final String? invoiceDate;
+  final String? fileUrl;
+  final num labourCost;
+  final num gst;
+  final num partsTotal;
+  final num total;
+
+  BillingData({
+    this.invoiceNumber,
+    this.invoiceDate,
+    this.fileUrl,
+    required this.labourCost,
+    required this.gst,
+    required this.partsTotal,
+    required this.total,
+  });
+
+  factory BillingData.fromJson(Map<String, dynamic> json) {
+    return BillingData(
+      invoiceNumber: json['invoiceNumber']?.toString(),
+      invoiceDate: json['invoiceDate']?.toString(),
+      fileUrl: json['fileUrl']?.toString(),
+      labourCost: json['labourCost'] is num ? (json['labourCost'] as num) : 0,
+      gst: json['gst'] is num ? (json['gst'] as num) : 0,
+      partsTotal: json['partsTotal'] is num ? (json['partsTotal'] as num) : 0,
+      total: json['total'] is num ? (json['total'] as num) : 0,
+    );
+  }
+}
+
+class PartItem {
+  final String? name;
+  final num quantity;
+  final num price;
+
+  PartItem({this.name, required this.quantity, required this.price});
+
+  factory PartItem.fromJson(Map<String, dynamic> json) {
+    return PartItem(
+      name: json['name']?.toString(),
+      quantity: json['quantity'] is num ? (json['quantity'] as num) : 0,
+      price: json['price'] is num ? (json['price'] as num) : 0,
     );
   }
 }

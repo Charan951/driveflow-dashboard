@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
+import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 
@@ -32,24 +33,58 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
+    super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    if (mounted) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
     if (!mounted) return;
 
+    // Only show full loading if we have no bookings yet
+    final shouldShowFullLoading = _bookings.isEmpty;
+
     setState(() {
-      _loading = true;
+      _loading = shouldShowFullLoading;
       _error = null;
     });
 
     try {
       final items = await _service.listMyBookings(forceRefresh: true);
       items.sort((a, b) {
+        // Primary: Created At (descending) - Most recently created first
         final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
         final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
         final cmp = cb.compareTo(ca);
         if (cmp != 0) return cmp;
-        return b.date.compareTo(a.date);
+
+        // Secondary: Service Date (descending)
+        final da = _parseDate(a.date) ?? DateTime(1900);
+        final db = _parseDate(b.date) ?? DateTime(1900);
+        final cmpDate = db.compareTo(da);
+        if (cmpDate != 0) return cmpDate;
+
+        // Fallback: ID (descending)
+        return b.id.compareTo(a.id);
       });
       if (mounted) setState(() => _bookings = items);
     } catch (e) {

@@ -8,6 +8,7 @@ import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../services/booking_service.dart';
 import '../services/catalog_service.dart';
+import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
@@ -43,29 +44,43 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         _load(isInitial: true);
       }
     });
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
   }
 
   @override
   void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    if (mounted) {
+      _load();
+    }
   }
 
   Future<void> _load({bool isInitial = false}) async {
     if (!mounted) return;
 
-    // Prevent double loading if already loading
-    if (_loading && !isInitial) return;
+    // Only show full loading if it's the initial call or we have no data
+    final shouldShowFullLoading =
+        isInitial ||
+        (_vehicles.isEmpty && _bookings.isEmpty && _services.isEmpty);
 
-    // If we already have data and this is the initial call,
-    // we might want to skip or just refresh in background.
-    // For now, let's just ensure we don't show the loading indicator if we have data.
     setState(() {
-      _loading = true;
+      _loading = shouldShowFullLoading;
       _error = null;
     });
-
-    debugPrint('CustomerDashboard: _load called (isInitial: $isInitial)');
 
     try {
       final results = await Future.wait<dynamic>([
@@ -220,9 +235,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
             constraints: const BoxConstraints(maxWidth: 900),
             child: ListView(
               controller: _scrollController,
-              physics: const _FasterScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(16, 14, 16, 110 + bottomInset),
               children: [
                 _GreetingHeader(
@@ -726,28 +739,6 @@ class _UpcomingBookingCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _FasterScrollPhysics extends ClampingScrollPhysics {
-  const _FasterScrollPhysics({super.parent});
-
-  @override
-  _FasterScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return _FasterScrollPhysics(parent: buildParent(ancestor));
-  }
-
-  @override
-  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
-    return offset * 1.8;
-  }
-
-  @override
-  Simulation? createBallisticSimulation(
-    ScrollMetrics position,
-    double velocity,
-  ) {
-    return super.createBallisticSimulation(position, velocity * 1.5);
   }
 }
 

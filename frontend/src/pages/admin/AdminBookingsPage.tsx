@@ -39,9 +39,14 @@ const AdminBookingsPage: React.FC = () => {
        setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
     });
 
+    socketService.on('bookingCreated', (newBooking: Booking) => {
+       setBookings(prev => [newBooking, ...prev]);
+    });
+
     return () => {
         socketService.leaveRoom('admin');
         socketService.off('bookingUpdated');
+        socketService.off('bookingCreated');
     };
   }, []);
 

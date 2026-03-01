@@ -9,6 +9,7 @@ class User {
   final bool? isShopOpen;
   final List<SavedAddress> addresses;
   final List<PaymentMethod> paymentMethods;
+  final UserLocation? location;
 
   User({
     required this.id,
@@ -21,6 +22,7 @@ class User {
     this.isShopOpen,
     this.addresses = const [],
     this.paymentMethods = const [],
+    this.location,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,9 @@ class User {
       paymentMethods: (json['paymentMethods'] as List? ?? [])
           .map((e) => PaymentMethod.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      location: json['location'] != null
+          ? UserLocation.fromJson(Map<String, dynamic>.from(json['location']))
+          : null,
     );
   }
 
@@ -56,8 +61,31 @@ class User {
       if (isShopOpen != null) 'isShopOpen': isShopOpen,
       'addresses': addresses.map((e) => e.toJson()).toList(),
       'paymentMethods': paymentMethods.map((e) => e.toJson()).toList(),
+      if (location != null) 'location': location!.toJson(),
     };
   }
+}
+
+class UserLocation {
+  final String? address;
+  final double? lat;
+  final double? lng;
+
+  const UserLocation({this.address, this.lat, this.lng});
+
+  factory UserLocation.fromJson(Map<String, dynamic> json) {
+    return UserLocation(
+      address: json['address']?.toString(),
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'address': address,
+    'lat': lat,
+    'lng': lng,
+  };
 }
 
 class SavedAddress {

@@ -21,6 +21,15 @@ const DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+const MapController = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, zoom, { animate: true, duration: 1.0 });
+  }, [map, center, zoom]);
+  return null;
+};
+
 import { Service } from '@/services/serviceService';
 import { Vehicle } from '@/services/vehicleService';
 import { User } from '@/services/userService';
@@ -288,12 +297,13 @@ const OrderDetail: React.FC = () => {
                             <div className="h-64 w-full relative bg-muted">
                                {staffLocation ? (
                                  <MapContainer 
-                                    center={[staffLocation.lat, staffLocation.lng]} 
-                                    zoom={15} 
-                                    style={{ height: '100%', width: '100%' }}
-                                    zoomControl={false}
+                                     center={[staffLocation.lat, staffLocation.lng]} 
+                                     zoom={16} 
+                                     style={{ height: '100%', width: '100%' }}
+                                     zoomControl={false}
                                  >
-                                    <TileLayer
+                                     <MapController center={[staffLocation.lat, staffLocation.lng]} zoom={16} />
+                                     <TileLayer
                                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                     />

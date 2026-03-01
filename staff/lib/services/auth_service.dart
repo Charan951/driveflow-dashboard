@@ -23,10 +23,10 @@ class AuthService {
     }
 
     final role = response['role']?.toString();
-    if (role != 'staff' && role != 'admin') {
+    if (role != 'staff' && role != 'admin' && role != 'merchant') {
       throw ApiException(
         statusCode: 403,
-        message: 'Access denied. Staff account required.',
+        message: 'Access denied. Authorized account required.',
       );
     }
 
@@ -55,5 +55,11 @@ class AuthService {
       ApiEndpoints.usersOnlineStatus,
       body: {'isOnline': isOnline},
     );
+  }
+
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    final response = await _api.putJson(ApiEndpoints.authProfile, body: data);
+    final storage = AppStorage();
+    await storage.setUserJson(jsonEncode(response));
   }
 }

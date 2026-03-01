@@ -75,10 +75,13 @@ class Booking {
   final String? merchantPhone;
   final DeliveryOtp? deliveryOtp;
   final List<String> prePickupPhotos;
+  final List<String> beforeServicePhotos;
+  final List<String> duringServicePhotos;
   final List<String> postServicePhotos;
   final String? invoiceUrl;
   final String? driverName;
   final String? driverPhone;
+  final bool pickupRequired;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
 
@@ -99,10 +102,13 @@ class Booking {
     this.merchantPhone,
     this.deliveryOtp,
     this.prePickupPhotos = const [],
+    this.beforeServicePhotos = const [],
+    this.duringServicePhotos = const [],
     this.postServicePhotos = const [],
     this.invoiceUrl,
     this.driverName,
     this.driverPhone,
+    this.pickupRequired = true,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
   });
@@ -170,14 +176,29 @@ class Booking {
     }
 
     final prePickupPhotos = <String>[];
+    final beforeServicePhotos = <String>[];
+    final duringServicePhotos = <String>[];
+    final postServicePhotos = <String>[];
     final inspPhotos = json['inspection']?['photos'];
     if (inspPhotos is List) {
       for (final p in inspPhotos) {
         if (p != null) prePickupPhotos.add(p.toString());
       }
     }
+    final beforePhotos = json['serviceExecution']?['beforePhotos'];
+    if (beforePhotos is List) {
+      for (final p in beforePhotos) {
+        if (p != null) beforeServicePhotos.add(p.toString());
+      }
+    }
 
-    final postServicePhotos = <String>[];
+    final duringPhotos = json['serviceExecution']?['duringPhotos'];
+    if (duringPhotos is List) {
+      for (final p in duringPhotos) {
+        if (p != null) duringServicePhotos.add(p.toString());
+      }
+    }
+
     final afterPhotos = json['serviceExecution']?['afterPhotos'];
     if (afterPhotos is List) {
       for (final p in afterPhotos) {
@@ -223,12 +244,15 @@ class Booking {
       merchantPhone: merchantPhone,
       deliveryOtp: deliveryOtp,
       prePickupPhotos: prePickupPhotos,
+      beforeServicePhotos: beforeServicePhotos,
+      duringServicePhotos: duringServicePhotos,
       postServicePhotos: postServicePhotos,
       invoiceUrl: invoiceUrl != null && invoiceUrl.isNotEmpty
           ? invoiceUrl
           : null,
       driverName: driverName,
       driverPhone: driverPhone,
+      pickupRequired: json['pickupRequired'] != false,
       inspectionCompletedAt: inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt,
     );

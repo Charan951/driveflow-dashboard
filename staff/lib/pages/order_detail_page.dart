@@ -12,6 +12,7 @@ import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
+import '../services/socket_service.dart';
 
 class StaffOrderDetailPage extends StatefulWidget {
   const StaffOrderDetailPage({super.key});
@@ -23,6 +24,8 @@ class StaffOrderDetailPage extends StatefulWidget {
 class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   final BookingService _service = BookingService();
   final StaffTrackingService _tracking = StaffTrackingService.instance;
+  final SocketService _socketService = SocketService();
+  final MapController _mapController = MapController();
 
   BookingDetail? _booking;
   bool _loading = true;
@@ -31,6 +34,35 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   bool _uploadingPhotos = false;
   List<File> _selectedPhotos = const [];
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _socketService.addListener(_onSocketUpdate);
+    _tracking.info.addListener(_onTrackingUpdate);
+  }
+
+  @override
+  void dispose() {
+    if (_booking != null) {
+      _socketService.leaveRoom('booking_${_booking!.id}');
+    }
+    _socketService.removeListener(_onSocketUpdate);
+    _tracking.info.removeListener(_onTrackingUpdate);
+    super.dispose();
+  }
+
+  void _onTrackingUpdate() {
+    final info = _tracking.info.value;
+    if (info.lat != null && info.lng != null && mounted) {
+      _mapController.move(LatLng(info.lat!, info.lng!), 16.0);
+    }
+  }
+
+  void _onSocketUpdate() {
+    if (_loading || _booking == null) return;
+    _load(_booking!.id);
+  }
 
   @override
   void didChangeDependencies() {
@@ -50,16 +82,21 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Future<void> _load(String id) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    // Only show full loading if we don't have a booking yet
+    if (_booking == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
     try {
       final booking = await _service.getBookingById(id);
       if (!mounted) return;
       setState(() {
         _booking = booking;
       });
+      _socketService.joinRoom('booking_$id');
       _tracking.setActiveBookingId(booking.id);
       if (booking.status == 'ACCEPTED' &&
           booking.location?.lat != null &&
@@ -103,16 +140,20 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     try {
       if (status == 'VEHICLE_PICKED') {
         if (booking.prePickupPhotos.length < 4) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Please upload 4 vehicle photos before picking up the vehicle',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Please upload 4 vehicle photos before picking up the vehicle',
+                ),
               ),
-            ),
-          );
-          setState(() {
-            _updatingStatus = false;
-          });
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
       }
@@ -134,14 +175,18 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             staffLng == null ||
             targetLat == null ||
             targetLng == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location not available to update status'),
-            ),
-          );
-          setState(() {
-            _updatingStatus = false;
-          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location not available to update status'),
+              ),
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
         final distance = Geolocator.distanceBetween(
@@ -151,21 +196,26 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           targetLng,
         );
         if (distance > StaffTrackingService.autoStatusDistanceMeters) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'You are too far from the location to update status',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'You are too far from the location to update status',
+                ),
               ),
-            ),
-          );
-          setState(() {
-            _updatingStatus = false;
-          });
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
       }
       if (status == 'DELIVERED') {
         final controller = TextEditingController();
+        if (!mounted) return;
         final ok = await showDialog<bool>(
           context: context,
           builder: (context) {
@@ -190,32 +240,40 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           },
         );
         if (ok != true) {
-          setState(() {
-            _updatingStatus = false;
-          });
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
         final otp = controller.text.trim();
         if (otp.isEmpty) {
-          setState(() {
-            _updatingStatus = false;
-          });
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
         await _service.verifyDeliveryOtp(booking.id, otp);
       }
       if (status == 'OUT_FOR_DELIVERY') {
         if (booking.paymentStatus != 'paid') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Customer payment is pending. Please wait for payment before picking up the vehicle.',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Customer payment is pending. Please wait for payment before picking up the vehicle.',
+                ),
               ),
-            ),
-          );
-          setState(() {
-            _updatingStatus = false;
-          });
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
           return;
         }
       }
@@ -223,9 +281,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       await _load(
         booking.id,
       ); // Reload to get full updated object with all fields
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+      }
       if (status == 'ACCEPTED' ||
           status == 'REACHED_CUSTOMER' ||
           status == 'VEHICLE_PICKED' ||
@@ -416,6 +476,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       setState(() {
         _booking = BookingDetail(
           id: booking.id,
+          orderNumber: booking.orderNumber,
           status: booking.status,
           date: booking.date,
           location: booking.location,
@@ -423,6 +484,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           pickupRequired: booking.pickupRequired,
           vehicleName: booking.vehicleName,
           prePickupPhotos: urls,
+          paymentStatus: booking.paymentStatus,
+          totalAmount: booking.totalAmount,
+          inspectionCompletedAt: booking.inspectionCompletedAt,
+          qcCompletedAt: booking.qcCompletedAt,
         );
         _selectedPhotos = const [];
       });
@@ -759,15 +824,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                           color: Color(0xFFF3F4F6),
                         ),
                         child: FlutterMap(
+                          mapController: _mapController,
                           options: MapOptions(
                             initialCenter: _initialCenter(booking),
-                            initialZoom: 13,
+                            initialZoom: 16,
                           ),
                           children: [
                             TileLayer(
                               urlTemplate: Env.mapTileUrlTemplate,
                               subdomains: Env.mapTileSubdomains,
-                              userAgentPackageName: 'com.example.staff',
+                              userAgentPackageName: 'com.speshway.staff',
                             ),
                             if (staffPos != null || destPos != null)
                               MarkerLayer(

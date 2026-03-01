@@ -49,19 +49,7 @@ class SocketService extends ChangeNotifier {
       notifyListeners();
     });
 
-    _socket!.on('bookingCreated', (data) {
-      notifyListeners();
-    });
-
-    _socket!.on('bookingCancelled', (data) {
-      notifyListeners();
-    });
-
     _socket!.on('notification', (data) {
-      notifyListeners();
-    });
-
-    _socket!.on('ticketUpdated', (data) {
       notifyListeners();
     });
   }

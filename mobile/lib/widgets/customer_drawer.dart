@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../state/navigation_provider.dart';
 import '../state/theme_provider.dart';
 
@@ -34,6 +35,15 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       Navigator.of(context).pop();
       return;
     }
+
+    if (routeName.startsWith('url:')) {
+      final url = routeName.substring(4);
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      }
+      return;
+    }
+
     Navigator.of(context).pop();
 
     final navProvider = context.read<NavigationProvider>();
@@ -89,14 +99,12 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     _DrawerItem(
       icon: Icons.local_car_wash_outlined,
       label: 'Car Wash',
-      routeName: '/services',
-      arguments: {'filter': 'car_wash', 'title': 'Car Wash'},
+      routeName: '/car-wash',
     ),
     _DrawerItem(
       icon: Icons.battery_charging_full_outlined,
       label: 'Tires & Battery',
-      routeName: '/services',
-      arguments: {'filter': 'tires_battery', 'title': 'Tires & Battery'},
+      routeName: '/tires',
     ),
     _DrawerItem(
       icon: Icons.shield_outlined,
@@ -118,6 +126,11 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       label: 'Profile',
       routeName: '/profile',
     ),
+    _DrawerItem(
+      icon: Icons.privacy_tip_outlined,
+      label: 'Privacy Policy',
+      routeName: 'url:https://car.speshwayhrms.com/privacy',
+    ),
   ];
 
   @override
@@ -126,8 +139,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.mode == ThemeMode.dark;
 
-    final topLight = Colors.white;
-    final midLight = Colors.white;
     final topDark = const Color(0xFF020617);
     final bgGradient = isDark
         ? LinearGradient(

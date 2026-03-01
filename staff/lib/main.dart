@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'services/background_tracking.dart';
+import 'services/socket_service.dart';
 
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'pages/order_detail_page.dart';
 import 'pages/splash_page.dart';
+import 'pages/merchant/merchant_dashboard.dart';
+import 'pages/merchant/merchant_orders_page.dart';
+import 'pages/merchant/merchant_order_detail_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackgroundTracking.configure();
+  await SocketService().init();
   runApp(const StaffApp());
 }
 
@@ -19,7 +24,7 @@ class StaffApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
     return MaterialApp(
-      title: 'DriveFlow Staff',
+      title: 'Speshway Staff',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -28,6 +33,15 @@ class StaffApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
+        ),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          },
         ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(
@@ -40,6 +54,9 @@ class StaffApp extends StatelessWidget {
         '/': (context) => const SplashPage(),
         '/login': (context) => const StaffLoginPage(),
         '/home': (context) => const StaffHomePage(),
+        '/merchant-dashboard': (context) => const MerchantDashboardPage(),
+        '/merchant-orders': (context) => const MerchantOrdersPage(),
+        '/merchant-order-detail': (context) => const MerchantOrderDetailPage(),
         '/order': (context) => const StaffOrderDetailPage(),
       },
     );

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/api_client.dart';
 import '../core/env.dart';
+import '../core/storage.dart';
 
 @pragma('vm:entry-point')
 Future<void> _onStart(ServiceInstance service) async {
@@ -20,11 +23,31 @@ Future<void> _onStart(ServiceInstance service) async {
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
+
   final api = ApiClient();
+  final storage = AppStorage();
   String? bookingId;
+  io.Socket? socket;
+
   service.on('set_booking').listen((event) {
     bookingId = event?['bookingId']?.toString();
   });
+
+  Future<void> initSocket() async {
+    final token = await storage.getToken();
+    socket = io.io(
+      Env.baseUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableForceNew()
+          .setAuth(token != null ? {'token': token} : {})
+          .build(),
+    );
+    socket?.connect();
+  }
+
+  await initSocket();
+
   Future<bool> ensurePerms() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) return false;
@@ -37,16 +60,39 @@ Future<void> _onStart(ServiceInstance service) async {
   }
 
   if (!await ensurePerms()) return;
-  Timer.periodic(const Duration(seconds: 10), (_) async {
+
+  Timer.periodic(const Duration(minutes: 1), (_) async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
+        desiredAccuracy: LocationAccuracy.best,
       );
-      final body = <String, dynamic>{'lat': pos.latitude, 'lng': pos.longitude};
+
+      final payload = <String, dynamic>{
+        'lat': pos.latitude,
+        'lng': pos.longitude,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
       if (bookingId != null && bookingId!.isNotEmpty) {
-        body['bookingId'] = bookingId;
+        payload['bookingId'] = bookingId;
       }
-      await api.putJson(ApiEndpoints.trackingUser, body: body);
+
+      // 1. Update via REST API
+      await api.putJson(
+        ApiEndpoints.trackingUser,
+        body: {
+          'lat': pos.latitude,
+          'lng': pos.longitude,
+          'bookingId': bookingId,
+        },
+      );
+
+      // 2. Update via Socket for real-time visibility
+      if (socket != null && socket!.connected) {
+        socket!.emit('location', payload);
+      } else if (socket != null && !socket!.connected) {
+        socket!.connect();
+      }
     } catch (_) {}
   });
 }
@@ -59,6 +105,7 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 
 class BackgroundTracking {
   static Future<void> configure() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
@@ -76,7 +123,7 @@ class BackgroundTracking {
   }
 
   static Future<void> start({String? bookingId}) async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
       if (!running) {
@@ -89,7 +136,7 @@ class BackgroundTracking {
   }
 
   static Future<void> stop() async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
       if (running) {

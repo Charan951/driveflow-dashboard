@@ -43,6 +43,14 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const MapController = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, zoom, { animate: true, duration: 1.0 });
+  }, [map, center, zoom]);
+  return null;
+};
+
 const TrackServicePage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -556,10 +564,11 @@ const TrackServicePage: React.FC = () => {
               {staffLocation ? (
                 <MapContainer
                   center={[staffLocation.lat, staffLocation.lng]}
-                  zoom={15}
+                  zoom={16}
                   style={{ height: '100%', width: '100%' }}
                   zoomControl={false}
                 >
+                  <MapController center={[staffLocation.lat, staffLocation.lng]} zoom={16} />
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution="&copy; <a href=&quot;https://www.openstreetmap.org/copyright&quot;>OpenStreetMap</a> contributors"

@@ -21,6 +21,7 @@ import CounterCard from '@/components/CounterCard';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { reportService } from '@/services/reportService';
 import { toast } from 'sonner';
+import { socketService } from '@/services/socket';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -38,33 +39,52 @@ const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const dashboardStats = await reportService.getDashboardStats();
-        
-        setStats({
-          totalCustomers: dashboardStats.totalCustomers || 0,
-          activeVehicles: dashboardStats.totalVehicles || 0, // Mapping totalVehicles to activeVehicles based on UI label
-          todaysBookings: dashboardStats.todaysBookings || 0,
-          revenueToday: dashboardStats.revenueToday || 0,
-          pendingApprovals: dashboardStats.pendingApprovals || 0,
-          pendingBills: dashboardStats.pendingBills || 0,
-          vehiclesOnRoad: dashboardStats.vehiclesOnRoad || 0,
-          vehiclesInService: dashboardStats.vehiclesInService || 0,
-          waitingPickup: dashboardStats.waitingPickup || 0,
-          waitingDelivery: dashboardStats.waitingDelivery || 0
-        });
-
-      } catch (error) {
-        console.error('Failed to fetch admin dashboard data', error);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+    
+    const refreshHandler = () => fetchData();
+
+    socketService.on('bookingUpdated', refreshHandler);
+    socketService.on('bookingCreated', refreshHandler);
+    socketService.on('ticketUpdated', refreshHandler);
+    socketService.on('ticketCreated', refreshHandler);
+
+    return () => {
+        socketService.leaveRoom('admin');
+        socketService.off('bookingUpdated', refreshHandler);
+        socketService.off('bookingCreated', refreshHandler);
+        socketService.off('ticketUpdated', refreshHandler);
+        socketService.off('ticketCreated', refreshHandler);
+    };
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const dashboardStats = await reportService.getDashboardStats();
+      
+      setStats({
+        totalCustomers: dashboardStats.totalCustomers || 0,
+        activeVehicles: dashboardStats.totalVehicles || 0, // Mapping totalVehicles to activeVehicles based on UI label
+        todaysBookings: dashboardStats.todaysBookings || 0,
+        revenueToday: dashboardStats.revenueToday || 0,
+        pendingApprovals: dashboardStats.pendingApprovals || 0,
+        pendingBills: dashboardStats.pendingBills || 0,
+        vehiclesOnRoad: dashboardStats.vehiclesOnRoad || 0,
+        vehiclesInService: dashboardStats.vehiclesInService || 0,
+        waitingPickup: dashboardStats.waitingPickup || 0,
+        waitingDelivery: dashboardStats.waitingDelivery || 0
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch admin dashboard data', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center">Loading dashboard...</div>;

@@ -33,6 +33,7 @@ class Env {
 
 class ApiEndpoints {
   static const String authLogin = '/auth/login';
+  static const String authProfile = '/users/profile';
   static const String usersMe = '/users/me';
   static const String usersOnlineStatus = '/users/online-status';
   static const String myBookings = '/bookings/mybookings';

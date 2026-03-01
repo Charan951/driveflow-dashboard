@@ -140,8 +140,8 @@ class StaffTrackingService {
   Future<void> _startPositionStream() async {
     await _positionSub?.cancel();
     final settings = const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 0,
     );
     _positionSub = Geolocator.getPositionStream(
       locationSettings: settings,
@@ -183,7 +183,8 @@ class StaffTrackingService {
     }
 
     final socket = _socket;
-    if (socket != null && nowMs - _lastSocketMs > 5000) {
+    // Live tracking via socket - every 10 seconds for real-time accuracy
+    if (socket != null && nowMs - _lastSocketMs > 10000) {
       final payload = <String, dynamic>{
         'lat': position.latitude,
         'lng': position.longitude,
@@ -199,7 +200,8 @@ class StaffTrackingService {
       } catch (_) {}
     }
 
-    if (nowMs - _lastRestMs > 120000) {
+    // Persistent update via REST - every 1 minute as requested
+    if (nowMs - _lastRestMs > 60000) {
       final body = <String, dynamic>{
         'lat': position.latitude,
         'lng': position.longitude,

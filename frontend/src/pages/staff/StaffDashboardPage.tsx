@@ -6,6 +6,7 @@ import { bookingService, Booking } from '@/services/bookingService';
 import { uploadService } from '@/services/uploadService';
 import CounterCard from '@/components/CounterCard';
 import { useTracking } from '@/hooks/use-tracking';
+import { socketService } from '@/services/socket';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import {
@@ -122,7 +123,26 @@ const StaffDashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    // Socket Setup
+    socketService.connect();
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+        // If it's relevant to this staff, refresh data
+        const staffId = (useAuthStore.getState().user as any)?._id;
+        const isAssignedToMe = (updatedBooking.pickupDriver && (
+          (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
+          (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
+        ));
+
+        if (isAssignedToMe || bookings.some(b => b._id === updatedBooking._id)) {
+          fetchData();
+        }
+    });
+
+    return () => {
+      socketService.off('bookingUpdated');
+    };
+  }, [bookings.length]);
 
   const fetchData = async () => {
     try {

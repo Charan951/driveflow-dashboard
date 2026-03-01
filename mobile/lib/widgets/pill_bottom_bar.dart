@@ -1,6 +1,4 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class PillBottomBar extends StatelessWidget {
   final int selectedIndex;
@@ -15,7 +13,6 @@ class PillBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const inactive = Color(0xFF94A3B8);
-    final useBlur = !kIsWeb; // Blur is expensive on web
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final gradient = isDark
@@ -92,7 +89,7 @@ class PillBottomBar extends StatelessWidget {
                 Expanded(
                   child: GlassNavItem(
                     icon: Icons.battery_full_outlined,
-                    label: 'Tires',
+                    label: 'Battery/Tire',
                     isActive: selectedIndex == 4,
                     inactiveColor: inactive,
                     onTap: () => onTap(4),

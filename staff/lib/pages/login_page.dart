@@ -70,9 +70,13 @@ class _StaffLoginPageState extends State<StaffLoginPage>
       _errorText = null;
     });
     try {
-      await _authService.login(email: email, password: password);
+      final user = await _authService.login(email: email, password: password);
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
+      if (user.role == 'merchant') {
+        Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     } on ApiException catch (e) {
       setState(() {
         _errorText = e.message;

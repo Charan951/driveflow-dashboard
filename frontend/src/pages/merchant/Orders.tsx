@@ -6,6 +6,7 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
+import { socketService } from '@/services/socket';
 import { Link } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 
@@ -34,20 +35,39 @@ const Orders: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const data = await bookingService.getAllBookings();
-        setBookings(data);
-      } catch (error) {
-        console.error('Failed to fetch orders', error);
-        toast.error('Failed to load orders');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchBookings();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+       setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
+    });
+
+    socketService.on('bookingCreated', (newBooking: Booking) => {
+       // Only add if it's assigned to this merchant (checked in backend, but just in case)
+       setBookings(prev => {
+         if (prev.some(b => b._id === newBooking._id)) return prev;
+         return [newBooking, ...prev];
+       });
+    });
+
+    return () => {
+        socketService.off('bookingUpdated');
+        socketService.off('bookingCreated');
+    };
   }, []);
+
+  const fetchBookings = async () => {
+    try {
+      const data = await bookingService.getAllBookings();
+      setBookings(data);
+    } catch (error) {
+      console.error('Failed to fetch orders', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredBookings = bookings.filter(booking => {
     const searchLower = searchQuery.toLowerCase();

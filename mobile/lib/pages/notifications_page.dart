@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../services/notification_service.dart';
+import '../services/socket_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -20,6 +22,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _load();
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
+    super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    if (mounted) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

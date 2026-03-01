@@ -4,12 +4,9 @@ import 'package:provider/provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/pill_bottom_bar.dart';
 import '../state/navigation_provider.dart';
-import 'my_vehicles_page.dart';
-import 'service_list_page.dart';
-import 'my_bookings_page.dart';
-import 'profile_page.dart';
+import '../services/socket_service.dart';
+import 'book_service_flow_page.dart';
 import 'speshway_vehiclecare_dashboard_page.dart';
-import 'insurance_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -18,14 +15,38 @@ class MainNavigationPage extends StatefulWidget {
   State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _MainNavigationPageState extends State<MainNavigationPage> {
+class _MainNavigationPageState extends State<MainNavigationPage>
+    with WidgetsBindingObserver {
   final List<Widget> _pages = const [
-    ServiceListPage(),
-    InsurancePage(),
+    BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
+    BookServiceFlowPage(
+      key: ValueKey('insurance'),
+      initialCategory: 'Insurance',
+    ),
     SpeshwayVehicleCareDashboard(),
-    MyBookingsPage(),
-    ProfilePage(),
+    BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
+    BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-initialize socket if needed when app comes back to foreground
+      SocketService().init();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

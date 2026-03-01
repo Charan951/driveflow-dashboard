@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Package, CheckCircle, Upload, Search, Filter, MapPin, Navigation } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { uploadService } from '@/services/uploadService';
+import { useAuthStore } from '@/store/authStore';
+import { socketService } from '@/services/socket';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import {
@@ -30,6 +32,7 @@ const ACTIVE_STATUSES = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PI
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { location: trackingLocation, setActiveBookingId, activeBookingId } = useTracking();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -60,7 +63,35 @@ const StaffOrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    // Socket Setup
+    socketService.connect();
+    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
+        setBookings(prev => {
+          const index = prev.findIndex(b => b._id === updatedBooking._id);
+          if (index !== -1) {
+            return prev.map(b => b._id === updatedBooking._id ? updatedBooking : b);
+          }
+          
+          // Check if this new/updated booking is now assigned to the current staff
+          const staffId = user?._id;
+          const isAssignedToMe = (updatedBooking.pickupDriver && (
+            (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
+            (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
+          ));
+
+          if (isAssignedToMe) {
+            // Prepend new order if assigned to me and not already in list
+            return [updatedBooking, ...prev];
+          }
+          return prev;
+        });
+    });
+
+    return () => {
+      socketService.off('bookingUpdated');
+    };
+  }, [user?._id]);
 
   // Auto-bind an active booking to enable live sharing to customers/merchants
   useEffect(() => {

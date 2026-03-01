@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/booking.dart';
 import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
+import '../services/socket_service.dart';
 
 class StaffHomePage extends StatefulWidget {
   const StaffHomePage({super.key});
@@ -17,6 +19,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   final BookingService _bookingService = BookingService();
   final AuthService _authService = AuthService();
   final StaffTrackingService _trackingService = StaffTrackingService.instance;
+  final SocketService _socketService = SocketService();
 
   List<BookingSummary> _bookings = [];
   bool _isLoading = false;
@@ -34,8 +37,14 @@ class _StaffHomePageState extends State<StaffHomePage> {
       }
     };
     _trackingService.info.addListener(_trackingListener);
+    _socketService.addListener(_onSocketUpdate);
     _loadData();
     _startTrackingIfEnabled();
+  }
+
+  void _onSocketUpdate() {
+    if (_isLoading) return;
+    _loadData();
   }
 
   Future<void> _loadData() async {
@@ -73,6 +82,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   @override
   void dispose() {
     _trackingService.info.removeListener(_trackingListener);
+    _socketService.removeListener(_onSocketUpdate);
     super.dispose();
   }
 
@@ -94,6 +104,46 @@ class _StaffHomePageState extends State<StaffHomePage> {
           ),
         );
         return;
+      }
+
+      // Play Store requirement: Prominent Disclosure for Background Location
+      final permission = await Geolocator.checkPermission();
+      if (!mounted) return;
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        final proceed =
+            await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Location Access Required'),
+                content: const Text(
+                  'Speshway Staff collects location data to enable tracking for your assigned orders even when the app is closed or not in use. This information is required for:\n\n'
+                  '• Real-time tracking of active service bookings.\n'
+                  '• Updating customers on technician arrival status.\n'
+                  '• Automatic status updates (e.g., Reached Customer).\n\n'
+                  'Your location data is collected in the background only during active working hours and is never shared with third parties or used for advertising.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('NO THANKS'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('ACCEPT'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+
+        if (!proceed) {
+          setState(() {
+            _shareLocation = false;
+          });
+          return;
+        }
       }
 
       await _trackingService.start();
@@ -172,6 +222,18 @@ class _StaffHomePageState extends State<StaffHomePage> {
               setState(() {
                 _selectedNav = 'orders';
               });
+            },
+          ),
+          const SizedBox(height: 8),
+          _NavItem(
+            icon: Icons.privacy_tip_rounded,
+            label: 'Privacy Policy',
+            selected: false,
+            onTap: () async {
+              const url = 'https://car.speshwayhrms.com/privacy';
+              if (await canLaunchUrl(Uri.parse(url))) {
+                await launchUrl(Uri.parse(url));
+              }
             },
           ),
           const SizedBox(height: 32),
@@ -319,140 +381,148 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedNav == 'dashboard'
-                                ? 'Staff Dashboard'
-                                : 'Orders',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF1D4ED8),
+                  RepaintBoundary(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedNav == 'dashboard'
+                                  ? 'Staff Dashboard'
+                                  : 'Orders',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1D4ED8),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _selectedNav == 'dashboard'
-                                ? 'Overview of your assigned jobs and live orders'
-                                : 'View and manage your active orders',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF6B7280),
+                            const SizedBox(height: 4),
+                            Text(
+                              _selectedNav == 'dashboard'
+                                  ? 'Overview of your assigned jobs and live orders'
+                                  : 'View and manage your active orders',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF6B7280),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person,
-                          color: const Color(0xFF2563EB),
+                          ],
                         ),
-                      ),
-                    ],
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Icons.person,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_selectedNav == 'dashboard') ...[
                     if (isCompact)
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  title: "Today's Orders",
-                                  value: todayCount.toString(),
-                                  icon: Icons.inventory_2,
-                                  color: const Color(0xFF2563EB),
+                      RepaintBoundary(
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _StatCard(
+                                    title: "Today's Orders",
+                                    value: todayCount.toString(),
+                                    icon: Icons.inventory_2,
+                                    color: const Color(0xFF2563EB),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Pending',
-                                  value: pendingCount.toString(),
-                                  icon: Icons.schedule,
-                                  color: const Color(0xFF0EA5E9),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _StatCard(
+                                    title: 'Pending',
+                                    value: pendingCount.toString(),
+                                    icon: Icons.schedule,
+                                    color: const Color(0xFF0EA5E9),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Completed',
-                                  value: completedCount.toString(),
-                                  icon: Icons.check_circle,
-                                  color: const Color(0xFF22C55E),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _StatCard(
+                                    title: 'Completed',
+                                    value: completedCount.toString(),
+                                    icon: Icons.check_circle,
+                                    color: const Color(0xFF10B981),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Job Value',
-                                  value: '₹0',
-                                  icon: Icons.attach_money,
-                                  color: const Color(0xFFF97316),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       )
                     else
-                      Row(
+                      RepaintBoundary(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                title: "Today's Orders",
+                                value: todayCount.toString(),
+                                icon: Icons.inventory_2,
+                                color: const Color(0xFF2563EB),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _StatCard(
+                                title: 'Pending',
+                                value: pendingCount.toString(),
+                                icon: Icons.schedule,
+                                color: const Color(0xFF0EA5E9),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _StatCard(
+                                title: 'Completed',
+                                value: completedCount.toString(),
+                                icon: Icons.check_circle,
+                                color: const Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 32),
+                    RepaintBoundary(
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: _StatCard(
-                              title: "Today's Orders",
-                              value: todayCount.toString(),
-                              icon: Icons.inventory_2,
-                              color: const Color(0xFF2563EB),
-                            ),
+                          Icon(
+                            Icons.assignment_outlined,
+                            color: const Color(0xFF1E3A8A),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Pending',
-                              value: pendingCount.toString(),
-                              icon: Icons.schedule,
-                              color: const Color(0xFF0EA5E9),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Completed',
-                              value: completedCount.toString(),
-                              icon: Icons.check_circle,
-                              color: const Color(0xFF22C55E),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Job Value',
-                              value: '₹0',
-                              icon: Icons.attach_money,
-                              color: const Color(0xFFF97316),
+                          Text(
+                            'Active Jobs',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1E3A8A),
                             ),
                           ),
                         ],
                       ),
-                    const SizedBox(height: 24),
-                  ],
-                  Text(
-                    'Active Orders',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_selectedNav != 'dashboard')
+                    Text(
+                      'Active Orders',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   if (_isLoading && bookings.isEmpty)
                     Container(

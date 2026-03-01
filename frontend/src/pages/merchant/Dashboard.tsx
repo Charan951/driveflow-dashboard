@@ -9,6 +9,7 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
+import { socketService } from '@/services/socket';
 import { Link } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -46,56 +47,71 @@ const Dashboard: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const bookingsData = await bookingService.getAllBookings();
-
-        const activeStatuses: Booking['status'][] = [
-          'CREATED',
-          'ASSIGNED',
-          'ACCEPTED',
-          'REACHED_CUSTOMER',
-          'VEHICLE_PICKED',
-          'REACHED_MERCHANT',
-          'VEHICLE_AT_MERCHANT',
-          'JOB_CARD',
-          'SERVICE_STARTED',
-          'SERVICE_COMPLETED',
-          'OUT_FOR_DELIVERY',
-        ];
-
-        const completedStatuses: Booking['status'][] = ['DELIVERED'];
-
-        const active = bookingsData.filter((b: Booking) =>
-          activeStatuses.includes(b.status)
-        ).length;
-        
-        const completed = bookingsData.filter((b: Booking) =>
-          completedStatuses.includes(b.status)
-        ).length;
-
-        const pendingBills = bookingsData.filter((b: Booking) =>
-          b.paymentStatus === 'pending' && b.status !== 'CANCELLED'
-        ).length;
-
-        setStats({
-          activeOrders: active,
-          completedOrders: completed,
-          pendingBills,
-          lowStock: 3,
-        });
-
-        setRecentBookings(bookingsData.slice(0, 5));
-      } catch (error) {
-        console.error('Failed to fetch dashboard data', error);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.on('bookingUpdated', () => {
+       fetchData();
+    });
+
+    socketService.on('bookingCreated', () => {
+       fetchData();
+    });
+
+    return () => {
+        socketService.off('bookingUpdated');
+        socketService.off('bookingCreated');
+    };
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const bookingsData = await bookingService.getAllBookings();
+
+      const activeStatuses: Booking['status'][] = [
+        'CREATED',
+        'ASSIGNED',
+        'ACCEPTED',
+        'REACHED_CUSTOMER',
+        'VEHICLE_PICKED',
+        'REACHED_MERCHANT',
+        'VEHICLE_AT_MERCHANT',
+        'JOB_CARD',
+        'SERVICE_STARTED',
+        'SERVICE_COMPLETED',
+        'OUT_FOR_DELIVERY',
+      ];
+
+      const completedStatuses: Booking['status'][] = ['DELIVERED'];
+
+      const active = bookingsData.filter((b: Booking) =>
+        activeStatuses.includes(b.status)
+      ).length;
+      
+      const completed = bookingsData.filter((b: Booking) =>
+        completedStatuses.includes(b.status)
+      ).length;
+
+      const pendingBills = bookingsData.filter((b: Booking) =>
+        b.paymentStatus === 'pending' && b.status !== 'CANCELLED'
+      ).length;
+
+      setStats({
+        activeOrders: active,
+        completedOrders: completed,
+        pendingBills,
+        lowStock: 3,
+      });
+
+      setRecentBookings(bookingsData.slice(0, 5));
+    } catch (error) {
+      console.error('Failed to fetch dashboard data', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center">Loading dashboard...</div>;

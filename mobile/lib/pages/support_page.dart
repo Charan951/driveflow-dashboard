@@ -35,6 +35,16 @@ class _SupportPageState extends State<SupportPage> {
     _initSocket();
   }
 
+  @override
+  void dispose() {
+    if (_selectedTicket != null) {
+      _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
+    }
+    _socketService.off('ticketUpdated', _onTicketUpdated);
+    _replyController.dispose();
+    super.dispose();
+  }
+
   void _initSocket() async {
     await _socketService.init();
     _socketService.on('ticketUpdated', _onTicketUpdated);
@@ -69,7 +79,7 @@ class _SupportPageState extends State<SupportPage> {
         });
       }
     } catch (e) {
-      debugPrint('Error handling ticketUpdated socket event: $e');
+      // Silent catch
     }
   }
 
@@ -241,12 +251,6 @@ class _SupportPageState extends State<SupportPage> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _socketService.off('ticketUpdated', _onTicketUpdated);
-    super.dispose();
   }
 
   @override

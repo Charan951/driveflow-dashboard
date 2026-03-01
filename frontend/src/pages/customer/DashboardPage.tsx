@@ -17,8 +17,11 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
+import { socketService } from '@/services/socket';
+import { useAuthStore } from '@/store/authStore';
 
 const DashboardPage: React.FC = () => {
+  const { user } = useAuthStore();
   const vehiclesRef = useRef<HTMLDivElement>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -47,38 +50,80 @@ const DashboardPage: React.FC = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (user?._id) {
+      socketService.connect();
+      // Room user_{userId} is automatically joined by the server if authenticated
+      
+      const handleUpdate = (updatedBooking: any) => {
+        setBookings(prev => {
+          const index = prev.findIndex(b => b._id === updatedBooking._id);
+          if (index >= 0) {
+            const newBookings = [...prev];
+            newBookings[index] = updatedBooking;
+            return newBookings;
+          } else {
+            return [updatedBooking, ...prev];
+          }
+        });
+      };
+
+      socketService.on('bookingUpdated', handleUpdate);
+      socketService.on('bookingCreated', handleUpdate);
+      
+      return () => {
+        socketService.off('bookingUpdated', handleUpdate);
+        socketService.off('bookingCreated', handleUpdate);
+      };
+    }
+  }, [user?._id]);
+
   const upcomingBooking = bookings
-    .filter(b => !['Delivered', 'Cancelled', 'Completed'].includes(b.status))
+    .filter(b => !['CREATED', 'Booked', 'DELIVERED', 'Delivered', 'CANCELLED', 'Cancelled', 'COMPLETED', 'Completed'].includes(b.status))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
 
   const pastServices = bookings
-    .filter(b => ['Delivered', 'Completed'].includes(b.status))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .filter(b => !upcomingBooking || b._id !== upcomingBooking._id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
 
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
+      'CREATED': 'bg-blue-100 text-blue-700',
       'Booked': 'bg-blue-100 text-blue-700',
-      'Pickup Assigned': 'bg-indigo-100 text-indigo-700',
-      'In Garage': 'bg-yellow-100 text-yellow-700',
-      'Servicing': 'bg-orange-100 text-orange-700',
-      'Ready': 'bg-green-100 text-green-700',
-      'Delivered': 'bg-green-100 text-green-700',
-      'Cancelled': 'bg-red-100 text-red-700'
+      'ASSIGNED': 'bg-indigo-100 text-indigo-700',
+      'ACCEPTED': 'bg-indigo-100 text-indigo-700',
+      'REACHED_CUSTOMER': 'bg-indigo-100 text-indigo-700',
+      'VEHICLE_PICKED': 'bg-yellow-100 text-yellow-700',
+      'REACHED_MERCHANT': 'bg-yellow-100 text-yellow-700',
+      'VEHICLE_AT_MERCHANT': 'bg-yellow-100 text-yellow-700',
+      'SERVICE_STARTED': 'bg-orange-100 text-orange-700',
+      'SERVICE_COMPLETED': 'bg-green-100 text-green-700',
+      'OUT_FOR_DELIVERY': 'bg-green-100 text-green-700',
+      'DELIVERED': 'bg-green-100 text-green-700',
+      'COMPLETED': 'bg-green-100 text-green-700',
+      'CANCELLED': 'bg-red-100 text-red-700'
     };
     return map[status] || 'bg-gray-100 text-gray-700';
   };
 
   const mapStatusToCardStatus = (status: string) => {
     const map: Record<string, string> = {
+      'CREATED': 'pending',
       'Booked': 'pending',
-      'Pickup Assigned': 'in_transit',
-      'In Garage': 'in_progress',
-      'Servicing': 'in_progress',
-      'Ready': 'completed',
-      'Delivered': 'completed',
-      'Cancelled': 'cancelled'
+      'ASSIGNED': 'in_transit',
+      'ACCEPTED': 'in_transit',
+      'REACHED_CUSTOMER': 'in_transit',
+      'VEHICLE_PICKED': 'in_progress',
+      'REACHED_MERCHANT': 'in_progress',
+      'VEHICLE_AT_MERCHANT': 'in_progress',
+      'SERVICE_STARTED': 'in_progress',
+      'SERVICE_COMPLETED': 'completed',
+      'OUT_FOR_DELIVERY': 'in_transit',
+      'DELIVERED': 'completed',
+      'COMPLETED': 'completed',
+      'CANCELLED': 'cancelled'
     };
     return map[status] || 'pending';
   };
@@ -120,7 +165,7 @@ const DashboardPage: React.FC = () => {
         >
           <div className="flex items-start justify-between mb-4">
             <div>
-              <p className="text-sm text-primary-foreground/70 mb-1">Upcoming Service</p>
+              <p className="text-sm text-primary-foreground/70 mb-1">Ongoing Service</p>
               <h3 className="text-lg font-semibold">
                 {Array.isArray(upcomingBooking.services) 
                   ? (upcomingBooking.services[0] as Service)?.name || 'Service' 
@@ -227,7 +272,7 @@ const DashboardPage: React.FC = () => {
           <h2 className="text-lg font-semibold text-foreground">Recent Services</h2>
         </div>
         <div className="space-y-3">
-          {bookings.slice(0, 3).map((booking, index) => (
+          {pastServices.slice(0, 3).map((booking, index) => (
             <motion.div
               key={booking._id}
               initial={{ opacity: 0, y: 10 }}

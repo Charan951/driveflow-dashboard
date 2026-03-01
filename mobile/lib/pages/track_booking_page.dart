@@ -1,21 +1,19 @@
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/env.dart';
-import '../core/storage.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/review_service.dart';
+import '../services/socket_service.dart';
 
 class TrackBookingPage extends StatefulWidget {
   const TrackBookingPage({super.key});
@@ -35,23 +33,37 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   Booking? _booking;
   String? _bookingId;
 
-  io.Socket? _socket;
-  bool _socketConnected = false;
-  String? _socketError;
-  LatLng? _liveLatLng;
-  String? _liveName;
-  DateTime? _liveUpdatedAt;
-  bool _isPaymentLoading = false;
+  late SocketService _socketService;
   bool _nearAlertShown = false;
   bool _hasMerchantReview = false;
   bool _hasPlatformReview = false;
   bool _isReviewLoading = false;
-  double _bearingRad = 0.0;
+  final double _bearingRad = 0.0;
   String? _etaTextDuration;
   String? _etaTextDistance;
   List<Map<String, dynamic>> _pendingApprovals = [];
   Timer? _approvalsTimer;
   List<LatLng> _routePoints = [];
+
+  // Live tracking state
+  LatLng? _liveLatLng;
+  String? _liveName;
+  DateTime? _liveUpdatedAt;
+  bool _isPaymentLoading = false;
+  final bool _socketConnected = false;
+  String? _socketError;
+
+  @override
+  void initState() {
+    super.initState();
+    _socketService = SocketService();
+    _socketService.addListener(_onSocketUpdate);
+  }
+
+  void _onSocketUpdate() {
+    if (_loading || _bookingId == null) return;
+    _load();
+  }
 
   @override
   void didChangeDependencies() {
@@ -59,32 +71,74 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     final nextId = args?.toString();
     if (nextId != null && nextId.isNotEmpty && nextId != _bookingId) {
+      if (_bookingId != null) {
+        _socketService.emit('leave', 'booking_$_bookingId');
+      }
       _bookingId = nextId;
       _nearAlertShown = false;
       _load();
-      _connectSocket(nextId);
+      _socketService.emit('join', 'booking_$nextId');
+
+      _socketService.on('liveLocation', (data) {
+        if (!mounted) return;
+        if (data is Map<String, dynamic>) {
+          final lat = data['lat'];
+          final lng = data['lng'];
+          if (lat is num && lng is num) {
+            final next = LatLng(lat.toDouble(), lng.toDouble());
+            setState(() {
+              _liveLatLng = next;
+              _liveName = data['name']?.toString();
+              _liveUpdatedAt = DateTime.tryParse(
+                data['updatedAt']?.toString() ?? '',
+              );
+            });
+            _mapController.move(next, 16.0); // Auto-zoom to live location
+            if (_booking?.location?.lat != null &&
+                _booking?.location?.lng != null) {
+              _fetchRoute(
+                next,
+                LatLng(_booking!.location!.lat!, _booking!.location!.lng!),
+              );
+            }
+          }
+        }
+      });
+
+      _socketService.on('bookingUpdated', (data) {
+        if (!mounted) return;
+        try {
+          Booking? updated;
+          if (data is Map<String, dynamic>) {
+            updated = Booking.fromJson(data);
+          } else if (data is Map) {
+            updated = Booking.fromJson(Map<String, dynamic>.from(data));
+          }
+          if (updated != null && updated.id == _bookingId) {
+            setState(() => _booking = updated);
+            if (updated.status == 'DELIVERED' ||
+                updated.status == 'COMPLETED') {
+              _fetchReviewsStatus(updated.id);
+            }
+          }
+        } catch (e) {
+          // Silent catch
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    final socket = _socket;
-    if (socket != null) {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('disconnect');
-      socket.off('connect_error');
-      socket.off('liveLocation');
-      socket.off('bookingUpdated');
-      socket.emit('leave', 'booking_${_bookingId ?? ''}');
-      socket.dispose();
+    _socketService.removeListener(_onSocketUpdate);
+    _socketService.off('liveLocation');
+    _socketService.off('bookingUpdated');
+    if (_bookingId != null) {
+      _socketService.emit('leave', 'booking_$_bookingId');
     }
     _approvalsTimer?.cancel();
     super.dispose();
   }
-
-  static const _adminUpiId = '6301028401@axl';
-  static const _adminName = 'DriveFlow Admin';
 
   Future<void> _fetchRoute(LatLng start, LatLng end) async {
     try {
@@ -106,7 +160,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         }
       }
     } catch (e) {
-      debugPrint('Error fetching route: $e');
+      // Silent catch
     }
   }
 
@@ -124,7 +178,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           backgroundColor: Colors.green,
         ),
       );
-      await _load(booking.id); // Reload to update status
+      await _load(); // Reload to update status
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,304 +191,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (mounted) {
         setState(() => _isPaymentLoading = false);
       }
-    }
-  }
-
-  // Removed Razorpay specific logic
-  /*
-  Future<void> _showUpiOptions(Booking booking) async {
-    // ...
-  }
-  */
-
-  Future<void> _showUpiOptions(Booking booking) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Pay using UPI',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Amount: ₹${booking.totalAmount}',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _launchUpiPayment(booking, 'Google Pay');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Pay with Google Pay'),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _launchUpiPayment(booking, 'PhonePe');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Pay with PhonePe'),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _launchUpiPayment(booking, 'Paytm');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Pay with Paytm'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _launchUpiPayment(booking, 'UPI app');
-                  },
-                  child: const Text('Other UPI app'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _launchUpiPayment(Booking booking, String label) async {
-    final amount = booking.totalAmount.toDouble().toStringAsFixed(2);
-    final vpa = _adminUpiId;
-    final pn = Uri.encodeComponent(_adminName);
-    final note = Uri.encodeComponent('Booking ${booking.id}');
-
-    final uri = Uri.parse(
-      'upi://pay?pa=$vpa&pn=$pn&tn=$note&am=$amount&cu=INR',
-    );
-
-    final canOpen = await canLaunchUrl(uri);
-    if (!canOpen) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No UPI app found to open $label'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not open $label'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _connectSocket(String bookingId) async {
-    try {
-      final token = await AppStorage().getToken();
-      final next = io.io(
-        Env.baseUrl,
-        io.OptionBuilder()
-            .setTransports(['websocket'])
-            .enableForceNew()
-            .setAuth(token != null && token.isNotEmpty ? {'token': token} : {})
-            .build(),
-      );
-
-      _socket?.dispose();
-      _socket = next;
-
-      next.onConnect((_) {
-        if (!mounted) return;
-        setState(() {
-          _socketConnected = true;
-          _socketError = null;
-        });
-        next.emit('join', 'booking_$bookingId');
-      });
-      next.onDisconnect((_) {
-        if (!mounted) return;
-        setState(() => _socketConnected = false);
-      });
-      next.onConnectError((data) {
-        if (!mounted) return;
-        setState(() {
-          _socketError = data?.toString();
-          _socketConnected = false;
-        });
-      });
-      next.on('liveLocation', (data) {
-        if (!mounted) return;
-        final booking = _booking;
-        if (booking != null &&
-            (booking.status == 'VEHICLE_AT_MERCHANT' ||
-                booking.status == 'SERVICE_STARTED' ||
-                booking.status == 'SERVICE_COMPLETED' ||
-                booking.status == 'DELIVERED' ||
-                booking.status == 'COMPLETED' ||
-                booking.status == 'CANCELLED')) {
-          return;
-        }
-        if (data is Map) {
-          final role = data['role'];
-          if (role != null && role.toString() != 'staff') {
-            return;
-          }
-          final latRaw = data['lat'];
-          final lngRaw = data['lng'];
-          final nameRaw = data['name'];
-          final updatedAtRaw = data['updatedAt'] ?? data['timestamp'];
-          double? lat;
-          double? lng;
-          if (latRaw is num) lat = latRaw.toDouble();
-          if (lngRaw is num) lng = lngRaw.toDouble();
-          if (lat == null && latRaw is String) {
-            final p = double.tryParse(latRaw);
-            if (p != null) lat = p;
-          }
-          if (lng == null && lngRaw is String) {
-            final p = double.tryParse(lngRaw);
-            if (p != null) lng = p;
-          }
-          if (lat != null && lng != null) {
-            final nextPos = LatLng(lat, lng);
-            final prev = _liveLatLng;
-            if (prev != null) {
-              _bearingRad = _computeBearingRad(prev, nextPos);
-            }
-            if (!mounted) return;
-            setState(() {
-              _liveLatLng = nextPos;
-              _liveName = nameRaw is String && nameRaw.trim().isNotEmpty
-                  ? nameRaw
-                  : null;
-              _liveUpdatedAt = updatedAtRaw is String
-                  ? DateTime.tryParse(updatedAtRaw)?.toLocal()
-                  : null;
-            });
-            try {
-              _mapController.move(nextPos, 15);
-            } catch (_) {}
-
-            _updateEtaIfNeeded(nextPos);
-
-            // Fetch route if not yet fetched or periodically
-            if (_routePoints.isEmpty) {
-              final destLat = booking?.location?.lat;
-              final destLng = booking?.location?.lng;
-              if (destLat != null && destLng != null) {
-                _fetchRoute(nextPos, LatLng(destLat, destLng));
-              }
-            }
-          }
-        }
-      });
-      next.on('nearbyStaff', (data) {
-        if (!mounted) return;
-        final id = _bookingId;
-        if (id == null || id.isEmpty) return;
-        if (data is Map) {
-          final bookingId = data['bookingId']?.toString();
-          if (bookingId != id) return;
-          if (_nearAlertShown) return;
-          _nearAlertShown = true;
-          String message;
-          final distanceRaw = data['distanceMeters'];
-          if (distanceRaw is num) {
-            final d = distanceRaw.round();
-            final clamped = d < 1 ? 1 : d;
-            message = 'Staff is near your location (~$clamped m)';
-          } else {
-            message = 'Staff is near your location (≤300 m)';
-          }
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
-        }
-      });
-      next.on('bookingUpdated', (data) {
-        if (!mounted) return;
-        if (data is Map<String, dynamic>) {
-          final updated = Booking.fromJson(data);
-          setState(() {
-            _booking = updated;
-            if (updated.status == 'VEHICLE_AT_MERCHANT' ||
-                updated.status == 'SERVICE_STARTED' ||
-                updated.status == 'SERVICE_COMPLETED' ||
-                updated.status == 'DELIVERED' ||
-                updated.status == 'CANCELLED') {
-              _liveLatLng = null;
-              _liveName = null;
-              _liveUpdatedAt = null;
-            }
-          });
-        } else if (data is Map) {
-          final updated = Booking.fromJson(Map<String, dynamic>.from(data));
-          setState(() {
-            _booking = updated;
-            if (updated.status == 'VEHICLE_AT_MERCHANT' ||
-                updated.status == 'SERVICE_STARTED' ||
-                updated.status == 'SERVICE_COMPLETED' ||
-                updated.status == 'DELIVERED' ||
-                updated.status == 'COMPLETED' ||
-                updated.status == 'CANCELLED') {
-              _liveLatLng = null;
-              _liveName = null;
-              _liveUpdatedAt = null;
-            }
-          });
-        }
-      });
-
-      next.connect();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _socketError = e.toString());
     }
   }
 
@@ -775,21 +531,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     return TimeOfDay.fromDateTime(dt).format(context);
   }
 
-  double _computeBearingRad(LatLng a, LatLng b) {
-    double toRad(double v) => v * math.pi / 180.0;
-    double toDeg(double v) => v * 180.0 / math.pi;
-    final lat1 = toRad(a.latitude);
-    final lat2 = toRad(b.latitude);
-    final dLon = toRad(b.longitude - a.longitude);
-    final y = math.sin(dLon) * math.cos(lat2);
-    final x =
-        math.cos(lat1) * math.sin(lat2) -
-        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
-    final brng = math.atan2(y, x);
-    final deg = (toDeg(brng) + 360.0) % 360.0;
-    return deg * math.pi / 180.0;
-  }
-
   String? _resolveImageUrl(dynamic raw) {
     if (raw == null) return null;
     final s = raw.toString().trim();
@@ -797,50 +538,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     if (s.startsWith('http://') || s.startsWith('https://')) return s;
     if (s.startsWith('/')) return '${Env.baseUrl}$s';
     return '${Env.baseUrl}/$s';
-  }
-
-  Future<void> _updateEtaIfNeeded(LatLng staff) async {
-    final booking = _booking;
-    if (booking == null || booking.pickupRequired == false) {
-      setState(() {
-        _etaTextDuration = null;
-        _etaTextDistance = null;
-      });
-      return;
-    }
-    final destLat = booking.location?.lat;
-    final destLng = booking.location?.lng;
-    if (destLat == null || destLng == null) {
-      setState(() {
-        _etaTextDuration = null;
-        _etaTextDistance = null;
-      });
-      return;
-    }
-    final showFor = [
-      'ASSIGNED',
-      'ACCEPTED',
-      'REACHED_CUSTOMER',
-      'OUT_FOR_DELIVERY',
-    ];
-    if (!showFor.contains(booking.status)) {
-      setState(() {
-        _etaTextDuration = null;
-        _etaTextDistance = null;
-      });
-      return;
-    }
-    try {
-      final q =
-          '/tracking/eta?originLat=${staff.latitude}&originLng=${staff.longitude}&destLat=$destLat&destLng=$destLng';
-      final res = await _api.getJson(q);
-      setState(() {
-        _etaTextDuration = res['textDuration']?.toString();
-        _etaTextDistance = res['textDistance']?.toString();
-      });
-    } catch (_) {
-      // ignore failures
-    }
   }
 
   Future<void> _fetchPendingApprovals() async {
@@ -1144,30 +841,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
-    }
-  }
-
-  Future<void> _openMerchantDirections() async {
-    final booking = _booking;
-    if (booking == null) return;
-    final loc = booking.merchantLocation;
-    if (loc == null || loc.lat == null || loc.lng == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Merchant location not available')),
-      );
-      return;
-    }
-    final uri = Uri.https('www.google.com', '/maps/dir/', {
-      'api': '1',
-      'destination': '${loc.lat},${loc.lng}',
-      'travelmode': 'driving',
-    });
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not open maps')));
     }
   }
 
@@ -1510,184 +1183,80 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ],
                 ),
               ),
-              if (!booking.pickupRequired &&
-                  merchantLatLng != null &&
-                  merchantLoc != null) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _openMerchantDirections,
-                    icon: const Icon(Icons.navigation),
-                    label: const Text('Get directions to workshop'),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.two_wheeler, size: 20, color: Color(0xFF4F46E5)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Driver Details',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (booking.driverName != null) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                booking.driverName!,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              if (booking.driverPhone != null)
-                                Text(
-                                  booking.driverPhone!,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
-                                ),
-                            ],
-                          ),
-                          if (booking.driverPhone != null)
-                            IconButton(
-                              onPressed: () => launchUrl(Uri.parse('tel:${booking.driverPhone}')),
-                              icon: const Icon(Icons.phone, color: Color(0xFF22C55E)),
-                              style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFFDCFCE7),
-                                padding: const EdgeInsets.all(8),
-                              ),
+              const SizedBox(height: 16),
+              // Driver Details Section
+              if (booking.pickupRequired)
+                _buildInfoCard(
+                  context,
+                  title: 'Driver Details',
+                  icon: Icons.two_wheeler,
+                  name: booking.driverName,
+                  phone: booking.driverPhone,
+                  subtitle: booking.driverName == null
+                      ? 'your driver details provided shortly'
+                      : null,
+                  isDark: isDark,
+                  actions: booking.driverPhone != null
+                      ? [
+                          _buildCircleActionButton(
+                            icon: Icons.phone,
+                            color: const Color(0xFF22C55E),
+                            bgColor: const Color(0xFFDCFCE7),
+                            onTap: () => launchUrl(
+                              Uri.parse('tel:${booking.driverPhone}'),
                             ),
-                        ],
-                      ),
-                    ] else
-                      Text(
-                        'your driver details provided shortly',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.white70 : Colors.black54,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                  ],
+                          ),
+                        ]
+                      : [],
                 ),
-              ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.storefront, size: 20, color: Color(0xFF4F46E5)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Service Center',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ],
+              // Service Center Section
+              _buildInfoCard(
+                context,
+                title: 'Service Center',
+                icon: Icons.storefront,
+                name: booking.merchantName,
+                phone: booking.merchantPhone,
+                subtitle: booking.merchantName == null
+                    ? 'your authorised service center details provide shortly'
+                    : null,
+                isDark: isDark,
+                actions: [
+                  if (booking.merchantPhone != null)
+                    _buildCircleActionButton(
+                      icon: Icons.phone,
+                      color: const Color(0xFF22C55E),
+                      bgColor: const Color(0xFFDCFCE7),
+                      onTap: () =>
+                          launchUrl(Uri.parse('tel:${booking.merchantPhone}')),
                     ),
-                    const SizedBox(height: 12),
-                    if (booking.merchantName != null) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                booking.merchantName!,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              if (booking.merchantPhone != null)
-                                Text(
-                                  booking.merchantPhone!,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
-                                ),
-                            ],
+                  const SizedBox(width: 8),
+                  _buildCircleActionButton(
+                    icon: Icons.message,
+                    color: const Color(0xFF4F46E5),
+                    bgColor: const Color(0xFFEEF2FF),
+                    onTap: () {
+                      final phone =
+                          booking.merchantPhone?.replaceAll(
+                            RegExp(r'\D'),
+                            '',
+                          ) ??
+                          '';
+                      if (phone.isNotEmpty) {
+                        launchUrl(
+                          Uri.parse(
+                            'https://wa.me/$phone?text=Hi, I have a query about order #${booking.orderNumber ?? booking.id}',
                           ),
-                          Row(
-                            children: [
-                              if (booking.merchantPhone != null)
-                                IconButton(
-                                  onPressed: () => launchUrl(Uri.parse('tel:${booking.merchantPhone}')),
-                                  icon: const Icon(Icons.phone, color: Color(0xFF22C55E)),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: const Color(0xFFDCFCE7),
-                                    padding: const EdgeInsets.all(8),
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () {
-                                  final phone = booking.merchantPhone?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                  if (phone.isNotEmpty) {
-                                    launchUrl(
-                                      Uri.parse('https://wa.me/$phone?text=Hi, I have a query about order #${booking.orderNumber ?? booking.id}'),
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
-                                },
-                                icon: const Icon(Icons.message, color: Color(0xFF4F46E5)),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEEF2FF),
-                                  padding: const EdgeInsets.all(8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ] else
-                      Text(
-                        'your authorised service center details provide shortly',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.white70 : Colors.black54,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                  ],
-                ),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-               Container(
-                 padding: const EdgeInsets.all(16),
+              Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.06)
@@ -1789,13 +1358,28 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Text(
-                      'Total: ₹${booking.totalAmount}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total Amount',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                        ),
+                        Text(
+                          '₹${booking.totalAmount}',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1899,361 +1483,356 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _pendingApprovals.length,
-                          itemBuilder: (context, index) {
-                            final approval = _pendingApprovals[index];
-                            final data = approval['data'];
-                            String name = 'Part replacement';
-                            int? quantity;
-                            double? price;
-                            String? newImageUrl;
-                            String? oldImageUrl;
-                            if (data is Map) {
-                              final rawName = data['name'];
-                              if (rawName != null &&
-                                  rawName.toString().trim().isNotEmpty) {
-                                name = rawName.toString();
-                              }
-                              final rawQty = data['quantity'];
-                              if (rawQty is num) {
-                                quantity = rawQty.toInt();
-                              }
-                              final rawPrice = data['price'];
-                              if (rawPrice is num) {
-                                price = rawPrice.toDouble();
-                              }
-                              newImageUrl = _resolveImageUrl(data['image']);
-                              oldImageUrl = _resolveImageUrl(data['oldImage']);
+                      ListView.builder(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _pendingApprovals.length,
+                        itemBuilder: (context, index) {
+                          final approval = _pendingApprovals[index];
+                          final data = approval['data'];
+                          String name = 'Part replacement';
+                          int? quantity;
+                          double? price;
+                          String? newImageUrl;
+                          String? oldImageUrl;
+                          if (data is Map) {
+                            final rawName = data['name'];
+                            if (rawName != null &&
+                                rawName.toString().trim().isNotEmpty) {
+                              name = rawName.toString();
                             }
-                            double? total;
-                            if (quantity != null && price != null) {
-                              total = quantity * price;
+                            final rawQty = data['quantity'];
+                            if (rawQty is num) {
+                              quantity = rawQty.toInt();
                             }
-                            final approvalId =
-                                approval['_id']?.toString() ?? '';
-                            return Container(
-                              margin: const EdgeInsets.only(top: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFEF3C7),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      'SC',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF92400E),
-                                      ),
+                            final rawPrice = data['price'];
+                            if (rawPrice is num) {
+                              price = rawPrice.toDouble();
+                            }
+                            newImageUrl = _resolveImageUrl(data['image']);
+                            oldImageUrl = _resolveImageUrl(data['oldImage']);
+                          }
+                          double? total;
+                          if (quantity != null && price != null) {
+                            total = quantity * price;
+                          }
+                          final approvalId = approval['_id']?.toString() ?? '';
+                          return Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'SC',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF92400E),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            border: Border.all(
-                                              color: const Color(0xFFFCD34D),
-                                            ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      name,
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodyMedium
-                                                          ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  if (total != null)
-                                                    Text(
-                                                      '₹${total.toStringAsFixed(2)}',
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodySmall
-                                                          ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: const Color(
-                                                              0xFF111827,
-                                                            ),
-                                                          ),
-                                                    ),
-                                                ],
-                                              ),
-                                              if (quantity != null ||
-                                                  price != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 2,
-                                                      ),
+                                          border: Border.all(
+                                            color: const Color(0xFFFCD34D),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
                                                   child: Text(
-                                                    'Qty: ${quantity ?? '-'} • Price: ₹${price != null ? price.toStringAsFixed(2) : '-'}',
+                                                    name,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodyMedium
+                                                        ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                  ),
+                                                ),
+                                                if (total != null)
+                                                  Text(
+                                                    '₹${total.toStringAsFixed(2)}',
                                                     style: Theme.of(context)
                                                         .textTheme
                                                         .bodySmall
                                                         ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.w700,
                                                           color: const Color(
-                                                            0xFF92400E,
+                                                            0xFF111827,
                                                           ),
                                                         ),
                                                   ),
-                                                ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          'New Part',
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .bodySmall
-                                                              ?.copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    const Color(
-                                                                      0xFF4B5563,
-                                                                    ),
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        AspectRatio(
-                                                          aspectRatio: 1,
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                              color:
-                                                                  const Color(
-                                                                    0xFFF9FAFB,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              border: Border.all(
-                                                                color:
-                                                                    const Color(
-                                                                      0xFFE5E7EB,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                            clipBehavior:
-                                                                Clip.antiAlias,
-                                                            child:
-                                                                newImageUrl !=
-                                                                    null
-                                                                ? Image.network(
-                                                                    newImageUrl,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                  )
-                                                                : Center(
-                                                                    child: Text(
-                                                                      'No image',
-                                                                      style: Theme.of(context)
-                                                                          .textTheme
-                                                                          .bodySmall
-                                                                          ?.copyWith(
-                                                                            color: const Color(
-                                                                              0xFF9CA3AF,
-                                                                            ),
-                                                                          ),
-                                                                    ),
-                                                                  ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          'Old Part',
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .bodySmall
-                                                              ?.copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    const Color(
-                                                                      0xFF4B5563,
-                                                                    ),
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        AspectRatio(
-                                                          aspectRatio: 1,
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                              color:
-                                                                  const Color(
-                                                                    0xFFF9FAFB,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              border: Border.all(
-                                                                color:
-                                                                    const Color(
-                                                                      0xFFE5E7EB,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                            clipBehavior:
-                                                                Clip.antiAlias,
-                                                            child:
-                                                                oldImageUrl !=
-                                                                    null
-                                                                ? Image.network(
-                                                                    oldImageUrl,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                  )
-                                                                : Center(
-                                                                    child: Text(
-                                                                      'No image',
-                                                                      style: Theme.of(context)
-                                                                          .textTheme
-                                                                          .bodySmall
-                                                                          ?.copyWith(
-                                                                            color: const Color(
-                                                                              0xFF9CA3AF,
-                                                                            ),
-                                                                          ),
-                                                                    ),
-                                                                  ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            OutlinedButton(
-                                              onPressed: approvalId.isEmpty
-                                                  ? null
-                                                  : () =>
-                                                        _showRejectReasonSheet(
-                                                          approvalId,
-                                                        ),
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(
-                                                  0xFFB91C1C,
-                                                ),
-                                                side: const BorderSide(
-                                                  color: Color(0xFFFCA5A5),
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
-                                              ),
-                                              child: const Text(
-                                                'Reject',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 8),
-                                            ElevatedButton(
-                                              onPressed: approvalId.isEmpty
-                                                  ? null
-                                                  : () => _handleApprovalAction(
-                                                      approvalId,
-                                                      'Approved',
-                                                    ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(
-                                                  0xFF22C55E,
+                                            if (quantity != null ||
+                                                price != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 2,
                                                 ),
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 14,
-                                                      vertical: 8,
-                                                    ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        999,
+                                                child: Text(
+                                                  'Qty: ${quantity ?? '-'} • Price: ₹${price != null ? price.toStringAsFixed(2) : '-'}',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: const Color(
+                                                          0xFF92400E,
+                                                        ),
                                                       ),
                                                 ),
-                                                elevation: 0,
                                               ),
-                                              child: const Text(
-                                                'Approve',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        'New Part',
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF4B5563,
+                                                                  ),
+                                                              fontSize: 10,
+                                                            ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      SizedBox(
+                                                        width: 80,
+                                                        height: 80,
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(
+                                                              0xFFF9FAFB,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            border: Border.all(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFE5E7EB,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          clipBehavior:
+                                                              Clip.antiAlias,
+                                                          child:
+                                                              newImageUrl !=
+                                                                  null
+                                                              ? Image.network(
+                                                                  newImageUrl,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                )
+                                                              : Center(
+                                                                  child: Text(
+                                                                    'No image',
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .bodySmall
+                                                                        ?.copyWith(
+                                                                          color: const Color(
+                                                                            0xFF9CA3AF,
+                                                                          ),
+                                                                          fontSize:
+                                                                              8,
+                                                                        ),
+                                                                  ),
+                                                                ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        'Old Part',
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF4B5563,
+                                                                  ),
+                                                              fontSize: 10,
+                                                            ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      SizedBox(
+                                                        width: 80,
+                                                        height: 80,
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(
+                                                              0xFFF9FAFB,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            border: Border.all(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFE5E7EB,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          clipBehavior:
+                                                              Clip.antiAlias,
+                                                          child:
+                                                              oldImageUrl !=
+                                                                  null
+                                                              ? Image.network(
+                                                                  oldImageUrl,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                )
+                                                              : Center(
+                                                                  child: Text(
+                                                                    'No image',
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .bodySmall
+                                                                        ?.copyWith(
+                                                                          color: const Color(
+                                                                            0xFF9CA3AF,
+                                                                          ),
+                                                                          fontSize:
+                                                                              8,
+                                                                        ),
+                                                                  ),
+                                                                ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          OutlinedButton(
+                                            onPressed: approvalId.isEmpty
+                                                ? null
+                                                : () => _showRejectReasonSheet(
+                                                    approvalId,
+                                                  ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(
+                                                0xFFB91C1C,
+                                              ),
+                                              side: const BorderSide(
+                                                color: Color(0xFFFCA5A5),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 6,
+                                                  ),
+                                            ),
+                                            child: const Text(
+                                              'Reject',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: approvalId.isEmpty
+                                                ? null
+                                                : () => _handleApprovalAction(
+                                                    approvalId,
+                                                    'Approved',
+                                                  ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF22C55E,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                    vertical: 8,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              elevation: 0,
+                                            ),
+                                            child: const Text(
+                                              'Approve',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -2285,7 +1864,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     _StatusRow(
                       label: 'Inspection',
                       isCompleted: booking.inspectionCompletedAt != null,
-                      time: _formatDateTime(context, booking.inspectionCompletedAt),
+                      time: _formatDateTime(
+                        context,
+                        booking.inspectionCompletedAt,
+                      ),
                       isDark: isDark,
                     ),
                     const Padding(
@@ -2305,7 +1887,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     _StatusRow(
                       label: 'Payment',
                       isCompleted: booking.paymentStatus == 'paid',
-                      time: booking.paymentStatus == 'paid' ? 'Completed' : 'Pending',
+                      time: booking.paymentStatus == 'paid'
+                          ? 'Completed'
+                          : 'Pending',
                       isDark: isDark,
                     ),
                   ],
@@ -2372,11 +1956,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     : 'Pickup Scheduled',
                                 'At Service Center',
                                 'Service In Progress',
-                                booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid'
+                                booking.status == 'SERVICE_COMPLETED' &&
+                                        booking.paymentStatus != 'paid'
                                     ? 'Waiting for Payment'
                                     : (booking.status == 'OUT_FOR_DELIVERY'
-                                        ? 'Out for Delivery'
-                                        : 'Service Completed'),
+                                          ? 'Out for Delivery'
+                                          : 'Service Completed'),
                                 'Delivered',
                               ]
                             : [
@@ -2384,7 +1969,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 'Merchant Assigned',
                                 'At Service Center',
                                 'Service In Progress',
-                                booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid'
+                                booking.status == 'SERVICE_COMPLETED' &&
+                                        booking.paymentStatus != 'paid'
                                     ? 'Waiting for Payment'
                                     : 'Service Completed',
                                 'Delivered',
@@ -2481,7 +2067,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           const SizedBox(width: 8),
                           Text(
                             'Payment Required',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFF4F46E5),
                                 ),
@@ -2492,8 +2079,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       Text(
                         'Service is completed. Please pay ₹${booking.totalAmount} to proceed with vehicle delivery.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF4B5563),
-                            ),
+                          color: const Color(0xFF4B5563),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -2573,44 +2160,52 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ),
                 ),
               ],
-              if (booking.postServicePhotos.isNotEmpty) ...[
+              if (booking.beforeServicePhotos.isNotEmpty ||
+                  booking.duringServicePhotos.isNotEmpty ||
+                  booking.postServicePhotos.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 Text(
-                  'Post-Service Photos',
+                  'Service Photos',
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  height: 100,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: booking.postServicePhotos.length,
-                    separatorBuilder: (context, _) => const SizedBox(width: 10),
-                    itemBuilder: (context, index) {
-                      final url = _resolveImageUrl(
-                        booking.postServicePhotos[index],
-                      )!;
-                      return GestureDetector(
-                        onTap: () => _showImagePreview(url),
-                        child: Container(
-                          width: 100,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.1)
-                                  : const Color(0xFFE5E7EB),
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(11),
-                            child: Image.network(url, fit: BoxFit.cover),
-                          ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (booking.beforeServicePhotos.isNotEmpty)
+                        _buildHorizontalPhotoCategory(
+                          context,
+                          const SizedBox.shrink(),
+                          title: 'Before Service',
+                          photos: booking.beforeServicePhotos,
+                          isDark: isDark,
                         ),
-                      );
-                    },
+                      if (booking.duringServicePhotos.isNotEmpty)
+                        _buildHorizontalPhotoCategory(
+                          context,
+                          booking.beforeServicePhotos.isNotEmpty
+                              ? const SizedBox(width: 16)
+                              : const SizedBox.shrink(),
+                          title: 'During Service',
+                          photos: booking.duringServicePhotos,
+                          isDark: isDark,
+                        ),
+                      if (booking.postServicePhotos.isNotEmpty)
+                        _buildHorizontalPhotoCategory(
+                          context,
+                          (booking.beforeServicePhotos.isNotEmpty ||
+                                  booking.duringServicePhotos.isNotEmpty)
+                              ? const SizedBox(width: 16)
+                              : const SizedBox.shrink(),
+                          title: 'After Service',
+                          photos: booking.postServicePhotos,
+                          isDark: isDark,
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -2689,6 +2284,157 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       ),
     );
   }
+
+  Widget _buildHorizontalPhotoCategory(
+    BuildContext context,
+    Widget spacing, {
+    required String title,
+    required List<String> photos,
+    required bool isDark,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        spacing,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: List.generate(photos.length, (index) {
+                final url = _resolveImageUrl(photos[index])!;
+                return GestureDetector(
+                  onTap: () => _showImagePreview(url),
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    margin: EdgeInsets.only(
+                      right: index == photos.length - 1 ? 0 : 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Image.network(url, fit: BoxFit.cover),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    String? name,
+    String? phone,
+    String? subtitle,
+    required bool isDark,
+    required List<Widget> actions,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: const Color(0xFF4F46E5)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (name != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (phone != null)
+                        Text(
+                          phone,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                        ),
+                    ],
+                  ),
+                ),
+                Row(children: actions),
+              ],
+            ),
+          ] else if (subtitle != null)
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircleActionButton({
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+        child: Icon(icon, size: 18, color: color),
+      ),
+    );
+  }
 }
 
 class _StatusRow extends StatelessWidget {
@@ -2713,7 +2459,9 @@ class _StatusRow extends StatelessWidget {
           height: 20,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isCompleted ? const Color(0xFF22C55E) : const Color(0xFF94A3B8),
+            color: isCompleted
+                ? const Color(0xFF22C55E)
+                : const Color(0xFF94A3B8),
           ),
           child: Icon(
             isCompleted ? Icons.check : Icons.access_time,
@@ -2726,16 +2474,16 @@ class _StatusRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
           ),
         ),
         Text(
           time,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
         ),
       ],
     );

@@ -238,6 +238,25 @@ const AdminTrackingPage: React.FC = () => {
     };
   }, [selectedItem, destination]);
 
+  // Auto-follow logic for Admin
+  useEffect(() => {
+    interface LiveLocationEvent {
+      userId: string;
+      lat: number;
+      lng: number;
+    }
+
+    const handler = (data: LiveLocationEvent) => {
+      if (selectedItem?._id === data.userId && mapInstance) {
+        mapInstance.flyTo([data.lat, data.lng], 16, { animate: true, duration: 1.0 });
+      }
+    };
+    socketService.on('liveLocation', handler);
+    return () => {
+      socketService.off('liveLocation', handler);
+    };
+  }, [selectedItem, mapInstance]);
+
   useEffect(() => {
     if (selectedItem && 'currentJob' in selectedItem && selectedItem.currentJob?.location) {
       const loc = selectedItem.currentJob.location as { lat?: number; lng?: number } | string | null | undefined;

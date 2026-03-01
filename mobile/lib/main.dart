@@ -5,11 +5,13 @@ import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/track_booking_page.dart';
 import 'pages/my_payments_page.dart';
-import 'pages/insurance_page.dart';
 import 'pages/documents_page.dart';
 import 'pages/support_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/main_navigation_page.dart';
+import 'pages/my_vehicles_page.dart';
+import 'pages/profile_page.dart';
+import 'pages/my_bookings_page.dart';
 import 'pages/speshway_vehiclecare_dashboard_page.dart';
 import 'services/socket_service.dart';
 import 'state/auth_provider.dart';
@@ -24,11 +26,7 @@ void main() async {
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
 
-  debugPrint('Main: Starting initialization...');
   await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
-  debugPrint(
-    'Main: Initialized. isAuthenticated: ${authProvider.isAuthenticated}',
-  );
 
   final socketService = SocketService();
   if (authProvider.isAuthenticated) {
@@ -87,12 +85,11 @@ class MyApp extends StatelessWidget {
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
                 },
               ),
             ),
@@ -111,12 +108,11 @@ class MyApp extends StatelessWidget {
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
                 },
               ),
             ),
@@ -126,16 +122,18 @@ class MyApp extends StatelessWidget {
               '/splash': (_) => const SplashPage(),
               '/login': (_) => const LoginPage(),
               '/register': (_) => const RegisterPage(),
-              '/services': (_) => const _TabRedirect(index: 1),
+              '/services': (_) => const _TabRedirect(index: 0),
               '/customer': (_) => const MainNavigationPage(),
-              '/bookings': (_) => const _TabRedirect(index: 3),
+              '/bookings': (_) => const MyBookingsPage(),
               '/payments': (_) => const MyPaymentsPage(),
-              '/vehicles': (_) => const _TabRedirect(index: 0),
+              '/vehicles': (_) => const MyVehiclesPage(),
               '/notifications': (_) => const NotificationsPage(),
-              '/insurance': (_) => const InsurancePage(),
+              '/insurance': (_) => const _TabRedirect(index: 1),
               '/documents': (_) => const DocumentsPage(),
               '/support': (_) => const SupportPage(),
-              '/profile': (_) => const _TabRedirect(index: 4),
+              '/profile': (_) => const ProfilePage(),
+              '/car-wash': (_) => const _TabRedirect(index: 3),
+              '/tires': (_) => const _TabRedirect(index: 4),
               '/track': (_) => const TrackBookingPage(),
               '/speshway-dashboard': (_) =>
                   const SpeshwayVehicleCareDashboard(),
@@ -300,20 +298,5 @@ class _RoleHomeScaffold extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
-  const NoAnimationPageTransitionsBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return child;
   }
 }

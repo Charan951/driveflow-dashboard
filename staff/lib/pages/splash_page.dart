@@ -44,14 +44,18 @@ class _SplashPageState extends State<SplashPage>
       }
 
       final user = await _authService.getCurrentUser();
-      if (user == null || (user.role != 'staff' && user.role != 'admin')) {
+      if (user == null || (user.role != 'staff' && user.role != 'admin' && user.role != 'merchant')) {
         await _authService.logout();
         _goToLogin();
         return;
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
+      if (user.role == 'merchant') {
+        Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     } catch (_) {
       await _authService.logout();
       if (!mounted) return;

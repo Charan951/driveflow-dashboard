@@ -1,6 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/auth_provider.dart';
@@ -54,40 +52,28 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   Future<void> _bootstrap() async {
     final auth = context.read<AuthProvider>();
 
-    debugPrint('Splash: Starting bootstrap...');
-
     // Start loading session immediately in background
     final loadMeFuture = auth.loadMe();
 
     // Wait for at least 800 milliseconds to show splash animation nicely
     await Future.delayed(const Duration(milliseconds: 800));
 
-    debugPrint('Splash: Animation delay finished, waiting for loadMe...');
-
     // Ensure data is loaded
     await loadMeFuture;
 
-    debugPrint(
-      'Splash: loadMe finished. isAuthenticated: ${auth.isAuthenticated}',
-    );
-
     if (!mounted) {
-      debugPrint('Splash: Widget not mounted, aborting navigation');
       return;
     }
     if (_navigated) {
-      debugPrint('Splash: Already navigated, aborting');
       return;
     }
 
     final navigator = Navigator.of(context);
 
     if (auth.isAuthenticated) {
-      debugPrint('Splash: Navigating to homeRoute: ${auth.homeRoute}');
       _navigated = true;
       navigator.pushReplacementNamed(auth.homeRoute);
     } else {
-      debugPrint('Splash: Not authenticated, navigating to login');
       _navigated = true;
       navigator.pushReplacementNamed('/login');
     }
@@ -205,184 +191,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LetsStartButton extends StatelessWidget {
-  final double t;
-  final VoidCallback onPressed;
-
-  const _LetsStartButton({required this.t, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final useBlur = !kIsWeb;
-    final blurSigma = useBlur ? 12.0 : 0.0;
-    final pulse = 0.92 + 0.08 * sin(t * pi * 2);
-    final drift = sin(t * pi * 2) * 0.25;
-
-    return Transform.scale(
-      scale: pulse,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: useBlur
-            ? BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment(-1 + drift, -1),
-                      end: Alignment(1 + drift, 1),
-                      colors: [
-                        const Color(0xFF22D3EE).withValues(alpha: 0.35),
-                        const Color(0xFF2563EB).withValues(alpha: 0.30),
-                        const Color(0xFF60A5FA).withValues(alpha: 0.28),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withValues(
-                        alpha: 0.20 + 0.10 * pulse,
-                      ),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(
-                          0xFF22D3EE,
-                        ).withValues(alpha: 0.35 * pulse),
-                        blurRadius: 26,
-                        spreadRadius: 1,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        blurRadius: 22,
-                        offset: const Offset(0, 10),
-                      ),
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        blurRadius: 14,
-                        offset: const Offset(-6, -6),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: onPressed,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.auto_awesome,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Let's Start",
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.3,
-                                  ),
-                            ),
-                            const SizedBox(width: 10),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              color: Colors.white.withValues(alpha: 0.95),
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment(-1 + drift, -1),
-                    end: Alignment(1 + drift, 1),
-                    colors: [
-                      const Color(0xFF22D3EE).withValues(alpha: 0.35),
-                      const Color(0xFF2563EB).withValues(alpha: 0.30),
-                      const Color(0xFF60A5FA).withValues(alpha: 0.28),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20 + 0.10 * pulse),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(
-                        0xFF22D3EE,
-                      ).withValues(alpha: 0.35 * pulse),
-                      blurRadius: 26,
-                      spreadRadius: 1,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(-6, -6),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onPressed,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 14,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.auto_awesome,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            "Let's Start",
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.3,
-                                ),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(
-                            Icons.arrow_forward_rounded,
-                            color: Colors.white.withValues(alpha: 0.95),
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
       ),
     );
   }

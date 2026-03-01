@@ -26,6 +26,12 @@ interface User {
     details?: string;
     isDefault: boolean;
   }[];
+  location?: {
+    lat: number;
+    lng: number;
+    address: string;
+    updatedAt?: string;
+  };
 }
 
 interface AuthState {

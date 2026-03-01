@@ -41,25 +41,20 @@ class AuthProvider extends ChangeNotifier {
   Future<void> loadMe({bool force = false}) async {
     if (loading) return;
     if (_isInitialized && !force) {
-      debugPrint('AuthProvider: loadMe skipped (already initialized)');
       return;
     }
 
     lastError = null;
-    debugPrint('AuthProvider: Starting loadMe (force: $force)...');
 
     try {
       final token = await AppStorage().getToken();
       if (token == null || token.isEmpty) {
-        debugPrint('AuthProvider: No token found in storage.');
         user = null;
         loading = false;
         _isInitialized = true;
         notifyListeners();
         return;
       }
-
-      debugPrint('AuthProvider: Token found, loading cached user...');
 
       // 1. Try to load from local storage first
       final cachedUserJson = await AppStorage().getUserJson();
@@ -74,9 +69,6 @@ class AuthProvider extends ChangeNotifier {
           }
 
           if (cachedUser != null) {
-            debugPrint(
-              'AuthProvider: Successfully loaded user from cache: ${cachedUser.name}',
-            );
             user = cachedUser;
             _isInitialized = true;
             loading = false;
@@ -90,10 +82,8 @@ class AuthProvider extends ChangeNotifier {
             return;
           }
         } catch (e) {
-          debugPrint('AuthProvider: Error decoding cached user: $e');
+          // Silent catch
         }
-      } else {
-        debugPrint('AuthProvider: No cached user found in storage.');
       }
 
       // If we don't have a cached user, we must wait for the server
@@ -101,7 +91,6 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       await _refreshUserInBackground();
     } catch (e) {
-      debugPrint('AuthProvider: Fatal error in loadMe: $e');
       if (user == null) {
         lastError = _messageFromError(e);
       }
@@ -114,7 +103,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _refreshUserInBackground() async {
     try {
-      debugPrint('AuthProvider: Refreshing user data from server...');
       final fresh = await _auth.me();
       if (fresh != null) {
         final oldUserJson = user != null ? jsonEncode(user!.toJson()) : null;
@@ -125,28 +113,19 @@ class AuthProvider extends ChangeNotifier {
 
         // Only notify if the user data actually changed from the cached version
         if (oldUserJson != newUserJson) {
-          debugPrint('AuthProvider: User updated from server (data changed)');
           notifyListeners();
-        } else {
-          debugPrint('AuthProvider: User data from server matches cache');
         }
         SocketService().init();
       }
     } on ApiException catch (e) {
-      debugPrint(
-        'AuthProvider: Server refresh failed with ApiException: ${e.statusCode} - ${e.message}',
-      );
       if (e.statusCode == 401) {
-        debugPrint(
-          'AuthProvider: Token invalid or expired (401), clearing session.',
-        );
         await AppStorage().clearToken();
         await AppStorage().clearUser();
         user = null;
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('AuthProvider: Server refresh network error: $e');
+      // Silent catch
     }
   }
 
@@ -154,34 +133,24 @@ class AuthProvider extends ChangeNotifier {
     loading = true;
     lastError = null;
     notifyListeners();
-    debugPrint('AuthProvider: Attempting login for $email...');
     try {
       final res = await _auth.login(email, password);
-      debugPrint(
-        'AuthProvider: Login response received. Token present: ${res.token != null}',
-      );
       if (res.token != null && res.token!.isNotEmpty) {
         // The token is already saved by AuthService.login calling AppStorage().setToken()
         user = res.user;
         if (user == null) {
-          debugPrint(
-            'AuthProvider: User missing from login response, fetching via me()...',
-          );
           user = await _auth.me();
           if (user != null) {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
-        debugPrint('AuthProvider: Login successful. User: ${user?.name}');
         SocketService().init();
         loading = false;
         notifyListeners();
         return true;
       }
-      debugPrint('AuthProvider: Login failed - no token in response');
       lastError = 'Login failed: No token received';
     } catch (e) {
-      debugPrint('AuthProvider: Login error: $e');
       lastError = _messageFromError(e);
     }
     loading = false;

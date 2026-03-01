@@ -92,14 +92,19 @@ class _SpeshwayVehicleCareDashboardState
       return;
     }
     setState(() {
-      final index = _bookings.indexWhere((b) => b.id == updated!.id);
+      final newList = List<Booking>.from(_bookings);
+      final index = newList.indexWhere((b) => b.id == updated!.id);
       if (index >= 0) {
-        _bookings[index] = updated!;
+        newList[index] = updated!;
       } else {
-        _bookings = [updated!, ..._bookings];
+        newList.insert(0, updated!);
       }
+      _bookings = newList;
       _upcomingBookingCached = _computeUpcomingBooking(_bookings);
-      _recentBookings = _computeRecentBookings(_bookings);
+      _recentBookings = _computeRecentBookings(
+        _bookings,
+        _upcomingBookingCached,
+      );
     });
     _persistDashboardState();
   }
@@ -141,7 +146,7 @@ class _SpeshwayVehicleCareDashboardState
       final services = (results[2] as List<ServiceItem>);
 
       final upcoming = _computeUpcomingBooking(bookings);
-      final recent = _computeRecentBookings(bookings);
+      final recent = _computeRecentBookings(bookings, upcoming);
 
       setState(() {
         _vehicles = vehicles;
@@ -313,7 +318,7 @@ class _SpeshwayVehicleCareDashboardState
 
       if (!mounted) return;
       final upcoming = _computeUpcomingBooking(bookings);
-      final recent = _computeRecentBookings(bookings);
+      final recent = _computeRecentBookings(bookings, upcoming);
 
       setState(() {
         _vehicles = vehicles;
@@ -339,7 +344,13 @@ class _SpeshwayVehicleCareDashboardState
 
   Booking? _computeUpcomingBooking(List<Booking> source) {
     final active = source
-        .where((b) => b.status != 'DELIVERED' && b.status != 'CANCELLED')
+        .where(
+          (b) =>
+              b.status != 'CREATED' &&
+              b.status != 'DELIVERED' &&
+              b.status != 'CANCELLED' &&
+              b.status != 'COMPLETED',
+        )
         .toList();
     if (active.isEmpty) return null;
     active.sort((a, b) {
@@ -350,20 +361,33 @@ class _SpeshwayVehicleCareDashboardState
     return active.first;
   }
 
-  List<Booking> _computeRecentBookings(List<Booking> source) {
+  List<Booking> _computeRecentBookings(List<Booking> source, Booking? ongoing) {
     if (source.isEmpty) return const [];
-    final sorted = [...source];
+    final filtered = source
+        .where(
+          (b) =>
+              b.status == 'CREATED' ||
+              b.status == 'DELIVERED' ||
+              b.status == 'CANCELLED' ||
+              b.status == 'COMPLETED',
+        )
+        .toList();
+    final sorted = [...filtered];
     sorted.sort((a, b) {
-      // Primary: Created At (descending) - Newest bookings first
+      // Primary: Created At (descending) - Most recently created first
       final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
       final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
       final cmp = cb.compareTo(ca);
       if (cmp != 0) return cmp;
 
-      // Secondary: Service Date (descending)
+      // Secondary: Service Date (descending) - Newest service date first
       final da = _parseDate(a.date) ?? DateTime(1900);
       final db = _parseDate(b.date) ?? DateTime(1900);
-      return db.compareTo(da);
+      final cmpDate = db.compareTo(da);
+      if (cmpDate != 0) return cmpDate;
+
+      // Fallback: ID (descending)
+      return b.id.compareTo(a.id);
     });
     if (sorted.length <= 3) return sorted;
     return sorted.take(3).toList();
@@ -372,6 +396,14 @@ class _SpeshwayVehicleCareDashboardState
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Auto-refresh logic when navigated to from booking flow
+    final nav = context.watch<NavigationProvider>();
+    if (nav.shouldRefreshDashboard) {
+      nav.consumeRefresh();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    }
+
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: const CustomerDrawer(currentRouteName: '/customer'),
@@ -415,7 +447,7 @@ class _SpeshwayVehicleCareDashboardState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
-                        _buildHeader(),
+                        RepaintBoundary(child: _buildHeader()),
                         const SizedBox(height: 16),
                         if (_loading &&
                             _vehicles.isEmpty &&
@@ -473,11 +505,11 @@ class _SpeshwayVehicleCareDashboardState
                             ),
                           ),
                         const SizedBox(height: 16),
-                        _buildUpcomingServiceCard(),
+                        RepaintBoundary(child: _buildUpcomingServiceCard()),
                         const SizedBox(height: 24),
-                        _buildQuickServices(),
+                        RepaintBoundary(child: _buildQuickServices()),
                         const SizedBox(height: 24),
-                        _buildRecentServices(),
+                        RepaintBoundary(child: _buildRecentServices()),
                       ],
                     ),
                   ),
@@ -597,12 +629,40 @@ class _SpeshwayVehicleCareDashboardState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Upcoming Service',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Ongoing Service',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _neonBlue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _neonBlue.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  _statusLabel(booking.status).toUpperCase(),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: _neonBlue,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 9,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -1155,36 +1215,6 @@ class _NeonButton extends StatelessWidget {
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _GlassIconButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return _FrostedCard(
-      borderRadius: 999,
-      padding: const EdgeInsets.all(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(
-            icon,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
-            size: 22,
           ),
         ),
       ),

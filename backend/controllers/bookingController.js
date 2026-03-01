@@ -116,6 +116,21 @@ export const createBooking = async (req, res) => {
     }
 
     res.status(201).json(createdBooking);
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      // Populate for admin
+      const populated = await Booking.findById(createdBooking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services');
+        
+      io.to('admin').emit('bookingCreated', populated || createdBooking);
+      io.to(`user_${req.user._id}`).emit('bookingCreated', populated || createdBooking);
+    } catch (err) {
+      console.error('Socket emit error (createBooking):', err);
+    }
   } catch (error) {
     console.error('Create Booking Error:', error);
     console.log('Request Body:', JSON.stringify(req.body, null, 2));
@@ -311,11 +326,14 @@ export const assignBooking = async (req, res) => {
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone');
 
-      // Emit real-time update for admin and booking-specific listeners
+      // Emit real-time update for admin, booking-specific, and user-specific listeners
       try {
         const io = getIO();
         io.to('admin').emit('bookingUpdated', populated);
         io.to(`booking_${booking._id}`).emit('bookingUpdated', populated);
+        if (booking.user) {
+          io.to(`user_${booking.user}`).emit('bookingUpdated', populated);
+        }
       } catch (e) {
         console.error('Socket emit error (assignBooking):', e);
       }
@@ -450,6 +468,16 @@ export const updateBookingStatus = async (req, res) => {
         
         // Notify specific booking room (for customer/staff/merchant)
         io.to(`booking_${booking._id}`).emit('bookingUpdated', updatedBooking);
+        
+        // Notify user
+        if (booking.user) {
+          const userId = typeof booking.user === 'object' ? booking.user._id : booking.user;
+          io.to(`user_${userId}`).emit('bookingUpdated', updatedBooking);
+
+          if (canonTo === 'CANCELLED') {
+            io.to(`user_${userId}`).emit('bookingCancelled', { id: updatedBooking._id, status: 'CANCELLED' });
+          }
+        }
         
       } catch (err) {
         console.error('Socket emit error:', err);
@@ -611,7 +639,35 @@ export const updateBookingDetails = async (req, res) => {
       }
 
       const updatedBooking = await booking.save();
-      res.json(updatedBooking);
+      
+      // Populate fields before returning to frontend
+      const populated = await Booking.findById(updatedBooking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('merchant', 'name email phone location')
+        .populate('pickupDriver', 'name email phone');
+
+      // Emit socket event for real-time updates
+      try {
+        const io = getIO();
+        
+        // Notify admin
+        io.to('admin').emit('bookingUpdated', populated);
+        
+        // Notify specific booking room (for customer/staff/merchant)
+        io.to(`booking_${booking._id}`).emit('bookingUpdated', populated);
+        
+        // Notify user
+        if (booking.user) {
+          io.to(`user_${booking.user}`).emit('bookingUpdated', populated);
+        }
+        
+      } catch (err) {
+        console.error('Socket emit error (updateBookingDetails):', err);
+      }
+
+      res.json(populated);
     } else {
       res.status(404).json({ message: 'Booking not found' });
     }

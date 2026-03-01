@@ -41,6 +41,40 @@ class BookingService {
     );
   }
 
+  Future<Map<String, dynamic>> getMerchantStats() async {
+    final bookings = await getMyBookings();
+
+    final activeStatuses = [
+      'CREATED',
+      'ASSIGNED',
+      'ACCEPTED',
+      'REACHED_CUSTOMER',
+      'VEHICLE_PICKED',
+      'REACHED_MERCHANT',
+      'VEHICLE_AT_MERCHANT',
+      'JOB_CARD',
+      'SERVICE_STARTED',
+      'SERVICE_COMPLETED',
+      'OUT_FOR_DELIVERY',
+    ];
+
+    final active = bookings
+        .where((b) => activeStatuses.contains(b.status))
+        .length;
+    final completed = bookings.where((b) => b.status == 'DELIVERED').length;
+    // For pending bills, we need full booking detail or a different endpoint
+    // But for now, let's just count based on status or assume all active need bills
+    final pendingBills = bookings
+        .where((b) => b.status == 'SERVICE_COMPLETED')
+        .length;
+
+    return {
+      'activeOrders': active,
+      'completedOrders': completed,
+      'pendingBills': pendingBills,
+    };
+  }
+
   Future<List<String>> uploadPrePickupPhotos(
     String id,
     List<File> files, {
@@ -54,5 +88,24 @@ class BookingService {
     final allUrls = <String>[...existing, ...newUrls];
     await updatePrePickupPhotos(id, allUrls);
     return allUrls;
+  }
+
+  Future<void> updateBookingDetails(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await _api.putJson(ApiEndpoints.bookingDetails(id), body: data);
+  }
+
+  Future<List<String>> uploadFiles(List<File> files) async {
+    final uploaded = await _api.uploadFiles(ApiEndpoints.uploadMultiple, files);
+    return uploaded
+        .map((e) => e is Map<String, dynamic> ? e['url']?.toString() : null)
+        .whereType<String>()
+        .toList();
+  }
+
+  Future<void> createApproval(Map<String, dynamic> data) async {
+    await _api.postJson('/approvals', body: data);
   }
 }

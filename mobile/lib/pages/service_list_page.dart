@@ -194,7 +194,6 @@ class _ServiceListPageState extends State<ServiceListPage> {
               ? vehicles.first.id
               : null;
           var selectedDateTime = DateTime.now().add(const Duration(days: 1));
-          var pickupRequired = false;
           final user = context.read<AuthProvider>().user;
           final addresses = user?.addresses ?? [];
           final defaultAddress = addresses.isEmpty

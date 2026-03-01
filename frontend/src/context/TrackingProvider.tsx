@@ -26,17 +26,24 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [lastServerSync, setLastServerSync] = useState<Date | null>(null);
   const [activeBookingId, _setActiveBookingId] = useState<string | null>(() => {
-    return localStorage.getItem('activeBookingId') || null;
+    const cached = localStorage.getItem('activeBookingId') || null;
+    return cached;
   });
 
   const watchId = useRef<number | null>(null);
   const lastRestUpdate = useRef<number>(0);
   const lastSocketUpdate = useRef<number>(0);
 
-  const activeBookingIdRef = useRef<string | null>(null);
+  const activeBookingIdRef = useRef<string | null>(localStorage.getItem('activeBookingId') || null);
 
   const setActiveBookingId = useCallback((id: string | null) => {
     _setActiveBookingId(id);
+    activeBookingIdRef.current = id;
+    if (id) {
+      localStorage.setItem('activeBookingId', id);
+    } else {
+      localStorage.removeItem('activeBookingId');
+    }
   }, []);
 
   const handlePositionUpdate = useCallback(async (position: GeolocationPosition) => {

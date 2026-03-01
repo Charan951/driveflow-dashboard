@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppStorage {
@@ -22,28 +21,16 @@ class AppStorage {
 
   Future<void> setToken(String token) async {
     try {
-      debugPrint('AppStorage: Writing token...');
       await _storage.write(key: _tokenKey, value: token);
-      // Verification read
-      final verified = await _storage.read(key: _tokenKey);
-      debugPrint(
-        'AppStorage: Token written. Verification success: ${verified == token}',
-      );
     } catch (e) {
-      debugPrint('AppStorage: Error saving token: $e');
+      // Silent catch
     }
   }
 
   Future<String?> getToken() async {
     try {
-      debugPrint('AppStorage: Reading token...');
-      final token = await _storage.read(key: _tokenKey);
-      debugPrint(
-        'AppStorage: Token read: ${token != null && token.isNotEmpty}',
-      );
-      return token;
+      return await _storage.read(key: _tokenKey);
     } catch (e) {
-      debugPrint('AppStorage: Error reading token: $e');
       return null;
     }
   }
@@ -52,30 +39,22 @@ class AppStorage {
     try {
       await _storage.delete(key: _tokenKey);
     } catch (e) {
-      debugPrint('Error clearing token: $e');
+      // Silent catch
     }
   }
 
   Future<void> setUserJson(String userJson) async {
     try {
-      debugPrint('AppStorage: Writing user JSON...');
       await _storage.write(key: _userKey, value: userJson);
-      debugPrint('AppStorage: User JSON written.');
     } catch (e) {
-      debugPrint('AppStorage: Error saving user json: $e');
+      // Silent catch
     }
   }
 
   Future<String?> getUserJson() async {
     try {
-      debugPrint('AppStorage: Reading user JSON...');
-      final json = await _storage.read(key: _userKey);
-      debugPrint(
-        'AppStorage: User JSON read: ${json != null && json.isNotEmpty}',
-      );
-      return json;
+      return await _storage.read(key: _userKey);
     } catch (e) {
-      debugPrint('AppStorage: Error reading user json: $e');
       return null;
     }
   }
@@ -84,7 +63,7 @@ class AppStorage {
     try {
       await _storage.delete(key: _userKey);
     } catch (e) {
-      debugPrint('Error clearing user: $e');
+      // Silent catch
     }
   }
 
@@ -92,7 +71,7 @@ class AppStorage {
     try {
       await _storage.write(key: _dashboardKey, value: value);
     } catch (e) {
-      debugPrint('AppStorage: Error saving dashboard json: $e');
+      // Silent catch
     }
   }
 
@@ -100,7 +79,6 @@ class AppStorage {
     try {
       return await _storage.read(key: _dashboardKey);
     } catch (e) {
-      debugPrint('AppStorage: Error reading dashboard json: $e');
       return null;
     }
   }
@@ -109,7 +87,7 @@ class AppStorage {
     try {
       await _storage.delete(key: _dashboardKey);
     } catch (e) {
-      debugPrint('Error clearing dashboard: $e');
+      // Silent catch
     }
   }
 
@@ -117,7 +95,7 @@ class AppStorage {
     try {
       await _storage.write(key: _themeModeKey, value: mode);
     } catch (e) {
-      debugPrint('AppStorage: Error saving theme mode: $e');
+      // Silent catch
     }
   }
 
@@ -125,7 +103,6 @@ class AppStorage {
     try {
       return await _storage.read(key: _themeModeKey);
     } catch (e) {
-      debugPrint('AppStorage: Error reading theme mode: $e');
       return null;
     }
   }
