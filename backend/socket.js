@@ -139,12 +139,33 @@ export const initSocket = (server) => {
       const userId = String(socket.user._id);
       const now = Date.now();
 
+      // Update isOnline status in DB if not already online
+      // This acts as a heartbeat for staff/merchants
+      try {
+        if (!socket.user.isOnline || (socket.user.lastSeen && now - socket.user.lastSeen > 60000)) {
+          await User.findByIdAndUpdate(socket.user._id, { 
+            isOnline: true, 
+            lastSeen: now 
+          });
+          
+          // Emit status update to admin
+          io.to('admin').emit('userStatusUpdate', {
+            userId: socket.user._id,
+            isOnline: true,
+            lastSeen: now
+          });
+        }
+      } catch (e) {
+        console.error('Socket location status update failed:', e.message);
+      }
+
       // Broadcast to 'admin' room
       io.to('admin').emit('liveLocation', {
         ...data,
         userId: socket.user._id, // Ensure trusted ID
         role: socket.user.role,
-        name: socket.user.name
+        name: socket.user.name,
+        isOnline: true // Add isOnline flag
       });
 
       // Derive effective bookingId:

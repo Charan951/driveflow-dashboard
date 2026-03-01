@@ -9,6 +9,7 @@ import 'pages/splash_page.dart';
 import 'pages/merchant/merchant_dashboard.dart';
 import 'pages/merchant/merchant_orders_page.dart';
 import 'pages/merchant/merchant_order_detail_page.dart';
+import 'pages/merchant/merchant_placeholder.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +58,12 @@ class StaffApp extends StatelessWidget {
         '/merchant-dashboard': (context) => const MerchantDashboardPage(),
         '/merchant-orders': (context) => const MerchantOrdersPage(),
         '/merchant-order-detail': (context) => const MerchantOrderDetailPage(),
+        '/merchant-stock': (context) => const MerchantPlaceholderPage(title: 'Stock'),
+        '/merchant-feedback': (context) => const MerchantPlaceholderPage(title: 'Feedback'),
+        '/merchant-services': (context) => const MerchantPlaceholderPage(title: 'Services'),
+        '/merchant-vehicles': (context) => const MerchantPlaceholderPage(title: 'Vehicles'),
+        '/merchant-users': (context) => const MerchantPlaceholderPage(title: 'Users'),
+        '/merchant-profile': (context) => const MerchantPlaceholderPage(title: 'Profile'),
         '/order': (context) => const StaffOrderDetailPage(),
       },
     );

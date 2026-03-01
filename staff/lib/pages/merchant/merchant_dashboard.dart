@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../services/booking_service.dart';
 import '../../services/socket_service.dart';
 import '../../models/user.dart';
+import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantDashboardPage extends StatefulWidget {
   const MerchantDashboardPage({super.key});
@@ -90,25 +91,14 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authService.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/login');
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Merchant Dashboard'),
-        actions: [
-          IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
-        ],
-      ),
+    return MerchantScaffold(
+      title: 'Merchant Dashboard',
       body: RefreshIndicator(
         onRefresh: _init,
         child: SingleChildScrollView(
@@ -215,47 +205,22 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                 value: _stats['pendingBills'].toString(),
                 icon: Icons.receipt_long,
                 color: Colors.orange,
-                fullWidth: true,
+                isFullWidth: true,
               ),
               const SizedBox(height: 32),
               Text(
                 'Quick Actions',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.list_alt, color: Colors.deepPurple),
-                title: const Text('View All Orders'),
-                subtitle: const Text('Manage active and past service requests'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.of(context).pushNamed('/merchant-orders');
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey[200]!),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(
-                  Icons.inventory_2_outlined,
-                  color: Colors.deepPurple,
-                ),
-                title: const Text('Inventory / Stock'),
-                subtitle: const Text(
-                  'Check and update spare parts availability',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // TODO: Navigate to Stock
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey[200]!),
-                ),
+              _buildActionCard(
+                context,
+                title: 'View Active Orders',
+                subtitle: 'Manage and update order status',
+                icon: Icons.assignment,
+                onTap: () => Navigator.pushNamed(context, '/merchant-orders'),
               ),
             ],
           ),
@@ -270,41 +235,72 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     required String value,
     required IconData icon,
     required Color color,
-    bool fullWidth = false,
+    bool isFullWidth = false,
   }) {
     final card = Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 28),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            style: TextStyle(
+              fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: color.withValues(alpha: 0.8),
             ),
           ),
           Text(
             title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: color.withValues(alpha: 0.7),
             ),
           ),
         ],
       ),
     );
 
-    if (fullWidth) {
-      return SizedBox(width: double.infinity, child: card);
-    }
+    if (isFullWidth) return card;
     return Expanded(child: card);
+  }
+
+  Widget _buildActionCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.deepPurple[50],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: Colors.deepPurple),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
   }
 }

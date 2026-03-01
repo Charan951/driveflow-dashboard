@@ -20,9 +20,6 @@ Future<void> _onStart(ServiceInstance service) async {
       service.setAsBackgroundService();
     });
   }
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
 
   final api = ApiClient();
   final storage = AppStorage();
@@ -48,52 +45,97 @@ Future<void> _onStart(ServiceInstance service) async {
 
   await initSocket();
 
-  Future<bool> ensurePerms() async {
-    final enabled = await Geolocator.isLocationServiceEnabled();
-    if (!enabled) return false;
-    var p = await Geolocator.checkPermission();
-    if (p == LocationPermission.denied) {
-      p = await Geolocator.requestPermission();
+  Future<void> updateOnlineStatus(bool isOnline) async {
+    try {
+      debugPrint('BackgroundTracking: Updating online status to $isOnline');
+      await api.putAny(
+        ApiEndpoints.usersOnlineStatus,
+        body: {'isOnline': isOnline},
+      );
+      debugPrint('BackgroundTracking: Status updated successfully');
+    } catch (e) {
+      debugPrint('BackgroundTracking: Failed to update online status: $e');
     }
-    return p != LocationPermission.denied &&
-        p != LocationPermission.deniedForever;
   }
 
-  if (!await ensurePerms()) return;
+  await updateOnlineStatus(true);
 
-  Timer.periodic(const Duration(minutes: 1), (_) async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-      );
+  service.on('stopService').listen((event) async {
+    await updateOnlineStatus(false);
+    service.stopSelf();
+  });
 
-      final payload = <String, dynamic>{
-        'lat': pos.latitude,
-        'lng': pos.longitude,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
+  // Keep track of last sync times to avoid flooding the backend
+  int lastSocketMs = 0;
+  int lastRestMs = 0;
 
-      if (bookingId != null && bookingId!.isNotEmpty) {
-        payload['bookingId'] = bookingId;
+  // Listen to position updates for continuous tracking
+  Geolocator.getPositionStream(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 0, // Update for every meter
+    ),
+  ).listen((Position pos) async {
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+
+    // Update notification content to show active tracking
+    if (service is AndroidServiceInstance) {
+      if (await service.isForegroundService()) {
+        service.setAsForegroundService();
+        service.setForegroundNotificationInfo(
+          title: "Staff Tracking Active",
+          content: "Continuous background tracking enabled.",
+        );
       }
+    }
 
-      // 1. Update via REST API
-      await api.putJson(
-        ApiEndpoints.trackingUser,
-        body: {
-          'lat': pos.latitude,
-          'lng': pos.longitude,
-          'bookingId': bookingId,
-        },
-      );
+    final payload = <String, dynamic>{
+      'lat': pos.latitude,
+      'lng': pos.longitude,
+      'timestamp': now.toIso8601String(),
+    };
 
-      // 2. Update via Socket for real-time visibility
-      if (socket != null && socket!.connected) {
-        socket!.emit('location', payload);
-      } else if (socket != null && !socket!.connected) {
-        socket!.connect();
+    if (bookingId != null && bookingId!.isNotEmpty) {
+      payload['bookingId'] = bookingId;
+    }
+
+    // 1. Live update via Socket (Throttle to 10 seconds for real-time responsiveness)
+    if (nowMs - lastSocketMs > 10000) {
+      if (socket != null) {
+        if (socket!.connected) {
+          socket!.emit('location', payload);
+          lastSocketMs = nowMs;
+        } else {
+          socket!.connect();
+        }
       }
-    } catch (_) {}
+    }
+
+    // 2. Persistent update via REST (Throttle to 1 minute to save battery/bandwidth)
+    if (nowMs - lastRestMs > 60000) {
+      try {
+        await api.putJson(
+          ApiEndpoints.trackingUser,
+          body: {
+            'lat': pos.latitude,
+            'lng': pos.longitude,
+            'bookingId': bookingId,
+          },
+        );
+        lastRestMs = nowMs;
+        // Also re-assert online status as part of REST sync
+        await updateOnlineStatus(true);
+      } catch (_) {}
+    }
+  });
+
+  // Keep the service alive with a periodic heartbeat if the stream is idle
+  Timer.periodic(const Duration(minutes: 5), (_) async {
+    if (socket != null && !socket!.connected) {
+      socket!.connect();
+    }
+    await updateOnlineStatus(true);
   });
 }
 

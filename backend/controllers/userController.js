@@ -272,6 +272,7 @@ export const createUser = async (req, res) => {
 // @access  Private
 export const updateOnlineStatus = async (req, res) => {
   const { isOnline } = req.body;
+  console.log(`Updating online status for user ${req.user._id}: ${isOnline}`);
   
   try {
     const user = await User.findById(req.user._id);
@@ -283,6 +284,7 @@ export const updateOnlineStatus = async (req, res) => {
       }
       
       await user.save();
+      console.log(`User ${user.name} is now ${isOnline ? 'Online' : 'Offline'}`);
 
       // Emit socket event for real-time status update
       try {
@@ -292,6 +294,7 @@ export const updateOnlineStatus = async (req, res) => {
             isOnline: user.isOnline,
             lastSeen: user.lastSeen
         });
+        console.log(`Emitted userStatusUpdate for ${user.name}`);
       } catch (err) {
         console.error('Socket emit error:', err);
       }
@@ -305,6 +308,7 @@ export const updateOnlineStatus = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
+    console.error('Error updating online status:', error.message);
     res.status(500).json({ message: error.message });
   }
 };

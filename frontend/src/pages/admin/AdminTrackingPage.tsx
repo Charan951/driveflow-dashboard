@@ -106,14 +106,22 @@ const AdminTrackingPage: React.FC = () => {
          
          const newStaff = prev.staff.map(s => {
            if (s._id === data.userId) {
-             return { ...s, location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+             return { 
+               ...s, 
+               isOnline: true,
+               location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+             };
            }
            return s;
          });
 
          const newMerchants = prev.merchants ? prev.merchants.map(m => {
            if (m._id === data.userId) {
-             return { ...m, location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+             return { 
+               ...m, 
+               isOnline: true,
+               location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+             };
            }
            return m;
          }) : [];

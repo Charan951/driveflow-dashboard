@@ -5,6 +5,7 @@ class BookingSummary {
   final String? date;
   final String? vehicleName;
   final String? locationAddress;
+  final String? serviceName;
 
   BookingSummary({
     required this.id,
@@ -13,6 +14,7 @@ class BookingSummary {
     this.date,
     this.vehicleName,
     this.locationAddress,
+    this.serviceName,
   });
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class BookingSummary {
       date: json['date']?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       locationAddress: location?['address']?.toString(),
+      serviceName: json['service']?['name']?.toString() ?? 'General Service',
     );
   }
 }

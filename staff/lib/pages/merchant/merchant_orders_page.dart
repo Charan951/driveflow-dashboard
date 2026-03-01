@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
 import '../../services/socket_service.dart';
+import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantOrdersPage extends StatefulWidget {
   const MerchantOrdersPage({super.key});
@@ -85,15 +86,15 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Service Orders'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+    return MerchantScaffold(
+      title: 'Service Orders',
+      body: Column(
+        children: [
+          Container(
+            height: 60,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
               children: [
                 _FilterChip(
                   label: 'Active',
@@ -115,30 +116,32 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
               ],
             ),
           ),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _filteredBookings.isEmpty
-            ? const Center(child: Text('No orders found'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _filteredBookings.length,
-                itemBuilder: (context, index) {
-                  final booking = _filteredBookings[index];
-                  return _OrderCard(
-                    booking: booking,
-                    onTap: () {
-                      Navigator.of(context).pushNamed(
-                        '/merchant-order-detail',
-                        arguments: booking.id,
-                      );
-                    },
-                  );
-                },
-              ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredBookings.isEmpty
+                  ? const Center(child: Text('No orders found'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredBookings.length,
+                      itemBuilder: (context, index) {
+                        final booking = _filteredBookings[index];
+                        return _OrderCard(
+                          booking: booking,
+                          onTap: () {
+                            Navigator.of(context).pushNamed(
+                              '/merchant-order-detail',
+                              arguments: booking.id,
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -179,16 +182,23 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -197,50 +207,62 @@ class _OrderCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Order #${booking.orderNumber ?? booking.id.substring(booking.id.length - 6).toUpperCase()}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order #${booking.orderNumber ?? booking.id.substring(booking.id.length - 6).toUpperCase()}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        booking.serviceName ?? 'General Service',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                   _StatusBadge(status: booking.status),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.directions_car_filled_outlined,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      booking.vehicleName ?? 'Unknown Vehicle',
-                      style: const TextStyle(fontSize: 15),
-                    ),
-                  ),
-                ],
+              Text(
+                booking.vehicleName ?? 'Unknown Vehicle',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[800],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: Colors.grey,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        booking.date != null
+                            ? DateTime.parse(
+                                booking.date!,
+                              ).toLocal().toString().split(' ')[0]
+                            : 'N/A',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    booking.date != null
-                        ? DateTime.parse(
-                            booking.date!,
-                          ).toLocal().toString().split(' ')[0]
-                        : 'N/A',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey[400]),
                 ],
               ),
             ],

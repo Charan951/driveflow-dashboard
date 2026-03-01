@@ -60,6 +60,8 @@ class StaffTrackingService {
   double? _targetLng;
   String? _targetForStatus;
 
+  Timer? _heartbeatTimer;
+
   bool get isTracking => _isTracking;
 
   String? get activeBookingId => _activeBookingId;
@@ -79,23 +81,72 @@ class StaffTrackingService {
   }
 
   Future<void> start() async {
-    if (_isTracking) return;
+    if (_isTracking) {
+      // Re-assert online status even if already tracking
+      _updateOnlineStatus(true);
+      return;
+    }
     _isTracking = true;
+
+    // Immediate online status update without waiting for everything else
+    _updateOnlineStatus(true);
+
     final hasPermission = await _ensurePermissions();
     if (!hasPermission) {
       _isTracking = false;
+      _updateOnlineStatus(false);
       return;
     }
+
     await _ensureSocket();
     await _startPositionStream();
+
+    // Trigger an immediate position update and server sync
+    _triggerImmediateSync();
+
     await BackgroundTracking.start(bookingId: _activeBookingId);
+
+    // Start periodic heartbeat (every 1 minute instead of 2 for better responsiveness)
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (_isTracking) {
+        _updateOnlineStatus(true);
+      }
+    });
+  }
+
+  Future<void> _triggerImmediateSync() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      await _handlePosition(position);
+    } catch (e) {
+      debugPrint('TrackingService: Failed to trigger immediate sync: $e');
+    }
   }
 
   Future<void> stop() async {
     _isTracking = false;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     await _positionSub?.cancel();
     _positionSub = null;
     await BackgroundTracking.stop();
+    await _updateOnlineStatus(false);
+  }
+
+  Future<void> _updateOnlineStatus(bool isOnline) async {
+    try {
+      debugPrint('TrackingService: Updating online status to $isOnline');
+      final response = await _api.putAny(
+        ApiEndpoints.usersOnlineStatus,
+        body: {'isOnline': isOnline},
+      );
+      debugPrint('TrackingService: Status updated successfully: $response');
+    } catch (e) {
+      debugPrint('TrackingService: Failed to update online status: $e');
+    }
   }
 
   Future<bool> _ensurePermissions() async {

@@ -252,12 +252,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   setState(() {
                     _shareLocation = v;
                   });
-                  if (v) {
-                    _startTrackingIfEnabled();
-                  } else {
-                    _trackingService.stop();
-                    _setOffline();
-                  }
+                  _handleToggleTracking(v);
                 },
                 activeThumbColor: Colors.white,
                 activeTrackColor: const Color(0xFF22C55E),
@@ -360,6 +355,23 @@ class _StaffHomePageState extends State<StaffHomePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleToggleTracking(bool v) async {
+    try {
+      if (v) {
+        await _trackingService.start();
+      } else {
+        await _trackingService.stop();
+      }
+    } catch (e) {
+      debugPrint('Error toggling live status: $e');
+      if (mounted) {
+        setState(() {
+          _shareLocation = !v;
+        });
+      }
+    }
   }
 
   Widget _buildMainContent(
