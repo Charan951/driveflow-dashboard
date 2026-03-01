@@ -75,7 +75,7 @@ class _SpeshwayVehicleCareDashboardState
 
   void _onSocketConnectionChanged() {
     if (SocketService().isConnected) {
-      _load();
+      _load(isInitial: true);
     }
   }
 
@@ -88,7 +88,7 @@ class _SpeshwayVehicleCareDashboardState
       updated = Booking.fromJson(Map<String, dynamic>.from(payload));
     }
     if (updated == null) {
-      _load();
+      _load(isInitial: true);
       return;
     }
     setState(() {
@@ -399,7 +399,9 @@ class _SpeshwayVehicleCareDashboardState
     final nav = context.watch<NavigationProvider>();
     if (nav.shouldRefreshDashboard) {
       nav.consumeRefresh();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _load(isInitial: true),
+      );
     }
 
     return Scaffold(

@@ -3,6 +3,7 @@ import '../core/api_client.dart';
 import '../core/env.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
+import 'socket_service.dart';
 
 class AuthResult {
   final String? token;
@@ -41,6 +42,9 @@ class AuthService {
       await AppStorage().setUserJson(jsonEncode(user.toJson()));
     }
 
+    // Reconnect socket with new token
+    await SocketService().reconnect();
+
     return AuthResult(token: token, user: user);
   }
 
@@ -58,6 +62,9 @@ class AuthService {
     if (user != null) {
       await AppStorage().setUserJson(jsonEncode(user.toJson()));
     }
+
+    // Reconnect socket with new token
+    await SocketService().reconnect();
 
     return AuthResult(token: token, user: user);
   }
@@ -96,6 +103,9 @@ class AuthService {
   Future<void> logout() async {
     await AppStorage().clearToken();
     await AppStorage().clearUser();
+
+    // Reconnect socket to clear old auth
+    await SocketService().reconnect();
   }
 
   User? _userFromAuthResponse(Map<String, dynamic> res) {

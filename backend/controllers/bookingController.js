@@ -26,7 +26,9 @@ const emitBookingUpdate = (booking) => {
     ].filter(id => id); // Remove null/undefined
 
     usersToNotify.forEach(userId => {
-      io.to(`user_${userId.toString()}`).emit('bookingUpdated', booking);
+      const room = `user_${userId.toString()}`;
+      io.to(room).emit('bookingUpdated', booking);
+      io.to(room).emit('bookingCreated', booking); // Also emit bookingCreated for compatibility
     });
   } catch (err) {
     console.error('Socket emit error (emitBookingUpdate):', err);
