@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash, X, Save, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
+import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
 import api from '@/services/api';
 
@@ -74,12 +75,8 @@ const AdminServicesPage: React.FC = () => {
     if (!file) return;
     try {
       setUploading(true);
-      const data = new FormData();
-      data.append('file', file);
-      const res = await api.post('/upload', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const url: string = res.data?.url;
+      const res = await uploadService.uploadFile(file);
+      const url: string = res?.url;
       if (url) {
         setFormData((prev) => ({ ...prev, image: url }));
         toast.success('Image uploaded');

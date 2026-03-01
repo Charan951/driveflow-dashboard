@@ -146,7 +146,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Future<String?> _pickAndUploadImage(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(
       source: source,
-      imageQuality: 70,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 50,
     );
     if (photo == null) {
       return null;

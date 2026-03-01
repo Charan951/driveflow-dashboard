@@ -84,7 +84,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Welcome Back!',
+                            'Login',
                             key: const Key('login_title'),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.headlineSmall?.copyWith(

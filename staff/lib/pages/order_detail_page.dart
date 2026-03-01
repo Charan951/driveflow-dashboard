@@ -374,9 +374,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     }
     final image = await _picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 80,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 50,
     );
     if (!mounted || image == null) return;
     setState(() {

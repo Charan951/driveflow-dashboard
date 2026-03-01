@@ -18,7 +18,10 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'driveflow_uploads',
     allowed_formats: ['jpg', 'png', 'jpeg', 'pdf', 'heic', 'heif', 'webp'],
-    resource_type: 'auto' // Important for supporting PDFs and other types
+    resource_type: 'auto',
+    transformation: [
+      { width: 1200, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
+    ]
   }
 });
 

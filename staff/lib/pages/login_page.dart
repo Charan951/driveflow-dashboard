@@ -159,7 +159,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                'Staff Login',
+                                'Login',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   color: Colors.white,
@@ -168,7 +168,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Use your staff email and password.',
+                                'Use your email and password.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: Colors.white70,

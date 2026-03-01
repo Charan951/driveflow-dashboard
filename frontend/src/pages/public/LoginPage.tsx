@@ -175,7 +175,7 @@ const LoginPage: React.FC = () => {
           <p className="text-center text-sm text-muted-foreground mb-3">Other portals</p>
           <div className="flex justify-center gap-4">
             <Link to="/staff/login" className="text-sm text-primary hover:underline">
-              Staff Login
+              Login
             </Link>
             <Link to="/merchant/login" className="text-sm text-primary hover:underline">
               Merchant Login
