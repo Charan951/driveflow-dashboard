@@ -631,7 +631,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Future<String?> _showImageSourceSheet() async {
-    return showModalBottomSheet<String>(
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
@@ -640,27 +640,22 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Camera'),
-              onTap: () async {
-                final url = await _pickAndUploadImage(ImageSource.camera);
-                if (context.mounted) {
-                  Navigator.pop(context, url);
-                }
-              },
+              onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Gallery'),
-              onTap: () async {
-                final url = await _pickAndUploadImage(ImageSource.gallery);
-                if (context.mounted) {
-                  Navigator.pop(context, url);
-                }
-              },
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
         ),
       ),
     );
+
+    if (source != null) {
+      return _pickAndUploadImage(source);
+    }
+    return null;
   }
 
   Future<void> _saveInspection({required bool isFinal}) async {
@@ -1374,8 +1369,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         nextStatuses = ['VEHICLE_AT_MERCHANT'];
         break;
       case 'VEHICLE_AT_MERCHANT':
-        nextStatuses = ['JOB_CARD'];
-        break;
       case 'JOB_CARD':
         nextStatuses = ['SERVICE_STARTED'];
         break;
@@ -1411,7 +1404,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text('Move to ${status.replaceAll('_', ' ')}'),
+              child: Text(
+                'Move to ${status == 'SERVICE_STARTED' ? 'JOB CARD' : status.replaceAll('_', ' ')}',
+              ),
             ),
           );
         }).toList(),

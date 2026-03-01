@@ -220,8 +220,6 @@ class _SpeshwayVehicleCareDashboardState
         return 'Reached Garage';
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
-      case 'JOB_CARD':
-        return 'Job Card';
       case 'SERVICE_STARTED':
         return 'Servicing';
       case 'SERVICE_COMPLETED':

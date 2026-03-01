@@ -77,7 +77,6 @@ const Dashboard: React.FC = () => {
         'VEHICLE_PICKED',
         'REACHED_MERCHANT',
         'VEHICLE_AT_MERCHANT',
-        'JOB_CARD',
         'SERVICE_STARTED',
         'SERVICE_COMPLETED',
         'OUT_FOR_DELIVERY',

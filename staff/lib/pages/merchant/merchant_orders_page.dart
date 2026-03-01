@@ -70,7 +70,6 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
       'VEHICLE_PICKED',
       'REACHED_MERCHANT',
       'VEHICLE_AT_MERCHANT',
-      'JOB_CARD',
       'SERVICE_STARTED',
       'SERVICE_COMPLETED',
       'OUT_FOR_DELIVERY',
@@ -272,7 +271,6 @@ class _StatusBadge extends StatelessWidget {
         break;
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
-      case 'JOB_CARD':
       case 'SERVICE_STARTED':
         color = Colors.deepPurple;
         break;

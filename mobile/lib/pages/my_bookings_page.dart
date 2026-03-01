@@ -167,7 +167,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'VEHICLE_PICKED':
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
-      case 'JOB_CARD':
       case 'SERVICE_STARTED':
         return const Color(0xFF3B82F6);
       case 'SERVICE_COMPLETED':
