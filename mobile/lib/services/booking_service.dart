@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../models/booking.dart';
@@ -44,10 +45,14 @@ class BookingService {
     final items = <Booking>[];
     if (res is List) {
       for (final e in res) {
-        if (e is Map<String, dynamic>) {
-          items.add(Booking.fromJson(e));
-        } else if (e is Map) {
-          items.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+        try {
+          if (e is Map<String, dynamic>) {
+            items.add(Booking.fromJson(e));
+          } else if (e is Map) {
+            items.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+          }
+        } catch (err) {
+          debugPrint('Error parsing booking: $err');
         }
       }
     }

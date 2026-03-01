@@ -148,6 +148,11 @@ const bookingSchema = mongoose.Schema(
       ref: 'User',
       index: true,
     },
+    technician: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
     deliveryOtp: {
       code: { type: String },
       expiresAt: { type: Date },
@@ -178,6 +183,8 @@ const bookingSchema = mongoose.Schema(
 
 bookingSchema.index({ user: 1, createdAt: -1 });
 bookingSchema.index({ merchant: 1, createdAt: -1 });
+bookingSchema.index({ pickupDriver: 1, createdAt: -1 });
+bookingSchema.index({ technician: 1, createdAt: -1 });
 
 bookingSchema.pre('save', async function () {
   if (!this.isNew) return;

@@ -18,8 +18,20 @@ class BookingSummary {
   });
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
-    final vehicle = json['vehicle'] as Map<String, dynamic>?;
-    final location = json['location'] as Map<String, dynamic>?;
+    Map<String, dynamic>? vehicle;
+    if (json['vehicle'] is Map<String, dynamic>) {
+      vehicle = json['vehicle'] as Map<String, dynamic>;
+    } else if (json['vehicle'] is Map) {
+      vehicle = Map<String, dynamic>.from(json['vehicle'] as Map);
+    }
+
+    Map<String, dynamic>? location;
+    if (json['location'] is Map<String, dynamic>) {
+      location = json['location'] as Map<String, dynamic>;
+    } else if (json['location'] is Map) {
+      location = Map<String, dynamic>.from(json['location'] as Map);
+    }
+
     final make = vehicle?['make']?.toString();
     final model = vehicle?['model']?.toString();
     final plate = vehicle?['licensePlate']?.toString();
@@ -30,7 +42,7 @@ class BookingSummary {
     ].join(' ');
 
     return BookingSummary(
-      id: json['_id']?.toString() ?? '',
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
       orderNumber: json['orderNumber'] is num
           ? (json['orderNumber'] as num).toInt()
           : null,
@@ -38,7 +50,14 @@ class BookingSummary {
       date: json['date']?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       locationAddress: location?['address']?.toString(),
-      serviceName: json['service']?['name']?.toString() ?? 'General Service',
+      serviceName:
+          (json['services'] is List && (json['services'] as List).isNotEmpty)
+          ? ((json['services'][0] is Map)
+                ? json['services'][0]['name']?.toString()
+                : 'General Service')
+          : (json['service'] is Map
+                ? json['service']['name']?.toString()
+                : 'General Service'),
     );
   }
 }
@@ -125,7 +144,12 @@ class BookingDetail {
       );
     }
 
-    final vehicle = json['vehicle'] as Map<String, dynamic>?;
+    Map<String, dynamic>? vehicle;
+    if (json['vehicle'] is Map<String, dynamic>) {
+      vehicle = json['vehicle'] as Map<String, dynamic>;
+    } else if (json['vehicle'] is Map) {
+      vehicle = Map<String, dynamic>.from(json['vehicle'] as Map);
+    }
     final make = vehicle?['make']?.toString();
     final model = vehicle?['model']?.toString();
     final plate = vehicle?['licensePlate']?.toString();

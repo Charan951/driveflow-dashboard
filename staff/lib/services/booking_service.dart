@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
 import '../core/env.dart';
@@ -9,11 +10,20 @@ class BookingService {
 
   Future<List<BookingSummary>> getMyBookings() async {
     final data = await _api.getAny(ApiEndpoints.myBookings);
+    final items = <BookingSummary>[];
     if (data is List) {
-      return data
-          .whereType<Map<String, dynamic>>()
-          .map((json) => BookingSummary.fromJson(json))
-          .toList();
+      for (final e in data) {
+        try {
+          if (e is Map<String, dynamic>) {
+            items.add(BookingSummary.fromJson(e));
+          } else if (e is Map) {
+            items.add(BookingSummary.fromJson(Map<String, dynamic>.from(e)));
+          }
+        } catch (err) {
+          debugPrint('Error parsing booking summary: $err');
+        }
+      }
+      return items;
     }
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
