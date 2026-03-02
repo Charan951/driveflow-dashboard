@@ -97,6 +97,28 @@ export const createBooking = async (req, res) => {
         });
 
         createdBooking = await booking.save();
+        
+        // Notify nearby drivers (staff)
+        try {
+          const drivers = await User.find({
+            role: 'staff',
+            subRole: 'Driver',
+            'fcmTokens.0': { $exists: true }
+          });
+
+          for (const driver of drivers) {
+            await sendPushToUser(
+              driver._id,
+              'New Booking Available!',
+              `A new service request (#${createdBooking.orderNumber}) is waiting near you.`,
+              { bookingId: createdBooking._id.toString(), type: 'order' },
+              'order'
+            );
+          }
+        } catch (err) {
+          console.error('Push notification error (createBooking):', err);
+        }
+
         break;
       } catch (err) {
         lastError = err;
@@ -369,6 +391,54 @@ export const assignBooking = async (req, res) => {
       // Emit real-time update for all stakeholders
       emitBookingUpdate(populated);
 
+      // Send assignment notifications
+      try {
+        const bookingIdStr = String(populated._id);
+        if (populated.merchant?._id) {
+          await sendPushToUser(
+            populated.merchant._id,
+            'New Assignment',
+            `You have been assigned to booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
+            { type: 'assignment', role: 'merchant', bookingId: bookingIdStr }
+          );
+        }
+        if (populated.pickupDriver?._id) {
+          await sendPushToUser(
+            populated.pickupDriver._id,
+            'Pickup Assignment',
+            `You have been assigned as pickup driver for booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
+            { type: 'assignment', role: 'pickupDriver', bookingId: bookingIdStr }
+          );
+        }
+        if (populated.technician?._id) {
+          await sendPushToUser(
+            populated.technician._id,
+            'Technician Assignment',
+            `You have been assigned as technician for booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
+            { type: 'assignment', role: 'technician', bookingId: bookingIdStr }
+          );
+        }
+
+        // Notify Customer about assignments
+        if (populated.user?._id) {
+          let assignmentMsg = `Your booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()} has been updated.`;
+          if (merchantId && populated.merchant) {
+            assignmentMsg = `Merchant ${populated.merchant.name} has been assigned to your booking.`;
+          } else if (driverId && populated.pickupDriver) {
+            assignmentMsg = `Driver ${populated.pickupDriver.name} has been assigned for pickup.`;
+          }
+          
+          await sendPushToUser(
+            populated.user._id,
+            'Booking Update',
+            assignmentMsg,
+            { type: 'assignment_update', bookingId: bookingIdStr }
+          );
+        }
+      } catch (notifyErr) {
+        console.error('Push notification error (assignBooking):', notifyErr);
+      }
+
       res.json(populated);
     } else {
       res.status(404).json({ message: 'Booking not found' });
@@ -528,7 +598,7 @@ export const updateBookingStatus = async (req, res) => {
           `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
         );
       }
-      await sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Status updated to ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) });
+      await sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) });
 
       res.json(updatedBooking);
     } else {
@@ -705,6 +775,16 @@ export const updateBookingDetails = async (req, res) => {
 
       // Emit socket event for real-time updates
       emitBookingUpdate(populated);
+
+      // Notify customer of significant changes (e.g., billing update)
+      if (billing && populated.user?._id) {
+        await sendPushToUser(
+          populated.user._id,
+          'Bill Updated',
+          `The bill for your booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()} has been updated.`,
+          { type: 'billing_update', bookingId: bookingIdStr }
+        );
+      }
 
       res.json(populated);
     } else {

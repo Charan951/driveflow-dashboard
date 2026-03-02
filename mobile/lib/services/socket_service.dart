@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/env.dart';
 import '../core/storage.dart';
+import 'notification_service.dart';
 
 class SocketService extends ChangeNotifier {
   static final SocketService _instance = SocketService._internal();
@@ -46,22 +48,84 @@ class SocketService extends ChangeNotifier {
 
     // Listen for common update events
     _socket!.on('bookingUpdated', (data) {
+      if (data != null && data is Map) {
+        final bookingId = (data['_id'] ?? '').toString();
+        final orderNum =
+            (data['orderNumber'] ??
+                    (bookingId.length >= 6
+                        ? bookingId.substring(bookingId.length - 6)
+                        : bookingId))
+                .toString();
+        final status = (data['status'] ?? '').toString().replaceAll('_', ' ');
+
+        NotificationService().showLocalNotification(
+          title: 'Booking Updated',
+          body: 'Booking #$orderNum status is now $status',
+          payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+        );
+      }
       notifyListeners();
     });
 
     _socket!.on('bookingCreated', (data) {
+      if (data != null && data is Map) {
+        final bookingId = (data['_id'] ?? '').toString();
+        final orderNum =
+            (data['orderNumber'] ??
+                    (bookingId.length >= 6
+                        ? bookingId.substring(bookingId.length - 6)
+                        : bookingId))
+                .toString();
+
+        NotificationService().showLocalNotification(
+          title: 'New Booking',
+          body: 'New booking #$orderNum has been created!',
+          payload: jsonEncode({'type': 'order', 'bookingId': bookingId}),
+        );
+      }
       notifyListeners();
     });
 
     _socket!.on('bookingCancelled', (data) {
+      if (data != null && data is Map) {
+        final bookingId = (data['_id'] ?? '').toString();
+        final orderNum =
+            (data['orderNumber'] ??
+                    (bookingId.length >= 6
+                        ? bookingId.substring(bookingId.length - 6)
+                        : bookingId))
+                .toString();
+
+        NotificationService().showLocalNotification(
+          title: 'Booking Cancelled',
+          body: 'Booking #$orderNum has been cancelled.',
+          payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+        );
+      }
       notifyListeners();
     });
 
     _socket!.on('notification', (data) {
+      if (data != null && data is Map) {
+        NotificationService().showLocalNotification(
+          title: (data['title'] ?? 'Notification').toString(),
+          body: (data['message'] ?? data['body'] ?? '').toString(),
+          payload: data['payload'] != null
+              ? (data['payload'] is String
+                    ? data['payload'] as String
+                    : jsonEncode(data['payload']))
+              : null,
+        );
+      }
       notifyListeners();
     });
 
     _socket!.on('ticketUpdated', (data) {
+      NotificationService().showLocalNotification(
+        title: 'Support Ticket Updated',
+        body: 'A support ticket has been updated.',
+        payload: jsonEncode({'type': 'support'}),
+      );
       notifyListeners();
     });
   }

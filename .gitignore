@@ -9,6 +9,10 @@ lerna-debug.log*
 .env
 /backend/.env
 /frontend/.env
+
+# Firebase Config
+backend/config/firebase-service-account.json
+
 node_modules
 dist
 dist-ssr

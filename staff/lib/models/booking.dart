@@ -305,7 +305,7 @@ class BookingDetail {
           : null,
       parts:
           (getField('parts') as List?)
-              ?.where((p) => p is Map)
+              ?.whereType<Map>()
               .map((p) => PartItem.fromJson(Map<String, dynamic>.from(p)))
               .toList() ??
           [],
@@ -362,7 +362,7 @@ class InspectionData {
       completedAt: json['completedAt']?.toString(),
       additionalParts:
           (json['additionalParts'] as List?)
-              ?.where((p) => p is Map)
+              ?.whereType<Map>()
               .map((p) => AdditionalPart.fromJson(Map<String, dynamic>.from(p)))
               .toList() ??
           [],
@@ -390,8 +390,9 @@ class AdditionalPart {
   });
 
   factory AdditionalPart.fromJson(Map<String, dynamic>? json) {
-    if (json == null)
+    if (json == null) {
       return AdditionalPart(name: '', price: 0, quantity: 0, approved: false);
+    }
     return AdditionalPart(
       name: json['name']?.toString() ?? '',
       price: json['price'] is num ? (json['price'] as num) : 0,
@@ -524,8 +525,9 @@ class BillingData {
   });
 
   factory BillingData.fromJson(Map<String, dynamic>? json) {
-    if (json == null)
+    if (json == null) {
       return BillingData(labourCost: 0, gst: 0, partsTotal: 0, total: 0);
+    }
     return BillingData(
       invoiceNumber: json['invoiceNumber']?.toString(),
       invoiceDate: json['invoiceDate']?.toString(),

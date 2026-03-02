@@ -92,6 +92,13 @@ const userSchema = new mongoose.Schema({
       index: '2dsphere'
     }
   },
+  fcmTokens: [
+    {
+      token: { type: String, required: true },
+      deviceType: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
+      lastUpdated: { type: Date, default: Date.now }
+    }
+  ],
   createdAt: {
     type: Date,
     default: Date.now,

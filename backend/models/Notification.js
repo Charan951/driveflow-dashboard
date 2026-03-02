@@ -1,41 +1,42 @@
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
-  recipient: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    // If null, it could be a broadcast or we use a separate field for target group
+    index: true
   },
-  targetGroup: {
+  role: {
     type: String,
-    enum: ['All', 'Customer', 'Merchant', 'Staff', null],
-    default: null,
+    enum: ['customer', 'admin', 'merchant', 'staff', 'all'],
+    default: 'all'
   },
   title: {
     type: String,
-    required: true,
+    required: true
   },
-  message: {
+  body: {
     type: String,
-    required: true,
+    required: true
+  },
+  data: {
+    type: Object,
+    default: {}
   },
   type: {
     type: String,
-    enum: ['info', 'warning', 'success', 'error'],
-    default: 'info',
+    enum: ['order', 'support', 'general', 'system'],
+    default: 'general'
   },
   isRead: {
     type: Boolean,
-    default: false,
+    default: false
   },
   createdAt: {
     type: Date,
-    default: Date.now,
-  },
-}, {
-  timestamps: true,
+    default: Date.now
+  }
 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
-
 export default Notification;

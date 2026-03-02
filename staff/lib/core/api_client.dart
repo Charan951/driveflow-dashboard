@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -147,5 +146,22 @@ class ApiClient {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<dynamic> deleteAny(String path, {Map<String, dynamic>? body}) async {
+    final token = await AppStorage().getToken();
+    final headers = {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+    final uri = Uri.parse('${Env.apiBaseUrl}$path');
+    try {
+      final res = await _client
+          .delete(uri, headers: headers, body: jsonEncode(body ?? {}))
+          .timeout(_timeout);
+      return _decodeBody(res);
+    } on TimeoutException {
+      throw ApiException(statusCode: 408, message: 'Request timed out');
+    }
   }
 }

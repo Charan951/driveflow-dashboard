@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "879267203995",
+    "project_id": "speshway-3d072",
+    "storage_bucket": "speshway-3d072.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879267203995:android:8f4d521df251253536ef3e",
+        "android_client_info": {
+          "package_name": "com.speshway.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879267203995:android:5085f16431f6791236ef3e",
+        "android_client_info": {
+          "package_name": "com.speshway.staff"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,63 +1,44 @@
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import { sendPushToUser, sendPushToRole, sendPushToTopic } from '../utils/pushService.js';
 
 // @desc    Send a notification
 // @route   POST /api/notifications
 // @access  Private/Admin
 export const sendNotification = async (req, res) => {
-  const { recipientId, targetGroup, title, message, type } = req.body;
+  const { recipientId, targetGroup, title, message, type = 'general', data = {} } = req.body;
 
   try {
-    let notifications = [];
-    let targetUserIds = [];
-
-    if (targetGroup) {
-      // Broadcast to group
-      const query = targetGroup === 'All' ? {} : { role: targetGroup.toLowerCase() };
-      const users = await User.find(query).select('_id');
-
-      notifications = users.map((user) => ({
-        recipient: user._id,
-        targetGroup,
-        title,
-        message,
-        type,
-      }));
-      targetUserIds = users.map((u) => u._id);
-    } else if (recipientId) {
-      // Single user
-      notifications.push({
-        recipient: recipientId,
-        title,
-        message,
-        type,
-      });
-      targetUserIds = [recipientId];
+    let result;
+    if (recipientId) {
+      result = await sendPushToUser(recipientId, title, message, data, type);
+    } else if (targetGroup === 'All') {
+      // Using a global topic for broadcast
+      result = await sendPushToTopic('all_users', title, message, data, type);
+    } else if (targetGroup) {
+      // Target specific roles
+      result = await sendPushToRole(targetGroup.toLowerCase(), title, message, data, type);
     } else {
       return res.status(400).json({ message: 'Recipient or Target Group is required' });
     }
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
+    if (!result.success) {
+      return res.status(400).json({ message: result.message || 'Failed to send notification' });
     }
 
-    res
-      .status(201)
-      .json({ message: `Notification sent to ${notifications.length} users` });
+    res.status(201).json({ message: 'Notification sent successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all notifications (Admin History)
+// @desc    Get notification history
 // @route   GET /api/notifications/history
 // @access  Private/Admin
 export const getNotificationHistory = async (req, res) => {
   try {
-    // We can group by created time/content to show "Sent Batches" or just list all
-    // For simplicity, listing the last 100
     const notifications = await Notification.find({})
-      .populate('recipient', 'name email')
+      .populate('userId', 'name email role')
       .sort({ createdAt: -1 })
       .limit(100);
     res.json(notifications);
@@ -71,7 +52,7 @@ export const getNotificationHistory = async (req, res) => {
 // @access  Private
 export const getMyNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user._id })
+    const notifications = await Notification.find({ userId: req.user._id })
       .sort({ createdAt: -1 });
     res.json(notifications);
   } catch (error) {
@@ -87,7 +68,7 @@ export const markAsRead = async (req, res) => {
     const notification = await Notification.findById(req.params.id);
 
     if (notification) {
-      if (notification.recipient.toString() !== req.user._id.toString()) {
+      if (notification.userId.toString() !== req.user._id.toString()) {
          return res.status(401).json({ message: 'Not authorized' });
       }
       notification.isRead = true;
@@ -96,6 +77,18 @@ export const markAsRead = async (req, res) => {
     } else {
       res.status(404).json({ message: 'Notification not found' });
     }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Clear my notifications
+// @route   DELETE /api/notifications/my
+// @access  Private
+export const clearMyNotifications = async (req, res) => {
+  try {
+    await Notification.deleteMany({ userId: req.user._id });
+    res.json({ message: 'Notifications cleared' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

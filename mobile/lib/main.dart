@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
@@ -14,6 +15,7 @@ import 'pages/profile_page.dart';
 import 'pages/my_bookings_page.dart';
 import 'pages/speshway_vehiclecare_dashboard_page.dart';
 import 'services/socket_service.dart';
+import 'services/notification_service.dart';
 import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
@@ -22,6 +24,9 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
+  await Firebase.initializeApp();
 
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
@@ -29,8 +34,11 @@ void main() async {
   await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
 
   final socketService = SocketService();
+  final notificationService = NotificationService();
+  
   if (authProvider.isAuthenticated) {
     socketService.init();
+    notificationService.initialize();
   }
 
   runApp(
@@ -38,6 +46,7 @@ void main() async {
       authProvider: authProvider,
       themeProvider: themeProvider,
       socketService: socketService,
+      notificationService: notificationService,
     ),
   );
 }
@@ -46,11 +55,14 @@ class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
   final ThemeProvider themeProvider;
   final SocketService socketService;
+  final NotificationService notificationService;
+  
   const MyApp({
     super.key,
     required this.authProvider,
     required this.themeProvider,
     required this.socketService,
+    required this.notificationService,
   });
 
   @override
@@ -61,6 +73,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: socketService),
+        Provider.value(value: notificationService),
       ],
       child: Builder(
         builder: (context) {

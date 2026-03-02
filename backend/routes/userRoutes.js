@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect, admin, merchant } from '../middleware/authMiddleware.js';
-import { getAllUsers, updateUserRole, updateUserProfile, approveUser, rejectUser, getUserById, createUser, deleteUser, updateOnlineStatus, getUserProfile } from '../controllers/userController.js';
+import { getAllUsers, updateUserRole, updateUserProfile, approveUser, rejectUser, getUserById, createUser, deleteUser, updateOnlineStatus, getUserProfile, updateFCMToken } from '../controllers/userController.js';
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.route('/')
   .post(protect, merchant, createUser);
 
 router.route('/me').get(protect, getUserProfile);
+router.route('/fcm-token').post(protect, updateFCMToken);
 router.route('/profile').put(protect, updateUserProfile);
 router.route('/online-status').put(protect, updateOnlineStatus);
 router.route('/:id')

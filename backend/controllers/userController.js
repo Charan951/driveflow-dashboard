@@ -18,6 +18,44 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+// @desc    Update FCM Token
+// @route   POST /api/users/fcm-token
+// @access  Private
+export const updateFCMToken = async (req, res) => {
+  try {
+    const { token, deviceType } = req.body;
+    if (!token) return res.status(400).json({ message: 'Token is required' });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Remove token if it exists elsewhere to avoid duplicate notifications
+    await User.updateMany(
+      { 'fcmTokens.token': token },
+      { $pull: { fcmTokens: { token: token } } }
+    );
+
+    // Add or update token for this user
+    const tokenIndex = user.fcmTokens.findIndex(t => t.token === token);
+    if (tokenIndex > -1) {
+      user.fcmTokens[tokenIndex].lastUpdated = Date.now();
+      user.fcmTokens[tokenIndex].deviceType = deviceType || user.fcmTokens[tokenIndex].deviceType;
+    } else {
+      user.fcmTokens.push({ token, deviceType: deviceType || 'android' });
+    }
+
+    // Limit tokens per user to 5 to prevent document size issues
+    if (user.fcmTokens.length > 5) {
+      user.fcmTokens.shift();
+    }
+
+    await user.save();
+    res.json({ message: 'FCM token updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get user profile
 // @route   GET /api/users/me
 // @access  Private

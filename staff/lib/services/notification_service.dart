@@ -192,7 +192,8 @@ class NotificationService {
 
       // Subscribe to topics
       await _messaging.subscribeToTopic('all_users');
-      await _messaging.subscribeToTopic('customers');
+      await _messaging.subscribeToTopic('staff');
+      await _messaging.subscribeToTopic('vendors');
     } catch (e) {
       debugPrint('Error saving FCM token: $e');
     }
@@ -258,7 +259,7 @@ class NotificationService {
     );
   }
 
-  Future<void> _handleNotificationClick(String? payload) async {
+  void _handleNotificationClick(String? payload) {
     if (payload == null) return;
     try {
       Map<String, dynamic> data = jsonDecode(payload);
@@ -267,13 +268,10 @@ class NotificationService {
       // Use the rootNavigatorKey from main.dart to navigate
       final context = rootNavigatorKey.currentContext;
       if (context != null) {
-        // If it's a booking update, navigate to bookings or notification list
-        if (data['type'] == 'status' ||
-            data['type'] == 'assignment_update' ||
-            data['type'] == 'billing_update') {
-          Navigator.pushNamed(context, '/bookings');
-        } else {
-          Navigator.pushNamed(context, '/notifications');
+        // Staff/Merchant assignment or update
+        if (data['type'] == 'assignment' || data['type'] == 'status') {
+          // For staff app, usually we go to the home or orders page
+          Navigator.pushNamed(context, '/');
         }
       }
     } catch (e) {

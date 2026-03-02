@@ -91,6 +91,8 @@ import AdminUserDetailPage from "./pages/admin/UserDetailPage";
 import AdminVehiclesPage from "./pages/admin/AdminVehiclesPage";
 import AdminVehicleDetailPage from "./pages/admin/VehicleDetailPage";
 
+import SocketNotificationListener from "./components/SocketNotificationListener";
+
 import NotFound from "./pages/public/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +102,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <SocketNotificationListener />
       <BrowserRouter>
         <Routes>
           {/* Public Routes with Layout */}
