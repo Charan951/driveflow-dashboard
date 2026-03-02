@@ -100,21 +100,37 @@ class NotificationService {
           _onDidReceiveBackgroundNotificationResponse,
     );
 
-    // 3. Create Android Notification Channel
+    // 3. Create Android Notification Channels
     if (Platform.isAndroid) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'This channel is used for important notifications.',
-        importance: Importance.max,
-        playSound: true,
-      );
+      const AndroidNotificationChannel highImportanceChannel =
+          AndroidNotificationChannel(
+            'high_importance_channel',
+            'High Importance Notifications',
+            description: 'This channel is used for important notifications.',
+            importance: Importance.max,
+            playSound: true,
+          );
 
-      await _localNotifications
+      const AndroidNotificationChannel trackingChannel =
+          AndroidNotificationChannel(
+            'tracking_channel',
+            'Live Tracking',
+            description: 'Used for live tracking updates on lockscreen.',
+            importance:
+                Importance.high, // Use high importance for lockscreen updates
+            playSound: false, // Don't beep for every location update
+            showBadge: false,
+          );
+
+      final plugin = _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
+          >();
+
+      if (plugin != null) {
+        await plugin.createNotificationChannel(highImportanceChannel);
+        await plugin.createNotificationChannel(trackingChannel);
+      }
     }
 
     // 4. Set up FCM listeners
@@ -256,6 +272,50 @@ class NotificationService {
       platformChannelSpecifics,
       payload: payload,
     );
+  }
+
+  // Live Tracking Persistent Notification (For Lockscreen/Ongoing)
+  Future<void> showOngoingTrackingNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const int trackingNotificationId = 888;
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'tracking_channel',
+          'Live Tracking',
+          channelDescription: 'Used for live tracking updates on lockscreen.',
+          importance: Importance.max,
+          priority: Priority.high,
+          ongoing: true, // Keep it on lockscreen/notification panel
+          autoCancel: false,
+          showWhen: false,
+          icon: '@mipmap/ic_launcher',
+          onlyAlertOnce: true, // Don't beep/vibrate for every update
+        );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: false,
+        interruptionLevel: InterruptionLevel.active,
+      ),
+    );
+
+    await _localNotifications.show(
+      trackingNotificationId,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: payload,
+    );
+  }
+
+  Future<void> cancelTrackingNotification() async {
+    await _localNotifications.cancel(888);
   }
 
   Future<void> _handleNotificationClick(String? payload) async {

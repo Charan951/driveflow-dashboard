@@ -92,6 +92,7 @@ import AdminVehiclesPage from "./pages/admin/AdminVehiclesPage";
 import AdminVehicleDetailPage from "./pages/admin/VehicleDetailPage";
 
 import SocketNotificationListener from "./components/SocketNotificationListener";
+import LiveTrackingNotification from "./components/LiveTrackingNotification";
 
 import NotFound from "./pages/public/NotFound";
 
@@ -102,8 +103,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <SocketNotificationListener />
       <BrowserRouter>
+        <SocketNotificationListener />
+        <LiveTrackingNotification />
         <Routes>
           {/* Public Routes with Layout */}
           <Route element={<PublicLayout />}>

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/env.dart';
 import '../core/storage.dart';
+import '../state/tracking_provider.dart';
+import '../models/booking.dart';
+import '../models/user.dart';
 import 'notification_service.dart';
 
 class SocketService extends ChangeNotifier {
@@ -12,11 +15,20 @@ class SocketService extends ChangeNotifier {
 
   io.Socket? _socket;
   bool _isConnected = false;
+  TrackingProvider? _trackingProvider;
 
   bool get isConnected => _isConnected;
 
-  Future<void> init() async {
+  void setTrackingProvider(TrackingProvider provider) {
+    _trackingProvider = provider;
+  }
+
+  Future<void> init([User? user]) async {
     if (_socket != null) return;
+
+    if (user != null && _trackingProvider != null) {
+      _trackingProvider!.init(user.role, user.id);
+    }
 
     final token = await AppStorage().getToken();
 
@@ -33,6 +45,9 @@ class SocketService extends ChangeNotifier {
 
     _socket!.onConnect((_) {
       _isConnected = true;
+      if (_trackingProvider?.activeBooking != null) {
+        joinRoom('booking_${_trackingProvider!.activeBooking!.id}');
+      }
       notifyListeners();
     });
 
@@ -46,10 +61,30 @@ class SocketService extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Listen for common update events
+    _socket!.on('liveLocation', (data) {
+      if (data != null && data is Map) {
+        final bookingId = (data['bookingId'] ?? '').toString();
+        if (_trackingProvider != null &&
+            _trackingProvider!.activeBooking?.id == bookingId) {
+          _trackingProvider!.updateStaffLocation(
+            Map<String, dynamic>.from(data),
+          );
+        }
+      }
+    });
+
     _socket!.on('bookingUpdated', (data) {
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
+        final booking = Booking.fromJson(Map<String, dynamic>.from(data));
+
+        if (_trackingProvider != null) {
+          _trackingProvider!.updateActiveBooking(booking);
+          if (TrackingProvider.trackingStatuses.contains(booking.status)) {
+            joinRoom('booking_$bookingId');
+          }
+        }
+
         final orderNum =
             (data['orderNumber'] ??
                     (bookingId.length >= 6

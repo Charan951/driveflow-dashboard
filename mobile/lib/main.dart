@@ -19,26 +19,31 @@ import 'services/notification_service.dart';
 import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
+import 'state/tracking_provider.dart';
+import 'widgets/live_tracking_overlay.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase
   await Firebase.initializeApp();
 
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
+  final trackingProvider = TrackingProvider();
 
   await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
 
   final socketService = SocketService();
+  socketService.setTrackingProvider(trackingProvider);
   final notificationService = NotificationService();
-  
+
   if (authProvider.isAuthenticated) {
-    socketService.init();
+    socketService.init(authProvider.user);
     notificationService.initialize();
+    trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
   }
 
   runApp(
@@ -47,6 +52,7 @@ void main() async {
       themeProvider: themeProvider,
       socketService: socketService,
       notificationService: notificationService,
+      trackingProvider: trackingProvider,
     ),
   );
 }
@@ -56,13 +62,15 @@ class MyApp extends StatelessWidget {
   final ThemeProvider themeProvider;
   final SocketService socketService;
   final NotificationService notificationService;
-  
+  final TrackingProvider trackingProvider;
+
   const MyApp({
     super.key,
     required this.authProvider,
     required this.themeProvider,
     required this.socketService,
     required this.notificationService,
+    required this.trackingProvider,
   });
 
   @override
@@ -73,6 +81,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: socketService),
+        ChangeNotifierProvider.value(value: trackingProvider),
         Provider.value(value: notificationService),
       ],
       child: Builder(
@@ -85,6 +94,9 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             themeMode: mode,
             themeAnimationDuration: const Duration(milliseconds: 150),
+            builder: (context, child) {
+              return Stack(children: [?child, const LiveTrackingOverlay()]);
+            },
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(

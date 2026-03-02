@@ -75,7 +75,7 @@ class AuthProvider extends ChangeNotifier {
             notifyListeners();
 
             // Initialize socket service with cached session
-            SocketService().init();
+            SocketService().init(user);
 
             // Start background refresh without awaiting it
             _refreshUserInBackground();
@@ -115,7 +115,7 @@ class AuthProvider extends ChangeNotifier {
         if (oldUserJson != newUserJson) {
           notifyListeners();
         }
-        SocketService().init();
+        SocketService().init(user);
       }
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -144,7 +144,7 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
-        SocketService().init();
+        SocketService().init(user);
         loading = false;
         notifyListeners();
         return true;
@@ -177,7 +177,7 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
-        SocketService().init();
+        SocketService().init(user);
         loading = false;
         notifyListeners();
         return true;
