@@ -17,13 +17,13 @@ export const initSocket = (server) => {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        const normalized = origin.trim().replace(/\/$/, "");
-        const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().replace(/\/$/, "")) : [];
+        const normalized = origin.trim().toLowerCase().replace(/\/$/, "");
+        const allowed = process.env.FRONTEND_URLS 
+          ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, "")) 
+          : [];
         
-        const allowedByEnv =
-          allowedOrigins.includes('*') || allowedOrigins.includes(normalized);
-        const allowedByDevDefault =
-          isDev && devOriginPrefixes.some((p) => normalized.startsWith(p));
+        const allowedByEnv = allowed.includes('*') || allowed.includes(normalized);
+        const allowedByDevDefault = isDev && devOriginPrefixes.some((p) => normalized.startsWith(p));
 
         if (allowedByEnv || allowedByDevDefault) {
           callback(null, true);
