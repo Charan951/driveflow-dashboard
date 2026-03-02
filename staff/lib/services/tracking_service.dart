@@ -118,7 +118,8 @@ class StaffTrackingService {
   Future<void> _triggerImmediateSync() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 15),
       );
       await _handlePosition(position);
     } catch (e) {
@@ -163,7 +164,7 @@ class StaffTrackingService {
       return false;
     }
     if (permission == LocationPermission.whileInUse) {
-      if (Platform.isIOS) {
+      if (!kIsWeb && Platform.isIOS) {
         final next = await Geolocator.requestPermission();
         if (next == LocationPermission.always) {
           permission = next;
@@ -190,8 +191,8 @@ class StaffTrackingService {
 
   Future<void> _startPositionStream() async {
     await _positionSub?.cancel();
-    final settings = const LocationSettings(
-      accuracy: LocationAccuracy.best,
+    final settings = LocationSettings(
+      accuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
       distanceFilter: 0,
     );
     _positionSub = Geolocator.getPositionStream(

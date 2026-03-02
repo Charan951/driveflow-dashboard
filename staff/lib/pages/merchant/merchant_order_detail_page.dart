@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io';
+
 import '../../core/env.dart';
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
@@ -23,21 +21,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   final BookingService _service = BookingService();
   final SocketService _socketService = SocketService();
   final ImagePicker _picker = ImagePicker();
-  final MapController _mapController = MapController();
 
   BookingDetail? _booking;
   bool _isLoading = true;
   bool _isSaving = false;
   late TabController _tabController;
 
-  // Live Tracking
-  LatLng? _staffLocation;
-
   // Inspection State
   final List<Map<String, dynamic>> _newParts = [];
 
   // Service Execution State
-  final TextEditingController _notesController = TextEditingController();
   final TextEditingController _extraCostReasonController =
       TextEditingController();
   final TextEditingController _extraCostAmountController =
@@ -49,28 +42,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   final TextEditingController _partsCostController = TextEditingController();
   final TextEditingController _labourCostController = TextEditingController();
   final TextEditingController _gstController = TextEditingController();
-  File? _billFile;
+  XFile? _billFile;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _socketService.addListener(_onSocketUpdate);
-
-    _socketService.on('liveLocation', (data) {
-      if (!mounted) return;
-      if (data is Map<String, dynamic>) {
-        final lat = data['lat'];
-        final lng = data['lng'];
-        if (lat is num && lng is num) {
-          final next = LatLng(lat.toDouble(), lng.toDouble());
-          setState(() {
-            _staffLocation = next;
-          });
-          _mapController.move(next, 16.0);
-        }
-      }
-    });
   }
 
   @override
@@ -79,9 +57,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       _socketService.leaveRoom('booking_${_booking!.id}');
     }
     _socketService.removeListener(_onSocketUpdate);
-    _socketService.off('liveLocation');
     _tabController.dispose();
-    _notesController.dispose();
     _extraCostReasonController.dispose();
     _extraCostAmountController.dispose();
     _invoiceNumberController.dispose();
@@ -123,7 +99,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           _isLoading = false;
 
           // Sync controllers with loaded data
-          _notesController.text = data.serviceExecution?.notes ?? '';
           _invoiceNumberController.text = data.billing?.invoiceNumber ?? '';
           _partsCostController.text =
               data.billing?.partsTotal.toString() ?? '0';
@@ -136,9 +111,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load order details')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to load order details')),
+          );
+        }
       }
     }
   }
@@ -159,15 +137,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     }
     setState(() => _isSaving = true);
     try {
-      final files = await _service.uploadFiles([File(photo.path)]);
+      final files = await _service.uploadFiles([photo]);
       if (files.isNotEmpty) {
         return files.first;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to upload image')));
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to upload image')),
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -183,7 +164,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       imageQuality: 80,
     );
     if (photo != null) {
-      setState(() => _billFile = File(photo.path));
+      setState(() => _billFile = photo);
     }
   }
 
@@ -195,15 +176,21 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       await _service.updateBookingStatus(_booking!.id, newStatus);
       await _load(_booking!.id);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Status updated to $newStatus')));
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Status updated to $newStatus')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update status')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to update status')),
+          );
+        }
       }
     }
   }
@@ -271,74 +258,40 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               _buildInfoRow('Phone', _booking!.user?.phone ?? 'N/A'),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Live Tracking',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 300,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter:
-                      _staffLocation ??
-                      LatLng(
-                        _booking!.location?.lat ?? 17.3850,
-                        _booking!.location?.lng ?? 78.4867,
-                      ),
-                  initialZoom: 16,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: Env.mapTileUrlTemplate,
-                    subdomains: Env.mapTileSubdomains,
-                    userAgentPackageName: 'com.speshway.staff',
-                  ),
-                  if (_staffLocation != null)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _staffLocation!,
-                          width: 40,
-                          height: 40,
-                          child: const Icon(
-                            Icons.directions_car,
-                            color: Colors.blue,
-                            size: 36,
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (_booking!.location?.lat != null &&
-                      _booking!.location?.lng != null)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: LatLng(
-                            _booking!.location!.lat!,
-                            _booking!.location!.lng!,
-                          ),
-                          width: 40,
-                          height: 40,
-                          child: const Icon(
-                            Icons.location_on,
-                            color: Colors.red,
-                            size: 36,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+          _buildInfoCard(
+            title: 'Location',
+            icon: Icons.location_on,
+            children: [
+              Text(
+                _booking!.location?.address ?? 'No address provided',
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
               ),
-            ),
+              if (_booking!.location?.lat != null &&
+                  _booking!.location?.lng != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final lat = _booking!.location!.lat!;
+                      final lng = _booking!.location!.lng!;
+                      final uri = Uri.parse("google.navigation:q=$lat,$lng");
+                      launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    icon: const Icon(Icons.directions),
+                    label: const Text('Get Directions'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -728,72 +681,38 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoCard(
-            title: 'Service Execution',
-            icon: Icons.build,
-            children: [
-              _buildInfoRow(
-                'Start Time',
-                execution?.jobStartTime != null
-                    ? DateFormat(
-                        'dd MMM yyyy, hh:mm a',
-                      ).format(DateTime.parse(execution!.jobStartTime!))
-                    : 'Not Started',
-              ),
-              _buildInfoRow(
-                'End Time',
-                execution?.jobEndTime != null
-                    ? DateFormat(
-                        'dd MMM yyyy, hh:mm a',
-                      ).format(DateTime.parse(execution!.jobEndTime!))
-                    : 'In Progress',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Service Notes',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _notesController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'Add service notes here...',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _updateServiceNotes,
-              child: Text(_isSaving ? 'Updating...' : 'Update Notes'),
-            ),
-          ),
-          const SizedBox(height: 24),
           const Text(
             'Service Photos',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 16),
-          _buildPhotoSection(
-            'Before Service',
-            execution?.beforePhotos ?? [],
-            'before',
-          ),
-          const SizedBox(height: 16),
-          _buildPhotoSection(
-            'During Service',
-            execution?.duringPhotos ?? [],
-            'during',
-          ),
-          const SizedBox(height: 16),
-          _buildPhotoSection(
-            'After Service',
-            execution?.afterPhotos ?? [],
-            'after',
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildPhotoSection(
+                  'Before Service',
+                  execution?.beforePhotos ?? [],
+                  'before',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildPhotoSection(
+                  'During Service',
+                  execution?.duringPhotos ?? [],
+                  'during',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildPhotoSection(
+                  'After Service',
+                  execution?.afterPhotos ?? [],
+                  'after',
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           const Text(
@@ -891,29 +810,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Future<void> _updateServiceNotes() async {
-    if (_booking == null) return;
-    setState(() => _isSaving = true);
-    try {
-      await _service.updateBookingDetails(_booking!.id, {
-        'notes': _notesController.text,
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Notes updated')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to update notes')));
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
   Future<void> _uploadServicePhoto(String type) async {
     final url = await _showImageSourceSheet();
     if (url == null || _booking == null) {
@@ -1000,6 +896,11 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final qc = _booking!.qc;
     final isCompleted = qc?.completedAt != null;
 
+    final testRideChecked = qc?.testRide ?? false;
+    final safetyChecksChecked = qc?.safetyChecks ?? false;
+    final noLeaksChecked = qc?.noLeaks ?? false;
+    final noErrorLightsChecked = qc?.noErrorLights ?? false;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1012,23 +913,27 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           const SizedBox(height: 16),
           _buildQCCheckbox(
             'Test Ride',
-            qc?.testRide ?? false,
+            testRideChecked,
             (v) => _updateQC('testRide', v),
+            isEnabled: true,
           ),
           _buildQCCheckbox(
             'Safety Checks',
-            qc?.safetyChecks ?? false,
+            safetyChecksChecked,
             (v) => _updateQC('safetyChecks', v),
+            isEnabled: testRideChecked,
           ),
           _buildQCCheckbox(
             'No Leaks',
-            qc?.noLeaks ?? false,
+            noLeaksChecked,
             (v) => _updateQC('noLeaks', v),
+            isEnabled: safetyChecksChecked,
           ),
           _buildQCCheckbox(
             'No Error Lights',
-            qc?.noErrorLights ?? false,
+            noErrorLightsChecked,
             (v) => _updateQC('noErrorLights', v),
+            isEnabled: noLeaksChecked,
           ),
           const SizedBox(height: 16),
           if (isCompleted)
@@ -1052,7 +957,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _confirmQC,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor:
+                      (testRideChecked &&
+                          safetyChecksChecked &&
+                          noLeaksChecked &&
+                          noErrorLightsChecked)
+                      ? Colors.green
+                      : Colors.grey,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Confirm QC Completion'),
@@ -1063,12 +974,24 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Widget _buildQCCheckbox(String label, bool value, Function(bool) onChanged) {
+  Widget _buildQCCheckbox(
+    String label,
+    bool value,
+    Function(bool) onChanged, {
+    bool isEnabled = true,
+  }) {
     final isCompleted = _booking!.qc?.completedAt != null;
     return CheckboxListTile(
-      title: Text(label),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: (!isCompleted && !isEnabled) ? Colors.grey : null,
+        ),
+      ),
       value: value,
-      onChanged: isCompleted ? null : (v) => onChanged(v ?? false),
+      onChanged: (isCompleted || !isEnabled)
+          ? null
+          : (v) => onChanged(v ?? false),
     );
   }
 
@@ -1076,25 +999,97 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     if (_booking == null) {
       return;
     }
-    try {
-      final currentQC = _booking!.qc;
-      await _service.updateBookingDetails(_booking!.id, {
-        'qc': {
-          'testRide': field == 'testRide'
-              ? value
-              : (currentQC?.testRide ?? false),
-          'safetyChecks': field == 'safetyChecks'
-              ? value
-              : (currentQC?.safetyChecks ?? false),
-          'noLeaks': field == 'noLeaks' ? value : (currentQC?.noLeaks ?? false),
-          'noErrorLights': field == 'noErrorLights'
-              ? value
-              : (currentQC?.noErrorLights ?? false),
-        },
+
+    // Optimistic update
+    final oldQC =
+        _booking!.qc ??
+        QCData(
+          testRide: false,
+          safetyChecks: false,
+          noLeaks: false,
+          noErrorLights: false,
+        );
+
+    QCData newQC;
+    Map<String, dynamic> updatePayload = {};
+
+    if (value) {
+      // Checking: only update the target field
+      switch (field) {
+        case 'testRide':
+          newQC = oldQC.copyWith(testRide: true);
+          break;
+        case 'safetyChecks':
+          newQC = oldQC.copyWith(safetyChecks: true);
+          break;
+        case 'noLeaks':
+          newQC = oldQC.copyWith(noLeaks: true);
+          break;
+        case 'noErrorLights':
+          newQC = oldQC.copyWith(noErrorLights: true);
+          break;
+        default:
+          newQC = oldQC;
+      }
+      updatePayload = {field: true};
+    } else {
+      // Unchecking: also uncheck all subsequent fields to maintain sequence
+      switch (field) {
+        case 'testRide':
+          newQC = oldQC.copyWith(
+            testRide: false,
+            safetyChecks: false,
+            noLeaks: false,
+            noErrorLights: false,
+          );
+          updatePayload = {
+            'testRide': false,
+            'safetyChecks': false,
+            'noLeaks': false,
+            'noErrorLights': false,
+          };
+          break;
+        case 'safetyChecks':
+          newQC = oldQC.copyWith(
+            safetyChecks: false,
+            noLeaks: false,
+            noErrorLights: false,
+          );
+          updatePayload = {
+            'safetyChecks': false,
+            'noLeaks': false,
+            'noErrorLights': false,
+          };
+          break;
+        case 'noLeaks':
+          newQC = oldQC.copyWith(noLeaks: false, noErrorLights: false);
+          updatePayload = {'noLeaks': false, 'noErrorLights': false};
+          break;
+        case 'noErrorLights':
+          newQC = oldQC.copyWith(noErrorLights: false);
+          updatePayload = {'noErrorLights': false};
+          break;
+        default:
+          newQC = oldQC;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _booking = _booking!.copyWith(qc: newQC);
       });
+    }
+
+    try {
+      await _service.updateBookingDetails(_booking!.id, {'qc': updatePayload});
+      // Optionally reload to ensure sync with server
       await _load(_booking!.id);
     } catch (e) {
       if (mounted) {
+        // Rollback on error
+        setState(() {
+          _booking = _booking!.copyWith(qc: oldQC);
+        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Failed to update QC')));
@@ -1104,17 +1099,27 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   Future<void> _confirmQC() async {
     if (_booking == null) return;
+
+    final qc = _booking!.qc;
+    final allChecked =
+        (qc?.testRide ?? false) &&
+        (qc?.safetyChecks ?? false) &&
+        (qc?.noLeaks ?? false) &&
+        (qc?.noErrorLights ?? false);
+
+    if (!allChecked) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please complete all QC checks')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
-      final qc = _booking!.qc;
       await _service.updateBookingDetails(_booking!.id, {
-        'qc': {
-          'testRide': qc?.testRide ?? false,
-          'safetyChecks': qc?.safetyChecks ?? false,
-          'noLeaks': qc?.noLeaks ?? false,
-          'noErrorLights': qc?.noErrorLights ?? false,
-          'completedAt': DateTime.now().toIso8601String(),
-        },
+        'qc': {'completedAt': DateTime.now().toIso8601String()},
       });
       await _load(_booking!.id);
     } catch (e) {
@@ -1245,7 +1250,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     const SizedBox(height: 12),
                     Text(
                       _billFile != null
-                          ? 'File Selected: ${_billFile!.path.split('/').last}'
+                          ? 'File Selected: ${_billFile!.name}'
                           : 'Tap to select Invoice (Image/PDF)',
                     ),
                   ],
@@ -1278,25 +1283,34 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     // Validate
     if (!(_booking!.inspection?.completedAt != null)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete inspection first')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Please complete inspection first')),
+          );
+        }
       }
       return;
     }
     if (!(_booking!.qc?.completedAt != null)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete QC first')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Please complete QC first')),
+          );
+        }
       }
       return;
     }
     if (_billFile == null && _booking!.billing?.fileUrl == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please upload invoice file')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Please upload invoice file')),
+          );
+        }
       }
       return;
     }
@@ -1348,15 +1362,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
       await _load(_booking!.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bill submitted and service completed')),
-        );
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Bill submitted and service completed'),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to submit bill')));
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to submit bill')),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1375,7 +1397,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         nextStatuses = ['SERVICE_STARTED'];
         break;
       case 'SERVICE_STARTED':
-        nextStatuses = ['SERVICE_COMPLETED'];
+        // Status can only be updated to SERVICE_COMPLETED via Billing submission
         break;
     }
 

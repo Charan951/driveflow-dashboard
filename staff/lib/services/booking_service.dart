@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
 import '../core/env.dart';
@@ -86,7 +86,7 @@ class BookingService {
 
   Future<List<String>> uploadPrePickupPhotos(
     String id,
-    List<File> files, {
+    List<XFile> files, {
     List<String> existing = const [],
   }) async {
     final uploaded = await _api.uploadFiles(ApiEndpoints.uploadMultiple, files);
@@ -106,7 +106,7 @@ class BookingService {
     await _api.putJson(ApiEndpoints.bookingDetails(id), body: data);
   }
 
-  Future<List<String>> uploadFiles(List<File> files) async {
+  Future<List<String>> uploadFiles(List<XFile> files) async {
     final uploaded = await _api.uploadFiles(ApiEndpoints.uploadMultiple, files);
     return uploaded
         .map((e) => e is Map<String, dynamic> ? e['url']?.toString() : null)

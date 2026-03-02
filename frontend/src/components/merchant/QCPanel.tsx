@@ -19,12 +19,30 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
 
   const handleCheck = (key: string) => {
-    setChecklist(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+    setChecklist(prev => {
+        const newValue = !prev[key as keyof typeof prev];
+        const newChecklist = { ...prev, [key]: newValue };
+        
+        if (!newValue) {
+            // Unchecking: also uncheck all subsequent to maintain sequence
+            if (key === 'testRide') {
+                newChecklist.safetyChecks = false;
+                newChecklist.noLeaks = false;
+                newChecklist.noErrorLights = false;
+            } else if (key === 'safetyChecks') {
+                newChecklist.noLeaks = false;
+                newChecklist.noErrorLights = false;
+            } else if (key === 'noLeaks') {
+                newChecklist.noErrorLights = false;
+            }
+        }
+        return newChecklist;
+    });
   };
 
   const handleSaveQC = async () => {
     // Validate all checked?
-    const allChecked = Object.values(checklist).every(v => v);
+    const allChecked = checklist.testRide && checklist.safetyChecks && checklist.noLeaks && checklist.noErrorLights;
     if (!allChecked) {
         toast.warning('Please complete all QC checks before saving.');
         return;
@@ -57,28 +75,40 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted" onClick={() => handleCheck('testRide')}>
+            <div 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${booking.qc?.completedAt ? 'pointer-events-none opacity-80' : ''}`} 
+                onClick={() => handleCheck('testRide')}
+            >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.testRide ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
                     {checklist.testRide && <Check className="w-4 h-4" />}
                 </div>
                 <span className="font-medium">Test Ride Completed</span>
             </div>
             
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted" onClick={() => handleCheck('safetyChecks')}>
+            <div 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.testRide || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                onClick={() => handleCheck('safetyChecks')}
+            >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.safetyChecks ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
                     {checklist.safetyChecks && <Check className="w-4 h-4" />}
                 </div>
                 <span className="font-medium">Safety Checks Performed</span>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted" onClick={() => handleCheck('noLeaks')}>
+            <div 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.safetyChecks || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                onClick={() => handleCheck('noLeaks')}
+            >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.noLeaks ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
                     {checklist.noLeaks && <Check className="w-4 h-4" />}
                 </div>
                 <span className="font-medium">No Leaks Detected</span>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted" onClick={() => handleCheck('noErrorLights')}>
+            <div 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.noLeaks || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                onClick={() => handleCheck('noErrorLights')}
+            >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.noErrorLights ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
                     {checklist.noErrorLights && <Check className="w-4 h-4" />}
                 </div>
@@ -91,17 +121,27 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
             <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                disabled={!!booking.qc?.completedAt}
                 className="w-full p-3 border border-input rounded-lg h-[150px]"
                 placeholder="Any final observations..."
             />
             
-            <button
-                onClick={handleSaveQC}
-                disabled={loading}
-                className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-                Confirm QC Checks
-            </button>
+            {booking.qc?.completedAt ? (
+                <div className="p-4 bg-green-50 border border-green-100 rounded-lg">
+                    <p className="text-sm font-medium text-green-800">QC Completed</p>
+                    <p className="text-xs text-green-600">
+                        Date: {new Date(booking.qc.completedAt).toLocaleString()}
+                    </p>
+                </div>
+            ) : (
+                <button
+                    onClick={handleSaveQC}
+                    disabled={loading || !(checklist.testRide && checklist.safetyChecks && checklist.noLeaks && checklist.noErrorLights)}
+                    className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    {loading ? 'Saving...' : 'Confirm QC Completion'}
+                </button>
+            )}
         </div>
       </div>
     </div>

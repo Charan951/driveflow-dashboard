@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'env.dart';
 import 'storage.dart';
@@ -93,7 +94,7 @@ class ApiClient {
 
   Future<List<dynamic>> uploadFiles(
     String path,
-    List<File> files, {
+    List<XFile> files, {
     String fieldName = 'files',
   }) async {
     final token = await AppStorage().getToken();
@@ -103,15 +104,17 @@ class ApiClient {
       request.headers['Authorization'] = 'Bearer $token';
     }
     for (final file in files) {
-      final lower = file.path.toLowerCase();
+      final bytes = await file.readAsBytes();
+      final lower = file.name.toLowerCase();
       final isPdf = lower.endsWith('.pdf');
       final contentType = isPdf
           ? MediaType('application', 'pdf')
           : MediaType('image', 'jpeg');
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile.fromBytes(
           fieldName,
-          file.path,
+          bytes,
+          filename: file.name,
           contentType: contentType,
         ),
       );

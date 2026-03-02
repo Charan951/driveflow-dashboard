@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/booking.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
@@ -22,7 +23,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
   final SocketService _socketService = SocketService();
 
   List<BookingSummary> _bookings = [];
+  StaffUser? _currentUser;
   bool _isLoading = false;
+  bool _isProfileLoading = false;
   String? _errorText;
   bool _shareLocation = true;
   String _selectedNav = 'dashboard';
@@ -50,8 +53,32 @@ class _StaffHomePageState extends State<StaffHomePage> {
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
+      if (_currentUser == null) {
+        _isProfileLoading = true;
+      }
       _errorText = null;
     });
+
+    // Try to get cached user immediately for profile view
+    _authService
+        .getCurrentUser()
+        .then((user) {
+          if (mounted) {
+            setState(() {
+              _currentUser = user;
+              _isProfileLoading = false;
+            });
+          }
+        })
+        .catchError((e) {
+          debugPrint('StaffHomePage: Error loading user: $e');
+          if (mounted) {
+            setState(() {
+              _isProfileLoading = false;
+            });
+          }
+        });
+
     try {
       final bookings = await _bookingService.getMyBookings();
       if (!mounted) return;
@@ -60,6 +87,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
       });
       _updateActiveBookingId();
     } catch (e) {
+      debugPrint('Error loading bookings: $e');
       if (!mounted) return;
       setState(() {
         _errorText = 'Failed to load data';
@@ -181,7 +209,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
     return '$h:$m';
   }
 
-  Widget _buildSidebarContent(ThemeData theme, TrackingInfo trackingInfo) {
+  Widget _buildSidebarContent(
+    ThemeData theme,
+    TrackingInfo trackingInfo,
+    bool isCompact,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: Column(
@@ -203,6 +235,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
               setState(() {
                 _selectedNav = 'dashboard';
               });
+              if (isCompact) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           const SizedBox(height: 8),
@@ -214,6 +249,23 @@ class _StaffHomePageState extends State<StaffHomePage> {
               setState(() {
                 _selectedNav = 'orders';
               });
+              if (isCompact) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          _NavItem(
+            icon: Icons.person_rounded,
+            label: 'Profile',
+            selected: _selectedNav == 'profile',
+            onTap: () {
+              setState(() {
+                _selectedNav = 'profile';
+              });
+              if (isCompact) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           const SizedBox(height: 8),
@@ -395,7 +447,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                             Text(
                               _selectedNav == 'dashboard'
                                   ? 'Staff Dashboard'
-                                  : 'Orders',
+                                  : _selectedNav == 'orders'
+                                  ? 'Orders'
+                                  : 'My Profile',
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: const Color(0xFF1D4ED8),
@@ -405,26 +459,22 @@ class _StaffHomePageState extends State<StaffHomePage> {
                             Text(
                               _selectedNav == 'dashboard'
                                   ? 'Overview of your assigned jobs and live orders'
-                                  : 'View and manage your active orders',
+                                  : _selectedNav == 'orders'
+                                  ? 'View and manage your active orders'
+                                  : 'Your personal information and role details',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: const Color(0xFF6B7280),
                               ),
                             ),
                           ],
                         ),
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.person,
-                            color: const Color(0xFF2563EB),
-                          ),
-                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (_selectedNav == 'dashboard') ...[
+                  if (_selectedNav == 'profile') ...[
+                    _buildProfileContent(theme),
+                  ] else if (_selectedNav == 'dashboard') ...[
                     if (isCompact)
                       RepaintBoundary(
                         child: Column(
@@ -520,7 +570,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  if (_selectedNav != 'dashboard')
+                  if (_selectedNav != 'dashboard' && _selectedNav != 'profile')
                     Text(
                       'Active Orders',
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -528,7 +578,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       ),
                     ),
                   const SizedBox(height: 12),
-                  if (_isLoading && bookings.isEmpty)
+                  if (_selectedNav == 'profile')
+                    const SizedBox.shrink()
+                  else if (_isLoading && bookings.isEmpty)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 48),
@@ -670,6 +722,115 @@ class _StaffHomePageState extends State<StaffHomePage> {
     );
   }
 
+  Widget _buildProfileContent(ThemeData theme) {
+    final user = _currentUser;
+    if (user == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Center(
+          child: _isProfileLoading
+              ? const CircularProgressIndicator()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.person_off_rounded,
+                      size: 48,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No profile data found',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: _loadData,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 48,
+                backgroundColor: const Color(0xFFE0EAFF),
+                child: Icon(
+                  Icons.person_rounded,
+                  size: 48,
+                  color: const Color(0xFF2563EB),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                user.name,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+              Text(
+                user.role.toUpperCase(),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF2563EB),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Divider(height: 1),
+              const SizedBox(height: 24),
+              _ProfileDetailItem(
+                icon: Icons.email_outlined,
+                label: 'Email Address',
+                value: user.email,
+              ),
+              const SizedBox(height: 16),
+              _ProfileDetailItem(
+                icon: Icons.phone_android_rounded,
+                label: 'Phone Number',
+                value: user.phone ?? 'Not provided',
+              ),
+              const SizedBox(height: 16),
+              _ProfileDetailItem(
+                icon: Icons.badge_outlined,
+                label: 'Staff ID',
+                value: user.id,
+              ),
+              if (user.subRole != null) ...[
+                const SizedBox(height: 16),
+                _ProfileDetailItem(
+                  icon: Icons.work_outline_rounded,
+                  label: 'Department',
+                  value: user.subRole!,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -707,7 +868,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
               ),
             ),
             drawer: Drawer(
-              child: SafeArea(child: _buildSidebarContent(theme, trackingInfo)),
+              child: SafeArea(
+                child: _buildSidebarContent(theme, trackingInfo, true),
+              ),
             ),
             body: Container(
               color: const Color(0xFFF3F4F6),
@@ -742,7 +905,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       ),
                     ],
                   ),
-                  child: _buildSidebarContent(theme, trackingInfo),
+                  child: _buildSidebarContent(theme, trackingInfo, false),
                 ),
                 Expanded(
                   child: Container(
@@ -761,6 +924,59 @@ class _StaffHomePageState extends State<StaffHomePage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProfileDetailItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ProfileDetailItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: const Color(0xFF4B5563), size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF111827),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

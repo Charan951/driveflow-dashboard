@@ -23,7 +23,7 @@ import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
 import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 import { toast } from 'sonner';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Check, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

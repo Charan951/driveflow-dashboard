@@ -419,6 +419,21 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
+      if (canonTo === 'SERVICE_COMPLETED') {
+        if (req.user.role === 'staff') {
+          return res.status(401).json({ message: 'Only merchant can mark service as completed' });
+        }
+        if (!booking.inspection?.completedAt) {
+          return res.status(400).json({ message: 'Please complete inspection before marking service as completed' });
+        }
+        if (!booking.qc?.completedAt) {
+          return res.status(400).json({ message: 'Please complete QC before marking service as completed' });
+        }
+        if (!booking.billing?.fileUrl) {
+          return res.status(400).json({ message: 'Please upload invoice before marking service as completed' });
+        }
+      }
+
       if (canonTo === 'VEHICLE_PICKED') {
         const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
         if (photos.length < 4) {
@@ -629,17 +644,34 @@ export const updateBookingDetails = async (req, res) => {
       if (media) booking.media = media;
       if (notes) booking.notes = notes;
       if (prePickupPhotos) booking.prePickupPhotos = prePickupPhotos;
-      if (inspection) booking.inspection = { ...booking.inspection, ...inspection };
-      if (delay) booking.delay = { ...booking.delay, ...delay };
-      if (serviceExecution) booking.serviceExecution = { ...booking.serviceExecution, ...serviceExecution };
-      if (qc) booking.qc = { ...booking.qc, ...qc };
+      
+      if (inspection) {
+        booking.inspection = { ...booking.inspection?._doc, ...inspection };
+        booking.markModified('inspection');
+      }
+      if (delay) {
+        booking.delay = { ...booking.delay?._doc, ...delay };
+        booking.markModified('delay');
+      }
+      if (serviceExecution) {
+        booking.serviceExecution = { ...booking.serviceExecution?._doc, ...serviceExecution };
+        booking.markModified('serviceExecution');
+      }
+      if (qc) {
+        booking.qc = { ...booking.qc?._doc, ...qc };
+        booking.markModified('qc');
+      }
       if (billing) {
-        booking.billing = { ...booking.billing, ...billing };
+        booking.billing = { ...booking.billing?._doc, ...billing };
         if (billing.total) {
           booking.totalAmount = billing.total;
         }
+        booking.markModified('billing');
       }
-      if (revisit) booking.revisit = { ...booking.revisit, ...revisit };
+      if (revisit) {
+        booking.revisit = { ...booking.revisit?._doc, ...revisit };
+        booking.markModified('revisit');
+      }
       
       if (parts) {
         booking.parts = parts;

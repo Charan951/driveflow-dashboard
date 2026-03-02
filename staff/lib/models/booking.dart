@@ -17,20 +17,39 @@ class BookingSummary {
     this.serviceName,
   });
 
-  factory BookingSummary.fromJson(Map<String, dynamic> json) {
-    Map<String, dynamic>? vehicle;
-    if (json['vehicle'] is Map<String, dynamic>) {
-      vehicle = json['vehicle'] as Map<String, dynamic>;
-    } else if (json['vehicle'] is Map) {
-      vehicle = Map<String, dynamic>.from(json['vehicle'] as Map);
+  factory BookingSummary.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return BookingSummary(id: '', status: 'UNKNOWN');
     }
 
-    Map<String, dynamic>? location;
-    if (json['location'] is Map<String, dynamic>) {
-      location = json['location'] as Map<String, dynamic>;
-    } else if (json['location'] is Map) {
-      location = Map<String, dynamic>.from(json['location'] as Map);
+    // Defensive access to avoid json[$_get] on null
+    dynamic getField(String key) {
+      try {
+        return json[key];
+      } catch (_) {
+        return null;
+      }
     }
+
+    Map<String, dynamic>? vehicle;
+    try {
+      final v = getField('vehicle');
+      if (v is Map<String, dynamic>) {
+        vehicle = v;
+      } else if (v is Map) {
+        vehicle = Map<String, dynamic>.from(v);
+      }
+    } catch (_) {}
+
+    Map<String, dynamic>? location;
+    try {
+      final l = getField('location');
+      if (l is Map<String, dynamic>) {
+        location = l;
+      } else if (l is Map) {
+        location = Map<String, dynamic>.from(l);
+      }
+    } catch (_) {}
 
     final make = vehicle?['make']?.toString();
     final model = vehicle?['model']?.toString();
@@ -41,23 +60,30 @@ class BookingSummary {
       if (plate != null && plate.isNotEmpty) plate,
     ].join(' ');
 
+    String serviceName = 'General Service';
+    try {
+      final services = getField('services');
+      final service = getField('service');
+      if (services is List && services.isNotEmpty) {
+        final firstService = services[0];
+        if (firstService is Map) {
+          serviceName = firstService['name']?.toString() ?? 'General Service';
+        }
+      } else if (service is Map) {
+        serviceName = service['name']?.toString() ?? 'General Service';
+      }
+    } catch (_) {}
+
     return BookingSummary(
-      id: (json['id'] ?? json['_id'] ?? '').toString(),
-      orderNumber: json['orderNumber'] is num
-          ? (json['orderNumber'] as num).toInt()
+      id: (getField('id') ?? getField('_id') ?? '').toString(),
+      orderNumber: getField('orderNumber') is num
+          ? (getField('orderNumber') as num).toInt()
           : null,
-      status: json['status']?.toString() ?? '',
-      date: json['date']?.toString(),
+      status: getField('status')?.toString() ?? '',
+      date: getField('date')?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       locationAddress: location?['address']?.toString(),
-      serviceName:
-          (json['services'] is List && (json['services'] as List).isNotEmpty)
-          ? ((json['services'][0] is Map)
-                ? json['services'][0]['name']?.toString()
-                : 'General Service')
-          : (json['service'] is Map
-                ? json['service']['name']?.toString()
-                : 'General Service'),
+      serviceName: serviceName,
     );
   }
 }
@@ -69,13 +95,24 @@ class BookingLocation {
 
   const BookingLocation({this.address, this.lat, this.lng});
 
-  factory BookingLocation.fromJson(Map<String, dynamic> json) {
-    final latRaw = json['lat'];
-    final lngRaw = json['lng'];
+  factory BookingLocation.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const BookingLocation();
+
+    // Defensive access to avoid json[$_get] on null
+    dynamic getField(String key) {
+      try {
+        return json[key];
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final latRaw = getField('lat');
+    final lngRaw = getField('lng');
     return BookingLocation(
-      address: (json['address'] ?? '').toString().trim().isEmpty
+      address: (getField('address') ?? '').toString().trim().isEmpty
           ? null
-          : (json['address'] ?? '').toString(),
+          : (getField('address') ?? '').toString(),
       lat: latRaw is num ? latRaw.toDouble() : null,
       lng: lngRaw is num ? lngRaw.toDouble() : null,
     );
@@ -125,9 +162,72 @@ class BookingDetail {
     this.qcCompletedAt,
   });
 
-  factory BookingDetail.fromJson(Map<String, dynamic> json) {
+  BookingDetail copyWith({
+    String? id,
+    int? orderNumber,
+    String? status,
+    String? date,
+    BookingLocation? location,
+    BookingLocation? merchantLocation,
+    String? vehicleName,
+    List<String>? prePickupPhotos,
+    String? paymentStatus,
+    num? totalAmount,
+    bool? pickupRequired,
+    InspectionData? inspection,
+    QCData? qc,
+    ServiceExecutionData? serviceExecution,
+    BillingData? billing,
+    List<PartItem>? parts,
+    UserSummary? user,
+    String? inspectionCompletedAt,
+    String? qcCompletedAt,
+  }) {
+    return BookingDetail(
+      id: id ?? this.id,
+      orderNumber: orderNumber ?? this.orderNumber,
+      status: status ?? this.status,
+      date: date ?? this.date,
+      location: location ?? this.location,
+      merchantLocation: merchantLocation ?? this.merchantLocation,
+      vehicleName: vehicleName ?? this.vehicleName,
+      prePickupPhotos: prePickupPhotos ?? this.prePickupPhotos,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      totalAmount: totalAmount ?? this.totalAmount,
+      pickupRequired: pickupRequired ?? this.pickupRequired,
+      inspection: inspection ?? this.inspection,
+      qc: qc ?? this.qc,
+      serviceExecution: serviceExecution ?? this.serviceExecution,
+      billing: billing ?? this.billing,
+      parts: parts ?? this.parts,
+      user: user ?? this.user,
+      inspectionCompletedAt:
+          inspectionCompletedAt ?? this.inspectionCompletedAt,
+      qcCompletedAt: qcCompletedAt ?? this.qcCompletedAt,
+    );
+  }
+
+  factory BookingDetail.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return BookingDetail(
+        id: '',
+        status: 'UNKNOWN',
+        date: '',
+        prePickupPhotos: [],
+      );
+    }
+
+    // Defensive access to avoid json[$_get] on null
+    dynamic getField(String key) {
+      try {
+        return json[key];
+      } catch (_) {
+        return null;
+      }
+    }
+
     BookingLocation? location;
-    final loc = json['location'];
+    final loc = getField('location');
     if (loc is Map<String, dynamic>) {
       location = BookingLocation.fromJson(loc);
     } else if (loc is Map) {
@@ -135,21 +235,29 @@ class BookingDetail {
     }
 
     BookingLocation? merchantLocation;
-    final mloc = json['merchant']?['location'];
-    if (mloc is Map<String, dynamic>) {
-      merchantLocation = BookingLocation.fromJson(mloc);
-    } else if (mloc is Map) {
-      merchantLocation = BookingLocation.fromJson(
-        Map<String, dynamic>.from(mloc),
-      );
-    }
+    try {
+      final merchant = getField('merchant');
+      if (merchant is Map) {
+        final mloc = merchant['location'];
+        if (mloc is Map<String, dynamic>) {
+          merchantLocation = BookingLocation.fromJson(mloc);
+        } else if (mloc is Map) {
+          merchantLocation = BookingLocation.fromJson(
+            Map<String, dynamic>.from(mloc),
+          );
+        }
+      }
+    } catch (_) {}
 
     Map<String, dynamic>? vehicle;
-    if (json['vehicle'] is Map<String, dynamic>) {
-      vehicle = json['vehicle'] as Map<String, dynamic>;
-    } else if (json['vehicle'] is Map) {
-      vehicle = Map<String, dynamic>.from(json['vehicle'] as Map);
-    }
+    try {
+      final v = getField('vehicle');
+      if (v is Map<String, dynamic>) {
+        vehicle = v;
+      } else if (v is Map) {
+        vehicle = Map<String, dynamic>.from(v);
+      }
+    } catch (_) {}
     final make = vehicle?['make']?.toString();
     final model = vehicle?['model']?.toString();
     final plate = vehicle?['licensePlate']?.toString();
@@ -160,40 +268,56 @@ class BookingDetail {
     ].join(' ');
 
     final photos =
-        (json['prePickupPhotos'] as List?)?.whereType<String>().toList() ?? [];
+        (getField('prePickupPhotos') as List?)?.whereType<String>().toList() ??
+        [];
 
     return BookingDetail(
-      id: (json['id'] ?? json['_id'] ?? '').toString(),
-      orderNumber: json['orderNumber'] is num
-          ? (json['orderNumber'] as num).toInt()
+      id: (getField('id') ?? getField('_id') ?? '').toString(),
+      orderNumber: getField('orderNumber') is num
+          ? (getField('orderNumber') as num).toInt()
           : null,
-      status: (json['status'] ?? '').toString(),
-      date: (json['date'] ?? '').toString(),
+      status: (getField('status') ?? '').toString(),
+      date: (getField('date') ?? '').toString(),
       location: location,
       merchantLocation: merchantLocation,
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       prePickupPhotos: photos,
-      paymentStatus: json['paymentStatus']?.toString(),
-      totalAmount: json['totalAmount'] is num
-          ? (json['totalAmount'] as num)
+      paymentStatus: getField('paymentStatus')?.toString(),
+      totalAmount: getField('totalAmount') is num
+          ? (getField('totalAmount') as num)
           : null,
-      pickupRequired: json['pickupRequired'] as bool? ?? true,
-      inspection: json['inspection'] != null
-          ? InspectionData.fromJson(json['inspection'])
+      pickupRequired: getField('pickupRequired') as bool? ?? true,
+      inspection: getField('inspection') is Map
+          ? InspectionData.fromJson(
+              Map<String, dynamic>.from(getField('inspection')),
+            )
           : null,
-      qc: json['qc'] != null ? QCData.fromJson(json['qc']) : null,
-      serviceExecution: json['serviceExecution'] != null
-          ? ServiceExecutionData.fromJson(json['serviceExecution'])
+      qc: getField('qc') is Map
+          ? QCData.fromJson(Map<String, dynamic>.from(getField('qc')))
           : null,
-      billing: json['billing'] != null
-          ? BillingData.fromJson(json['billing'])
+      serviceExecution: getField('serviceExecution') is Map
+          ? ServiceExecutionData.fromJson(
+              Map<String, dynamic>.from(getField('serviceExecution')),
+            )
+          : null,
+      billing: getField('billing') is Map
+          ? BillingData.fromJson(Map<String, dynamic>.from(getField('billing')))
           : null,
       parts:
-          (json['parts'] as List?)?.map((p) => PartItem.fromJson(p)).toList() ??
+          (getField('parts') as List?)
+              ?.where((p) => p is Map)
+              .map((p) => PartItem.fromJson(Map<String, dynamic>.from(p)))
+              .toList() ??
           [],
-      user: json['user'] != null ? UserSummary.fromJson(json['user']) : null,
-      inspectionCompletedAt: json['inspection']?['completedAt']?.toString(),
-      qcCompletedAt: json['qc']?['completedAt']?.toString(),
+      user: getField('user') is Map
+          ? UserSummary.fromJson(Map<String, dynamic>.from(getField('user')))
+          : null,
+      inspectionCompletedAt: getField('inspection') is Map
+          ? getField('inspection')['completedAt']?.toString()
+          : null,
+      qcCompletedAt: getField('qc') is Map
+          ? getField('qc')['completedAt']?.toString()
+          : null,
     );
   }
 }
@@ -206,7 +330,8 @@ class UserSummary {
 
   UserSummary({required this.id, required this.name, this.email, this.phone});
 
-  factory UserSummary.fromJson(Map<String, dynamic> json) {
+  factory UserSummary.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return UserSummary(id: '', name: 'Guest');
     return UserSummary(
       id: json['_id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Guest',
@@ -229,14 +354,16 @@ class InspectionData {
     this.additionalParts = const [],
   });
 
-  factory InspectionData.fromJson(Map<String, dynamic> json) {
+  factory InspectionData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return InspectionData();
     return InspectionData(
       photos: (json['photos'] as List?)?.whereType<String>().toList() ?? [],
       damageReport: json['damageReport']?.toString(),
       completedAt: json['completedAt']?.toString(),
       additionalParts:
           (json['additionalParts'] as List?)
-              ?.map((p) => AdditionalPart.fromJson(p))
+              ?.where((p) => p is Map)
+              .map((p) => AdditionalPart.fromJson(Map<String, dynamic>.from(p)))
               .toList() ??
           [],
     );
@@ -262,7 +389,9 @@ class AdditionalPart {
     this.oldImage,
   });
 
-  factory AdditionalPart.fromJson(Map<String, dynamic> json) {
+  factory AdditionalPart.fromJson(Map<String, dynamic>? json) {
+    if (json == null)
+      return AdditionalPart(name: '', price: 0, quantity: 0, approved: false);
     return AdditionalPart(
       name: json['name']?.toString() ?? '',
       price: json['price'] is num ? (json['price'] as num) : 0,
@@ -304,7 +433,33 @@ class QCData {
     this.notes,
   });
 
-  factory QCData.fromJson(Map<String, dynamic> json) {
+  QCData copyWith({
+    bool? testRide,
+    bool? safetyChecks,
+    bool? noLeaks,
+    bool? noErrorLights,
+    String? completedAt,
+    String? notes,
+  }) {
+    return QCData(
+      testRide: testRide ?? this.testRide,
+      safetyChecks: safetyChecks ?? this.safetyChecks,
+      noLeaks: noLeaks ?? this.noLeaks,
+      noErrorLights: noErrorLights ?? this.noErrorLights,
+      completedAt: completedAt ?? this.completedAt,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  factory QCData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return QCData(
+        testRide: false,
+        safetyChecks: false,
+        noLeaks: false,
+        noErrorLights: false,
+      );
+    }
     return QCData(
       testRide: json['testRide'] as bool? ?? false,
       safetyChecks: json['safetyChecks'] as bool? ?? false,
@@ -333,7 +488,8 @@ class ServiceExecutionData {
     this.notes,
   });
 
-  factory ServiceExecutionData.fromJson(Map<String, dynamic> json) {
+  factory ServiceExecutionData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return ServiceExecutionData();
     return ServiceExecutionData(
       jobStartTime: json['jobStartTime']?.toString(),
       jobEndTime: json['jobEndTime']?.toString(),
@@ -367,7 +523,9 @@ class BillingData {
     required this.total,
   });
 
-  factory BillingData.fromJson(Map<String, dynamic> json) {
+  factory BillingData.fromJson(Map<String, dynamic>? json) {
+    if (json == null)
+      return BillingData(labourCost: 0, gst: 0, partsTotal: 0, total: 0);
     return BillingData(
       invoiceNumber: json['invoiceNumber']?.toString(),
       invoiceDate: json['invoiceDate']?.toString(),
@@ -387,7 +545,8 @@ class PartItem {
 
   PartItem({this.name, required this.quantity, required this.price});
 
-  factory PartItem.fromJson(Map<String, dynamic> json) {
+  factory PartItem.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return PartItem(quantity: 0, price: 0);
     return PartItem(
       name: json['name']?.toString(),
       quantity: json['quantity'] is num ? (json['quantity'] as num) : 0,

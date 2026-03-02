@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,7 +30,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   String? _error;
   bool _updatingStatus = false;
   bool _uploadingPhotos = false;
-  List<File> _selectedPhotos = const [];
+  bool _isMapExpanded = false;
+  List<XFile> _selectedPhotos = const [];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -380,7 +379,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     );
     if (!mounted || image == null) return;
     setState(() {
-      _selectedPhotos = [File(image.path)];
+      _selectedPhotos = [image];
     });
     await _uploadPrePickupPhotos();
   }
@@ -449,7 +448,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         ),
       );
     }
-    final files = images.take(remaining).map((x) => File(x.path)).toList();
+    final files = images.take(remaining).toList();
     setState(() {
       _selectedPhotos = files;
     });
@@ -555,7 +554,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           ? Center(child: Text(_error!))
           : booking == null
           ? const Center(child: Text('Booking not found'))
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -653,226 +652,273 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                             style: theme.textTheme.bodySmall,
                           ),
                         ],
-                        const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: Column(
-                            key: ValueKey(booking.status),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (booking.status == 'ASSIGNED' ||
-                                  booking.status == 'ACCEPTED')
-                                SizedBox(
-                                  height: 44,
-                                  child: FilledButton(
-                                    onPressed: _updatingStatus
-                                        ? null
-                                        : () =>
-                                              _updateStatus('REACHED_CUSTOMER'),
-                                    child: const Text('Reached Location'),
-                                  ),
-                                )
-                              else if (booking.status == 'REACHED_CUSTOMER')
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    SizedBox(
-                                      height: 44,
-                                      child: FilledButton(
-                                        onPressed: _updatingStatus
-                                            ? null
-                                            : () => _updateStatus(
-                                                'VEHICLE_PICKED',
-                                              ),
-                                        child: const Text('Vehicle Picked'),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 44,
-                                      child: FilledButton.tonal(
-                                        onPressed: _uploadingPhotos
-                                            ? null
-                                            : _showPrePickupPhotoOptions,
-                                        child: Text(
-                                          _uploadingPhotos
-                                              ? 'Uploading...'
-                                              : (booking
-                                                            .prePickupPhotos
-                                                            .length >=
-                                                        4
-                                                    ? 'Photos Captured'
-                                                    : 'Capture 4 Photos'),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else if (booking.status == 'VEHICLE_PICKED')
-                                SizedBox(
-                                  height: 44,
-                                  child: FilledButton(
-                                    onPressed: _updatingStatus
-                                        ? null
-                                        : () =>
-                                              _updateStatus('REACHED_MERCHANT'),
-                                    child: const Text('Reached Garage'),
-                                  ),
-                                )
-                              else if (booking.status == 'REACHED_MERCHANT')
-                                Text(
-                                  'Waiting for handover from merchant',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF6B7280),
-                                  ),
-                                )
-                              else if (booking.status == 'SERVICE_COMPLETED')
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (booking.paymentStatus != 'paid')
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 8,
-                                        ),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFEF3C7),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: const Color(0xFFF59E0B),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.warning_amber_rounded,
-                                                size: 16,
-                                                color: Color(0xFFB45309),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  'Waiting for Customer Payment (₹${booking.totalAmount ?? '0'})',
-                                                  style: theme
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: const Color(
-                                                          0xFF92400E,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    SizedBox(
-                                      height: 44,
-                                      child: FilledButton(
-                                        onPressed:
-                                            _updatingStatus ||
-                                                booking.paymentStatus != 'paid'
-                                            ? null
-                                            : () => _updateStatus(
-                                                'OUT_FOR_DELIVERY',
-                                              ),
-                                        child: const Text('Out for Delivery'),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else if (booking.status == 'OUT_FOR_DELIVERY')
-                                SizedBox(
-                                  height: 44,
-                                  child: FilledButton(
-                                    onPressed: _updatingStatus
-                                        ? null
-                                        : () => _updateStatus('DELIVERED'),
-                                    child: const Text('Mark Delivered'),
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                height: 44,
-                                child: FilledButton.icon(
-                                  onPressed: () => _openDirections(booking),
-                                  icon: const Icon(Icons.directions),
-                                  label: const Text('Get Directions'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF3F4F6),
-                        ),
-                        child: FlutterMap(
-                          mapController: _mapController,
-                          options: MapOptions(
-                            initialCenter: _initialCenter(booking),
-                            initialZoom: 16,
-                          ),
-                          children: [
-                            TileLayer(
-                              urlTemplate: Env.mapTileUrlTemplate,
-                              subdomains: Env.mapTileSubdomains,
-                              userAgentPackageName: 'com.speshway.staff',
-                            ),
-                            if (staffPos != null || destPos != null)
-                              MarkerLayer(
-                                markers: [
-                                  if (destPos != null)
-                                    Marker(
-                                      point: destPos,
-                                      width: 40,
-                                      height: 40,
-                                      child: const Icon(
-                                        Icons.location_pin,
-                                        size: 36,
-                                        color: Color(0xFFDC2626),
-                                      ),
+                  Align(
+                    alignment: _isMapExpanded
+                        ? Alignment.center
+                        : Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isMapExpanded = !_isMapExpanded;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        height: _isMapExpanded ? 450 : 120,
+                        width: _isMapExpanded ? double.infinity : 200,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Stack(
+                            children: [
+                              DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF3F4F6),
+                                ),
+                                child: FlutterMap(
+                                  mapController: _mapController,
+                                  options: MapOptions(
+                                    initialCenter: _initialCenter(booking),
+                                    initialZoom: 16,
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate: Env.mapTileUrlTemplate,
+                                      subdomains: Env.mapTileSubdomains,
+                                      userAgentPackageName:
+                                          'com.speshway.staff',
                                     ),
-                                  if (staffPos != null)
-                                    Marker(
-                                      point: staffPos,
-                                      width: 40,
-                                      height: 40,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF2563EB,
-                                          ).withValues(alpha: 0.15),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.directions_car_filled,
-                                          color: Color(0xFF2563EB),
-                                          size: 24,
-                                        ),
+                                    if (staffPos != null || destPos != null)
+                                      MarkerLayer(
+                                        markers: [
+                                          if (destPos != null)
+                                            Marker(
+                                              point: destPos,
+                                              width: 40,
+                                              height: 40,
+                                              child: const Icon(
+                                                Icons.location_pin,
+                                                size: 36,
+                                                color: Color(0xFFDC2626),
+                                              ),
+                                            ),
+                                          if (staffPos != null)
+                                            Marker(
+                                              point: staffPos,
+                                              width: 40,
+                                              height: 40,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFF2563EB,
+                                                  ).withValues(alpha: 0.15),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.directions_car_filled,
+                                                  color: Color(0xFF2563EB),
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
-                          ],
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    _isMapExpanded
+                                        ? Icons.fullscreen_exit
+                                        : Icons.fullscreen,
+                                    size: 20,
+                                    color: const Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              if (!_isMapExpanded)
+                                Positioned(
+                                  bottom: 12,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Text(
+                                        'Tap to expand',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Wrap(
+                      key: ValueKey(booking.status),
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (booking.status == 'ASSIGNED' ||
+                            booking.status == 'ACCEPTED')
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton(
+                              onPressed: _updatingStatus
+                                  ? null
+                                  : () => _updateStatus('REACHED_CUSTOMER'),
+                              child: const Text('Reached Location'),
+                            ),
+                          )
+                        else if (booking.status == 'REACHED_CUSTOMER') ...[
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton(
+                              onPressed: _updatingStatus
+                                  ? null
+                                  : () => _updateStatus('VEHICLE_PICKED'),
+                              child: const Text('Vehicle Picked'),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton.tonal(
+                              onPressed: _uploadingPhotos
+                                  ? null
+                                  : _showPrePickupPhotoOptions,
+                              child: Text(
+                                _uploadingPhotos
+                                    ? 'Uploading...'
+                                    : (booking.prePickupPhotos.length >= 4
+                                          ? 'Photos Captured'
+                                          : 'Capture 4 Photos'),
+                              ),
+                            ),
+                          ),
+                        ] else if (booking.status == 'VEHICLE_PICKED')
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton(
+                              onPressed: _updatingStatus
+                                  ? null
+                                  : () => _updateStatus('REACHED_MERCHANT'),
+                              child: const Text('Reached Garage'),
+                            ),
+                          )
+                        else if (booking.status == 'REACHED_MERCHANT')
+                          Text(
+                            'Waiting for handover from merchant',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF6B7280),
+                            ),
+                          )
+                        else if (booking.status == 'SERVICE_COMPLETED') ...[
+                          if (booking.paymentStatus != 'paid')
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFF59E0B),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 16,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Waiting for Customer Payment (₹${booking.totalAmount ?? '0'})',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF92400E),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton(
+                              onPressed:
+                                  _updatingStatus ||
+                                      booking.paymentStatus != 'paid'
+                                  ? null
+                                  : () => _updateStatus('OUT_FOR_DELIVERY'),
+                              child: const Text('Out for Delivery'),
+                            ),
+                          ),
+                        ] else if (booking.status == 'OUT_FOR_DELIVERY')
+                          SizedBox(
+                            height: 44,
+                            child: FilledButton(
+                              onPressed: _updatingStatus
+                                  ? null
+                                  : () => _updateStatus('DELIVERED'),
+                              child: const Text('Mark Delivered'),
+                            ),
+                          ),
+                        SizedBox(
+                          height: 44,
+                          child: FilledButton.icon(
+                            onPressed: () => _openDirections(booking),
+                            icon: const Icon(Icons.directions, size: 20),
+                            label: const Text('Get Directions'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1D4ED8),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -5,7 +5,7 @@ import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapP
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { socketService } from '@/services/socket';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 

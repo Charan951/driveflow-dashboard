@@ -55,9 +55,12 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to load orders')));
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to load orders')),
+          );
+        }
       }
     }
   }
