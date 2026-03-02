@@ -38,22 +38,20 @@ console.log('Mongo URI:', process.env.MONGO_URI);
 const isDev = process.env.NODE_ENV !== 'production';
 const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
 
+const allowedOrigins = process.env.FRONTEND_URLS 
+  ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, ""))
+  : [];
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
     const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
-    
-    // Get allowed origins from env and normalize them
-    const allowed = process.env.FRONTEND_URLS 
-      ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, ""))
-      : [];
-    
     const isDev = process.env.NODE_ENV !== 'production';
     const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
 
-    const allowedByEnv = allowed.includes('*') || allowed.includes(normalizedOrigin);
+    const allowedByEnv = allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin);
     const allowedByDevDefault = isDev && devOriginPrefixes.some((prefix) => normalizedOrigin.startsWith(prefix));
 
     if (allowedByEnv || allowedByDevDefault) {
@@ -64,18 +62,20 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // Cache preflight response for 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 // Middleware
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable pre-flight across-the-board
 app.use(express.json());
 
 // Routes
+app.get('/api/test-cors', (req, res) => {
+  res.json({ message: 'CORS is working!' });
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/services', serviceRoutes);
