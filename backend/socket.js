@@ -13,14 +13,20 @@ export const initSocket = (server) => {
   const isDev = process.env.NODE_ENV !== 'production';
   const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
 
+  const allowed = process.env.FRONTEND_URLS 
+    ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, "")) 
+    : [];
+  
+  // Add defaults if not in .env
+  if (!allowed.includes('https://car.speshwayhrms.com')) {
+    allowed.push('https://car.speshwayhrms.com');
+  }
+
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
         const normalized = origin.trim().toLowerCase().replace(/\/$/, "");
-        const allowed = process.env.FRONTEND_URLS 
-          ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, "")) 
-          : [];
         
         const allowedByEnv = allowed.includes('*') || allowed.includes(normalized);
         const allowedByDevDefault = isDev && devOriginPrefixes.some((p) => normalized.startsWith(p));
@@ -28,7 +34,8 @@ export const initSocket = (server) => {
         if (allowedByEnv || allowedByDevDefault) {
           callback(null, true);
         } else {
-          callback(new Error(`Not allowed by CORS (socket.io): ${origin}`));
+          console.log(`Socket CORS blocked for origin: ${origin}`);
+          callback(null, false);
         }
       },
       methods: ['GET', 'POST'],

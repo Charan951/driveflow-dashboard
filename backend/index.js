@@ -42,6 +42,11 @@ const allowedOrigins = process.env.FRONTEND_URLS
   ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, ""))
   : [];
 
+// Add some defaults if not in .env
+if (!allowedOrigins.includes('https://car.speshwayhrms.com')) {
+  allowedOrigins.push('https://car.speshwayhrms.com');
+}
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -58,7 +63,10 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.log(`CORS blocked for origin: ${origin}`);
-      callback(new Error(`Not allowed by CORS: ${origin}`));
+      // Returning null, false instead of an Error to allow the request to finish 
+      // without CORS headers, which the browser will correctly block.
+      // Throwing an error here can cause Express to send a 500 without CORS headers for preflight.
+      callback(null, false);
     }
   },
   credentials: true,
@@ -70,6 +78,8 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+// Handle preflight for all routes
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Routes
