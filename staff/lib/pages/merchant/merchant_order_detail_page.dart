@@ -44,6 +44,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   final TextEditingController _gstController = TextEditingController();
   XFile? _billFile;
 
+  // QC State
+  bool _testRideChecked = false;
+  bool _safetyChecksChecked = false;
+  bool _noLeaksChecked = false;
+  bool _noErrorLightsChecked = false;
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +111,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           _labourCostController.text =
               data.billing?.labourCost.toString() ?? '0';
           _gstController.text = data.billing?.gst.toString() ?? '0';
+
+          // Sync QC checklist
+          _testRideChecked = data.qc?.testRide ?? false;
+          _safetyChecksChecked = data.qc?.safetyChecks ?? false;
+          _noLeaksChecked = data.qc?.noLeaks ?? false;
+          _noErrorLightsChecked = data.qc?.noErrorLights ?? false;
         });
         _socketService.joinRoom('booking_$id');
       }
@@ -896,11 +908,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final qc = _booking!.qc;
     final isCompleted = qc?.completedAt != null;
 
-    final testRideChecked = qc?.testRide ?? false;
-    final safetyChecksChecked = qc?.safetyChecks ?? false;
-    final noLeaksChecked = qc?.noLeaks ?? false;
-    final noErrorLightsChecked = qc?.noErrorLights ?? false;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -913,27 +920,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           const SizedBox(height: 16),
           _buildQCCheckbox(
             'Test Ride',
-            testRideChecked,
-            (v) => _updateQC('testRide', v),
-            isEnabled: true,
+            _testRideChecked,
+            (v) => setState(() => _testRideChecked = v),
           ),
           _buildQCCheckbox(
             'Safety Checks',
-            safetyChecksChecked,
-            (v) => _updateQC('safetyChecks', v),
-            isEnabled: testRideChecked,
+            _safetyChecksChecked,
+            (v) => setState(() => _safetyChecksChecked = v),
           ),
           _buildQCCheckbox(
             'No Leaks',
-            noLeaksChecked,
-            (v) => _updateQC('noLeaks', v),
-            isEnabled: safetyChecksChecked,
+            _noLeaksChecked,
+            (v) => setState(() => _noLeaksChecked = v),
           ),
           _buildQCCheckbox(
             'No Error Lights',
-            noErrorLightsChecked,
-            (v) => _updateQC('noErrorLights', v),
-            isEnabled: noLeaksChecked,
+            _noErrorLightsChecked,
+            (v) => setState(() => _noErrorLightsChecked = v),
           ),
           const SizedBox(height: 16),
           if (isCompleted)
@@ -955,13 +958,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isSaving ? null : _confirmQC,
+                onPressed:
+                    (_isSaving ||
+                        !(_testRideChecked &&
+                            _safetyChecksChecked &&
+                            _noLeaksChecked &&
+                            _noErrorLightsChecked))
+                    ? null
+                    : _confirmQC,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      (testRideChecked &&
-                          safetyChecksChecked &&
-                          noLeaksChecked &&
-                          noErrorLightsChecked)
+                      (_testRideChecked &&
+                          _safetyChecksChecked &&
+                          _noLeaksChecked &&
+                          _noErrorLightsChecked)
                       ? Colors.green
                       : Colors.grey,
                   foregroundColor: Colors.white,
@@ -974,140 +984,25 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Widget _buildQCCheckbox(
-    String label,
-    bool value,
-    Function(bool) onChanged, {
-    bool isEnabled = true,
-  }) {
+  Widget _buildQCCheckbox(String label, bool value, Function(bool) onChanged) {
     final isCompleted = _booking!.qc?.completedAt != null;
     return CheckboxListTile(
       title: Text(
         label,
-        style: TextStyle(
-          color: (!isCompleted && !isEnabled) ? Colors.grey : null,
-        ),
+        style: TextStyle(color: isCompleted ? Colors.grey : null),
       ),
       value: value,
-      onChanged: (isCompleted || !isEnabled)
-          ? null
-          : (v) => onChanged(v ?? false),
+      onChanged: isCompleted ? null : (v) => onChanged(v ?? false),
     );
-  }
-
-  Future<void> _updateQC(String field, bool value) async {
-    if (_booking == null) {
-      return;
-    }
-
-    // Optimistic update
-    final oldQC =
-        _booking!.qc ??
-        QCData(
-          testRide: false,
-          safetyChecks: false,
-          noLeaks: false,
-          noErrorLights: false,
-        );
-
-    QCData newQC;
-    Map<String, dynamic> updatePayload = {};
-
-    if (value) {
-      // Checking: only update the target field
-      switch (field) {
-        case 'testRide':
-          newQC = oldQC.copyWith(testRide: true);
-          break;
-        case 'safetyChecks':
-          newQC = oldQC.copyWith(safetyChecks: true);
-          break;
-        case 'noLeaks':
-          newQC = oldQC.copyWith(noLeaks: true);
-          break;
-        case 'noErrorLights':
-          newQC = oldQC.copyWith(noErrorLights: true);
-          break;
-        default:
-          newQC = oldQC;
-      }
-      updatePayload = {field: true};
-    } else {
-      // Unchecking: also uncheck all subsequent fields to maintain sequence
-      switch (field) {
-        case 'testRide':
-          newQC = oldQC.copyWith(
-            testRide: false,
-            safetyChecks: false,
-            noLeaks: false,
-            noErrorLights: false,
-          );
-          updatePayload = {
-            'testRide': false,
-            'safetyChecks': false,
-            'noLeaks': false,
-            'noErrorLights': false,
-          };
-          break;
-        case 'safetyChecks':
-          newQC = oldQC.copyWith(
-            safetyChecks: false,
-            noLeaks: false,
-            noErrorLights: false,
-          );
-          updatePayload = {
-            'safetyChecks': false,
-            'noLeaks': false,
-            'noErrorLights': false,
-          };
-          break;
-        case 'noLeaks':
-          newQC = oldQC.copyWith(noLeaks: false, noErrorLights: false);
-          updatePayload = {'noLeaks': false, 'noErrorLights': false};
-          break;
-        case 'noErrorLights':
-          newQC = oldQC.copyWith(noErrorLights: false);
-          updatePayload = {'noErrorLights': false};
-          break;
-        default:
-          newQC = oldQC;
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _booking = _booking!.copyWith(qc: newQC);
-      });
-    }
-
-    try {
-      await _service.updateBookingDetails(_booking!.id, {'qc': updatePayload});
-      // Optionally reload to ensure sync with server
-      await _load(_booking!.id);
-    } catch (e) {
-      if (mounted) {
-        // Rollback on error
-        setState(() {
-          _booking = _booking!.copyWith(qc: oldQC);
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to update QC')));
-      }
-    }
   }
 
   Future<void> _confirmQC() async {
     if (_booking == null) return;
 
-    final qc = _booking!.qc;
-    final allChecked =
-        (qc?.testRide ?? false) &&
-        (qc?.safetyChecks ?? false) &&
-        (qc?.noLeaks ?? false) &&
-        (qc?.noErrorLights ?? false);
-
-    if (!allChecked) {
+    if (!(_testRideChecked &&
+        _safetyChecksChecked &&
+        _noLeaksChecked &&
+        _noErrorLightsChecked)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please complete all QC checks')),
@@ -1119,14 +1014,25 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     setState(() => _isSaving = true);
     try {
       await _service.updateBookingDetails(_booking!.id, {
-        'qc': {'completedAt': DateTime.now().toIso8601String()},
+        'qc': {
+          'testRide': _testRideChecked,
+          'safetyChecks': _safetyChecksChecked,
+          'noLeaks': _noLeaksChecked,
+          'noErrorLights': _noErrorLightsChecked,
+          'completedAt': DateTime.now().toIso8601String(),
+        },
       });
       await _load(_booking!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QC completed successfully')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to confirm QC')));
+        ).showSnackBar(const SnackBar(content: Text('Failed to complete QC')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

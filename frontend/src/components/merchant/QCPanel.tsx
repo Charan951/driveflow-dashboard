@@ -19,25 +19,10 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
 
   const handleCheck = (key: string) => {
-    setChecklist(prev => {
-        const newValue = !prev[key as keyof typeof prev];
-        const newChecklist = { ...prev, [key]: newValue };
-        
-        if (!newValue) {
-            // Unchecking: also uncheck all subsequent to maintain sequence
-            if (key === 'testRide') {
-                newChecklist.safetyChecks = false;
-                newChecklist.noLeaks = false;
-                newChecklist.noErrorLights = false;
-            } else if (key === 'safetyChecks') {
-                newChecklist.noLeaks = false;
-                newChecklist.noErrorLights = false;
-            } else if (key === 'noLeaks') {
-                newChecklist.noErrorLights = false;
-            }
-        }
-        return newChecklist;
-    });
+    setChecklist(prev => ({
+        ...prev,
+        [key]: !prev[key as keyof typeof prev]
+    }));
   };
 
   const handleSaveQC = async () => {
@@ -86,7 +71,7 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
             </div>
             
             <div 
-                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.testRide || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${booking.qc?.completedAt ? 'pointer-events-none opacity-80' : ''}`} 
                 onClick={() => handleCheck('safetyChecks')}
             >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.safetyChecks ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
@@ -96,7 +81,7 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
             </div>
 
             <div 
-                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.safetyChecks || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${booking.qc?.completedAt ? 'pointer-events-none opacity-80' : ''}`} 
                 onClick={() => handleCheck('noLeaks')}
             >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.noLeaks ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
@@ -106,7 +91,7 @@ const QCPanel: React.FC<QCPanelProps> = ({ booking, onUpdate }) => {
             </div>
 
             <div 
-                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${(!checklist.noLeaks || booking.qc?.completedAt) ? 'pointer-events-none opacity-50' : ''}`} 
+                className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted ${booking.qc?.completedAt ? 'pointer-events-none opacity-80' : ''}`} 
                 onClick={() => handleCheck('noErrorLights')}
             >
                 <div className={`w-6 h-6 rounded border flex items-center justify-center ${checklist.noErrorLights ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400'}`}>
