@@ -21,7 +21,7 @@ export const initSocket = (server) => {
   if (!allowed.includes('https://car.speshwayhrms.com')) {
     allowed.push('https://car.speshwayhrms.com');
   }
-
+//ddd
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
