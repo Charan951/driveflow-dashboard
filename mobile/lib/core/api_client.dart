@@ -35,9 +35,24 @@ class ApiClient {
     } on FormatException {
       final status = res.statusCode;
       final code = status >= 400 ? status : 500;
+      
+      // If we got HTML, it might be an Nginx error page
+      String errorMessage = 'Unexpected response format from server';
+      if (res.body.contains('<html>') || res.body.contains('<!DOCTYPE html>')) {
+        if (status == 405) {
+          errorMessage = 'Method Not Allowed (405). Possible server misconfiguration.';
+        } else if (status == 502) {
+          errorMessage = 'Bad Gateway (502). The server might be down.';
+        } else if (status == 404) {
+          errorMessage = 'API endpoint not found (404).';
+        } else {
+          errorMessage = 'Server error ($status). Received HTML instead of JSON.';
+        }
+      }
+      
       throw ApiException(
         statusCode: code,
-        message: 'Unexpected response format from server',
+        message: errorMessage,
       );
     }
 

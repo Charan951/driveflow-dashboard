@@ -24,8 +24,36 @@ class ApiClient {
   static const Duration _uploadTimeout = Duration(seconds: 60);
 
   dynamic _decodeBody(http.Response res) {
-    final rawBody = res.body.isEmpty ? 'null' : res.body;
-    final decoded = jsonDecode(rawBody);
+    if (res.body.isEmpty) {
+      if (res.statusCode >= 400) {
+        throw ApiException(statusCode: res.statusCode, message: 'Request failed');
+      }
+      return null;
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } on FormatException {
+      final status = res.statusCode;
+      final code = status >= 400 ? status : 500;
+      
+      String errorMessage = 'Unexpected response format from server';
+      if (res.body.contains('<html>') || res.body.contains('<!DOCTYPE html>')) {
+        if (status == 405) {
+          errorMessage = 'Method Not Allowed (405). Possible server misconfiguration.';
+        } else if (status == 502) {
+          errorMessage = 'Bad Gateway (502). The server might be down.';
+        } else if (status == 404) {
+          errorMessage = 'API endpoint not found (404).';
+        } else {
+          errorMessage = 'Server error ($status). Received HTML instead of JSON.';
+        }
+      }
+      
+      throw ApiException(statusCode: code, message: errorMessage);
+    }
+
     if (res.statusCode >= 400) {
       final message = decoded is Map && decoded['message'] != null
           ? decoded['message'].toString()

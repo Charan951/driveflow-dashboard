@@ -10,9 +10,6 @@ let io;
 const activeBookingCache = new Map();
 
 export const initSocket = (server) => {
-  const allowedOrigins = process.env.FRONTEND_URLS
-    ? process.env.FRONTEND_URLS.split(',')
-    : [];
   const isDev = process.env.NODE_ENV !== 'production';
   const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
 
@@ -20,7 +17,9 @@ export const initSocket = (server) => {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        const normalized = origin.trim();
+        const normalized = origin.trim().replace(/\/$/, "");
+        const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().replace(/\/$/, "")) : [];
+        
         const allowedByEnv =
           allowedOrigins.includes('*') || allowedOrigins.includes(normalized);
         const allowedByDevDefault =
@@ -29,7 +28,7 @@ export const initSocket = (server) => {
         if (allowedByEnv || allowedByDevDefault) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS (socket.io)'));
+          callback(new Error(`Not allowed by CORS (socket.io): ${origin}`));
         }
       },
       methods: ['GET', 'POST'],

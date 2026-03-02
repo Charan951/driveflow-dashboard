@@ -35,8 +35,6 @@ const PORT = process.env.PORT || 5000;
 console.log('Mongo URI:', process.env.MONGO_URI);
 
 // CORS Configuration
-const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : [];
-
 const isDev = process.env.NODE_ENV !== 'production';
 const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
 
@@ -44,7 +42,16 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    const normalizedOrigin = origin.trim();
+    
+    // In production, also allow all subdomains if needed or just be permissive if the user is having issues
+    // For now, let's just make sure we're comparing correctly
+    const normalizedOrigin = origin.trim().replace(/\/$/, ""); // Remove trailing slash if any
+    
+    const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().replace(/\/$/, "")) : [];
+    
+    const isDev = process.env.NODE_ENV !== 'production';
+    const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:'];
+
     const allowedByEnv =
       allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin);
     const allowedByDevDefault =
@@ -53,10 +60,13 @@ const corsOptions = {
     if (allowedByEnv || allowedByDevDefault) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log(`CORS blocked for origin: ${origin}`);
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 };
 
 // Middleware
@@ -81,7 +91,6 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/audit', auditRoutes);
-// app.use('/api/upload', uploadRoutes); // already added above
 app.use('/api/upload', uploadRoutes);
 
 // Static files (removed as we are using Cloudinary)
