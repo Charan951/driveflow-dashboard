@@ -6,18 +6,21 @@ export interface Service {
   description: string;
   price: number;
   duration: number;
-  category: 'Periodic' | 'Repair' | 'Wash' | 'Tyres' | 'Denting' | 'Painting' | 'Detailing' | 'AC' | 'Accessories' | 'Other';
+  estimationTime?: string;
+  category: 'Services' | 'Periodic' | 'Wash' | 'Car Wash' | 'Tyre & Battery' | 'Tyres' | 'Battery' | 'Insurance' | 'Painting' | 'Denting' | 'Repair' | 'Detailing' | 'AC' | 'Accessories' | 'Other';
   vehicleType: 'Car';
   image?: string;
   features?: string[];
+  isQuickService?: boolean;
 }
 
 export const serviceService = {
-  getServices: async (vehicleType?: string, category?: string) => {
+  getServices: async (vehicleType?: string, category?: string, isQuickService?: boolean) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {};
     if (vehicleType) params.vehicleType = vehicleType;
     if (category) params.category = category;
+    if (isQuickService !== undefined) params.isQuickService = isQuickService;
     const response = await api.get('/services', { params });
     return response.data;
   },

@@ -120,7 +120,8 @@ export const getETA = async (req, res) => {
       return res.status(502).json({ message: 'Routing lookup failed' });
     }
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    console.error('Error in updateUserLocation:', error);
+    return res.status(500).json({ message: error.message, stack: error.stack });
   }
 };
 
@@ -131,6 +132,10 @@ export const updateUserLocation = async (req, res) => {
   const { lat, lng, address, bookingId } = req.body;
   
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const user = await User.findById(req.user._id);
     if (user) {
       // Preserve existing location data if not provided

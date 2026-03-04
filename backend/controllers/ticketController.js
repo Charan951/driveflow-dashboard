@@ -1,5 +1,6 @@
 import Ticket from '../models/Ticket.js';
 import { getIO } from '../socket.js';
+import { sendPushToRole, sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Get all tickets (Admin/Support)
 // @route   GET /api/tickets/all
@@ -43,6 +44,15 @@ export const createTicket = async (req, res) => {
     try {
       const io = getIO();
       io.to('admin').emit('ticketCreated', populatedTicket);
+      
+      // Save notification and send push to admins
+      sendPushToRole(
+        'admin',
+        'New Support Ticket',
+        `New ticket #${populatedTicket._id.toString().slice(-6)}: ${populatedTicket.subject}`,
+        { ticketId: populatedTicket._id.toString(), type: 'support' },
+        'support'
+      ).catch(err => console.error('Admin ticket notification error:', err));
     } catch (error) {
       console.error('Socket emit failed:', error.message);
     }
@@ -146,6 +156,26 @@ export const addMessage = async (req, res) => {
         io.to('admin').emit('ticketUpdated', populatedTicket);
         io.to(`ticket_${ticket._id}`).emit('ticketUpdated', populatedTicket);
         io.to(`user_${ticket.user}`).emit('ticketUpdated', populatedTicket);
+        
+        // Notify customer if admin/staff replied
+        if (req.user.role === 'admin' || req.user.role === 'staff') {
+            sendPushToUser(
+                ticket.user,
+                'Support Ticket Update',
+                `A reply has been added to your ticket #${ticket._id.toString().slice(-6)}`,
+                { ticketId: ticket._id.toString(), type: 'support' },
+                'support'
+            ).catch(err => console.error('Customer ticket notification error:', err));
+        } else {
+            // Notify admins if customer replied
+            sendPushToRole(
+                'admin',
+                'Ticket Reply Received',
+                `User ${req.user.name} replied to ticket #${ticket._id.toString().slice(-6)}`,
+                { ticketId: ticket._id.toString(), type: 'support' },
+                'support'
+            ).catch(err => console.error('Admin ticket reply notification error:', err));
+        }
       } catch (error) {
         console.error('Socket emit failed:', error.message);
       }

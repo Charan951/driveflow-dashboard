@@ -86,7 +86,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
       final results = await Future.wait<dynamic>([
         _vehicleService.listMyVehicles(),
         _bookingService.listMyBookings(),
-        _catalogService.listServices(),
+        _catalogService.listServices(isQuickService: true),
       ]);
 
       if (mounted) {
@@ -167,13 +167,13 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
       case 'SERVICE_STARTED':
+      case 'SERVICE_IN_PROGRESS':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
         return 'Ready';
       case 'OUT_FOR_DELIVERY':
-        return 'Waiting for Staff Pickup';
+        return 'Out for Delivery';
       case 'DELIVERED':
-        return 'Delivered';
       case 'COMPLETED':
         return 'Delivered';
       case 'CANCELLED':

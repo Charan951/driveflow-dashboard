@@ -47,6 +47,9 @@ class TrackingProvider extends ChangeNotifier {
     'REACHED_CUSTOMER',
     'VEHICLE_PICKED',
     'REACHED_MERCHANT',
+    'VEHICLE_AT_MERCHANT',
+    'SERVICE_IN_PROGRESS',
+    'SERVICE_COMPLETED',
     'OUT_FOR_DELIVERY',
   ];
 
@@ -125,7 +128,8 @@ class TrackingProvider extends ChangeNotifier {
       'REACHED_CUSTOMER',
       'VEHICLE_PICKED',
       'REACHED_MERCHANT',
-      'SERVICE_STARTED',
+      'VEHICLE_AT_MERCHANT',
+      'SERVICE_IN_PROGRESS',
       'SERVICE_COMPLETED',
       'OUT_FOR_DELIVERY',
       'DELIVERED',
@@ -147,6 +151,12 @@ class TrackingProvider extends ChangeNotifier {
         return 'Vehicle picked & heading to workshop';
       case 'REACHED_MERCHANT':
         return 'Staff reached workshop';
+      case 'VEHICLE_AT_MERCHANT':
+        return 'Vehicle is at workshop';
+      case 'SERVICE_IN_PROGRESS':
+        return 'Service in progress';
+      case 'SERVICE_COMPLETED':
+        return 'Service completed';
       case 'OUT_FOR_DELIVERY':
         return 'Vehicle is out for delivery';
       default:

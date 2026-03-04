@@ -7,12 +7,12 @@ import {
   Car, 
   Wrench, 
   Calendar, 
-  MapPin, 
-  Search,
+  MapPin,
   Sparkles,
   Hammer,
   Droplets,
   Disc,
+  Battery,
   Snowflake,
   Package,
   Star,
@@ -31,7 +31,12 @@ import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const steps = ['Vehicle', 'Category', 'Sub-category', 'Schedule', 'Confirm'];
+const steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
+
+const COMMON_TIRE_SIZES = [
+  '145/70 R12', '155/80 R13', '165/80 R14', '175/65 R14', '185/65 R15', 
+  '195/55 R16', '205/55 R16', '215/60 R16', '225/45 R17', '235/45 R18'
+];
 
 const BookServicePage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,32 +44,15 @@ const BookServicePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
+  const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All'>('All');
   const [showCustomLocation, setShowCustomLocation] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-
-  // Handle category from search params
-  useEffect(() => {
-    const categoryParam = searchParams.get('category') || 'Periodic';
-    if (categoryParam) {
-      setSelectedCategory(categoryParam);
-      setSelectedSubCategory(null);
-      setSelectedServices([]);
-      // If we are past Step 1, we might want to stay in Step 1 or 2
-      if (currentStep > 1) {
-        setCurrentStep(1);
-      }
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [tireSizes, setTireSizes] = useState<Record<string, string>>({});
+  const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
+  const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -80,7 +68,6 @@ const BookServicePage: React.FC = () => {
   useEffect(() => {
     if (location.state?.service) {
       const service = location.state.service as Service;
-      setSelectedCategory(service.category);
       setSelectedServices([service._id]);
       // If we have a pre-selected service, we might want to hint this to the user
       toast.info(`Booking for ${service.name} initialized. Please select your vehicle.`);
@@ -92,7 +79,7 @@ const BookServicePage: React.FC = () => {
       const [servicesData, vehiclesData, pendingData] = await Promise.all([
         serviceService.getServices(),
         vehicleService.getVehicles(),
-        reviewService.checkPendingFeedback()
+        reviewService.checkPendingFeedback(),
       ]);
       setServices(servicesData);
       setVehicles(vehiclesData);
@@ -107,23 +94,15 @@ const BookServicePage: React.FC = () => {
     }
   };
 
-  const categories = [
-    { id: 'Periodic', label: '1. SERVICES', icon: Wrench, subcategories: ['General Service', 'Body Shop', 'Insurance Claim'] },
-    { id: 'Wash', label: '2. CAR WASH', icon: Droplets, subcategories: ['Exterior only (45 mins)', 'Interior + Exterior (60–70 mins)', 'Interior + Exterior + Underbody (90 mins)'] },
-    { id: 'Tyres', label: '3. TYRES & BATTERY', icon: Disc, subcategories: ['Default OEM size', 'Customer can opt change', 'Amaron Battery', 'Exide Battery'] },
-    { id: 'Insurance', label: '4. INSURANCE', icon: Shield, subcategories: ['INSURANCE'] },
-  ];
-
   const canProceed = () => {
     switch (currentStep) {
       case 0: return selectedVehicle !== null;
-      case 1: return selectedCategory !== null;
-      case 2: return selectedSubCategory !== null;
-      case 3: 
+      case 1: return selectedServices.length > 0;
+      case 2: 
         const isScheduleComplete = selectedDate !== null && selectedTime !== null;
         const isAddressComplete = pickupLocation.address.trim() !== '';
         return isScheduleComplete && isAddressComplete;
-      case 4: return true;
+      case 3: return true;
       default: return false;
     }
   };
@@ -141,6 +120,10 @@ const BookServicePage: React.FC = () => {
       setShowCustomLocation(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    setActiveSubCategory('All');
+  }, [searchParams]);
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
@@ -173,8 +156,14 @@ const BookServicePage: React.FC = () => {
         serviceIds: selectedServices,
         date: bookingDate.toISOString(),
         location: pickupLocation.address.trim() !== '' ? pickupLocation : undefined,
-        notes: ""
-      };
+        notes: selectedServicesData.map(service => {
+          const size = tireSizes[service._id];
+          const qty = serviceQuantities[service._id] || 1;
+          let note = `${service.name} (Qty: ${qty})`;
+          if (size) note += ` - Size: ${size}`;
+          return note;
+        }).join(', ')
+        };
 
       const newBooking = await bookingService.createBooking(bookingData);
       toast.success('Booking confirmed! We have scheduled your service.');
@@ -192,7 +181,41 @@ const BookServicePage: React.FC = () => {
 
   const selectedVehicleData = vehicles.find(v => v._id === selectedVehicle);
   const selectedServicesData = services.filter(s => selectedServices.includes(s._id));
-  const totalPrice = selectedServicesData.reduce((sum, service) => sum + service.price, 0);
+  const totalPrice = selectedServicesData.reduce((sum, service) => {
+    const qty = serviceQuantities[service._id] || 1;
+    return sum + (service.price * qty);
+  }, 0);
+
+  const categoryMap: Record<string, string[]> = {
+    'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
+    'Wash': ['Car Wash', 'Wash', 'Detailing'],
+    'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
+    'Insurance': ['Insurance'],
+    'Other': ['Other', 'Painting', 'Denting', 'Accessories']
+  };
+
+  const filteredServices = services.filter(service => {
+    const categoryParam = searchParams.get('category');
+    let matchesCategory = true;
+    
+    if (categoryParam) {
+      const allowedCategories = categoryMap[categoryParam] || [categoryParam];
+      matchesCategory = allowedCategories.includes(service.category);
+    }
+    
+    // Add sub-category filtering for Tyres
+    if (categoryParam === 'Tyres' && activeSubCategory !== 'All') {
+      if (activeSubCategory === 'Tyres') {
+        // Show services that are either 'Tyres' or specifically 'Tyre & Battery'
+        matchesCategory = matchesCategory && (service.category === 'Tyres' || service.category === 'Tyre & Battery');
+      } else if (activeSubCategory === 'Battery') {
+        // Show services that are either 'Battery' or specifically 'Tyre & Battery'
+        matchesCategory = matchesCategory && (service.category === 'Battery' || service.category === 'Tyre & Battery');
+      }
+    }
+    
+    return matchesCategory;
+  });
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -325,103 +348,168 @@ const BookServicePage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 1: Select Category */}
+            {/* Step 2: Select Service */}
             {currentStep === 1 && (
               <div className="space-y-6">
-                <h2 className="text-lg font-semibold text-foreground">Select Service Category</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {categories.map((cat) => (
-                    <motion.button
-                      key={cat.id}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setSelectedCategory(cat.id);
-                        setSelectedSubCategory(null);
-                        setSelectedServices([]);
-                        setCurrentStep(2);
-                      }}
-                      className={`flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
-                        selectedCategory === cat.id
-                          ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                          : 'border-border bg-card hover:border-primary/50'
-                      }`}
-                    >
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
-                        selectedCategory === cat.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
-                      }`}>
-                        <cat.icon className="w-8 h-8" />
-                      </div>
-                      <div className="text-center">
-                        <span className="font-bold text-foreground block">{cat.label.replace(/^\d+\.\s+/, '')}</span>
-                      </div>
-                      {selectedCategory === cat.id && (
-                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary-foreground" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
+                  
+                  {/* Sub-category Tabs for Tyres & Battery */}
+                  {searchParams.get('category') === 'Tyres' && (
+                    <div className="flex gap-2 p-1 bg-muted rounded-xl w-fit">
+                      <button
+                        onClick={() => setActiveSubCategory('All')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          activeSubCategory === 'All'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        onClick={() => setActiveSubCategory('Tyres')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          activeSubCategory === 'Tyres'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Disc className="w-4 h-4" />
+                          Tires
                         </div>
-                      )}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Select Sub-category */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">
-                    Select Sub-category
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categories.find(c => c.id === selectedCategory)?.subcategories.map((sub) => (
-                    <motion.button
-                      key={sub}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setSelectedSubCategory(sub);
-                        // Find matching service and auto-select it
-                        const matchingService = services.find(s => 
-                          s.name.toLowerCase() === sub.toLowerCase() || 
-                          s.name.toLowerCase().includes(sub.toLowerCase())
-                        );
-                        if (matchingService) {
-                          setSelectedServices([matchingService._id]);
-                          // Auto proceed to next step (Schedule)
-                          setCurrentStep(3);
-                        }
-                      }}
-                      className={`flex items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
-                        selectedSubCategory === sub
-                          ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                          : 'border-border bg-card hover:border-primary/50'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        selectedSubCategory === sub ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
-                      }`}>
-                        <Wrench className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <span className="font-bold text-foreground block">{sub}</span>
-                        <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
-                          {categories.find(c => c.id === selectedCategory)?.label.replace(/^\d+\.\s+/, '')}
-                        </span>
-                      </div>
-                      {selectedSubCategory === sub && (
-                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary-foreground" />
+                      </button>
+                      <button
+                        onClick={() => setActiveSubCategory('Battery')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          activeSubCategory === 'Battery'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Battery className="w-4 h-4" />
+                          Battery
                         </div>
-                      )}
-                    </motion.button>
-                  ))}
+                      </button>
+                    </div>
+                  )}
                 </div>
+                
+                {filteredServices.length === 0 ? (
+                  <div className="text-center py-12 bg-card rounded-2xl border-2 border-dashed border-border">
+                    <p className="text-muted-foreground">No services found for your selection.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {filteredServices.map((service) => (
+                      <div key={service._id} className="flex flex-col gap-3">
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => toggleService(service._id)}
+                          className={`flex items-center gap-4 p-6 rounded-2xl border-2 transition-all w-full ${
+                            selectedServices.includes(service._id)
+                              ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                              : 'border-border bg-card hover:border-primary/50'
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                            selectedServices.includes(service._id) ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                          }`}>
+                            <img src={service.image} alt={service.name} className="w-full h-full object-cover rounded-xl" />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <span className="font-bold text-lg text-foreground block">{service.name}</span>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Price: ₹{service.price}</span>
+                              <span>Time: {service.duration} mins</span>
+                            </div>
+                          </div>
+                          {selectedServices.includes(service._id) && (
+                            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                          )}
+                        </motion.button>
+
+                        {/* Size Selection for "Customer can opt change" or services with "change" in name */}
+                        {selectedServices.includes(service._id) && 
+                         (service.name.toLowerCase().includes('change') || service.name.toLowerCase().includes('size')) && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-card border-2 border-primary/20 rounded-2xl p-6 ml-4 space-y-4"
+                          >
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-bold text-foreground uppercase tracking-wider">Select Size</label>
+                              <button 
+                                onClick={() => {
+                                  setIsManualSize(prev => ({ ...prev, [service._id]: !prev[service._id] }));
+                                  setTireSizes(prev => ({ ...prev, [service._id]: '' }));
+                                }}
+                                className="text-xs font-bold text-primary hover:underline"
+                              >
+                                {isManualSize[service._id] ? 'Choose from list' : 'Enter manual size'}
+                              </button>
+                            </div>
+                            
+                            {isManualSize[service._id] ? (
+                              <input 
+                                type="text"
+                                placeholder="e.g. 205/55 R16"
+                                value={tireSizes[service._id] || ''}
+                                onChange={(e) => setTireSizes(prev => ({ ...prev, [service._id]: e.target.value }))}
+                                className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium"
+                              />
+                            ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                {COMMON_TIRE_SIZES.map(size => (
+                                  <button
+                                    key={size}
+                                    onClick={() => setTireSizes(prev => ({ ...prev, [service._id]: size }))}
+                                    className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                      tireSizes[service._id] === size
+                                        ? 'border-primary bg-primary/10 text-primary'
+                                        : 'border-border bg-muted/20 hover:border-primary/30'
+                                    }`}
+                                  >
+                                    {size}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Quantity Selection */}
+                            <div className="space-y-3 pt-4 border-t border-border/50">
+                              <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Quantity</label>
+                              <div className="flex flex-wrap gap-2">
+                                {[1, 2, 3, 4, 5].map(qty => (
+                                  <button
+                                    key={qty}
+                                    onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
+                                    className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+                                      (serviceQuantities[service._id] || 1) === qty
+                                        ? 'border-primary bg-primary/10 text-primary'
+                                        : 'border-border bg-muted/20 hover:border-primary/30'
+                                    }`}
+                                  >
+                                    {qty}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Step 3: Schedule */}
-            {currentStep === 3 && (
+            {currentStep === 2 && (
               <div className="space-y-8">
                 <div className="bg-card rounded-[2rem] border-2 border-border p-8 shadow-sm">
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -542,7 +630,7 @@ const BookServicePage: React.FC = () => {
             )}
 
             {/* Step 4: Confirm */}
-            {currentStep === 4 && (
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold">Confirm Booking</h2>
                 
@@ -561,18 +649,27 @@ const BookServicePage: React.FC = () => {
                   </div>
                   
                   <div className="flex flex-col gap-4 pb-4 border-b border-border">
-                    {selectedServicesData.map(service => (
-                      <div key={service._id} className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <Wrench className="w-6 h-6 text-primary" />
+                    {selectedServicesData.map(service => {
+                      const qty = serviceQuantities[service._id] || 1;
+                      const size = tireSizes[service._id];
+                      return (
+                        <div key={service._id} className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Wrench className="w-6 h-6 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-foreground">{service.name}</p>
+                            <p className="text-sm text-muted-foreground">{service.duration} mins • Qty: {qty}</p>
+                            {size && (
+                              <p className="text-xs font-bold text-primary mt-1 uppercase tracking-wider">
+                                Size: {size}
+                              </p>
+                            )}
+                          </div>
+                          <p className="text-lg font-bold text-primary">₹{service.price * qty}</p>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-foreground">{service.name}</p>
-                          <p className="text-sm text-muted-foreground">{service.duration} mins</p>
-                        </div>
-                        <p className="text-lg font-bold text-primary">₹{service.price}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <div className="flex justify-between items-center pt-2">
                         <span className="font-semibold text-muted-foreground">Total</span>
                         <span className="text-xl font-bold text-primary">₹{totalPrice}</span>

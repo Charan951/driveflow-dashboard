@@ -164,11 +164,11 @@ const PublicServices = () => {
             <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
               {isDetailView && displayServices.length > 0 ? displayServices[0].name : 'Our Services'}
             </h1>
-            <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
+            {/* <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
               {isDetailView && displayServices.length > 0
                 ? displayServices[0].description
                 : 'Comprehensive automotive care solutions designed for your convenience and safety.'}
-            </p>
+            </p> */}
           </motion.div>
         </div>
       </section>

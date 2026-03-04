@@ -310,9 +310,13 @@ export const createUser = async (req, res) => {
 // @access  Private
 export const updateOnlineStatus = async (req, res) => {
   const { isOnline } = req.body;
-  console.log(`Updating online status for user ${req.user._id}: ${isOnline}`);
   
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    console.log(`Updating online status for user ${req.user._id}: ${isOnline}`);
     const user = await User.findById(req.user._id);
     
     if (user) {
@@ -346,8 +350,8 @@ export const updateOnlineStatus = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
-    console.error('Error updating online status:', error.message);
-    res.status(500).json({ message: error.message });
+    console.error('Error updating online status:', error);
+    res.status(500).json({ message: error.message, stack: error.stack });
   }
 };
 

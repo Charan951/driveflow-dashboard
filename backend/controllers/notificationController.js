@@ -82,6 +82,24 @@ export const markAsRead = async (req, res) => {
   }
 };
 
+// @desc    Delete a notification
+// @route   DELETE /api/notifications/:id
+// @access  Private/Admin
+export const deleteNotification = async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    await notification.deleteOne();
+    res.json({ message: 'Notification deleted' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Clear my notifications
 // @route   DELETE /api/notifications/my
 // @access  Private

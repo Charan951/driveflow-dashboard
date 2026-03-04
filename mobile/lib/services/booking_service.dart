@@ -84,28 +84,4 @@ class BookingService {
       body: {'bookingId': bookingId},
     );
   }
-
-  Future<Map<String, dynamic>> createRazorpayOrder(String bookingId) async {
-    return await _api.postJson(
-      ApiEndpoints.paymentsCreateOrder,
-      body: {'bookingId': bookingId},
-    );
-  }
-
-  Future<Map<String, dynamic>> verifyPayment({
-    required String bookingId,
-    required String razorpayOrderId,
-    required String razorpayPaymentId,
-    required String razorpaySignature,
-  }) async {
-    return await _api.postJson(
-      ApiEndpoints.paymentsVerifyPayment,
-      body: {
-        'razorpay_order_id': razorpayOrderId,
-        'razorpay_payment_id': razorpayPaymentId,
-        'razorpay_signature': razorpaySignature,
-        'bookingId': bookingId,
-      },
-    );
-  }
 }

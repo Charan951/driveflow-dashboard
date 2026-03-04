@@ -21,7 +21,8 @@ import {
   FileClock,
   LogOut,
   X,
-  Menu
+  Menu,
+  Bell
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -40,8 +41,10 @@ const adminMenuItems = [
   { icon: FileText, label: 'Documents', path: '/admin/documents' },
   { icon: Shield, label: 'Insurance', path: '/admin/insurance' },
   { icon: Package, label: 'Stock', path: '/admin/stock' },
+  { icon: Package, label: 'Services', path: '/admin/services' },
   { icon: Headphones, label: 'Support', path: '/admin/support' },
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },
+  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
@@ -50,7 +53,7 @@ const adminMenuItems = [
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const handleLogout = () => {
@@ -132,15 +135,41 @@ export const AdminLayout: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <header className="lg:hidden h-16 border-b border-border flex items-center px-4 bg-card">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-muted rounded-lg"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="ml-4 font-semibold">DriveFlow Admin</span>
+        {/* Global Header */}
+        <header className="sticky top-0 z-30 h-16 border-b border-border flex items-center justify-between px-4 lg:px-8 bg-card/95 backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-muted rounded-lg"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <span className="font-bold text-xl lg:hidden">DriveFlow Admin</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Notification Bell */}
+            <Link 
+              to="/admin/notifications"
+              className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-all duration-200"
+              title="Notifications"
+            >
+              <Bell className="w-6 h-6" />
+              {/* Optional: Add a badge here if you have a count */}
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-600 border-2 border-card rounded-full" />
+            </Link>
+
+            {/* User Info - Optional but good for UI */}
+             <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-border">
+               <div className="text-right">
+                 <p className="text-sm font-semibold">{user?.name}</p>
+                 <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+               </div>
+               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                 {user?.name?.charAt(0)}
+               </div>
+             </div>
+          </div>
         </header>
 
         {/* Content Area */}

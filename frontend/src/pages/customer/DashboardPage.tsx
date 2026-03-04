@@ -35,7 +35,7 @@ const DashboardPage: React.FC = () => {
         const [vehiclesData, bookingsData, servicesData] = await Promise.all([
           vehicleService.getVehicles(),
           bookingService.getMyBookings(),
-          serviceService.getServices()
+          serviceService.getServices(undefined, undefined, true)
         ]);
         setVehicles(vehiclesData);
         setBookings(bookingsData);

@@ -236,7 +236,7 @@ const LiveTrackingNotification: React.FC = () => {
                   </span>
                 </div>
                 
-                {eta ? (
+                {eta?.duration?.text && eta?.distance?.text ? (
                   <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />

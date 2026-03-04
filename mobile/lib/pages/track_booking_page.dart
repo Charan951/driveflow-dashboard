@@ -747,7 +747,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         return 'Reached Garage';
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
-      case 'SERVICE_STARTED':
+      case 'SERVICE_IN_PROGRESS':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
         return 'Ready';
@@ -761,84 +761,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         return 'Cancelled';
       default:
         return status;
-    }
-  }
-
-  Future<void> _handleMarkAtMerchant() async {
-    final booking = _booking;
-    if (booking == null) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Arrival'),
-        content: const Text(
-          'This button will work only when you are near the workshop (within 200 meters). We will check your location now.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final merchantLat = booking.merchantLocation?.lat;
-    final merchantLng = booking.merchantLocation?.lng;
-
-    if (merchantLat == null || merchantLng == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Workshop location is not available')),
-      );
-      return;
-    }
-
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        merchantLat,
-        merchantLng,
-      );
-
-      if (distance > 200) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'You are not close enough to the workshop (within 200 m)',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final updated = await _service.updateBookingStatus(
-        booking.id,
-        'VEHICLE_AT_MERCHANT',
-      );
-      if (!mounted) return;
-      setState(() => _booking = updated);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Status updated to At Merchant')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
     }
   }
 
@@ -865,6 +787,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'REACHED_CUSTOMER' ||
             booking.status == 'VEHICLE_PICKED' ||
             booking.status == 'REACHED_MERCHANT' ||
+            booking.status == 'VEHICLE_AT_MERCHANT' ||
+            booking.status == 'SERVICE_IN_PROGRESS' ||
+            booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
 
     int currentIndex = -1;
@@ -884,7 +809,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         case 'VEHICLE_AT_MERCHANT':
           currentIndex = 2;
           break;
-        case 'SERVICE_STARTED':
+        case 'SERVICE_IN_PROGRESS':
           currentIndex = 3;
           break;
         case 'SERVICE_COMPLETED':
@@ -1994,31 +1919,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ],
                 ),
               ),
-              if (booking.status == 'REACHED_MERCHANT') ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _handleMarkAtMerchant,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'I have arrived at Workshop',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               if ((booking.status == 'DELIVERED' ||
                       booking.status == 'COMPLETED') &&
                   (!_hasMerchantReview || !_hasPlatformReview)) ...[

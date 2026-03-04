@@ -1,14 +1,36 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/store/authStore';
 
 const SocketNotificationListener = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user, role: userRole } = useAuthStore();
 
   useEffect(() => {
+    if (!user) return;
+
     // Connect to socket if not connected
     socketService.connect();
+
+    socketService.on('connect', () => {
+      console.log('Socket connected in listener, joining rooms...');
+      if (userRole === 'admin') {
+        socketService.joinRoom('admin');
+      }
+      socketService.joinRoom(`user_${user._id}`);
+    });
+
+    // Join rooms immediately if already connected
+    if (userRole === 'admin') {
+      console.log('Joining admin room as user role is admin');
+      socketService.joinRoom('admin');
+    }
+    console.log(`Joining personal room user_${user._id}`);
+    socketService.joinRoom(`user_${user._id}`);
 
     const handleBookingUpdate = (data: any) => {
       console.log('Booking update received:', data);
@@ -29,7 +51,13 @@ const SocketNotificationListener = () => {
           label: 'View',
           onClick: () => {
             // Depending on role, redirect to appropriate page
-            // For now just keep it simple
+            if (userRole === 'admin') {
+              navigate(`/admin/bookings/${data._id}`);
+            } else if (userRole === 'merchant') {
+              navigate(`/merchant/orders/${data._id}`);
+            } else if (userRole === 'customer') {
+              navigate(`/track/${data._id}`);
+            }
           },
         },
       });
@@ -43,6 +71,18 @@ const SocketNotificationListener = () => {
       const orderNum = data.orderNumber || data._id.toString().slice(-6).toUpperCase();
       toast.success(`New Booking`, {
         description: `New booking #${orderNum} has been created!`,
+        action: {
+          label: 'View',
+          onClick: () => {
+            if (userRole === 'admin') {
+              navigate(`/admin/bookings/${data._id}`);
+            } else if (userRole === 'merchant') {
+              navigate(`/merchant/orders/${data._id}`);
+            } else if (userRole === 'customer') {
+              navigate(`/track/${data._id}`);
+            }
+          },
+        },
       });
     };
 
@@ -54,6 +94,18 @@ const SocketNotificationListener = () => {
       const orderNum = data.orderNumber || data._id.toString().slice(-6).toUpperCase();
       toast.error(`Booking Cancelled`, {
         description: `Booking #${orderNum} has been cancelled.`,
+        action: {
+          label: 'View',
+          onClick: () => {
+            if (userRole === 'admin') {
+              navigate(`/admin/bookings/${data._id}`);
+            } else if (userRole === 'merchant') {
+              navigate(`/merchant/orders/${data._id}`);
+            } else if (userRole === 'customer') {
+              navigate(`/track/${data._id}`);
+            }
+          },
+        },
       });
     };
 
@@ -81,6 +133,14 @@ const SocketNotificationListener = () => {
     socketService.on('notification', handleNotification);
 
     return () => {
+      // Clean up rooms
+      if (userRole === 'admin') {
+        socketService.leaveRoom('admin');
+      }
+      if (user?._id) {
+        socketService.leaveRoom(`user_${user._id}`);
+      }
+
       // Clean up listeners
       socketService.off('bookingUpdated');
       socketService.off('bookingCreated');
@@ -88,7 +148,7 @@ const SocketNotificationListener = () => {
       socketService.off('ticketUpdated');
       socketService.off('notification');
     };
-  }, [queryClient]);
+  }, [queryClient, user, userRole, navigate]);
 
   return null; // This component doesn't render anything
 };

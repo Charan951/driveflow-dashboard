@@ -6,8 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || join(__dirname, 'firebase-service-account.json');
-const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+const serviceAccount = JSON.parse(readFileSync(join(__dirname, 'firebase-service-account.json'), 'utf8'));
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)

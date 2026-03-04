@@ -73,16 +73,18 @@ export const initSocket = (server) => {
 
     // Join a specific room
     socket.on('join', (room) => {
+      console.log(`Socket ${socket.id} (User: ${socket.user?.name || 'Guest'}) requested to join room: ${room}`);
       // Security check for admin room
       if (room === 'admin') {
         if (socket.user?.role !== 'admin') {
           console.log(`Unauthorized join attempt to 'admin' room by ${socket.user?.name || 'Guest'}`);
           return;
         }
+        console.log(`Admin ${socket.user?.name} is joining 'admin' room`);
       }
       
       socket.join(room);
-      console.log(`Socket ${socket.id} joined room ${room}`);
+      console.log(`Socket ${socket.id} successfully joined room ${room}`);
       (async () => {
         try {
           if (typeof room === 'string' && room.startsWith('booking_')) {

@@ -93,22 +93,209 @@ class _ServiceListPageState extends State<ServiceListPage> {
     final key = _filterKey;
     if (key == null || key.isEmpty) return services;
     final needle = key.toLowerCase();
+
     bool matches(ServiceItem s) {
       final name = s.name.toLowerCase();
+      final category = s.category?.toLowerCase() ?? '';
+
       if (needle == 'car_wash') {
-        return name.contains('wash') ||
+        return category == 'car wash' ||
+            category == 'wash' ||
+            name.contains('wash') ||
             name.contains('polish') ||
             name.contains('detail');
       }
       if (needle == 'tires_battery') {
-        return name.contains('tire') ||
+        return category == 'tyres' ||
+            category == 'battery' ||
+            category == 'tyre & battery' ||
+            name.contains('tire') ||
             name.contains('tyre') ||
             name.contains('battery');
       }
-      return name.contains(needle);
+      return name.contains(needle) || category.contains(needle);
     }
 
     return services.where(matches).toList();
+  }
+
+  void _showServiceDetails(ServiceItem service, List<ServiceItem> allServices) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final textColor = isDark ? Colors.white : Colors.black87;
+        final subTextColor = isDark ? Colors.white70 : Colors.black54;
+        final imageUrl = _resolveImageUrl(service.image);
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) => Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: ListView(
+              controller: scrollController,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (imageUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  service.name,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (service.category != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      service.category!,
+                      style: const TextStyle(
+                        color: Color(0xFF4F46E5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                Text(
+                  service.description ?? 'No description available.',
+                  style: TextStyle(color: subTextColor, fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+                if (service.features.isNotEmpty) ...[
+                  Text(
+                    "What's Included",
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...service.features.map(
+                    (f) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(f, style: TextStyle(color: textColor)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Service Price',
+                          style: TextStyle(color: subTextColor, fontSize: 12),
+                        ),
+                        Text(
+                          '₹${service.price}',
+                          style: TextStyle(
+                            color: const Color(0xFF4F46E5),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (service.duration != null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Duration',
+                            style: TextStyle(color: subTextColor, fontSize: 12),
+                          ),
+                          Text(
+                            '${service.duration} mins',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openBookServiceFlow(
+                      initialService: service,
+                      services: allServices,
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Book Now',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openBookServiceFlow({
@@ -1182,11 +1369,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     title: s.name,
                     price: s.price,
                     image: s.image,
-                    duration: s.estimatedMinutes,
-                    onTap: () => _openBookServiceFlow(
-                      initialService: s,
-                      services: items,
-                    ),
+                    duration: s.duration,
+                    onTap: () => _showServiceDetails(s, items),
                   );
                 },
               );

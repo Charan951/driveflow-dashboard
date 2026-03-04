@@ -4,7 +4,7 @@ import Service from '../models/Service.js';
 // @route   GET /api/services
 // @access  Public
 export const getServices = async (req, res) => {
-  const { vehicleType, category, service } = req.query;
+  const { vehicleType, category, service, isQuickService } = req.query;
   try {
     const query = {};
 
@@ -18,7 +18,12 @@ export const getServices = async (req, res) => {
 
     // Handle service name search
     if (service) {
-      query.name = service;
+      query.name = { $regex: service, $options: 'i' };
+    }
+
+    // Handle isQuickService filter
+    if (isQuickService !== undefined) {
+      query.isQuickService = isQuickService === 'true';
     }
 
     const services = await Service.find(query);
@@ -32,12 +37,21 @@ export const getServices = async (req, res) => {
 // @route   POST /api/services
 // @access  Private/Admin
 export const createService = async (req, res) => {
-  const { name, description, price, duration, category, vehicleType, image, features } = req.body;
+  const { name, description, price, duration, category, vehicleType, image, features, isQuickService } = req.body;
 
   try {
-    if (!name || !description || typeof price !== 'number' || typeof duration !== 'number' || !category || !vehicleType) {
-      return res.status(400).json({ message: 'Invalid payload: name, description, price (number), duration (number), category, vehicleType are required' });
+    const missingFields = [];
+    if (!name) missingFields.push('name');
+    if (!description) missingFields.push('description');
+    if (typeof price !== 'number') missingFields.push('price (must be number)');
+    if (typeof duration !== 'number') missingFields.push('duration (must be number)');
+    if (!category) missingFields.push('category');
+    if (!vehicleType) missingFields.push('vehicleType');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({ message: `Missing or invalid fields: ${missingFields.join(', ')}` });
     }
+    
     if (price < 0) {
       return res.status(400).json({ message: 'Price must be a positive number' });
     }
@@ -54,6 +68,7 @@ export const createService = async (req, res) => {
       vehicleType,
       image,
       features: Array.isArray(features) ? features : [],
+      isQuickService: isQuickService || false,
     });
 
     const createdService = await service.save();
@@ -67,7 +82,7 @@ export const createService = async (req, res) => {
 // @route   PUT /api/services/:id
 // @access  Private/Admin
 export const updateService = async (req, res) => {
-  const { name, description, price, duration, category, vehicleType, image, features } = req.body;
+  const { name, description, price, duration, category, vehicleType, image, features, isQuickService } = req.body;
 
   try {
     const service = await Service.findById(req.params.id);
@@ -75,6 +90,7 @@ export const updateService = async (req, res) => {
     if (service) {
       if (name !== undefined) service.name = name;
       if (description !== undefined) service.description = description;
+      if (isQuickService !== undefined) service.isQuickService = isQuickService;
       if (price !== undefined) {
         if (typeof price !== 'number' || price < 0) {
           return res.status(400).json({ message: 'Price must be a positive number' });
@@ -87,14 +103,24 @@ export const updateService = async (req, res) => {
         }
         service.duration = duration;
       }
-      if (category !== undefined) service.category = category;
-      if (vehicleType !== undefined) service.vehicleType = vehicleType;
+      if (category !== undefined) {
+        if (!['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Insurance', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Other'].includes(category)) {
+           return res.status(400).json({ message: 'Invalid category' });
+        }
+        service.category = category;
+      }
+      if (vehicleType !== undefined) {
+        if (vehicleType !== 'Car') {
+           return res.status(400).json({ message: 'Invalid vehicle type' });
+        }
+        service.vehicleType = vehicleType;
+      }
       if (image !== undefined) service.image = image;
       if (features !== undefined) {
         if (!Array.isArray(features)) {
           return res.status(400).json({ message: 'Features must be an array of strings' });
         }
-        service.features = features;
+        service.features = features.filter(f => f.trim() !== '');
       }
 
       const updatedService = await service.save();

@@ -100,31 +100,31 @@ export const sendPushToRole = async (role, title, body, data = {}, type = 'gener
     const users = await User.find({ role, 'fcmTokens.0': { $exists: true } });
     const tokens = users.flatMap(u => u.fcmTokens.map(t => t.token));
 
-    if (tokens.length === 0) return { success: false, message: 'No tokens found for this role' };
-
-    const message = {
-      notification: { title, body },
-      data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
-      tokens,
-      android: {
-        priority: 'high',
-        notification: {
-          channelId: 'high_importance_channel',
-          sound: 'default'
+    if (tokens.length > 0) {
+      const message = {
+        notification: { title, body },
+        data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+        tokens,
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'high_importance_channel',
+            sound: 'default'
+          }
         }
+      };
+
+      // FCM has a limit of 500 tokens per multicast message
+      const chunkSize = 500;
+      const tokenChunks = [];
+      for (let i = 0; i < tokens.length; i += chunkSize) {
+        tokenChunks.push(tokens.slice(i, i + chunkSize));
       }
-    };
 
-    // FCM has a limit of 500 tokens per multicast message
-    const chunkSize = 500;
-    const tokenChunks = [];
-    for (let i = 0; i < tokens.length; i += chunkSize) {
-      tokenChunks.push(tokens.slice(i, i + chunkSize));
+      await Promise.all(tokenChunks.map(chunk => 
+        admin.messaging().sendEachForMulticast({ ...message, tokens: chunk })
+      ));
     }
-
-    const responses = await Promise.all(tokenChunks.map(chunk => 
-      admin.messaging().sendEachForMulticast({ ...message, tokens: chunk })
-    ));
 
     // Save one history record for the role broadcast
     await Notification.create({
@@ -135,7 +135,7 @@ export const sendPushToRole = async (role, title, body, data = {}, type = 'gener
       type
     });
 
-    return { success: true, responses };
+    return { success: true };
   } catch (error) {
     console.error('Error sending push to role:', error);
     return { success: false, error: error.message };

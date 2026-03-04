@@ -140,13 +140,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
       case 'SERVICE_STARTED':
+      case 'SERVICE_IN_PROGRESS':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
         return 'Ready';
       case 'OUT_FOR_DELIVERY':
         return 'Out for Delivery';
       case 'DELIVERED':
-        return 'Delivered';
       case 'COMPLETED':
         return 'Delivered';
       case 'CANCELLED':
@@ -168,12 +168,12 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
       case 'SERVICE_STARTED':
+      case 'SERVICE_IN_PROGRESS':
         return const Color(0xFF3B82F6);
       case 'SERVICE_COMPLETED':
       case 'OUT_FOR_DELIVERY':
         return const Color(0xFFF59E0B);
       case 'DELIVERED':
-        return const Color(0xFF16A34A);
       case 'COMPLETED':
         return const Color(0xFF16A34A);
       case 'CANCELLED':

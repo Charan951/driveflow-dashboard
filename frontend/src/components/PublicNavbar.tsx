@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { serviceService, Service } from '@/services/serviceService';
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -11,43 +12,54 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
 
-const serviceCategories = [
-  {
-    title: "1. Services",
-    items: [
-      { name: "General Service", path: "/services?service=General Service" },
-      { name: "Body Shop", path: "/services?service=Body Shop" },
-      { name: "Insurance Claim", path: "/services?service=Insurance Claim" }
-    ]
-  },
-  {
-    title: "2. CAR WASH",
-    items: [
-      { name: "Exterior only (45 mins)", path: "/services?service=Exterior only (45 mins)" },
-      { name: "Interior + Exterior (60–70 mins)", path: "/services?service=Interior + Exterior (60–70 mins)" },
-      { name: "Interior + Exterior + Underbody (90 mins)", path: "/services?service=Interior + Exterior + Underbody (90 mins)" }
-    ]
-  },
-  {
-    title: "3. TYRES & BATTERY",
-    items: [
-      { name: "Default OEM size", path: "/services?service=Default OEM size" },
-      { name: "Customer can opt change", path: "/services?service=Customer can opt change" },
-      { name: "Battery - Amaron", path: "/services?service=Amaron Battery" },
-      { name: "Battery - Exide", path: "/services?service=Exide Battery" }
-    ]
-  },
-  {
-    title: "4. INSURANCE",
-    path: "/services?service=Insurance",
-    items: [] // Ensure it doesn't crash if items is missing
-  }
-];
-
 const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
   const location = useLocation();
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const data = await serviceService.getServices();
+        setServices(data);
+      } catch (error) {
+        console.error('Failed to fetch services for navbar:', error);
+      }
+    };
+    fetchServices();
+  }, []);
+
+  const serviceCategories = useMemo(() => {
+    const categories = [
+       { title: "1. Services", dbKeys: ["Services", "Periodic", "Repair", "AC"], items: [] as any[] },
+       { title: "2. CAR WASH", dbKeys: ["Car Wash", "Wash", "Detailing"], items: [] as any[] },
+       { title: "3. TYRES & BATTERY", dbKeys: ["Tyre & Battery", "Tyres", "Battery"], items: [] as any[] },
+       { title: "4. INSURANCE", dbKeys: ["Insurance"], items: [] as any[], path: "/services?service=Insurance" },
+       { title: "5. OTHER", dbKeys: ["Other", "Painting", "Denting", "Accessories"], items: [] as any[] }
+     ];
+
+    services.forEach(service => {
+      const category = categories.find(c => c.dbKeys.includes(service.category));
+      if (category) {
+        category.items.push({
+          name: service.name,
+          path: `/services?service=${encodeURIComponent(service.name)}`
+        });
+      } else {
+        // Fallback to "OTHER" if category doesn't match
+        const otherCategory = categories.find(c => c.title === "5. OTHER");
+        if (otherCategory) {
+          otherCategory.items.push({
+            name: service.name,
+            path: `/services?service=${encodeURIComponent(service.name)}`
+          });
+        }
+      }
+    });
+
+    return categories;
+  }, [services]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -101,11 +113,11 @@ const PublicNavbar: React.FC = () => {
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
                         <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
-                          {serviceCategories.map((category) => (
+                          {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
                             <div key={category.title} className="space-y-3">
                               <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
                               <div className="flex flex-col gap-2">
-                                {category.items ? (
+                                {category.items.length > 0 ? (
                                   category.items.map((item) => (
                                     <NavigationMenuLink key={item.name} asChild>
                                       <Link 
@@ -201,13 +213,13 @@ const PublicNavbar: React.FC = () => {
                         {link.name}
                       </div>
                       <div className="flex flex-col gap-4 pl-4 border-l border-border ml-2 my-2">
-                        {serviceCategories.map((category) => (
+                        {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
                           <div key={category.title} className="flex flex-col gap-2">
                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
                               {category.title}
                             </div>
                             <div className="flex flex-col gap-1">
-                              {category.items ? (
+                              {category.items.length > 0 ? (
                                 category.items.map((item) => (
                                   <Link
                                     key={item.name}

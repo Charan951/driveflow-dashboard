@@ -5,7 +5,7 @@ import Review from '../models/Review.js';
 import { getIO } from '../socket.js';
 import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
-import { sendPushToUser } from '../utils/pushService.js';
+import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
 
 const emitBookingUpdate = (booking) => {
   try {
@@ -14,6 +14,32 @@ const emitBookingUpdate = (booking) => {
     
     // Notify admin
     io.to('admin').emit('bookingUpdated', booking);
+    console.log(`Emitted bookingUpdated for booking ${bookingId} to 'admin' room`);
+    
+    // Also notify admin specifically about new bookings
+    if (booking.status === 'CREATED') {
+      io.to('admin').emit('bookingCreated', booking);
+      console.log(`Emitted bookingCreated for booking ${bookingId} to 'admin' room`);
+      
+      // Save notification to history and send push to admins
+      sendPushToRole(
+        'admin',
+        'New Booking Received',
+        `A new booking (#${booking.orderNumber || bookingId.slice(-6).toUpperCase()}) has been created.`,
+        { bookingId, type: 'order' },
+        'order'
+      ).catch(err => console.error('Admin notification error (emitBookingUpdate):', err));
+    } else if (booking.status === 'CANCELLED') {
+      io.to('admin').emit('bookingCancelled', booking);
+      
+      sendPushToRole(
+        'admin',
+        'Booking Cancelled',
+        `Booking #${booking.orderNumber || bookingId.slice(-6).toUpperCase()} has been cancelled.`,
+        { bookingId, type: 'order' },
+        'order'
+      ).catch(err => console.error('Admin notification error (emitBookingUpdate - Cancelled):', err));
+    }
     
     // Notify specific booking room
     io.to(`booking_${bookingId}`).emit('bookingUpdated', booking);
@@ -167,6 +193,19 @@ export const createBooking = async (req, res) => {
     }
 
     res.status(201).json(createdBooking);
+
+    // Send push to customer
+    try {
+      await sendPushToUser(
+        req.user._id,
+        'Booking Successful',
+        `Your booking (#${createdBooking.orderNumber}) has been successfully created.`,
+        { bookingId: createdBooking._id.toString(), type: 'order' },
+        'order'
+      );
+    } catch (err) {
+      console.error('Customer notification error (createBooking):', err);
+    }
 
     // Emit socket event for real-time updates
     try {

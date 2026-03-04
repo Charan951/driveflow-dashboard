@@ -89,7 +89,7 @@ const userSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number],
-      index: '2dsphere'
+      default: [0, 0] // Provide a default to avoid index errors on empty arrays
     }
   },
   fcmTokens: [
@@ -104,6 +104,9 @@ const userSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Create 2dsphere index on the geo field for geospatial queries
+userSchema.index({ geo: '2dsphere' });
 
 // Encrypt password before saving
 userSchema.pre('save', async function () {

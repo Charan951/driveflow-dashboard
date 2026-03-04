@@ -140,6 +140,13 @@ class SocketService extends ChangeNotifier {
       notifyListeners();
     });
 
+    _socket!.on('userStatusUpdate', (data) {
+      if (data != null && data is Map) {
+        // Handle user status update if needed (e.g. show staff online/offline)
+        notifyListeners();
+      }
+    });
+
     _socket!.on('notification', (data) {
       if (data != null && data is Map) {
         NotificationService().showLocalNotification(

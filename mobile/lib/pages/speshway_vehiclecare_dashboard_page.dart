@@ -137,7 +137,7 @@ class _SpeshwayVehicleCareDashboardState
       final results = await Future.wait<dynamic>([
         _vehicleService.listMyVehicles(),
         _bookingService.listMyBookings(),
-        _catalogService.listServices(),
+        _catalogService.listServices(isQuickService: true),
       ]);
 
       if (!mounted) return;

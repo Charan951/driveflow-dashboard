@@ -9,9 +9,17 @@ class CatalogService {
   static DateTime? _lastFetchAt;
   static const Duration _cacheDuration = Duration(minutes: 5);
 
-  Future<List<ServiceItem>> listServices({bool forceRefresh = false}) async {
+  Future<List<ServiceItem>> listServices({
+    bool forceRefresh = false,
+    bool? isQuickService,
+    String? category,
+    String? vehicleType,
+  }) async {
     final now = DateTime.now();
     if (!forceRefresh &&
+        isQuickService == null &&
+        category == null &&
+        vehicleType == null &&
         _cachedServices != null &&
         _lastFetchAt != null &&
         now.difference(_lastFetchAt!) < _cacheDuration) {
@@ -19,7 +27,17 @@ class CatalogService {
     }
 
     final items = <ServiceItem>[];
-    final res = await _api.getAny(ApiEndpoints.services);
+    String url = ApiEndpoints.services;
+    final List<String> params = [];
+    if (isQuickService != null) params.add('isQuickService=$isQuickService');
+    if (category != null) params.add('category=$category');
+    if (vehicleType != null) params.add('vehicleType=$vehicleType');
+
+    if (params.isNotEmpty) {
+      url += '?${params.join('&')}';
+    }
+
+    final res = await _api.getAny(url);
     final data = res is Map ? (res['data'] ?? res['services'] ?? res) : res;
     if (data is List) {
       for (final e in data) {

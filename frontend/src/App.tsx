@@ -30,6 +30,7 @@ import PublicServices from "./pages/public/PublicServices";
 import PublicReviews from "./pages/public/PublicReviews";
 import TermsPage from "./pages/public/TermsPage";
 import PrivacyPage from "./pages/public/PrivacyPage";
+import ServiceDetailsPage from "./pages/public/ServiceDetailsPage";
 
 // Customer Pages
 import DashboardPage from "./pages/customer/DashboardPage";
@@ -119,6 +120,7 @@ const App = () => (
             <Route path="/reviews" element={<PublicReviews />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/services/:id" element={<ServiceDetailsPage />} />
           </Route>
           
           {/* Auth Routes - Wrapped in PublicRoute to redirect logged-in users */}
