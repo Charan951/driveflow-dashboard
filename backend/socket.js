@@ -21,22 +21,37 @@ export const initSocket = (server) => {
   if (!allowed.includes('https://car.speshwayhrms.com')) {
     allowed.push('https://car.speshwayhrms.com');
   }
-//ddd
+  if (!allowed.includes('https://carb.speshwayhrms.com')) {
+    allowed.push('https://carb.speshwayhrms.com');
+  }
+
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
+        // 1. Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
+        
+        const isDev = process.env.NODE_ENV !== 'production';
         const normalized = origin.trim().toLowerCase().replace(/\/$/, "");
         
-        const allowedByEnv = allowed.includes('*') || allowed.includes(normalized);
-        const allowedByDevDefault = isDev && devOriginPrefixes.some((p) => normalized.startsWith(p));
-
-        if (allowedByEnv || allowedByDevDefault) {
-          callback(null, true);
-        } else {
-          console.log(`Socket CORS blocked for origin: ${origin}`);
-          callback(null, false);
+        // 2. Allow all local development origins (even in production to facilitate testing/debugging)
+        const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:', 'http://192.168.', 'http://10.'];
+        if (devOriginPrefixes.some((p) => normalized.startsWith(p))) {
+          return callback(null, true);
         }
+
+        // 3. In development mode, be extremely permissive
+        if (isDev) {
+          return callback(null, true);
+        }
+
+        // 4. In production, check against allowedOrigins
+        if (allowed.includes('*') || allowed.includes(normalized)) {
+          return callback(null, true);
+        }
+
+        console.log(`Socket CORS blocked for origin: ${origin}`);
+        callback(null, false);
       },
       methods: ['GET', 'POST'],
       credentials: true,
