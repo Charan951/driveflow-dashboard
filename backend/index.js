@@ -55,13 +55,15 @@ const corsOptions = {
     const isDev = process.env.NODE_ENV !== 'production';
     const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
 
-    // 2. Allow all local development origins (even in production to facilitate testing/debugging)
-    const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:', 'http://192.168.', 'http://10.'];
-    if (devOriginPrefixes.some((prefix) => normalizedOrigin.startsWith(prefix))) {
+    // 2. Explicitly allow local development origins (even in production)
+    if (normalizedOrigin.includes('localhost') || 
+        normalizedOrigin.includes('127.0.0.1') || 
+        normalizedOrigin.startsWith('http://192.168.') || 
+        normalizedOrigin.startsWith('http://10.')) {
       return callback(null, true);
     }
 
-    // 3. In development mode, be extremely permissive
+    // 3. In development mode, allow all origins
     if (isDev) {
       return callback(null, true);
     }

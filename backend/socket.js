@@ -34,13 +34,15 @@ export const initSocket = (server) => {
         const isDev = process.env.NODE_ENV !== 'production';
         const normalized = origin.trim().toLowerCase().replace(/\/$/, "");
         
-        // 2. Allow all local development origins (even in production to facilitate testing/debugging)
-        const devOriginPrefixes = ['http://localhost:', 'http://127.0.0.1:', 'http://0.0.0.0:', 'http://192.168.', 'http://10.'];
-        if (devOriginPrefixes.some((p) => normalized.startsWith(p))) {
+        // 2. Explicitly allow local development origins (even in production)
+        if (normalized.includes('localhost') || 
+            normalized.includes('127.0.0.1') || 
+            normalized.startsWith('http://192.168.') || 
+            normalized.startsWith('http://10.')) {
           return callback(null, true);
         }
 
-        // 3. In development mode, be extremely permissive
+        // 3. In development mode, allow all origins
         if (isDev) {
           return callback(null, true);
         }
