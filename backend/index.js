@@ -34,7 +34,67 @@ const PORT = process.env.PORT || 5000;
 
 console.log('Mongo URI:', process.env.MONGO_URI);
 
-app.use(cors());
+ // CORS Configuration
+const allowedOrigins = process.env.FRONTEND_URLS 
+  ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, ""))
+  : [];
+
+// Add some defaults
+if (!allowedOrigins.includes('https://car.speshwayhrms.com')) {
+  allowedOrigins.push('https://car.speshwayhrms.com');
+}
+if (!allowedOrigins.includes('https://carb.speshwayhrms.com')) {
+  allowedOrigins.push('https://carb.speshwayhrms.com');
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 1. Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const isDev = process.env.NODE_ENV !== 'production';
+    const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
+
+    // 2. Explicitly allow local development origins (even in production)
+    if (normalizedOrigin.includes('localhost') || 
+        normalizedOrigin.includes('127.0.0.1') || 
+        normalizedOrigin.startsWith('http://192.168.') || 
+        normalizedOrigin.startsWith('http://10.')) {
+      return callback(null, true);
+    }
+
+    // 3. In development mode, allow all origins
+    if (isDev) {
+      return callback(null, true);
+    }
+
+    // 4. In production, check against allowedOrigins
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    console.log(`CORS blocked for origin: ${origin}`);
+    callback(null, false);
+  },
+  credentials: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin', 
+    'Access-Control-Allow-Headers',
+    'x-auth-token'
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Middleware
+app.use(cors(corsOptions));
+// Handle preflight for all routes
+app.options(/(.*)/, cors(corsOptions));
 app.use(express.json());
 
 // Routes
