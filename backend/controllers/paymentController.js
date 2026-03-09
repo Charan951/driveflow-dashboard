@@ -1,5 +1,7 @@
 import Booking from '../models/Booking.js';
 import crypto from 'crypto';
+import { emitBookingUpdate } from './bookingController.js';
+import { sendPushToUser } from '../utils/pushService.js';
 
 /**
  * @desc    Process dummy payment (replaces Razorpay)
@@ -34,6 +36,40 @@ export const dummyPayment = async (req, res) => {
     booking.merchantEarnings = booking.totalAmount - booking.platformFee;
     
     await booking.save();
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('merchant', 'name email phone location')
+      .populate('pickupDriver', 'name email phone')
+      .populate('technician', 'name email phone');
+
+    // Emit socket event for real-time updates
+    emitBookingUpdate(populated);
+
+    // Notify merchant and staff
+    const bookingIdStr = String(populated._id);
+    const orderNum = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
+    
+    if (populated.merchant?._id) {
+      await sendPushToUser(
+        populated.merchant._id,
+        'Payment Received',
+        `Payment for booking #${orderNum} has been completed.`,
+        { type: 'payment_update', bookingId: bookingIdStr }
+      );
+    }
+    
+    if (populated.pickupDriver?._id) {
+      await sendPushToUser(
+        populated.pickupDriver._id,
+        'Payment Completed',
+        `Customer has paid for booking #${orderNum}. You can now proceed with delivery.`,
+        { type: 'payment_update', bookingId: bookingIdStr }
+      );
+    }
 
     res.json({ 
       message: 'Dummy payment successful', 

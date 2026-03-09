@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ interface ServiceCardProps {
   className?: string;
 }
 
-export const ServiceCard: React.FC<ServiceCardProps> = ({
+export const ServiceCard: React.FC<ServiceCardProps> = memo(({
   icon: Icon,
   name,
   description,
@@ -63,6 +63,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
       </div>
     </motion.div>
   );
-};
+});
 
 export default ServiceCard;

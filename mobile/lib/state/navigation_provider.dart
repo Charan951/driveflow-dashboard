@@ -26,6 +26,11 @@ class NavigationProvider with ChangeNotifier {
     _arguments = null;
   }
 
+  void setArguments(Object? args) {
+    _arguments = args;
+    notifyListeners();
+  }
+
   // Map route names to tab indices
   static const Map<String, int> routeToTabIndex = {
     '/services': 0,

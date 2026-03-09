@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 
 const adminMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Customers', path: '/admin/customers' },
   { icon: Car, label: 'Vehicles', path: '/admin/vehicles' },
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
@@ -50,7 +50,11 @@ const adminMenuItems = [
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
 ];
 
-export const AdminLayout: React.FC = () => {
+interface AdminLayoutProps {
+  children?: React.ReactNode;
+}
+
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
@@ -99,7 +103,7 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         {/* Menu */}
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
           {adminMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -108,77 +112,63 @@ export const AdminLayout: React.FC = () => {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  isActive 
-                    ? 'bg-primary/10 text-primary' 
+                  'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
-                <item.icon className="w-4 h-4" />
-                {item.label}
+                <item.icon className="w-5 h-5" />
+                <span className="font-medium">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* User Profile / Logout */}
-        <div className="p-4 border-t border-border mt-auto">
+        {/* User Profile */}
+        <div className="p-4 border-t border-border shrink-0">
+          <div className="flex items-center gap-3 px-4 py-3 mb-2">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <UserCog className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 overflow-hidden text-left">
+              <p className="font-medium text-sm truncate">{user?.name}</p>
+              <p className="text-xs text-muted-foreground truncate uppercase">{user?.role}</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all duration-200"
           >
-            <LogOut className="w-4 h-4" />
-            Logout
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium text-sm">Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Global Header */}
-        <header className="sticky top-0 z-30 h-16 border-b border-border flex items-center justify-between px-4 lg:px-8 bg-card/95 backdrop-blur-md">
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 hover:bg-muted rounded-lg"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-muted rounded-lg"
-            >
-              <Menu className="w-6 h-6" />
+            <button className="p-2 text-muted-foreground hover:text-foreground relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-card" />
             </button>
-            <span className="font-bold text-xl lg:hidden">DriveFlow Admin</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Notification Bell */}
-            <Link 
-              to="/admin/notifications"
-              className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-all duration-200"
-              title="Notifications"
-            >
-              <Bell className="w-6 h-6" />
-              {/* Optional: Add a badge here if you have a count */}
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-600 border-2 border-card rounded-full" />
-            </Link>
-
-            {/* User Info - Optional but good for UI */}
-             <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-border">
-               <div className="text-right">
-                 <p className="text-sm font-semibold">{user?.name}</p>
-                 <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-               </div>
-               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                 {user?.name?.charAt(0)}
-               </div>
-             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto bg-muted/20">
-            <Outlet />
-        </div>
-      </main>
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
+          {children || <Outlet />}
+        </main>
+      </div>
     </div>
-  );
-};
+  );};
 
 export default AdminLayout;

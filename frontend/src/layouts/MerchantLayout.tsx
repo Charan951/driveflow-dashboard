@@ -22,7 +22,7 @@ import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 
 const merchantMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/merchant/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/merchant/orders' },
   { icon: Layers, label: 'Stock', path: '/merchant/stock' },
   { icon: MessageSquare, label: 'Feedback', path: '/merchant/feedback' },
@@ -32,7 +32,11 @@ const merchantMenuItems = [
   { icon: User, label: 'Profile', path: '/merchant/profile' },
 ];
 
-export const MerchantLayout: React.FC = () => {
+interface MerchantLayoutProps {
+  children?: React.ReactNode;
+}
+
+export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -40,12 +44,12 @@ export const MerchantLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/merchant/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const filteredMenuItems = merchantMenuItems.map(item => {
     if (item.label === 'Dashboard' && user?.role === 'admin') {
-      return { ...item, path: '/admin/dashboard' };
+      return { ...item, path: '/dashboard' };
     }
     return item;
   }).filter(item => {
@@ -149,9 +153,9 @@ export const MerchantLayout: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
           <PageTransition>
-            <Outlet />
+            {children || <Outlet />}
           </PageTransition>
         </main>
       </div>

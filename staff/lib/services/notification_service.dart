@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../firebase_options.dart';
+
+// Import PlatformUtils only for non-web
+import './platform_utils.dart'
+    if (dart.library.html) './platform_utils_web.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../core/api_client.dart';
 import '../main.dart'; // Import to use rootNavigatorKey
 
@@ -70,6 +73,10 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> initialize() async {
+    if (kIsWeb) {
+      _initialized = true;
+      return;
+    }
     if (_initialized) return;
 
     // 1. Request permissions
@@ -102,20 +109,10 @@ class NotificationService {
     );
 
     // 3. Create Android Notification Channel
-    if (Platform.isAndroid) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'This channel is used for important notifications.',
-        importance: Importance.max,
-        playSound: true,
+    if (!kIsWeb) {
+      await PlatformUtils.createAndroidNotificationChannels(
+        _localNotifications,
       );
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
     }
 
     // 4. Set up FCM listeners
@@ -153,19 +150,8 @@ class NotificationService {
   }
 
   Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      // Android 13+ permission
-      if (await Permission.notification.isDenied) {
-        await Permission.notification.request();
-      }
-    } else if (Platform.isIOS) {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-    }
+    if (kIsWeb) return;
+    await PlatformUtils.requestMobilePermissions(_messaging);
   }
 
   void _setupTokenManagement() {
@@ -181,10 +167,9 @@ class NotificationService {
   }
 
   Future<void> _saveTokenToBackend(String token) async {
+    if (kIsWeb) return;
     try {
-      String deviceType = Platform.isAndroid
-          ? 'android'
-          : (Platform.isIOS ? 'ios' : 'web');
+      String deviceType = PlatformUtils.deviceType;
       await _api.postAny(
         '/users/fcm-token',
         body: {'token': token, 'deviceType': deviceType},
@@ -201,6 +186,7 @@ class NotificationService {
   }
 
   void _showLocalNotification(RemoteMessage message) async {
+    if (kIsWeb) return;
     RemoteNotification? notification = message.notification;
 
     if (notification != null) {
@@ -234,6 +220,7 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
+    if (kIsWeb) return;
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'high_importance_channel',

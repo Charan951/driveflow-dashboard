@@ -17,11 +17,15 @@ import { TrackingProvider } from '@/context/TrackingProvider';
 import { useTracking } from '@/hooks/use-tracking';
 
 const staffMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
 ];
 
-export const StaffLayout: React.FC = () => {
+interface StaffLayoutProps {
+  children?: React.ReactNode;
+}
+
+export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuthStore();
@@ -49,7 +53,7 @@ export const StaffLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/staff/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -143,9 +147,9 @@ export const StaffLayout: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
           <PageTransition>
-            <Outlet />
+            {children || <Outlet />}
           </PageTransition>
         </main>
       </div>

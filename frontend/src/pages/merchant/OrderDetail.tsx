@@ -91,7 +91,8 @@ const OrderDetail: React.FC = () => {
       socketService.joinRoom(`booking_${id}`);
 
       socketService.on('liveLocation', (data: { lat?: number; lng?: number; role?: string }) => {
-        if (data.lat && data.lng && data.role === 'staff') {
+        console.log('liveLocation', data);
+        if (data.lat && data.lng) {
           setStaffLocation({ lat: data.lat, lng: data.lng });
         }
       });

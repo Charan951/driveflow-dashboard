@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
   cancelled: { bg: 'bg-destructive/10', text: 'text-destructive', label: 'Cancelled' },
 };
 
-export const OrderCard: React.FC<OrderCardProps> = ({
+export const OrderCard: React.FC<OrderCardProps> = memo(({
   id,
   orderNumber,
   service,
@@ -88,6 +88,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       </div>
     </motion.div>
   );
-};
+});
 
 export default OrderCard;

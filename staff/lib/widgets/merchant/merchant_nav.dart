@@ -13,7 +13,7 @@ class MerchantNavItem {
   });
 }
 
-const List<MerchantNavItem> merchantNavItems = [
+const List<MerchantNavItem> allMerchantNavItems = [
   MerchantNavItem(
     icon: Icons.dashboard_outlined,
     label: 'Dashboard',
@@ -56,7 +56,7 @@ const List<MerchantNavItem> merchantNavItems = [
   ),
 ];
 
-class MerchantScaffold extends StatelessWidget {
+class MerchantScaffold extends StatefulWidget {
   final Widget body;
   final String title;
   final List<Widget>? actions;
@@ -71,29 +71,64 @@ class MerchantScaffold extends StatelessWidget {
   });
 
   @override
+  State<MerchantScaffold> createState() => _MerchantScaffoldState();
+}
+
+class _MerchantScaffoldState extends State<MerchantScaffold> {
+  final AuthService _authService = AuthService();
+  List<MerchantNavItem> _filteredItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _authService.getCurrentUser();
+    if (mounted) {
+      setState(() {
+        _filteredItems = allMerchantNavItems.where((item) {
+          if (item.label == 'Users') {
+            return user?.role == 'admin';
+          }
+          return true;
+        }).toList();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentRoute = ModalRoute.of(context)?.settings.name;
-    final int currentIndex = merchantNavItems.indexWhere(
+    final int currentIndex = _filteredItems.indexWhere(
       (item) => item.route == currentRoute,
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        actions: actions,
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: widget.actions,
       ),
-      drawer: const MerchantDrawer(),
-      body: body,
-      bottomNavigationBar: MerchantBottomNav(
-        currentIndex: currentIndex >= 0 ? currentIndex : 0,
-      ),
-      floatingActionButton: floatingActionButton,
+      drawer: MerchantDrawer(filteredItems: _filteredItems),
+      body: widget.body,
+      bottomNavigationBar: _filteredItems.isEmpty
+          ? null
+          : MerchantBottomNav(
+              currentIndex: currentIndex >= 0 ? currentIndex : 0,
+              filteredItems: _filteredItems,
+            ),
+      floatingActionButton: widget.floatingActionButton,
     );
   }
 }
 
 class MerchantDrawer extends StatelessWidget {
-  const MerchantDrawer({super.key});
+  final List<MerchantNavItem> filteredItems;
+  const MerchantDrawer({super.key, required this.filteredItems});
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +169,7 @@ class MerchantDrawer extends StatelessWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: merchantNavItems.map((item) {
+              children: filteredItems.map((item) {
                 final bool isActive = currentRoute == item.route;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
@@ -203,20 +238,66 @@ class MerchantDrawer extends StatelessWidget {
 
 class MerchantBottomNav extends StatelessWidget {
   final int currentIndex;
+  final List<MerchantNavItem> filteredItems;
 
-  const MerchantBottomNav({super.key, required this.currentIndex});
+  const MerchantBottomNav({
+    super.key,
+    required this.currentIndex,
+    required this.filteredItems,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // We only show the first 5 items in the bottom nav to keep it clean
-    // and match the React version's style.
-    final List<MerchantNavItem> bottomNavItems = merchantNavItems
-        .take(5)
-        .toList();
+    // Determine which items to show in bottom nav.
+    // Dashboard, Orders, Stock, Feedback, Profile are usually the most important.
 
-    // If the current index is outside the first 5, we still want to show the correct icon
-    // or just default to dashboard if not in the first 5.
-    final int effectiveIndex = currentIndex < 5 ? currentIndex : 0;
+    final List<MerchantNavItem> bottomNavItems = [];
+
+    // Add Dashboard and Orders first
+    final dashboard = filteredItems.firstWhere((i) => i.label == 'Dashboard');
+    final orders = filteredItems.firstWhere((i) => i.label == 'Orders');
+    bottomNavItems.add(dashboard);
+    bottomNavItems.add(orders);
+
+    // Add Stock and Feedback if they exist
+    final stock = filteredItems.firstWhere(
+      (i) => i.label == 'Stock',
+      orElse: () => dashboard,
+    );
+    final feedback = filteredItems.firstWhere(
+      (i) => i.label == 'Feedback',
+      orElse: () => dashboard,
+    );
+    if (stock != dashboard) bottomNavItems.add(stock);
+    if (feedback != dashboard) bottomNavItems.add(feedback);
+
+    // Add Profile as the last item
+    final profile = filteredItems.firstWhere(
+      (i) => i.label == 'Profile',
+      orElse: () => dashboard,
+    );
+    if (profile != dashboard) bottomNavItems.add(profile);
+
+    // If we have more than 5, we'll just take the first 5 of this custom list.
+    // In our case, it should be exactly 5.
+    final displayItems = bottomNavItems.length > 5
+        ? bottomNavItems.take(5).toList()
+        : bottomNavItems;
+
+    // Find if the current route is in our display items
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    int effectiveIndex = displayItems.indexWhere(
+      (item) => item.route == currentRoute,
+    );
+
+    // If not in display items, don't highlight any or default to 0 if we must
+    // But since it's a BottomNavigationBar, we need a valid index.
+    // If we're on a page not in bottom nav (like Services or Vehicles),
+    // we could show no highlight or just default to Dashboard.
+    final bool isCurrentRouteInBottomNav = effectiveIndex >= 0;
+    if (!isCurrentRouteInBottomNav) {
+      effectiveIndex = 0; // Default to Dashboard if on a hidden tab
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -226,7 +307,7 @@ class MerchantBottomNav extends StatelessWidget {
       child: BottomNavigationBar(
         currentIndex: effectiveIndex,
         onTap: (index) {
-          final String route = bottomNavItems[index].route;
+          final String route = displayItems[index].route;
           final currentRoute = ModalRoute.of(context)?.settings.name;
           if (currentRoute != route) {
             Navigator.pushReplacementNamed(context, route);
@@ -234,7 +315,9 @@ class MerchantBottomNav extends StatelessWidget {
         },
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        selectedItemColor: Colors.deepPurple,
+        selectedItemColor: isCurrentRouteInBottomNav
+            ? Colors.deepPurple
+            : Colors.grey[600],
         unselectedItemColor: Colors.grey[600],
         selectedLabelStyle: const TextStyle(
           fontSize: 12,
@@ -242,7 +325,7 @@ class MerchantBottomNav extends StatelessWidget {
         ),
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         elevation: 0,
-        items: bottomNavItems.map((item) {
+        items: displayItems.map((item) {
           return BottomNavigationBarItem(
             icon: Icon(item.icon),
             label: item.label,

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'service.dart';
 import 'vehicle.dart';
 
@@ -11,10 +12,9 @@ class BookingLocation {
   factory BookingLocation.fromJson(Map<String, dynamic> json) {
     final latRaw = json['lat'];
     final lngRaw = json['lng'];
+    final addressStr = json['address']?.toString().trim();
     return BookingLocation(
-      address: (json['address'] ?? '').toString().trim().isEmpty
-          ? null
-          : (json['address'] ?? '').toString(),
+      address: (addressStr == null || addressStr.isEmpty) ? null : addressStr,
       lat: latRaw is num ? latRaw.toDouble() : null,
       lng: lngRaw is num ? lngRaw.toDouble() : null,
     );
@@ -113,132 +113,169 @@ class Booking {
     this.qcCompletedAt,
   });
 
-  factory Booking.fromJson(Map<String, dynamic> json) {
+  static const statusLabels = {
+    'CREATED': 'Created',
+    'ASSIGNED': 'Assigned',
+    'ACCEPTED': 'Accepted',
+    'REACHED_CUSTOMER': 'Reached Customer',
+    'VEHICLE_PICKED': 'Vehicle Picked',
+    'REACHED_MERCHANT': 'Reached Merchant',
+    'VEHICLE_AT_MERCHANT': 'At Merchant',
+    'SERVICE_STARTED': 'Service Started',
+    'SERVICE_COMPLETED': 'Service Completed',
+    'OUT_FOR_DELIVERY': 'Out for Delivery',
+    'DELIVERED': 'Delivered',
+    'CANCELLED': 'Cancelled',
+    'COMPLETED': 'Completed',
+  };
+
+  static String getStatusLabel(String status) {
+    return statusLabels[status.toUpperCase()] ?? status;
+  }
+
+  factory Booking.fromJson(Map<String, dynamic>? map) {
+    if (map == null) {
+      throw ArgumentError('Booking.fromJson: map must be a non-null Map');
+    }
     Vehicle? vehicle;
-    final v = json['vehicle'];
-    if (v is Map<String, dynamic>) {
-      vehicle = Vehicle.fromJson(v);
-    } else if (v is Map) {
-      vehicle = Vehicle.fromJson(Map<String, dynamic>.from(v));
+    final v = map['vehicle'];
+    if (v is Map) {
+      try {
+        final vehicleMap = jsonDecode(jsonEncode(v)) as Map<String, dynamic>;
+        vehicle = Vehicle.fromJson(vehicleMap);
+      } catch (_) {}
     }
 
     final services = <ServiceItem>[];
-    final s = json['services'];
+    final s = map['services'];
     if (s is List) {
       for (final e in s) {
-        if (e is Map<String, dynamic>) {
-          services.add(ServiceItem.fromJson(e));
-        } else if (e is Map) {
-          services.add(ServiceItem.fromJson(Map<String, dynamic>.from(e)));
+        if (e is Map) {
+          try {
+            final serviceMap =
+                jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+            services.add(ServiceItem.fromJson(serviceMap));
+          } catch (_) {}
         }
       }
     }
 
     BookingLocation? location;
-    final loc = json['location'];
-    if (loc is Map<String, dynamic>) {
-      location = BookingLocation.fromJson(loc);
-    } else if (loc is Map) {
-      location = BookingLocation.fromJson(Map<String, dynamic>.from(loc));
+    final loc = map['location'];
+    if (loc is Map) {
+      try {
+        final locMap = jsonDecode(jsonEncode(loc)) as Map<String, dynamic>;
+        location = BookingLocation.fromJson(locMap);
+      } catch (_) {}
     }
 
     BookingLocation? merchantLocation;
     String? merchantName;
     String? merchantPhone;
-    final m = json['merchant'];
-    if (m is Map<String, dynamic> || m is Map) {
-      final mm = m is Map<String, dynamic>
-          ? m
-          : Map<String, dynamic>.from(m as Map);
-      final mLoc = mm['location'];
-      if (mLoc is Map<String, dynamic>) {
-        merchantLocation = BookingLocation.fromJson(mLoc);
-      } else if (mLoc is Map) {
-        merchantLocation = BookingLocation.fromJson(
-          Map<String, dynamic>.from(mLoc),
-        );
-      }
-      final nameRaw = mm['name'];
-      final phoneRaw = mm['phone'];
-      final nameStr = nameRaw?.toString().trim();
-      final phoneStr = phoneRaw?.toString().trim();
-      merchantName = nameStr != null && nameStr.isNotEmpty ? nameStr : null;
-      merchantPhone = phoneStr != null && phoneStr.isNotEmpty ? phoneStr : null;
+    final m = map['merchant'];
+    if (m is Map) {
+      try {
+        final mm = jsonDecode(jsonEncode(m)) as Map<String, dynamic>;
+        final mLoc = mm['location'];
+        if (mLoc is Map) {
+          try {
+            final merchantLocMap =
+                jsonDecode(jsonEncode(mLoc)) as Map<String, dynamic>;
+            merchantLocation = BookingLocation.fromJson(merchantLocMap);
+          } catch (_) {}
+        }
+        final nameRaw = mm['name'];
+        final phoneRaw = mm['phone'];
+        final nameStr = nameRaw?.toString().trim();
+        final phoneStr = phoneRaw?.toString().trim();
+        merchantName = nameStr != null && nameStr.isNotEmpty ? nameStr : null;
+        merchantPhone = phoneStr != null && phoneStr.isNotEmpty
+            ? phoneStr
+            : null;
+      } catch (_) {}
     }
 
     DeliveryOtp? deliveryOtp;
-    final d = json['deliveryOtp'];
-    if (d is Map<String, dynamic> || d is Map) {
-      final dd = d is Map<String, dynamic>
-          ? d
-          : Map<String, dynamic>.from(d as Map);
-      deliveryOtp = DeliveryOtp.fromJson(dd);
+    final d = map['deliveryOtp'];
+    if (d is Map) {
+      try {
+        final dMap = jsonDecode(jsonEncode(d)) as Map<String, dynamic>;
+        deliveryOtp = DeliveryOtp.fromJson(dMap);
+      } catch (_) {}
     }
 
     final prePickupPhotos = <String>[];
     final beforeServicePhotos = <String>[];
     final duringServicePhotos = <String>[];
     final postServicePhotos = <String>[];
-    final inspPhotos = json['inspection']?['photos'];
-    if (inspPhotos is List) {
-      for (final p in inspPhotos) {
-        if (p != null) prePickupPhotos.add(p.toString());
-      }
-    }
-    final beforePhotos = json['serviceExecution']?['beforePhotos'];
-    if (beforePhotos is List) {
-      for (final p in beforePhotos) {
-        if (p != null) beforeServicePhotos.add(p.toString());
+
+    final inspection = map['inspection'];
+    if (inspection is Map) {
+      final inspPhotos = inspection['photos'];
+      if (inspPhotos is List) {
+        for (final p in inspPhotos) {
+          if (p != null) prePickupPhotos.add(p.toString());
+        }
       }
     }
 
-    final duringPhotos = json['serviceExecution']?['duringPhotos'];
-    if (duringPhotos is List) {
-      for (final p in duringPhotos) {
-        if (p != null) duringServicePhotos.add(p.toString());
+    final execution = map['serviceExecution'];
+    if (execution is Map) {
+      final beforePhotos = execution['beforePhotos'];
+      if (beforePhotos is List) {
+        for (final p in beforePhotos) {
+          if (p != null) beforeServicePhotos.add(p.toString());
+        }
+      }
+      final duringPhotos = execution['duringPhotos'];
+      if (duringPhotos is List) {
+        for (final p in duringPhotos) {
+          if (p != null) duringServicePhotos.add(p.toString());
+        }
+      }
+      final afterPhotos = execution['afterPhotos'];
+      if (afterPhotos is List) {
+        for (final p in afterPhotos) {
+          if (p != null) postServicePhotos.add(p.toString());
+        }
       }
     }
 
-    final afterPhotos = json['serviceExecution']?['afterPhotos'];
-    if (afterPhotos is List) {
-      for (final p in afterPhotos) {
-        if (p != null) postServicePhotos.add(p.toString());
-      }
-    }
+    final billing = map['billing'];
+    final invoiceUrl = billing is Map ? billing['fileUrl']?.toString() : null;
 
-    final invoiceUrl = json['billing']?['fileUrl']?.toString();
-    final inspectionCompletedAt = json['inspection']?['completedAt']
-        ?.toString();
-    final qcCompletedAt = json['qc']?['completedAt']?.toString();
+    final inspectionObj = map['inspection'];
+    final inspectionCompletedAt = inspectionObj is Map
+        ? inspectionObj['completedAt']?.toString()
+        : null;
+
+    final qcObj = map['qc'];
+    final qcCompletedAt = qcObj is Map
+        ? qcObj['completedAt']?.toString()
+        : null;
 
     String? driverName;
     String? driverPhone;
-    final driver = json['pickupDriver'];
+    final driver = map['pickupDriver'];
     if (driver is Map) {
       driverName = driver['name']?.toString();
       driverPhone = driver['phone']?.toString();
     }
 
     return Booking(
-      id: (json['id'] ?? json['_id'] ?? '').toString(),
-      orderNumber: json['orderNumber'] is num
-          ? (json['orderNumber'] as num).toInt()
+      id: (map['_id'] ?? '').toString(),
+      orderNumber: map['orderNumber'] is num
+          ? (map['orderNumber'] as num).toInt()
           : null,
-      status: (json['status'] ?? '').toString(),
-      date: (json['date'] ?? '').toString(),
-      totalAmount: (json['totalAmount'] ?? 0) as num,
+      status: (map['status'] ?? 'PENDING').toString(),
+      date: (map['date'] ?? '').toString(),
+      totalAmount: map['totalAmount'] is num ? (map['totalAmount'] as num) : 0,
       vehicle: vehicle,
       services: services,
       location: location,
-      notes: (json['notes'] ?? '').toString().trim().isEmpty
-          ? null
-          : (json['notes'] ?? '').toString(),
-      paymentStatus: (json['paymentStatus'] ?? '').toString().trim().isEmpty
-          ? null
-          : (json['paymentStatus'] ?? '').toString(),
-      createdAt: (json['createdAt'] ?? '').toString().trim().isEmpty
-          ? null
-          : (json['createdAt'] ?? '').toString(),
+      notes: map['notes']?.toString(),
+      paymentStatus: (map['paymentStatus'] ?? 'PENDING').toString(),
+      createdAt: map['createdAt']?.toString(),
       merchantLocation: merchantLocation,
       merchantName: merchantName,
       merchantPhone: merchantPhone,
@@ -247,12 +284,10 @@ class Booking {
       beforeServicePhotos: beforeServicePhotos,
       duringServicePhotos: duringServicePhotos,
       postServicePhotos: postServicePhotos,
-      invoiceUrl: invoiceUrl != null && invoiceUrl.isNotEmpty
-          ? invoiceUrl
-          : null,
+      invoiceUrl: invoiceUrl,
       driverName: driverName,
       driverPhone: driverPhone,
-      pickupRequired: json['pickupRequired'] != false,
+      pickupRequired: map['pickupRequired'] != false,
       inspectionCompletedAt: inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt,
     );

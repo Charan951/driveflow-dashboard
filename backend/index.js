@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import http from 'http';
+import compression from 'compression';
 import { initSocket } from './socket.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
@@ -92,6 +93,7 @@ const corsOptions = {
 };
 
 // Middleware
+app.use(compression());
 app.use(cors(corsOptions));
 // Handle preflight for all routes
 app.options(/(.*)/, cors(corsOptions));

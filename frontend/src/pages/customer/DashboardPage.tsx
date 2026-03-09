@@ -253,6 +253,7 @@ const DashboardPage: React.FC = () => {
             <motion.div key={service._id} variants={staggerItem}>
               <Link
                 to="/book-service"
+                state={{ service }}
                 className="flex flex-col items-center p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-card transition-all"
               >
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">

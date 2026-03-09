@@ -8,10 +8,10 @@ import '../models/booking.dart';
 import '../models/user.dart';
 import 'notification_service.dart';
 
-class SocketService extends ChangeNotifier {
+class SocketService extends ValueNotifier<String?> {
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
-  SocketService._internal();
+  SocketService._internal() : super(null);
 
   io.Socket? _socket;
   bool _isConnected = false;
@@ -63,84 +63,110 @@ class SocketService extends ChangeNotifier {
 
     _socket!.on('liveLocation', (data) {
       if (data != null && data is Map) {
-        final bookingId = (data['bookingId'] ?? '').toString();
-        if (_trackingProvider != null &&
-            _trackingProvider!.activeBooking?.id == bookingId) {
-          _trackingProvider!.updateStaffLocation(
-            Map<String, dynamic>.from(data),
-          );
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final bookingId = (mapData['bookingId'] ?? '').toString();
+          if (_trackingProvider != null &&
+              _trackingProvider!.activeBooking?.id == bookingId) {
+            _trackingProvider!.updateStaffLocation(mapData);
+          }
+        } catch (e) {
+          // Ignore
         }
       }
     });
 
     _socket!.on('bookingUpdated', (data) {
+      value = 'booking_updated';
+
       if (data != null && data is Map) {
-        final bookingId = (data['_id'] ?? '').toString();
-        final booking = Booking.fromJson(Map<String, dynamic>.from(data));
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final bookingId = (mapData['_id'] ?? '').toString();
+          final booking = Booking.fromJson(mapData);
 
-        if (_trackingProvider != null) {
-          _trackingProvider!.updateActiveBooking(booking);
-          if (TrackingProvider.trackingStatuses.contains(booking.status)) {
-            joinRoom('booking_$bookingId');
+          if (_trackingProvider != null) {
+            _trackingProvider!.updateActiveBooking(booking);
+            if (TrackingProvider.trackingStatuses.contains(booking.status)) {
+              joinRoom('booking_$bookingId');
+            }
           }
+
+          final orderNum =
+              (mapData['orderNumber'] ??
+                      (bookingId.length >= 6
+                          ? bookingId.substring(bookingId.length - 6)
+                          : bookingId))
+                  .toString();
+          final status = (mapData['status'] ?? '').toString().replaceAll(
+            '_',
+            ' ',
+          );
+
+          NotificationService().showLocalNotification(
+            title: 'Booking Updated',
+            body: 'Booking #$orderNum status is now $status',
+            payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+          );
+        } catch (e) {
+          // Ignore
         }
-
-        final orderNum =
-            (data['orderNumber'] ??
-                    (bookingId.length >= 6
-                        ? bookingId.substring(bookingId.length - 6)
-                        : bookingId))
-                .toString();
-        final status = (data['status'] ?? '').toString().replaceAll('_', ' ');
-
-        NotificationService().showLocalNotification(
-          title: 'Booking Updated',
-          body: 'Booking #$orderNum status is now $status',
-          payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
-        );
       }
       notifyListeners();
     });
 
     _socket!.on('bookingCreated', (data) {
+      value = 'booking_created';
       if (data != null && data is Map) {
-        final bookingId = (data['_id'] ?? '').toString();
-        final orderNum =
-            (data['orderNumber'] ??
-                    (bookingId.length >= 6
-                        ? bookingId.substring(bookingId.length - 6)
-                        : bookingId))
-                .toString();
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final bookingId = (mapData['_id'] ?? '').toString();
+          final orderNum =
+              (mapData['orderNumber'] ??
+                      (bookingId.length >= 6
+                          ? bookingId.substring(bookingId.length - 6)
+                          : bookingId))
+                  .toString();
 
-        NotificationService().showLocalNotification(
-          title: 'New Booking',
-          body: 'New booking #$orderNum has been created!',
-          payload: jsonEncode({'type': 'order', 'bookingId': bookingId}),
-        );
+          NotificationService().showLocalNotification(
+            title: 'New Booking',
+            body: 'New booking #$orderNum has been created!',
+            payload: jsonEncode({'type': 'order', 'bookingId': bookingId}),
+          );
+        } catch (e) {
+          // Ignore
+        }
       }
       notifyListeners();
     });
 
     _socket!.on('bookingCancelled', (data) {
+      value = 'booking_cancelled';
       if (data != null && data is Map) {
-        final bookingId = (data['_id'] ?? '').toString();
-        final orderNum =
-            (data['orderNumber'] ??
-                    (bookingId.length >= 6
-                        ? bookingId.substring(bookingId.length - 6)
-                        : bookingId))
-                .toString();
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final bookingId = (mapData['_id'] ?? '').toString();
+          final orderNum =
+              (mapData['orderNumber'] ??
+                      (bookingId.length >= 6
+                          ? bookingId.substring(bookingId.length - 6)
+                          : bookingId))
+                  .toString();
 
-        NotificationService().showLocalNotification(
-          title: 'Booking Cancelled',
-          body: 'Booking #$orderNum has been cancelled.',
-          payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
-        );
+          NotificationService().showLocalNotification(
+            title: 'Booking Cancelled',
+            body: 'Booking #$orderNum has been cancelled.',
+            payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+          );
+        } catch (e) {
+          // Ignore
+        }
       }
       notifyListeners();
     });
 
     _socket!.on('userStatusUpdate', (data) {
+      value = 'user_status_update';
       if (data != null && data is Map) {
         // Handle user status update if needed (e.g. show staff online/offline)
         notifyListeners();
@@ -148,6 +174,7 @@ class SocketService extends ChangeNotifier {
     });
 
     _socket!.on('notification', (data) {
+      value = 'notification';
       if (data != null && data is Map) {
         NotificationService().showLocalNotification(
           title: (data['title'] ?? 'Notification').toString(),
@@ -163,6 +190,7 @@ class SocketService extends ChangeNotifier {
     });
 
     _socket!.on('ticketUpdated', (data) {
+      value = 'ticket_updated';
       NotificationService().showLocalNotification(
         title: 'Support Ticket Updated',
         body: 'A support ticket has been updated.',
@@ -170,6 +198,11 @@ class SocketService extends ChangeNotifier {
       );
       notifyListeners();
     });
+  }
+
+  void sendEvent(String eventName) {
+    value = eventName;
+    notifyListeners();
   }
 
   Future<void> reconnect() async {

@@ -19,24 +19,29 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['customer', 'admin', 'merchant', 'staff'],
     default: 'customer',
+    index: true,
   },
   subRole: {
     type: String,
     enum: ['Driver', 'Support', 'Manager', null],
     default: null,
+    index: true,
   },
   status: {
     type: String,
     enum: ['Active', 'Inactive', 'On Leave'],
     default: 'Active',
+    index: true,
   },
   isOnline: {
     type: Boolean,
     default: false,
+    index: true,
   },
   isShopOpen: {
     type: Boolean,
     default: true,
+    index: true,
   },
   lastSeen: {
     type: Date,
@@ -44,6 +49,7 @@ const userSchema = new mongoose.Schema({
   isApproved: {
     type: Boolean,
     default: false,
+    index: true,
   },
   rejectionReason: {
     type: String,

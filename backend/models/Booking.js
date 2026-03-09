@@ -7,11 +7,13 @@ const bookingSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'User',
+      index: true,
     },
     vehicle: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'Vehicle',
+      index: true,
     },
     services: [{
       type: mongoose.Schema.Types.ObjectId,
@@ -21,6 +23,7 @@ const bookingSchema = mongoose.Schema(
     date: {
       type: Date,
       required: true,
+      index: true,
     },
     orderNumber: {
       type: Number,
@@ -30,6 +33,7 @@ const bookingSchema = mongoose.Schema(
     status: {
       type: String,
       required: true,
+      index: true,
       enum: [
         'CREATED', 
         'ASSIGNED', 
@@ -60,6 +64,7 @@ const bookingSchema = mongoose.Schema(
           enum: ['Pending', 'Approved', 'Rejected'],
           default: 'Pending'
         },
+        rejectionReason: String,
         image: String,
         oldImage: String
       }],

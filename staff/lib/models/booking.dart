@@ -162,6 +162,26 @@ class BookingDetail {
     this.qcCompletedAt,
   });
 
+  static const statusLabels = {
+    'CREATED': 'Created',
+    'ASSIGNED': 'Assigned',
+    'ACCEPTED': 'Accepted',
+    'REACHED_CUSTOMER': 'Reached Customer',
+    'VEHICLE_PICKED': 'Vehicle Picked',
+    'REACHED_MERCHANT': 'Reached Merchant',
+    'VEHICLE_AT_MERCHANT': 'At Merchant',
+    'SERVICE_STARTED': 'Service Started',
+    'SERVICE_COMPLETED': 'Service Completed',
+    'OUT_FOR_DELIVERY': 'Out for Delivery',
+    'DELIVERED': 'Delivered',
+    'CANCELLED': 'Cancelled',
+    'COMPLETED': 'Completed',
+  };
+
+  static String getStatusLabel(String status) {
+    return statusLabels[status.toUpperCase()] ?? status;
+  }
+
   BookingDetail copyWith({
     String? id,
     int? orderNumber,

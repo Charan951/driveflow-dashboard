@@ -40,9 +40,15 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
   }
 
   void _onSocketUpdate() {
-    // If we're already loading, skip
-    if (_isLoading) return;
-    _init(); // Refresh data on socket event
+    final event = _socketService.value;
+    if (event == 'booking_created' ||
+        event == 'booking_updated' ||
+        event == 'booking_cancelled' ||
+        event == 'user_status_update') {
+      // If we're already loading, skip
+      if (_isLoading) return;
+      _init(); // Refresh data on socket event
+    }
   }
 
   Future<void> _init() async {

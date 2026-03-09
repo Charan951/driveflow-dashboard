@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/env.dart';
@@ -44,13 +46,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   List<Map<String, dynamic>> _pendingApprovals = [];
   Timer? _approvalsTimer;
   List<LatLng> _routePoints = [];
+  bool _mapReady = false;
 
   // Live tracking state
   LatLng? _liveLatLng;
   String? _liveName;
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
-  final bool _socketConnected = false;
+  bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
 
   @override
@@ -58,6 +61,68 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     super.initState();
     _socketService = SocketService();
     _socketService.addListener(_onSocketUpdate);
+    _setupSocketListeners();
+  }
+
+  void _setupSocketListeners() {
+    _socketService.on('liveLocation', (data) {
+      if (!mounted) return;
+      if (data != null && data is Map) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final lat = mapData['lat'];
+          final lng = mapData['lng'];
+          if (lat is num && lng is num) {
+            final next = LatLng(lat.toDouble(), lng.toDouble());
+            setState(() {
+              _liveLatLng = next;
+              _liveName = mapData['name']?.toString();
+              _liveUpdatedAt = DateTime.tryParse(
+                mapData['updatedAt']?.toString() ?? '',
+              );
+            });
+
+            // Safely move map if ready
+            if (_mapReady) {
+              try {
+                _mapController.move(next, 16.0);
+              } catch (e) {
+                // Ignore
+              }
+            }
+
+            if (_booking?.location?.lat != null &&
+                _booking?.location?.lng != null) {
+              _fetchRoute(
+                next,
+                LatLng(_booking!.location!.lat!, _booking!.location!.lng!),
+              );
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+
+    _socketService.on('bookingUpdated', (data) {
+      if (!mounted) return;
+      if (data != null && data is Map) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final updated = Booking.fromJson(mapData);
+          if (updated.id == _bookingId) {
+            setState(() => _booking = updated);
+            if (updated.status == 'DELIVERED' ||
+                updated.status == 'COMPLETED') {
+              _fetchReviewsStatus(updated.id);
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
   }
 
   void _onSocketUpdate() {
@@ -78,53 +143,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       _nearAlertShown = false;
       _load();
       _socketService.emit('join', 'booking_$nextId');
-
-      _socketService.on('liveLocation', (data) {
-        if (!mounted) return;
-        if (data is Map<String, dynamic>) {
-          final lat = data['lat'];
-          final lng = data['lng'];
-          if (lat is num && lng is num) {
-            final next = LatLng(lat.toDouble(), lng.toDouble());
-            setState(() {
-              _liveLatLng = next;
-              _liveName = data['name']?.toString();
-              _liveUpdatedAt = DateTime.tryParse(
-                data['updatedAt']?.toString() ?? '',
-              );
-            });
-            _mapController.move(next, 16.0); // Auto-zoom to live location
-            if (_booking?.location?.lat != null &&
-                _booking?.location?.lng != null) {
-              _fetchRoute(
-                next,
-                LatLng(_booking!.location!.lat!, _booking!.location!.lng!),
-              );
-            }
-          }
-        }
-      });
-
-      _socketService.on('bookingUpdated', (data) {
-        if (!mounted) return;
-        try {
-          Booking? updated;
-          if (data is Map<String, dynamic>) {
-            updated = Booking.fromJson(data);
-          } else if (data is Map) {
-            updated = Booking.fromJson(Map<String, dynamic>.from(data));
-          }
-          if (updated != null && updated.id == _bookingId) {
-            setState(() => _booking = updated);
-            if (updated.status == 'DELIVERED' ||
-                updated.status == 'COMPLETED') {
-              _fetchReviewsStatus(updated.id);
-            }
-          }
-        } catch (e) {
-          // Silent catch
-        }
-      });
     }
   }
 
@@ -476,6 +494,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   }
 
   void _showImagePreview(String url) {
+    if (url.isEmpty) return;
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -485,10 +504,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           alignment: Alignment.center,
           children: [
             InteractiveViewer(
-              child: Image.network(
-                url,
+              child: CachedNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.contain,
-                errorBuilder: (context, _, _) => const Icon(
+                placeholder: (context, url) => const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+                errorWidget: (context, url, error) => const Icon(
                   Icons.broken_image,
                   color: Colors.white,
                   size: 50,
@@ -740,14 +762,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       case 'ACCEPTED':
         return 'Accepted';
       case 'REACHED_CUSTOMER':
-        return 'Driver Reached';
+        return 'Reached Customer';
       case 'VEHICLE_PICKED':
         return 'Vehicle Picked';
       case 'REACHED_MERCHANT':
-        return 'Reached Garage';
+        return 'Reached Merchant';
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
-      case 'SERVICE_IN_PROGRESS':
+      case 'SERVICE_STARTED':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
         return 'Ready';
@@ -788,7 +810,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'VEHICLE_PICKED' ||
             booking.status == 'REACHED_MERCHANT' ||
             booking.status == 'VEHICLE_AT_MERCHANT' ||
-            booking.status == 'SERVICE_IN_PROGRESS' ||
+            booking.status == 'SERVICE_STARTED' ||
             booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
 
@@ -809,7 +831,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         case 'VEHICLE_AT_MERCHANT':
           currentIndex = 2;
           break;
-        case 'SERVICE_IN_PROGRESS':
+        case 'SERVICE_STARTED':
           currentIndex = 3;
           break;
         case 'SERVICE_COMPLETED':
@@ -896,12 +918,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       options: MapOptions(
                         initialCenter: center,
                         initialZoom: 13,
+                        onMapReady: () {
+                          setState(() => _mapReady = true);
+                        },
                       ),
                       children: [
                         TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.carb.app',
+                          tileProvider: CancellableNetworkTileProvider(),
                         ),
                         PolylineLayer(
                           polylines: [
@@ -915,17 +940,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ),
                         MarkerLayer(
                           markers: [
-                            if (mapLatLng != null)
-                              Marker(
-                                point: mapLatLng,
-                                width: 40,
-                                height: 40,
-                                child: const Icon(
-                                  Icons.person_pin_circle,
-                                  size: 40,
-                                  color: Color(0xFF22C55E),
-                                ),
-                              ),
                             if (booking.pickupRequired && _liveLatLng != null)
                               Marker(
                                 point: _liveLatLng!,
@@ -1236,7 +1250,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     if (booking.vehicle != null) ...[
                       Row(
                         children: [
-                          if (booking.vehicle!.image != null)
+                          if (_resolveImageUrl(booking.vehicle!.image) != null)
                             Container(
                               width: 60,
                               height: 60,
@@ -1251,9 +1265,18 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(11),
-                                child: Image.network(
-                                  _resolveImageUrl(booking.vehicle!.image)!,
+                                child: CachedNetworkImage(
+                                  imageUrl: _resolveImageUrl(
+                                    booking.vehicle!.image,
+                                  )!,
                                   fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) =>
+                                      const Icon(Icons.broken_image, size: 20),
                                 ),
                               ),
                             ),
@@ -1304,6 +1327,41 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ),
                       ],
                     ),
+                    if (booking.status == 'SERVICE_COMPLETED' &&
+                        booking.paymentStatus != 'paid') ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isPaymentLoading ? null : _handlePayment,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isPaymentLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Pay Now',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1582,12 +1640,38 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                                           clipBehavior:
                                                               Clip.antiAlias,
                                                           child:
-                                                              newImageUrl !=
+                                                              _resolveImageUrl(
+                                                                    newImageUrl,
+                                                                  ) !=
                                                                   null
-                                                              ? Image.network(
-                                                                  newImageUrl,
+                                                              ? CachedNetworkImage(
+                                                                  imageUrl:
+                                                                      _resolveImageUrl(
+                                                                        newImageUrl,
+                                                                      )!,
                                                                   fit: BoxFit
                                                                       .cover,
+                                                                  placeholder:
+                                                                      (
+                                                                        context,
+                                                                        url,
+                                                                      ) => const Center(
+                                                                        child: CircularProgressIndicator(
+                                                                          strokeWidth:
+                                                                              2,
+                                                                        ),
+                                                                      ),
+                                                                  errorWidget:
+                                                                      (
+                                                                        context,
+                                                                        url,
+                                                                        error,
+                                                                      ) => const Icon(
+                                                                        Icons
+                                                                            .broken_image,
+                                                                        size:
+                                                                            20,
+                                                                      ),
                                                                 )
                                                               : Center(
                                                                   child: Text(
@@ -1657,12 +1741,38 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                                           clipBehavior:
                                                               Clip.antiAlias,
                                                           child:
-                                                              oldImageUrl !=
+                                                              _resolveImageUrl(
+                                                                    oldImageUrl,
+                                                                  ) !=
                                                                   null
-                                                              ? Image.network(
-                                                                  oldImageUrl,
+                                                              ? CachedNetworkImage(
+                                                                  imageUrl:
+                                                                      _resolveImageUrl(
+                                                                        oldImageUrl,
+                                                                      )!,
                                                                   fit: BoxFit
                                                                       .cover,
+                                                                  placeholder:
+                                                                      (
+                                                                        context,
+                                                                        url,
+                                                                      ) => const Center(
+                                                                        child: CircularProgressIndicator(
+                                                                          strokeWidth:
+                                                                              2,
+                                                                        ),
+                                                                      ),
+                                                                  errorWidget:
+                                                                      (
+                                                                        context,
+                                                                        url,
+                                                                        error,
+                                                                      ) => const Icon(
+                                                                        Icons
+                                                                            .broken_image,
+                                                                        size:
+                                                                            20,
+                                                                      ),
                                                                 )
                                                               : Center(
                                                                   child: Text(
@@ -2035,7 +2145,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     itemBuilder: (context, index) {
                       final url = _resolveImageUrl(
                         booking.prePickupPhotos[index],
-                      )!;
+                      );
+                      if (url == null) return const SizedBox.shrink();
                       return GestureDetector(
                         onTap: () => _showImagePreview(url),
                         child: Container(
@@ -2050,7 +2161,17 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(11),
-                            child: Image.network(url, fit: BoxFit.cover),
+                            child: CachedNetworkImage(
+                              imageUrl: url,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              errorWidget: (context, url, error) =>
+                                  const Icon(Icons.broken_image, size: 20),
+                            ),
                           ),
                         ),
                       );
@@ -2207,7 +2328,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             const SizedBox(height: 8),
             Row(
               children: List.generate(photos.length, (index) {
-                final url = _resolveImageUrl(photos[index])!;
+                final url = _resolveImageUrl(photos[index]);
+                if (url == null) return const SizedBox.shrink();
                 return GestureDetector(
                   onTap: () => _showImagePreview(url),
                   child: Container(
@@ -2226,7 +2348,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(11),
-                      child: Image.network(url, fit: BoxFit.cover),
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.broken_image, size: 20),
+                      ),
                     ),
                   ),
                 );

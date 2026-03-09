@@ -15,13 +15,13 @@ import 'pages/my_vehicles_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/my_bookings_page.dart';
 import 'pages/speshway_vehiclecare_dashboard_page.dart';
+import 'pages/book_service_flow_page.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
 import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
-import 'widgets/live_tracking_overlay.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -96,7 +96,7 @@ class MyApp extends StatelessWidget {
             themeMode: mode,
             themeAnimationDuration: const Duration(milliseconds: 150),
             builder: (context, child) {
-              return Stack(children: [?child, const LiveTrackingOverlay()]);
+              return child ?? const SizedBox.shrink();
             },
             theme: ThemeData(
               useMaterial3: true,
@@ -124,10 +124,11 @@ class MyApp extends StatelessWidget {
               colorScheme: ColorScheme.fromSeed(
                 seedColor: Colors.blue,
                 brightness: Brightness.dark,
+                surface: Colors.black,
               ),
               scaffoldBackgroundColor: Colors.black,
               appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
+                backgroundColor: Colors.black,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 iconTheme: IconThemeData(color: Colors.white),
@@ -161,6 +162,13 @@ class MyApp extends StatelessWidget {
               '/car-wash': (_) => const _TabRedirect(index: 3),
               '/tires': (_) => const _TabRedirect(index: 4),
               '/track': (_) => const TrackBookingPage(),
+              '/book': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                if (args is String) {
+                  return BookServiceFlowPage(initialCategory: args);
+                }
+                return const BookServiceFlowPage();
+              },
               '/speshway-dashboard': (_) =>
                   const SpeshwayVehicleCareDashboard(),
               '/merchant': (_) => const MerchantHomePage(),

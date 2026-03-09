@@ -25,7 +25,7 @@ router.route('/')
 router.route('/mybookings').get(protect, getMyBookings);
 router.route('/user/:userId').get(protect, merchant, getUserBookings);
 router.route('/vehicle/:vehicleId').get(protect, merchant, getVehicleBookings);
-router.route('/merchant/:merchantId').get(protect, admin, getMerchantBookings);
+router.route('/merchant/:merchantId').get(protect, merchant, getMerchantBookings);
 
 router.route('/:id')
   .get(protect, getBookingById);

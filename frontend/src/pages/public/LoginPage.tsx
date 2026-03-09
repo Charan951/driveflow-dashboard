@@ -40,16 +40,8 @@ const LoginPage: React.FC = () => {
 
       toast.success('Welcome back!');
       
-      // Redirect based on role
-      if (data.role === 'merchant') {
-        navigate('/merchant/dashboard', { replace: true });
-      } else if (data.role === 'staff') {
-        navigate('/staff/dashboard', { replace: true });
-      } else if (data.role === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate(from, { replace: true, state: serviceState });
-      }
+      // All roles now redirect to a single dashboard route
+      navigate('/dashboard', { replace: true });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -169,19 +161,6 @@ const LoginPage: React.FC = () => {
             Sign up
           </Link>
         </p>
-
-        {/* Portal Links */}
-        <div className="mt-6 pt-6 border-t border-border hidden">
-          <p className="text-center text-sm text-muted-foreground mb-3">Other portals</p>
-          <div className="flex justify-center gap-4">
-            <Link to="/staff/login" className="text-sm text-primary hover:underline">
-              Login
-            </Link>
-            <Link to="/merchant/login" className="text-sm text-primary hover:underline">
-              Merchant Login
-            </Link>
-          </div>
-        </div>
       </div>
     </motion.div>
   );

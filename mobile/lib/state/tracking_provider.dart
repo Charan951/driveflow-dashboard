@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/booking.dart';
 import '../core/api_client.dart';
@@ -8,6 +9,7 @@ class TrackingProvider extends ChangeNotifier {
   Map<String, dynamic>? _staffLocation;
   Map<String, dynamic>? _eta;
   bool _isVisible = false;
+  String? _lastStatus;
   final NotificationService _notificationService = NotificationService();
 
   Booking? get activeBooking => _activeBooking;
@@ -27,9 +29,13 @@ class TrackingProvider extends ChangeNotifier {
 
       final data = await _api.getAny(endpoint);
       if (data is List) {
-        final List<Booking> bookings = data
-            .map((e) => Booking.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
+        final List<Booking> bookings = data.map((e) {
+          if (e is Map) {
+            final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+            return Booking.fromJson(map);
+          }
+          throw 'Invalid booking data';
+        }).toList();
         final active = bookings.firstWhere(
           (b) => trackingStatuses.contains(b.status),
           orElse: () => throw 'No active booking',
@@ -48,7 +54,7 @@ class TrackingProvider extends ChangeNotifier {
     'VEHICLE_PICKED',
     'REACHED_MERCHANT',
     'VEHICLE_AT_MERCHANT',
-    'SERVICE_IN_PROGRESS',
+    'SERVICE_STARTED',
     'SERVICE_COMPLETED',
     'OUT_FOR_DELIVERY',
   ];
@@ -59,16 +65,20 @@ class TrackingProvider extends ChangeNotifier {
       _isVisible = false;
       _staffLocation = null;
       _eta = null;
+      _lastStatus = null;
       _notificationService.cancelTrackingNotification();
     } else if (trackingStatuses.contains(booking.status)) {
+      final statusChanged = _lastStatus != booking.status;
       _activeBooking = booking;
       _isVisible = true;
-      _updateLockscreenNotification();
+      _updateLockscreenNotification(forcePop: statusChanged);
+      _lastStatus = booking.status;
     } else {
       _activeBooking = null;
       _isVisible = false;
       _staffLocation = null;
       _eta = null;
+      _lastStatus = null;
       _notificationService.cancelTrackingNotification();
     }
     notifyListeners();
@@ -89,7 +99,7 @@ class TrackingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _updateLockscreenNotification() {
+  void _updateLockscreenNotification({bool forcePop = false}) {
     if (_activeBooking == null || !_isVisible) return;
 
     final orderNum =
@@ -111,6 +121,7 @@ class TrackingProvider extends ChangeNotifier {
       title: "Tracking Order #$orderNum",
       body: body,
       payload: '{"type": "status", "bookingId": "${_activeBooking!.id}"}',
+      forcePop: forcePop,
     );
   }
 
@@ -129,7 +140,7 @@ class TrackingProvider extends ChangeNotifier {
       'VEHICLE_PICKED',
       'REACHED_MERCHANT',
       'VEHICLE_AT_MERCHANT',
-      'SERVICE_IN_PROGRESS',
+      'SERVICE_STARTED',
       'SERVICE_COMPLETED',
       'OUT_FOR_DELIVERY',
       'DELIVERED',
@@ -153,7 +164,7 @@ class TrackingProvider extends ChangeNotifier {
         return 'Staff reached workshop';
       case 'VEHICLE_AT_MERCHANT':
         return 'Vehicle is at workshop';
-      case 'SERVICE_IN_PROGRESS':
+      case 'SERVICE_STARTED':
         return 'Service in progress';
       case 'SERVICE_COMPLETED':
         return 'Service completed';

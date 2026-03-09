@@ -23,13 +23,7 @@ api.interceptors.response.use(
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('auth-storage'); // Clear zustand store
         
-        if (window.location.pathname.startsWith('/merchant')) {
-            window.location.href = '/merchant/login';
-        } else if (window.location.pathname.startsWith('/staff')) {
-            window.location.href = '/staff/login';
-        } else {
-            window.location.href = '/login';
-        }
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Suspense, lazy } from "react";
 
 // Layouts
 import AuthLayout from "./layouts/AuthLayout";
@@ -10,92 +11,102 @@ import CustomerLayout from "./layouts/CustomerLayout";
 import StaffLayout from "./layouts/StaffLayout";
 import MerchantLayout from "./layouts/MerchantLayout";
 import PublicLayout from "./layouts/PublicLayout";
+import AdminLayout from "./layouts/AdminLayout";
 
 // Components
 import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
+import SocketNotificationListener from "./components/SocketNotificationListener";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Loading Fallback Component
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 space-y-4">
+    <Skeleton className="h-12 w-[250px]" />
+    <Skeleton className="h-4 w-[200px]" />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl mt-8">
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-48 rounded-2xl" />
+      ))}
+    </div>
+  </div>
+);
 
 // Public Pages
-import HomePage from "./pages/public/HomePage";
-import LoginPage from "./pages/public/LoginPage";
-import RegisterPage from "./pages/public/RegisterPage";
-import ForgotPasswordPage from "./pages/public/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/public/ResetPasswordPage";
-import AboutUs from "./pages/public/AboutUs";
-import Careers from "./pages/public/Careers";
-import Blog from "./pages/public/Blog";
-import Contact from "./pages/public/Contact";
-import FAQs from "./pages/public/FAQs";
-import PublicServices from "./pages/public/PublicServices";
-import PublicReviews from "./pages/public/PublicReviews";
-import TermsPage from "./pages/public/TermsPage";
-import PrivacyPage from "./pages/public/PrivacyPage";
-import ServiceDetailsPage from "./pages/public/ServiceDetailsPage";
+const HomePage = lazy(() => import("./pages/public/HomePage"));
+const LoginPage = lazy(() => import("./pages/public/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/public/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/public/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/public/ResetPasswordPage"));
+const AboutUs = lazy(() => import("./pages/public/AboutUs"));
+const Careers = lazy(() => import("./pages/public/Careers"));
+const Blog = lazy(() => import("./pages/public/Blog"));
+const Contact = lazy(() => import("./pages/public/Contact"));
+const FAQs = lazy(() => import("./pages/public/FAQs"));
+const PublicServices = lazy(() => import("./pages/public/PublicServices"));
+const PublicReviews = lazy(() => import("./pages/public/PublicReviews"));
+const TermsPage = lazy(() => import("./pages/public/TermsPage"));
+const PrivacyPage = lazy(() => import("./pages/public/PrivacyPage"));
+const ServiceDetailsPage = lazy(() => import("./pages/public/ServiceDetailsPage"));
 
 // Customer Pages
-import DashboardPage from "./pages/customer/DashboardPage";
-import MyBookingsPage from "./pages/customer/MyBookingsPage";
-import MyPaymentsPage from "./pages/customer/MyPaymentsPage";
-import AddVehiclePage from "./pages/customer/AddVehiclePage";
-import ServicesPage from "./pages/customer/ServicesPage";
-import BookServicePage from "./pages/customer/BookServicePage";
-import TrackServicePage from "./pages/customer/TrackServicePage";
-import ChatPage from "./pages/customer/ChatPage";
-import TiresBatteryPage from "./pages/customer/TiresBatteryPage";
-import CarWashPage from "./pages/customer/CarWashPage";
-import InsurancePage from "./pages/customer/InsurancePage";
-import DocumentsPage from "./pages/customer/DocumentsPage";
-import ProfilePage from "./pages/customer/ProfilePage";
-import SupportPage from "./pages/customer/SupportPage";
+const DashboardPage = lazy(() => import("./pages/customer/DashboardPage"));
+const MyBookingsPage = lazy(() => import("./pages/customer/MyBookingsPage"));
+const MyPaymentsPage = lazy(() => import("./pages/customer/MyPaymentsPage"));
+const AddVehiclePage = lazy(() => import("./pages/customer/AddVehiclePage"));
+const ServicesPage = lazy(() => import("./pages/customer/ServicesPage"));
+const BookServicePage = lazy(() => import("./pages/customer/BookServicePage"));
+const TrackServicePage = lazy(() => import("./pages/customer/TrackServicePage"));
+const ChatPage = lazy(() => import("./pages/customer/ChatPage"));
+const TiresBatteryPage = lazy(() => import("./pages/customer/TiresBatteryPage"));
+const CarWashPage = lazy(() => import("./pages/customer/CarWashPage"));
+const InsurancePage = lazy(() => import("./pages/customer/InsurancePage"));
+const DocumentsPage = lazy(() => import("./pages/customer/DocumentsPage"));
+const ProfilePage = lazy(() => import("./pages/customer/ProfilePage"));
+const SupportPage = lazy(() => import("./pages/customer/SupportPage"));
 
 // Staff Pages
-import StaffDashboardPage from "./pages/staff/StaffDashboardPage";
-import StaffOrderPage from "./pages/staff/StaffOrderPage";
-import StaffOrdersPage from "./pages/staff/StaffOrdersPage";
-import StaffLoginPage from "./pages/staff/StaffLoginPage";
+const StaffDashboardPage = lazy(() => import("./pages/staff/StaffDashboardPage"));
+const StaffOrderPage = lazy(() => import("./pages/staff/StaffOrderPage"));
+const StaffOrdersPage = lazy(() => import("./pages/staff/StaffOrdersPage"));
 
-import AdminLayout from "./layouts/AdminLayout";
-import AdminDashboard from "./pages/admin/Dashboard";
+// Admin Pages
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminServicesPage = lazy(() => import("./pages/admin/AdminServicesPage"));
+const AdminBookingsPage = lazy(() => import("./pages/admin/AdminBookingsPage"));
+const AdminBookingDetailPage = lazy(() => import("./pages/admin/BookingDetailPage"));
+const AdminStaffPage = lazy(() => import("./pages/admin/AdminStaffPage"));
+const AdminMerchantsPage = lazy(() => import("./pages/admin/AdminMerchantsPage"));
+const AdminMerchantDetailPage = lazy(() => import("./pages/admin/MerchantDetailPage"));
+const AdminApprovalsPage = lazy(() => import("./pages/admin/AdminApprovalsPage"));
+const AdminTrackingPage = lazy(() => import("./pages/admin/AdminTrackingPage"));
+const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage"));
+const AdminDocumentsPage = lazy(() => import("./pages/admin/AdminDocumentsPage"));
+const AdminInsurancePage = lazy(() => import("./pages/admin/AdminInsurancePage"));
+const AdminStockPage = lazy(() => import("./pages/admin/AdminStockPage"));
+const MyNotificationsPage = lazy(() => import("./pages/common/MyNotificationsPage"));
+const AdminSupportPage = lazy(() => import("./pages/admin/AdminSupportPage"));
+const AdminFeedbackPage = lazy(() => import("./pages/admin/AdminFeedbackPage"));
+const AdminNotificationsPage = lazy(() => import("./pages/admin/AdminNotificationsPage"));
+const AdminReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
+const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminAuditPage = lazy(() => import("./pages/admin/AdminAuditPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
+const AdminUserDetailPage = lazy(() => import("./pages/admin/UserDetailPage"));
+const AdminVehiclesPage = lazy(() => import("./pages/admin/AdminVehiclesPage"));
+const AdminVehicleDetailPage = lazy(() => import("./pages/admin/VehicleDetailPage"));
 
 // Merchant Pages
-import MerchantDashboard from "./pages/merchant/Dashboard";
-import MerchantLoginPage from "./pages/merchant/MerchantLoginPage";
-import MerchantOrders from "./pages/merchant/Orders";
-import MerchantOrderDetail from "./pages/merchant/OrderDetail";
-import MerchantStock from "./pages/merchant/Stock";
-import MerchantFeedback from "./pages/merchant/Feedback";
-import MerchantProfilePage from "./pages/merchant/MerchantProfilePage";
+const MerchantDashboard = lazy(() => import("./pages/merchant/Dashboard"));
+const MerchantOrders = lazy(() => import("./pages/merchant/Orders"));
+const MerchantOrderDetail = lazy(() => import("./pages/merchant/OrderDetail"));
+const MerchantStock = lazy(() => import("./pages/merchant/Stock"));
+const MerchantFeedback = lazy(() => import("./pages/merchant/Feedback"));
+const MerchantProfilePage = lazy(() => import("./pages/merchant/MerchantProfilePage"));
 
-// Admin Pages (Legacy/Shared)
-import AdminServicesPage from "./pages/admin/AdminServicesPage";
-import AdminBookingsPage from "./pages/admin/AdminBookingsPage";
-import AdminBookingDetailPage from "./pages/admin/BookingDetailPage";
-import AdminStaffPage from "./pages/admin/AdminStaffPage";
-import AdminMerchantsPage from "./pages/admin/AdminMerchantsPage";
-import AdminMerchantDetailPage from "./pages/admin/MerchantDetailPage";
-import AdminApprovalsPage from "./pages/admin/AdminApprovalsPage";
-import AdminTrackingPage from "./pages/admin/AdminTrackingPage";
-import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
-import AdminDocumentsPage from "./pages/admin/AdminDocumentsPage";
-import AdminInsurancePage from "./pages/admin/AdminInsurancePage";
-import AdminStockPage from "./pages/admin/AdminStockPage";
-import MyNotificationsPage from "./pages/common/MyNotificationsPage";
-import AdminSupportPage from "./pages/admin/AdminSupportPage";
-import AdminFeedbackPage from "./pages/admin/AdminFeedbackPage";
-import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
-import AdminReportsPage from "./pages/admin/AdminReportsPage";
-import AdminRolesPage from "./pages/admin/AdminRolesPage";
-import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
-import AdminAuditPage from "./pages/admin/AdminAuditPage";
-import AdminUsersPage from "./pages/admin/AdminUsersPage";
-import AdminUserDetailPage from "./pages/admin/UserDetailPage";
-import AdminVehiclesPage from "./pages/admin/AdminVehiclesPage";
-import AdminVehicleDetailPage from "./pages/admin/VehicleDetailPage";
-
-import SocketNotificationListener from "./components/SocketNotificationListener";
-import LiveTrackingNotification from "./components/LiveTrackingNotification";
-
-import NotFound from "./pages/public/NotFound";
+const DashboardDispatcher = lazy(() => import("./pages/common/DashboardDispatcher"));
+const NotFound = lazy(() => import("./pages/public/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -106,8 +117,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <SocketNotificationListener />
-        <LiveTrackingNotification />
-        <Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
           {/* Public Routes with Layout */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />
@@ -130,15 +141,17 @@ const App = () => (
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/merchant/login" element={<MerchantLoginPage />} />
-              <Route path="/staff/login" element={<StaffLoginPage />} />
             </Route>
+          </Route>
+
+          {/* Common Dashboard Route */}
+          <Route element={<PrivateRoute allowedRoles={['admin', 'merchant', 'staff', 'customer']} />}>
+            <Route path="/dashboard" element={<DashboardDispatcher />} />
           </Route>
 
           {/* Customer Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['customer']} />}>
             <Route element={<CustomerLayout />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/notifications" element={<MyNotificationsPage />} />
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
@@ -159,17 +172,15 @@ const App = () => (
           {/* Staff Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['staff']} />}>
             <Route element={<StaffLayout />}>
-              <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
               <Route path="/staff/notifications" element={<MyNotificationsPage />} />
-          <Route path="/staff/order/:id" element={<StaffOrderPage />} />
-          <Route path="/staff/orders" element={<StaffOrdersPage />} />
-        </Route>
+              <Route path="/staff/order/:id" element={<StaffOrderPage />} />
+              <Route path="/staff/orders" element={<StaffOrdersPage />} />
+            </Route>
           </Route>
 
           {/* Admin Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['admin']} />}>
             <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/my-notifications" element={<MyNotificationsPage />} />
               <Route path="/admin/customers" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
@@ -201,7 +212,6 @@ const App = () => (
           {/* Merchant Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['merchant', 'admin']} />}>
             <Route element={<MerchantLayout />}>
-              <Route path="/merchant/dashboard" element={<MerchantDashboard />} />
               <Route path="/merchant/notifications" element={<MyNotificationsPage />} />
               <Route path="/merchant/orders" element={<MerchantOrders />} />
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />
@@ -219,6 +229,7 @@ const App = () => (
           {/* Catch All */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

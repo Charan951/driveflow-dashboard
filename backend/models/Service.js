@@ -21,6 +21,7 @@ const serviceSchema = mongoose.Schema(
     category: {
       type: String,
       required: true,
+      index: true,
       enum: ['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Insurance', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Other'],
     },
     estimationTime: {
@@ -30,6 +31,7 @@ const serviceSchema = mongoose.Schema(
     vehicleType: {
       type: String,
       required: true,
+      index: true,
       enum: ['Car'],
       default: 'Car',
     },
@@ -43,6 +45,7 @@ const serviceSchema = mongoose.Schema(
     isQuickService: {
       type: Boolean,
       default: false,
+      index: true,
     },
   },
   {

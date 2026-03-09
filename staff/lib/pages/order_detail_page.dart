@@ -31,6 +31,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   bool _updatingStatus = false;
   bool _uploadingPhotos = false;
   bool _isMapExpanded = false;
+  bool _mapReady = false;
   List<XFile> _selectedPhotos = const [];
   final ImagePicker _picker = ImagePicker();
 
@@ -53,14 +54,21 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
 
   void _onTrackingUpdate() {
     final info = _tracking.info.value;
-    if (info.lat != null && info.lng != null && mounted) {
-      _mapController.move(LatLng(info.lat!, info.lng!), 16.0);
+    if (info.lat != null && info.lng != null && mounted && _mapReady) {
+      try {
+        _mapController.move(LatLng(info.lat!, info.lng!), 16.0);
+      } catch (e) {
+        debugPrint('MapController.move failed in StaffOrderDetailPage: $e');
+      }
     }
   }
 
   void _onSocketUpdate() {
-    if (_loading || _booking == null) return;
-    _load(_booking!.id);
+    final event = _socketService.value;
+    if (event == 'booking_updated' || event == 'booking_cancelled') {
+      if (_loading || _booking == null) return;
+      _load(_booking!.id);
+    }
   }
 
   @override
@@ -338,7 +346,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     if (s == 'VEHICLE_PICKED' ||
         s == 'REACHED_MERCHANT' ||
         s == 'VEHICLE_AT_MERCHANT' ||
-        s == 'OUT_FOR_DELIVERY') {
+        s == 'SERVICE_STARTED' ||
+        s == 'SERVICE_COMPLETED') {
       loc = booking.merchantLocation ?? booking.location;
     }
     final lat = loc?.lat;
@@ -433,9 +442,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       return;
     }
     final images = await _picker.pickMultiImage(
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 80,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 50,
     );
     if (!mounted) return;
     if (images.isEmpty) return;
@@ -684,6 +693,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   options: MapOptions(
                                     initialCenter: _initialCenter(booking),
                                     initialZoom: 16,
+                                    onMapReady: () {
+                                      setState(() => _mapReady = true);
+                                    },
                                   ),
                                   children: [
                                     TileLayer(
@@ -845,9 +857,15 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                               child: const Text('Reached Garage'),
                             ),
                           )
-                        else if (booking.status == 'REACHED_MERCHANT')
+                        else if (booking.status == 'REACHED_MERCHANT' ||
+                            booking.status == 'VEHICLE_AT_MERCHANT' ||
+                            booking.status == 'SERVICE_STARTED')
                           Text(
-                            'Waiting for handover from merchant',
+                            booking.status == 'REACHED_MERCHANT'
+                                ? 'Waiting for handover from merchant'
+                                : (booking.status == 'VEHICLE_AT_MERCHANT'
+                                      ? 'Vehicle handover completed. Servicing will start soon.'
+                                      : 'Vehicle is currently being serviced.'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: const Color(0xFF6B7280),
                             ),

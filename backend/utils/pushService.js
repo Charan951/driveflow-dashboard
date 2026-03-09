@@ -1,6 +1,7 @@
 import admin from '../config/firebase.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import { getIO } from '../socket.js';
 
 /**
  * Send push notification to a single user
@@ -14,16 +15,28 @@ import Notification from '../models/Notification.js';
 export const sendPushToUser = async (userId, title, body, data = {}, type = 'general') => {
   try {
     const user = await User.findById(userId);
+    
+    // Save notification to history
+    const notification = await Notification.create({
+      userId,
+      role: user ? user.role : 'all',
+      title,
+      body,
+      data,
+      type
+    });
+
+    // Emit socket event for real-time update
+    try {
+      const io = getIO();
+      if (io) {
+        io.to(`user_${userId}`).emit('notification', notification);
+      }
+    } catch (socketErr) {
+      console.error('Socket notification emit error:', socketErr);
+    }
+
     if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
-      // Save notification to history even if no tokens are found
-      await Notification.create({
-        userId,
-        role: user ? user.role : 'all',
-        title,
-        body,
-        data,
-        type
-      });
       return { success: false, message: 'User not found or has no FCM tokens' };
     }
 
@@ -70,16 +83,6 @@ export const sendPushToUser = async (userId, title, body, data = {}, type = 'gen
         });
       }
     }
-
-    // Save notification to history
-    await Notification.create({
-      userId,
-      role: user.role,
-      title,
-      body,
-      data,
-      type
-    });
 
     return { success: true, response };
   } catch (error) {

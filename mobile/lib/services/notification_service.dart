@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../firebase_options.dart';
+
+// Import PlatformUtils only for non-web
+import './platform_utils.dart'
+    if (dart.library.html) './platform_utils_web.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../core/api_client.dart';
 import '../main.dart'; // Import to use rootNavigatorKey
 
@@ -14,7 +17,6 @@ import '../main.dart'; // Import to use rootNavigatorKey
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint("Handling a background message: ${message.messageId}");
 }
 
 @pragma('vm:entry-point')
@@ -70,6 +72,10 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> initialize() async {
+    if (kIsWeb) {
+      _initialized = true;
+      return;
+    }
     if (_initialized) return;
 
     // 1. Request permissions
@@ -102,36 +108,10 @@ class NotificationService {
     );
 
     // 3. Create Android Notification Channels
-    if (Platform.isAndroid) {
-      const AndroidNotificationChannel highImportanceChannel =
-          AndroidNotificationChannel(
-            'high_importance_channel',
-            'High Importance Notifications',
-            description: 'This channel is used for important notifications.',
-            importance: Importance.max,
-            playSound: true,
-          );
-
-      const AndroidNotificationChannel trackingChannel =
-          AndroidNotificationChannel(
-            'tracking_channel',
-            'Live Tracking',
-            description: 'Used for live tracking updates on lockscreen.',
-            importance:
-                Importance.high, // Use high importance for lockscreen updates
-            playSound: false, // Don't beep for every location update
-            showBadge: false,
-          );
-
-      final plugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-
-      if (plugin != null) {
-        await plugin.createNotificationChannel(highImportanceChannel);
-        await plugin.createNotificationChannel(trackingChannel);
-      }
+    if (!kIsWeb) {
+      await PlatformUtils.createAndroidNotificationChannels(
+        _localNotifications,
+      );
     }
 
     // 4. Set up FCM listeners
@@ -146,13 +126,11 @@ class NotificationService {
 
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got a message whilst in the foreground!');
       _showLocalNotification(message);
     });
 
     // Background/Terminated state message click
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('A new onMessageOpenedApp event was published!');
       _handleNotificationClick(jsonEncode(message.data));
     });
 
@@ -169,22 +147,12 @@ class NotificationService {
   }
 
   Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      // Android 13+ permission
-      if (await Permission.notification.isDenied) {
-        await Permission.notification.request();
-      }
-    } else if (Platform.isIOS) {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-    }
+    if (kIsWeb) return;
+    await PlatformUtils.requestMobilePermissions(_messaging);
   }
 
   void _setupTokenManagement() {
+    if (kIsWeb) return;
     // Get initial token
     _messaging.getToken().then((token) {
       if (token != null) _saveTokenToBackend(token);
@@ -198,24 +166,22 @@ class NotificationService {
 
   Future<void> _saveTokenToBackend(String token) async {
     try {
-      String deviceType = Platform.isAndroid
-          ? 'android'
-          : (Platform.isIOS ? 'ios' : 'web');
+      String deviceType = PlatformUtils.deviceType;
       await _api.postAny(
         '/users/fcm-token',
         body: {'token': token, 'deviceType': deviceType},
       );
-      debugPrint('FCM Token saved to backend: $token');
 
       // Subscribe to topics
       await _messaging.subscribeToTopic('all_users');
       await _messaging.subscribeToTopic('customers');
     } catch (e) {
-      debugPrint('Error saving FCM token: $e');
+      // Ignore
     }
   }
 
   void _showLocalNotification(RemoteMessage message) async {
+    if (kIsWeb) return;
     RemoteNotification? notification = message.notification;
 
     if (notification != null) {
@@ -249,6 +215,7 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
+    if (kIsWeb) return;
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'high_importance_channel',
@@ -280,29 +247,34 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    bool forcePop = false,
   }) async {
+    if (kIsWeb) return;
     const int trackingNotificationId = 888;
 
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'tracking_channel',
-          'Live Tracking',
-          channelDescription: 'Used for live tracking updates on lockscreen.',
-          importance: Importance.max,
-          priority: Priority.high,
-          ongoing: true, // Keep it on lockscreen/notification panel
-          autoCancel: false,
-          showWhen: false,
-          icon: '@mipmap/ic_launcher',
-          onlyAlertOnce: true, // Don't beep/vibrate for every update
-        );
+    final AndroidNotificationDetails
+    androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'tracking_channel',
+      'Live Tracking',
+      channelDescription: 'Used for live tracking updates on lockscreen.',
+      importance: Importance.max,
+      priority: Priority.high,
+      ongoing: true, // Keep it on lockscreen/notification panel
+      autoCancel: false,
+      showWhen: false,
+      icon: '@mipmap/ic_launcher',
+      onlyAlertOnce:
+          !forcePop, // If true, only beep once. If false, beep/pop for every update.
+    );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: DarwinNotificationDetails(
         presentAlert: true,
-        presentSound: false,
-        interruptionLevel: InterruptionLevel.active,
+        presentSound: forcePop,
+        interruptionLevel: forcePop
+            ? InterruptionLevel.active
+            : InterruptionLevel.passive,
       ),
     );
 
@@ -316,6 +288,7 @@ class NotificationService {
   }
 
   Future<void> cancelTrackingNotification() async {
+    if (kIsWeb) return;
     await _localNotifications.cancel(888);
   }
 
@@ -323,7 +296,6 @@ class NotificationService {
     if (payload == null) return;
     try {
       Map<String, dynamic> data = jsonDecode(payload);
-      debugPrint('Notification clicked with data: $data');
 
       // Use the rootNavigatorKey from main.dart to navigate
       final context = rootNavigatorKey.currentContext;
@@ -338,7 +310,7 @@ class NotificationService {
         }
       }
     } catch (e) {
-      debugPrint('Error handling notification click: $e');
+      // Ignore
     }
   }
 

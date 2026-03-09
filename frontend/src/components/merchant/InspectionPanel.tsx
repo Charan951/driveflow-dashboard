@@ -20,6 +20,10 @@ interface UIAdditionalPart extends BookingAdditionalPart {
 }
 
 const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) => {
+  const [damageReport, setDamageReport] = useState(booking.inspection?.damageReport || '');
+  const [inspectionPhotos, setInspectionPhotos] = useState<string[]>(booking.inspection?.photos || []);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  
   const [additionalParts, setAdditionalParts] = useState<UIAdditionalPart[]>(
     (booking.inspection?.additionalParts || []).map((p) => ({
       ...p,
@@ -31,6 +35,25 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     }))
   );
   const [loading, setLoading] = useState(false);
+
+  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadingPhotos(true);
+      try {
+        const res = await uploadService.uploadFile(e.target.files[0]);
+        setInspectionPhotos(prev => [...prev, res.url]);
+        toast.success('Photo uploaded');
+      } catch (err) {
+        toast.error('Failed to upload photo');
+      } finally {
+        setUploadingPhotos(false);
+      }
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setInspectionPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleAddPart = () => {
     setAdditionalParts((prev) => [
@@ -136,6 +159,8 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       });
 
       const inspectionUpdate: BookingDetailsUpdate['inspection'] = {
+        damageReport,
+        photos: inspectionPhotos,
         additionalParts: partsToSave
       };
 
@@ -150,26 +175,20 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
 
       // 3. Create approval requests for NEW unapproved parts
       const unapprovedParts = updatedParts.filter(
-        (p) => !p.approved && p.name && (Number(p.price) || 0) > 0
+        (p) => !p.approved && (Number(p.price) || 0) > 0
       );
       
       let requestCount = 0;
       for (const part of unapprovedParts) {
-          // TODO: Optimization - Check if request already pending?
-          // For now, we assume if it's unapproved in UI, we might need a request.
-          // However, if we just saved it, we don't want to spam requests if one exists.
-          // But tracking that is complex without fetching approvals.
-          // We will send it, backend can potentially handle dupes or we just rely on admin to see.
-          // Better: only send if we haven't sent before? 
-          // Current logic sends every time "Save" is clicked for unapproved parts.
-          // Let's assume this is "Send to Customer" action.
+          // Optimization: Check if this part already has a pending approval in the system
+          // For now, we rely on the merchant to only save/confirm when they want to send requests.
           
           await createApproval({
               type: 'PartReplacement',
               relatedId: booking._id,
               relatedModel: 'Booking',
               data: {
-                  name: part.name,
+                  name: part.name || 'Unnamed Additional Part',
                   price: Number(part.price),
                   quantity: Number(part.quantity),
                   image: part.image,
@@ -203,7 +222,7 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-600" />
-            Additional Parts
+            Vehicle Inspection
         </h3>
         {isCompleted && (
             <div className="flex items-center gap-1 text-green-600 font-medium text-sm">
@@ -213,7 +232,54 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
         )}
       </div>
 
-      <div className="space-y-4">
+      {/* Damage Report & Photos Section */}
+      <div className="space-y-4 pt-2 border-t border-border">
+        <div>
+          <label className="text-sm font-medium mb-1.5 block">Damage Report / Inspection Findings</label>
+          <textarea
+            value={damageReport}
+            onChange={(e) => setDamageReport(e.target.value)}
+            disabled={isCompleted}
+            placeholder="Describe any damages or findings from the initial inspection..."
+            className="w-full p-3 border border-input rounded-md text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium mb-2 block">Inspection Photos</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {inspectionPhotos.map((url, i) => (
+              <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
+                <img src={url} alt={`Inspection ${i}`} className="w-full h-full object-cover" />
+                {!isCompleted && (
+                  <button
+                    onClick={() => handleRemovePhoto(i)}
+                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+            
+            {!isCompleted && (
+              <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                {uploadingPhotos ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-[10px] mt-1 text-muted-foreground font-medium">Add Photo</span>
+                  </>
+                )}
+                <input type="file" className="hidden" accept="image/*" onChange={handleAddPhoto} />
+              </label>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 pt-4 border-t border-border">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Additional Parts Needed</label>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -281,8 +347,9 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
                     <CheckCircle className="w-5 h-5" />
                   </div>
                 ) : part.approvalStatus === 'Rejected' ? (
-                  <div title="Rejected by customer" className="text-red-500">
+                  <div title={`Rejected by customer${part.rejectionReason ? ': ' + part.rejectionReason : ''}`} className="text-red-500 flex flex-col items-center">
                     <Trash2 className="w-5 h-5" />
+                    {part.rejectionReason && <span className="text-[10px] italic">Rejected</span>}
                   </div>
                 ) : (part.name && part.price > 0) ? (
                   <div title="Pending customer approval" className="text-yellow-500">

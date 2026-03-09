@@ -13,7 +13,8 @@ import {
   Navigation,
   Image as ImageIcon,
   Loader2,
-  Truck
+  Truck,
+  Wrench
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -24,7 +25,7 @@ import Timeline from '@/components/Timeline';
 import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { AlertTriangle, Check, X } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getETA, ETAResponse } from '@/services/trackingService';
@@ -108,9 +109,10 @@ const TrackServicePage: React.FC = () => {
       socketService.joinRoom(`booking_${id}`);
 
       socketService.on('liveLocation', (data: { lat?: number | string; lng?: number | string; role?: string; updatedAt?: string; timestamp?: string }) => {
+        console.log('liveLocation', data);
         const currentOrder = orderRef.current;
         if (!currentOrder) return;
-        if (data.role && data.role !== 'staff') return;
+        // if (data.role && data.role !== 'staff') return;
         if (
           currentOrder.status === 'VEHICLE_AT_MERCHANT' ||
           currentOrder.status === 'SERVICE_STARTED' ||
@@ -182,11 +184,18 @@ const TrackServicePage: React.FC = () => {
         }
       });
 
+      socketService.on('newApproval', (newApproval: ApprovalRequest) => {
+        // Refresh approvals list when a new one arrives
+        fetchPendingApprovals();
+        toast.info(`New approval request: ${newApproval.type === 'PartReplacement' ? newApproval.data.name : 'Update'}`);
+      });
+
       return () => {
         socketService.leaveRoom(`booking_${id}`);
         socketService.off('liveLocation');
         socketService.off('nearbyStaff');
         socketService.off('bookingUpdated');
+        socketService.off('newApproval');
         // Don't disconnect socket fully as it might be used elsewhere, 
         // but socketService.disconnect() usually handles ref counting or single instance logic. 
         // For now, let's just leave room.
@@ -270,8 +279,17 @@ const TrackServicePage: React.FC = () => {
   }, [order, staffLocation]);
 
   const handleApprovalAction = async (approvalId: string, status: 'Approved' | 'Rejected') => {
+      let reason: string | null = null;
+      if (status === 'Rejected') {
+          reason = window.prompt('Please provide a reason for rejection (optional):');
+          if (reason === null) return; // User cancelled
+      } else {
+          const confirmed = window.confirm('Are you sure you want to approve this part?');
+          if (!confirmed) return;
+      }
+
       try {
-          await updateApprovalStatus(approvalId, status);
+          await updateApprovalStatus(approvalId, status, reason || undefined);
           toast.success(`Request ${status.toLowerCase()} successfully`);
           fetchPendingApprovals(); // Refresh list
           
@@ -714,7 +732,7 @@ const TrackServicePage: React.FC = () => {
                             <div className="inline-block max-w-full bg-white border border-amber-200 rounded-2xl px-3 py-2">
                               <div className="flex justify-between items-start gap-3">
                                 <div>
-                                  <div className="text-xs font-semibold text-foreground">{approval.data.name}</div>
+                                  <div className="text-xs font-semibold text-foreground">{approval.data.name || 'Unnamed Additional Part'}</div>
                                   <div className="text-[11px] text-muted-foreground">
                                     Qty: {approval.data.quantity} • Price: ₹{approval.data.price}
                                   </div>

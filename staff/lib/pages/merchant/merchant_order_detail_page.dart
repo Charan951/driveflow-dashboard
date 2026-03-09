@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
@@ -73,10 +74,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   void _onSocketUpdate() {
-    if (_isLoading || _booking == null) {
-      return;
+    final event = _socketService.value;
+    if (event == 'booking_updated' || event == 'booking_cancelled') {
+      if (_isLoading || _booking == null) {
+        return;
+      }
+      _load(_booking!.id);
     }
-    _load(_booking!.id);
   }
 
   @override
@@ -172,7 +176,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Future<void> _pickBillFile() async {
     final XFile? photo = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 50,
     );
     if (photo != null) {
       setState(() => _billFile = photo);
@@ -223,13 +229,49 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Inspection'),
-            Tab(text: 'Service'),
-            Tab(text: 'QC'),
-            Tab(text: 'Billing'),
+          tabs: [
+            const Tab(text: 'Overview'),
+            const Tab(text: 'Inspection'),
+            Tab(
+              child: Opacity(
+                opacity: _booking?.inspectionCompletedAt != null ? 1.0 : 0.5,
+                child: const Text('Service'),
+              ),
+            ),
+            Tab(
+              child: Opacity(
+                opacity: _booking?.inspectionCompletedAt != null ? 1.0 : 0.5,
+                child: const Text('QC'),
+              ),
+            ),
+            Tab(
+              child: Opacity(
+                opacity: _booking?.qcCompletedAt != null ? 1.0 : 0.5,
+                child: const Text('Billing'),
+              ),
+            ),
           ],
+          onTap: (index) {
+            if (index == 2 || index == 3) {
+              if (_booking?.inspectionCompletedAt == null) {
+                _tabController.index = _tabController.previousIndex;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please complete inspection first'),
+                  ),
+                );
+              }
+            } else if (index == 4) {
+              if (_booking?.qcCompletedAt == null) {
+                _tabController.index = _tabController.previousIndex;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please complete QC check first'),
+                  ),
+                );
+              }
+            }
+          },
         ),
       ),
       body: TabBarView(
@@ -554,7 +596,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
-          child: Image.network(url, width: 60, height: 60, fit: BoxFit.cover),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            width: 60,
+            height: 60,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            errorWidget: (context, url, error) =>
+                const Icon(Icons.broken_image),
+          ),
         ),
       ],
     );
@@ -792,11 +843,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   padding: const EdgeInsets.only(right: 8),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      url,
+                    child: CachedNetworkImage(
+                      imageUrl: url,
                       width: 100,
                       height: 100,
                       fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image),
                     ),
                   ),
                 ),
@@ -1293,6 +1349,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Widget _buildStatusControl() {
     // Logic for status transitions
     List<String> nextStatuses = [];
+    bool isWaitingForPayment = false;
+    String? warningMessage;
+
     switch (_booking!.status) {
       case 'REACHED_MERCHANT':
         nextStatuses = ['VEHICLE_AT_MERCHANT'];
@@ -1304,9 +1363,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       case 'SERVICE_STARTED':
         // Status can only be updated to SERVICE_COMPLETED via Billing submission
         break;
+      case 'SERVICE_COMPLETED':
+        if (_booking!.paymentStatus != 'paid') {
+          isWaitingForPayment = true;
+          warningMessage =
+              'Waiting for Customer Payment (₹${_booking!.totalAmount}). Cannot move to Out For Delivery.';
+        } else {
+          nextStatuses = ['OUT_FOR_DELIVERY'];
+        }
+        break;
+      case 'OUT_FOR_DELIVERY':
+        nextStatuses = ['DELIVERED'];
+        break;
     }
 
-    if (nextStatuses.isEmpty) return const SizedBox.shrink();
+    if (nextStatuses.isEmpty && warningMessage == null) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1320,25 +1393,62 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           ),
         ],
       ),
-      child: Row(
-        children: nextStatuses.map((status) {
-          return Expanded(
-            child: ElevatedButton(
-              onPressed: () => _updateStatus(status),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (warningMessage != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[200]!),
               ),
-              child: Text(
-                'Move to ${status == 'SERVICE_STARTED' ? 'JOB CARD' : status.replaceAll('_', ' ')}',
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.amber,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      warningMessage,
+                      style: TextStyle(
+                        color: Colors.amber[900],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        }).toList(),
+          Row(
+            children: nextStatuses.map((status) {
+              return Expanded(
+                child: ElevatedButton(
+                  onPressed: isWaitingForPayment
+                      ? null
+                      : () => _updateStatus(status),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Move to ${status == 'SERVICE_STARTED' ? 'JOB CARD' : status.replaceAll('_', ' ')}',
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

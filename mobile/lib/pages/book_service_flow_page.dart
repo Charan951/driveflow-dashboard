@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/service.dart';
@@ -16,6 +17,7 @@ import '../services/booking_service.dart';
 import '../services/review_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
+import '../services/socket_service.dart';
 
 class BookServiceFlowPage extends StatefulWidget {
   final String? initialCategory;
@@ -36,6 +38,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   List<Vehicle> _vehicles = [];
   List<ServiceItem> _allServices = [];
+  String? _initialServiceId;
 
   String? _selectedVehicleId;
   List<String> _selectedServiceIds = [];
@@ -60,9 +63,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (nav.arguments != null && nav.arguments is ServiceItem) {
         final service = nav.arguments as ServiceItem;
         setState(() {
+          _initialServiceId = service.id;
           _selectedServiceIds = [service.id];
-          _currentStep =
-              2; // Skip to Schedule step (Step 2) if service is pre-selected
+          _currentStep = 0; // Start at vehicle selection step
         });
       }
     });
@@ -148,53 +151,213 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Book a Service')),
+      appBar: AppBar(
+        title: Text(
+          widget.initialCategory != null && widget.initialCategory != 'Services'
+              ? 'Book ${widget.initialCategory}'
+              : 'Book a Service',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Stepper(
-              currentStep: _currentStep,
-              onStepContinue: _handleNext,
-              onStepCancel: _handleBack,
-              controlsBuilder: (context, details) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Row(
+          : Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildStepper(),
+                        const SizedBox(height: 30),
+                        _buildStepContent(),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 100, // Safe distance above the PillBottomBar
+                  left: 0,
+                  right: 0,
+                  child: _buildBottomButtons(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildStepper() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade800 : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade100,
+        ),
+      ),
+      child: Row(
+        children: _steps.asMap().entries.map((entry) {
+          int idx = entry.key;
+          String label = entry.value;
+          bool isActive = _currentStep == idx;
+          bool isCompleted = _currentStep > idx;
+
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ElevatedButton(
-                        onPressed: details.onStepContinue,
-                        child: Text(
-                          _currentStep == _steps.length - 1
-                              ? 'Confirm'
-                              : 'Next',
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: (isActive || isCompleted)
+                              ? const Color(0xFF2563EB)
+                              : isDark
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade50,
+                          border: Border.all(
+                            color: (isActive || isCompleted)
+                                ? const Color(0xFF2563EB)
+                                : isDark
+                                ? Colors.grey.shade600
+                                : Colors.grey.shade300,
+                            width: 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: isCompleted
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 14,
+                                )
+                              : Text(
+                                  '${idx + 1}',
+                                  style: TextStyle(
+                                    color: (isActive || isCompleted)
+                                        ? Colors.white
+                                        : isDark
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade500,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  ),
+                                ),
                         ),
                       ),
-                      if (_currentStep > 0)
-                        TextButton(
-                          onPressed: details.onStepCancel,
-                          child: const Text('Back'),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: (isActive || isCompleted)
+                              ? isDark
+                                    ? Colors.white
+                                    : Colors.black
+                              : isDark
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade400,
+                          fontWeight: (isActive || isCompleted)
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
+                      ),
                     ],
                   ),
-                );
-              },
-              steps: _steps
-                  .asMap()
-                  .map(
-                    (i, title) => MapEntry(
-                      i,
-                      Step(
-                        title: Text(title),
-                        content: _buildStepContent(),
-                        isActive: _currentStep >= i,
-                        state: _currentStep > i
-                            ? StepState.complete
-                            : StepState.indexed,
-                      ),
-                    ),
-                  )
-                  .values
-                  .toList(),
+                ),
+                if (idx < _steps.length - 1)
+                  Container(
+                    width: 20,
+                    height: 1,
+                    margin: const EdgeInsets.only(bottom: 15),
+                    color: isCompleted
+                        ? const Color(0xFF2563EB)
+                        : isDark
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade200,
+                  ),
+              ],
             ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBottomButtons() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade900 : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (_currentStep > 0)
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _handleBack,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? Colors.grey.shade800
+                      : const Color(0xFFE5E7EB),
+                  foregroundColor: isDark ? Colors.white : Colors.black,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Back',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          if (_currentStep > 0) const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: _handleNext,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _currentStep == _steps.length - 1 ? 'Confirm' : 'Next',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -228,12 +391,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Widget _buildVehicleStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_vehicles.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.car_repair, size: 64, color: Colors.grey),
+            Icon(
+              Icons.car_repair,
+              size: 64,
+              color: isDark ? Colors.grey.shade600 : Colors.grey,
+            ),
             const SizedBox(height: 16),
             const Text(
               'No vehicles found',
@@ -247,6 +415,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 context,
                 '/add-vehicle',
               ).then((_) => _fetchInitialData()),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Add Vehicle'),
             ),
           ],
@@ -263,25 +438,76 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ),
         const SizedBox(height: 16),
         ..._vehicles.map(
-          (v) => Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: _selectedVehicleId == v.id
-                    ? Colors.blue
-                    : Colors.transparent,
-                width: 2,
+          (v) => GestureDetector(
+            onTap: () => setState(() => _selectedVehicleId = v.id),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade800 : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _selectedVehicleId == v.id
+                      ? const Color(0xFF2563EB)
+                      : isDark
+                      ? Colors.grey.shade700
+                      : Colors.grey.shade200,
+                  width: _selectedVehicleId == v.id ? 2 : 1,
+                ),
+                boxShadow: [
+                  if (_selectedVehicleId == v.id)
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withAlpha(25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                ],
               ),
-            ),
-            child: ListTile(
-              onTap: () => setState(() => _selectedVehicleId = v.id),
-              leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-              title: Text('${v.make} ${v.model}'),
-              subtitle: Text(v.licensePlate),
-              trailing: _selectedVehicleId == v.id
-                  ? const Icon(Icons.check_circle, color: Colors.blue)
-                  : null,
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.directions_car,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${v.make} ${v.model}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          v.licensePlate,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_selectedVehicleId == v.id)
+                    const Icon(Icons.check_circle, color: Color(0xFF2563EB)),
+                ],
+              ),
             ),
           ),
         ),
@@ -293,93 +519,208 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ).then((_) => _fetchInitialData()),
           icon: const Icon(Icons.add),
           label: const Text('Add Another Vehicle'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF2563EB),
+            side: const BorderSide(color: Color(0xFF2563EB)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildServiceStep() {
-    final categories = [
-      'Services',
-      'Periodic',
-      'Wash',
-      'Car Wash',
-      'Tyre & Battery',
-      'Tyres',
-      'Battery',
-      'Insurance',
-      'Painting',
-      'Denting',
-      'Repair',
-      'Detailing',
-      'AC',
-      'Accessories',
-      'Other',
-    ];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Map<String, List<String>> categoryMap = {
+      'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
+      'Wash': ['Car Wash', 'Wash', 'Detailing'],
+      'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
+      'Insurance': ['Insurance'],
+      'Other': ['Other', 'Painting', 'Denting', 'Accessories'],
+    };
+
+    List<String> categoriesToDisplay;
+
+    if (widget.initialCategory != null &&
+        categoryMap.containsKey(widget.initialCategory)) {
+      categoriesToDisplay = categoryMap[widget.initialCategory!]!;
+    } else if (widget.initialCategory != null) {
+      categoriesToDisplay = [widget.initialCategory!];
+    } else {
+      categoriesToDisplay = categoryMap.values.expand((e) => e).toList();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Select Services',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        if (_initialServiceId != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Quick Service Selection',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _initialServiceId = null),
+                  child: const Text('Show all services'),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 16),
-        ...categories.map((category) {
-          final services = _allServices
+        ...categoriesToDisplay.map((category) {
+          var services = _allServices
               .where((s) => s.category == category)
               .toList();
+
+          if (_initialServiceId != null) {
+            services = services
+                .where((s) => s.id == _initialServiceId)
+                .toList();
+          }
 
           if (services.isEmpty) return const SizedBox.shrink();
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  category,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+              if (categoriesToDisplay.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
                   ),
                 ),
-              ),
               ...services.map((service) {
                 final selected = _selectedServiceIds.contains(service.id);
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: selected ? Colors.blue : Colors.transparent,
-                      width: 2,
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (selected) {
+                        _selectedServiceIds.remove(service.id);
+                      } else {
+                        _selectedServiceIds.add(service.id);
+                      }
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey.shade800 : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected
+                            ? const Color(0xFF2563EB)
+                            : isDark
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade200,
+                        width: selected ? 2 : 1,
+                      ),
+                      boxShadow: [
+                        if (selected)
+                          BoxShadow(
+                            color: const Color(0xFF2563EB).withAlpha(25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                      ],
                     ),
-                  ),
-                  child: ListTile(
-                    onTap: () {
-                      setState(() {
-                        if (selected) {
-                          _selectedServiceIds.remove(service.id);
-                        } else {
-                          _selectedServiceIds.add(service.id);
-                        }
-                      });
-                    },
-                    leading: CircleAvatar(
-                      backgroundImage: NetworkImage(service.image ?? ''),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.grey.shade700
+                                : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            image:
+                                (service.image != null &&
+                                    service.image!.isNotEmpty)
+                                ? DecorationImage(
+                                    image: NetworkImage(service.image!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child:
+                              (service.image == null || service.image!.isEmpty)
+                              ? const Icon(
+                                  Icons.build_circle,
+                                  color: Color(0xFF2563EB),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                service.name,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Price: ₹${service.price}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.grey.shade400
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '• Time: ${service.estimatedMinutes} mins',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.grey.shade400
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (selected)
+                          const Icon(
+                            Icons.check_circle,
+                            color: Color(0xFF2563EB),
+                          )
+                        else
+                          Icon(
+                            Icons.add_circle_outline,
+                            color: isDark
+                                ? Colors.grey.shade600
+                                : Colors.grey.shade300,
+                          ),
+                      ],
                     ),
-                    title: Text(
-                      service.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      '₹${service.price} • ${service.estimatedMinutes} mins',
-                    ),
-                    trailing: selected
-                        ? const Icon(Icons.check_circle, color: Colors.blue)
-                        : const Icon(Icons.add_circle_outline),
                   ),
                 );
               }),
@@ -391,268 +732,339 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Widget _buildScheduleStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Schedule & Location',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Select Date & Time',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 90)),
-                  );
-                  if (date != null) setState(() => _selectedDate = date);
-                },
-                icon: const Icon(Icons.calendar_today),
-                label: Text(DateFormat('EEE, MMM d').format(_selectedDate)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: _selectedTime,
-                  );
-                  if (time != null) setState(() => _selectedTime = time);
-                },
-                icon: const Icon(Icons.access_time),
-                label: Text(_selectedTime.format(context)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Pickup Location',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-
-        // Saved Addresses
-        if (context.read<AuthProvider>().user?.addresses.isNotEmpty ??
-            false) ...[
-          SizedBox(
-            height: 50,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: context.read<AuthProvider>().user!.addresses.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final addr = context
-                    .read<AuthProvider>()
-                    .user!
-                    .addresses[index];
-                final selected = _selectedAddress == addr.address;
-                return ChoiceChip(
-                  label: Text(addr.label),
-                  selected: selected,
-                  onSelected: (v) {
-                    if (v) {
-                      setState(() {
-                        _selectedLatLng = LatLng(addr.lat, addr.lng);
-                        _selectedAddress = addr.address;
-                        _showCustomLocation = false;
-                      });
-                    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Schedule & Location',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Select Date & Time',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                    );
+                    if (date != null) setState(() => _selectedDate = date);
                   },
-                );
-              },
-            ),
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(DateFormat('EEE, MMM d').format(_selectedDate)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: _selectedTime,
+                      initialEntryMode: TimePickerEntryMode.dial,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            timePickerTheme: TimePickerThemeData(
+                              backgroundColor: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.white,
+                              hourMinuteTextColor: const Color(0xFF2563EB),
+                              dayPeriodTextColor: const Color(0xFF2563EB),
+                              dialHandColor: const Color(0xFF2563EB),
+                              dialBackgroundColor: isDark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade100,
+                              entryModeIconColor: const Color(0xFF2563EB),
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (time != null) setState(() => _selectedTime = time);
+                  },
+                  icon: const Icon(Icons.access_time),
+                  label: Text(_selectedTime.format(context)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Pickup Location',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-        ],
 
-        if (!_showCustomLocation && _selectedAddress != null) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.withAlpha(50)),
+          // Saved Addresses
+          if (context.read<AuthProvider>().user?.addresses.isNotEmpty ??
+              false) ...[
+            SizedBox(
+              height: 50,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: context.read<AuthProvider>().user!.addresses.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final addr = context
+                      .read<AuthProvider>()
+                      .user!
+                      .addresses[index];
+                  final selected = _selectedAddress == addr.address;
+                  return ChoiceChip(
+                    label: Text(addr.label),
+                    selected: selected,
+                    onSelected: (v) {
+                      if (v) {
+                        setState(() {
+                          _selectedLatLng = LatLng(addr.lat, addr.lng);
+                          _selectedAddress = addr.address;
+                          _showCustomLocation = false;
+                        });
+                      }
+                    },
+                  );
+                },
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on, color: Colors.blue),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _selectedAddress!,
-                    style: const TextStyle(fontSize: 13),
-                  ),
+            const SizedBox(height: 12),
+          ],
+
+          if (!_showCustomLocation && _selectedAddress != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.blue.withAlpha(40)
+                    : Colors.blue.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.blue.withAlpha(80)
+                      : Colors.blue.withAlpha(50),
                 ),
-                TextButton(
-                  onPressed: () => setState(() => _showCustomLocation = true),
-                  child: const Text('Change'),
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
+              ),
+              child: Row(
                 children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter:
-                          _selectedLatLng ?? const LatLng(12.9716, 77.5946),
-                      initialZoom: 14,
-                      onTap: (_, latLng) => _setSelectedLocation(latLng),
+                  const Icon(Icons.location_on, color: Colors.blue),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _selectedAddress!,
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.carb.app',
-                      ),
-                      if (_selectedLatLng != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _selectedLatLng!,
-                              width: 40,
-                              height: 40,
-                              child: const Icon(
-                                Icons.location_on,
-                                color: Colors.red,
-                                size: 40,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
                   ),
-                  Positioned(
-                    bottom: 12,
-                    right: 12,
-                    child: FloatingActionButton.small(
-                      onPressed: _useCurrentLocation,
-                      child: _locating
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.my_location),
-                    ),
+                  TextButton(
+                    onPressed: () => setState(() => _showCustomLocation = true),
+                    child: const Text('Change'),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _resolvingAddress
-                ? 'Resolving address...'
-                : (_selectedAddress ?? 'Tap on map to select location'),
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ] else ...[
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter:
+                            _selectedLatLng ?? const LatLng(12.9716, 77.5946),
+                        initialZoom: 14,
+                        onTap: (_, latLng) => _setSelectedLocation(latLng),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          tileProvider: CancellableNetworkTileProvider(),
+                        ),
+                        if (_selectedLatLng != null)
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: _selectedLatLng!,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(
+                                  Icons.location_on,
+                                  color: Colors.red,
+                                  size: 40,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    Positioned(
+                      bottom: 12,
+                      right: 12,
+                      child: FloatingActionButton.small(
+                        onPressed: _useCurrentLocation,
+                        child: _locating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.my_location),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _resolvingAddress
+                  ? 'Resolving address...'
+                  : (_selectedAddress ?? 'Tap on map to select location'),
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Notes for the driver (Optional)',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
           ),
         ],
-
-        const SizedBox(height: 16),
-        TextField(
-          controller: _notesController,
-          decoration: const InputDecoration(
-            labelText: 'Notes for the driver (Optional)',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 2,
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildConfirmStep() {
-    final vehicle = _vehicles.firstWhere((v) => v.id == _selectedVehicleId);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Vehicle? selectedVehicle;
+    if (_selectedVehicleId != null) {
+      // Using a loop to avoid exception if not found, which shouldn't happen in normal flow.
+      for (final v in _vehicles) {
+        if (v.id == _selectedVehicleId) {
+          selectedVehicle = v;
+          break;
+        }
+      }
+    }
+
     final selectedServices = _allServices
         .where((s) => _selectedServiceIds.contains(s.id))
         .toList();
-    final total = selectedServices.fold<num>(0, (sum, s) => sum + s.price);
+    final total = selectedServices.fold<double>(
+      0,
+      (sum, item) => sum + item.price,
+    );
+    final totalTime = selectedServices.fold<num>(
+      0,
+      (sum, item) => sum + (item.estimatedMinutes ?? 0),
+    );
+
+    final summaryItems = <Widget>[
+      if (selectedVehicle != null)
+        _buildSummaryItem(
+          'Vehicle',
+          '${selectedVehicle.make} ${selectedVehicle.model} (${selectedVehicle.licensePlate})',
+          Icons.directions_car,
+        ),
+      if (selectedServices.isNotEmpty)
+        _buildSummaryItem(
+          'Services',
+          selectedServices.map((s) => s.name).join(', '),
+          Icons.build,
+        ),
+      _buildSummaryItem(
+        'Schedule',
+        '${DateFormat('EEE, MMM d, yyyy').format(_selectedDate)} at ${_selectedTime.format(context)}',
+        Icons.calendar_today,
+      ),
+      if (_selectedAddress != null)
+        _buildSummaryItem('Location', _selectedAddress!, Icons.location_on),
+      if (_notesController.text.isNotEmpty)
+        _buildSummaryItem('Notes', _notesController.text, Icons.notes),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Confirm Booking',
+          'Confirm Your Booking',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        _buildSummaryItem(
-          'Vehicle',
-          '${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})',
-          Icons.directions_car,
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: summaryItems.length,
+          itemBuilder: (context, index) => summaryItems[index],
+          separatorBuilder: (context, index) => const Divider(),
         ),
-        _buildSummaryItem(
-          'Schedule',
-          '${DateFormat('EEE, MMM d').format(_selectedDate)} at ${_selectedTime.format(context)}',
-          Icons.calendar_today,
-        ),
-        _buildSummaryItem(
-          'Location',
-          _selectedAddress ?? '-',
-          Icons.location_on,
-        ),
-        const Divider(height: 32),
-        const Text(
-          'Selected Services',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        ...selectedServices.map(
-          (s) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(s.name),
-                Text(
-                  '₹${s.price}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        const Divider(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Total Amount',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '₹$total',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Estimate',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-          ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '₹${total.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                  Text(
+                    'Approx. $totalTime mins',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -738,7 +1150,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     setState(() => _loading = true);
     try {
-      await _bookingService.createBooking(
+      final booking = await _bookingService.createBooking(
         vehicleId: _selectedVehicleId!,
         serviceIds: _selectedServiceIds,
         date: DateTime(
@@ -756,10 +1168,21 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         notes: _notesController.text,
       );
       if (mounted) {
+        // Send a socket event to trigger a refresh on the dashboard
+        context.read<SocketService>().sendEvent('booking_created');
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking created successfully!')),
+          const SnackBar(
+            content: Text('Booking confirmed! We have scheduled your service.'),
+          ),
         );
-        Navigator.pop(context);
+
+        // Navigate to track page (using Replacement to prevent back button coming here)
+        Navigator.pushReplacementNamed(
+          context,
+          '/track',
+          arguments: booking.id,
+        );
       }
     } catch (e) {
       if (mounted) {

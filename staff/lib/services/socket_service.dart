@@ -5,10 +5,10 @@ import '../core/env.dart';
 import '../core/storage.dart';
 import 'notification_service.dart';
 
-class SocketService extends ChangeNotifier {
+class SocketService extends ValueNotifier<String?> {
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
-  SocketService._internal();
+  SocketService._internal() : super(null);
 
   io.Socket? _socket;
   bool _isConnected = false;
@@ -48,6 +48,7 @@ class SocketService extends ChangeNotifier {
 
     // Listen for common update events
     _socket!.on('bookingUpdated', (data) {
+      value = 'booking_updated';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -68,6 +69,7 @@ class SocketService extends ChangeNotifier {
     });
 
     _socket!.on('bookingCreated', (data) {
+      value = 'booking_created';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -87,6 +89,7 @@ class SocketService extends ChangeNotifier {
     });
 
     _socket!.on('bookingCancelled', (data) {
+      value = 'booking_cancelled';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -106,6 +109,7 @@ class SocketService extends ChangeNotifier {
     });
 
     _socket!.on('notification', (data) {
+      value = 'notification';
       if (data != null && data is Map) {
         NotificationService().showLocalNotification(
           title: (data['title'] ?? 'Notification').toString(),
@@ -117,6 +121,21 @@ class SocketService extends ChangeNotifier {
               : null,
         );
       }
+      notifyListeners();
+    });
+
+    _socket!.on('userStatusUpdate', (data) {
+      value = 'user_status_update';
+      notifyListeners();
+    });
+
+    _socket!.on('ticketUpdated', (data) {
+      value = 'ticket_updated';
+      NotificationService().showLocalNotification(
+        title: 'Support Ticket Updated',
+        body: 'A support ticket has been updated.',
+        payload: jsonEncode({'type': 'support'}),
+      );
       notifyListeners();
     });
   }

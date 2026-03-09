@@ -245,7 +245,8 @@ export const initSocket = (server) => {
           bookingId,
           userId: socket.user._id,
           role: socket.user.role,
-          name: socket.user.name
+          name: socket.user.name,
+          isOnline: true
         });
       }
     });

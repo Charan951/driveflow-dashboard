@@ -44,4 +44,9 @@ class ApiEndpoints {
   static String bookingVerifyOtp(String id) => '/bookings/$id/verify-otp';
   static String bookingDetails(String id) => '/bookings/$id/details';
   static const String uploadMultiple = '/upload/multiple';
+
+  // Merchant Endpoints
+  static const String products = '/products';
+  static const String reviews = '/reviews';
+  static const String merchantStats = '/bookings/merchant-stats';
 }

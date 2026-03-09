@@ -195,6 +195,11 @@ const BookServicePage: React.FC = () => {
   };
 
   const filteredServices = services.filter(service => {
+    // If we have a pre-selected service from location state, show only that one
+    if (location.state?.service?._id) {
+      return service._id === location.state.service._id;
+    }
+
     const categoryParam = searchParams.get('category');
     let matchesCategory = true;
     
@@ -352,7 +357,20 @@ const BookServicePage: React.FC = () => {
             {currentStep === 1 && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
+                    {location.state?.service && (
+                      <button 
+                        onClick={() => {
+                          // Clear the state by navigating to the same path without state
+                          navigate(location.pathname + location.search, { replace: true, state: {} });
+                        }}
+                        className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
+                      >
+                        Show all services
+                      </button>
+                    )}
+                  </div>
                   
                   {/* Sub-category Tabs for Tyres & Battery */}
                   {searchParams.get('category') === 'Tyres' && (

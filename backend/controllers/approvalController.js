@@ -2,6 +2,9 @@ import ApprovalRequest from '../models/ApprovalRequest.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import { getIO } from '../socket.js';
+import { emitBookingUpdate } from './bookingController.js';
+
+import { sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Get all approval requests
 // @route   GET /api/approvals
@@ -19,7 +22,7 @@ export const getApprovals = async (req, res) => {
     // Let's try explicit population.
     const populatedApprovals = await ApprovalRequest.populate(approvals, {
       path: 'relatedId',
-      select: 'name email make model licensePlate status totalAmount' // Fields for User and Booking
+      select: 'name email make model licensePlate status totalAmount orderNumber' // Fields for User and Booking
     });
 
     res.json(populatedApprovals);
@@ -33,8 +36,8 @@ export const getApprovals = async (req, res) => {
 // @access  Private
 export const getMyApprovals = async (req, res) => {
   try {
-    const Booking = (await import('../models/Booking.js')).default;
-    const bookings = await Booking.find({ user: req.user._id }).select('_id');
+    const BookingModel = (await import('../models/Booking.js')).default;
+    const bookings = await BookingModel.find({ user: req.user._id }).select('_id');
     const bookingIds = bookings.map(b => b._id);
     
     const approvals = await ApprovalRequest.find({
@@ -66,8 +69,45 @@ export const createApproval = async (req, res) => {
     });
 
     const createdApproval = await approval.save();
+
+    // Notify customer
+    if (relatedModel === 'Booking') {
+      const booking = await Booking.findById(relatedId).populate('user');
+      if (booking && booking.user) {
+        const io = getIO();
+        const userId = booking.user._id.toString();
+        
+        // Emit socket event to customer's room
+        io.to(`user_${userId}`).emit('newApproval', createdApproval);
+        // Also emit to booking room if anyone is watching
+        io.to(`booking_${relatedId}`).emit('newApproval', createdApproval);
+
+        // Send push notification
+        const orderNum = booking.orderNumber || relatedId.toString().slice(-6).toUpperCase();
+        let message = 'New approval request received.';
+        if (type === 'PartReplacement') {
+          message = `New part approval requested for Order #${orderNum}: ${data.name}`;
+        } else if (type === 'ExtraCost') {
+          message = `Extra cost approval requested for Order #${orderNum}: ₹${data.amount}`;
+        }
+
+        await sendPushToUser(
+          userId,
+          'Approval Required',
+          message,
+          { 
+            type: 'approval_request', 
+            bookingId: relatedId.toString(),
+            approvalId: createdApproval._id.toString()
+          },
+          'order'
+        );
+      }
+    }
+
     res.status(201).json(createdApproval);
   } catch (error) {
+    console.error('Create Approval Error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -116,24 +156,6 @@ export const updateApprovalStatus = async (req, res) => {
     approval.resolvedAt = Date.now();
     approval.resolvedBy = req.user._id;
 
-    const emitBookingUpdated = async (bookingId) => {
-      try {
-        const io = getIO();
-        const populated = await Booking.findById(bookingId)
-          .populate('user', 'id name email phone')
-          .populate('vehicle')
-          .populate('services')
-          .populate('merchant', 'name email phone location')
-          .populate('pickupDriver', 'name email phone')
-          .populate('technician', 'name email phone');
-        if (!populated) return;
-        io.to('admin').emit('bookingUpdated', populated);
-        io.to(`booking_${bookingId}`).emit('bookingUpdated', populated);
-      } catch (e) {
-        console.error('Socket emit error (approval update):', e);
-      }
-    };
-
     if (status === 'Approved') {
       // Execute the logic based on type
       if (approval.type === 'BillEdit' && approval.relatedModel === 'Booking') {
@@ -141,22 +163,37 @@ export const updateApprovalStatus = async (req, res) => {
         if (booking && approval.data?.newAmount) {
           booking.totalAmount = approval.data.newAmount;
           await booking.save();
-          await emitBookingUpdated(booking._id);
+          
+          const populated = await Booking.findById(booking._id)
+            .populate('user', 'id name email phone')
+            .populate('vehicle')
+            .populate('services')
+            .populate('merchant', 'name email phone location')
+            .populate('pickupDriver', 'name email phone')
+            .populate('technician', 'name email phone');
+          emitBookingUpdate(populated);
         }
       } else if (approval.type === 'PartReplacement' && approval.relatedModel === 'Booking') {
         const booking = await Booking.findById(approval.relatedId);
         if (booking) {
           const { name, price, quantity, image, oldImage } = approval.data;
+          const searchName = (name || 'Unnamed Additional Part').trim().toLowerCase();
 
           // 1. Update inspection.additionalParts
           let partFound = false;
           if (booking.inspection && booking.inspection.additionalParts) {
-            const partIndex = booking.inspection.additionalParts.findIndex(p => p.name === name);
+            const partIndex = booking.inspection.additionalParts.findIndex(p => {
+              const pName = (p.name || 'Unnamed Additional Part').trim().toLowerCase();
+              return pName === searchName && 
+                     Number(p.price) === Number(price) && 
+                     Number(p.quantity) === Number(quantity);
+            });
+            
             if (partIndex >= 0) {
               booking.inspection.additionalParts[partIndex].approved = true;
               booking.inspection.additionalParts[partIndex].approvalStatus = 'Approved';
-              booking.inspection.additionalParts[partIndex].price = price;
-              booking.inspection.additionalParts[partIndex].quantity = quantity;
+              booking.inspection.additionalParts[partIndex].price = Number(price);
+              booking.inspection.additionalParts[partIndex].quantity = Number(quantity);
               if (image) booking.inspection.additionalParts[partIndex].image = image;
               if (oldImage) booking.inspection.additionalParts[partIndex].oldImage = oldImage;
               partFound = true;
@@ -166,7 +203,15 @@ export const updateApprovalStatus = async (req, res) => {
           if (!partFound) {
             if (!booking.inspection) booking.inspection = {};
             if (!booking.inspection.additionalParts) booking.inspection.additionalParts = [];
-            booking.inspection.additionalParts.push({ name, price, quantity, approved: true, approvalStatus: 'Approved', image, oldImage });
+            booking.inspection.additionalParts.push({ 
+                name: name || 'Unnamed Additional Part', 
+                price: Number(price), 
+                quantity: Number(quantity), 
+                approved: true, 
+                approvalStatus: 'Approved', 
+                image, 
+                oldImage 
+            });
           }
 
           // 2. Add to booking.parts (which affects billing)
@@ -175,9 +220,9 @@ export const updateApprovalStatus = async (req, res) => {
           // Check if part already exists in booking.parts to avoid duplicates if approved multiple times?
           // But status check prevents multiple approvals.
           booking.parts.push({ 
-              name, 
-              price, 
-              quantity,
+              name: name || 'Unnamed Additional Part', 
+              price: Number(price), 
+              quantity: Number(quantity),
               image: image 
           });
 
@@ -186,18 +231,30 @@ export const updateApprovalStatus = async (req, res) => {
           const services = await Service.find({ _id: { $in: booking.services } });
           const servicesTotal = services.reduce((acc, service) => acc + service.price, 0);
 
-          const partsTotal = booking.parts.reduce((acc, part) => acc + (part.price * part.quantity), 0);
+          const partsTotal = booking.parts.reduce((acc, part) => acc + (Number(part.price) * Number(part.quantity)), 0);
 
           booking.totalAmount = servicesTotal + partsTotal;
 
           // Update billing if exists
           if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
-            booking.billing.total = (booking.billing.labourCost || 0) + partsTotal + (booking.billing.gst || 0);
+            booking.billing.total = (Number(booking.billing.labourCost) || 0) + partsTotal + (Number(booking.billing.gst) || 0);
           }
 
+          booking.markModified('inspection');
+          booking.markModified('parts');
+          if (booking.billing) booking.markModified('billing');
+          
           await booking.save();
-          await emitBookingUpdated(booking._id);
+          
+          const populated = await Booking.findById(booking._id)
+            .populate('user', 'id name email phone')
+            .populate('vehicle')
+            .populate('services')
+            .populate('merchant', 'name email phone location')
+            .populate('pickupDriver', 'name email phone')
+            .populate('technician', 'name email phone');
+          emitBookingUpdate(populated);
         }
       } else if (approval.type === 'ExtraCost' && approval.relatedModel === 'Booking') {
         const booking = await Booking.findById(approval.relatedId);
@@ -231,22 +288,45 @@ export const updateApprovalStatus = async (req, res) => {
           booking.notes = booking.notes ? booking.notes + '\n' + note : note;
           
           await booking.save();
-          await emitBookingUpdated(booking._id);
+          
+          const populated = await Booking.findById(booking._id)
+            .populate('user', 'id name email phone')
+            .populate('vehicle')
+            .populate('services')
+            .populate('merchant', 'name email phone location')
+            .populate('pickupDriver', 'name email phone')
+            .populate('technician', 'name email phone');
+          emitBookingUpdate(populated);
         }
       }
     } else if (status === 'Rejected') {
       if (approval.type === 'PartReplacement' && approval.relatedModel === 'Booking') {
         const booking = await Booking.findById(approval.relatedId);
         if (booking && booking.inspection && Array.isArray(booking.inspection.additionalParts)) {
-          const { name } = approval.data || {};
-          if (name) {
-            const partIndex = booking.inspection.additionalParts.findIndex(p => p.name === name);
-            if (partIndex >= 0) {
-              booking.inspection.additionalParts[partIndex].approved = false;
-              booking.inspection.additionalParts[partIndex].approvalStatus = 'Rejected';
-              await booking.save();
-              await emitBookingUpdated(booking._id);
-            }
+          const { name, price, quantity } = approval.data || {};
+          const searchName = (name || 'Unnamed Additional Part').trim().toLowerCase();
+
+          const partIndex = booking.inspection.additionalParts.findIndex(p => {
+            const pName = (p.name || 'Unnamed Additional Part').trim().toLowerCase();
+            return pName === searchName && 
+                   Number(p.price) === Number(price) && 
+                   Number(p.quantity) === Number(quantity);
+          });
+
+          if (partIndex >= 0) {
+            booking.inspection.additionalParts[partIndex].approved = false;
+            booking.inspection.additionalParts[partIndex].approvalStatus = 'Rejected';
+            booking.inspection.additionalParts[partIndex].rejectionReason = adminComment;
+            await booking.save();
+            
+            const populated = await Booking.findById(booking._id)
+                .populate('user', 'id name email phone')
+                .populate('vehicle')
+                .populate('services')
+                .populate('merchant', 'name email phone location')
+                .populate('pickupDriver', 'name email phone')
+                .populate('technician', 'name email phone');
+            emitBookingUpdate(populated);
           }
         }
       }

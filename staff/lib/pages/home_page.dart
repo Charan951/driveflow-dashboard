@@ -46,8 +46,13 @@ class _StaffHomePageState extends State<StaffHomePage> {
   }
 
   void _onSocketUpdate() {
-    if (_isLoading) return;
-    _loadData();
+    final event = _socketService.value;
+    if (event == 'booking_created' ||
+        event == 'booking_updated' ||
+        event == 'booking_cancelled') {
+      if (_isLoading) return;
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
@@ -199,6 +204,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
         s == 'VEHICLE_PICKED' ||
         s == 'REACHED_MERCHANT' ||
         s == 'VEHICLE_AT_MERCHANT' ||
+        s == 'SERVICE_STARTED' ||
+        s == 'SERVICE_COMPLETED' ||
         s == 'OUT_FOR_DELIVERY';
   }
 

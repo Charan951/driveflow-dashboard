@@ -32,8 +32,13 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
   }
 
   void _onSocketUpdate() {
-    if (_isLoading) return;
-    _load();
+    final event = _socketService.value;
+    if (event == 'booking_created' ||
+        event == 'booking_updated' ||
+        event == 'booking_cancelled') {
+      if (_isLoading) return;
+      _load();
+    }
   }
 
   Future<void> _load() async {

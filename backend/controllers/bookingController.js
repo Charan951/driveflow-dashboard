@@ -7,7 +7,7 @@ import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
 
-const emitBookingUpdate = (booking) => {
+export const emitBookingUpdate = (booking) => {
   try {
     const io = getIO();
     const bookingId = booking._id.toString();
@@ -305,11 +305,16 @@ export const getVehicleBookings = async (req, res) => {
   }
 };
 
-// @desc    Get bookings by merchant ID (Admin)
+// @desc    Get bookings by merchant ID
 // @route   GET /api/bookings/merchant/:merchantId
-// @access  Private/Admin
+// @access  Private/Admin or Merchant
 export const getMerchantBookings = async (req, res) => {
   try {
+    // Check if user is authorized (admin or the merchant itself)
+    if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.merchantId) {
+      return res.status(403).json({ message: 'Not authorized to access these bookings' });
+    }
+
     const bookings = await Booking.find({ merchant: req.params.merchantId })
       .sort({ createdAt: -1 })
       .limit(100)
@@ -433,45 +438,56 @@ export const assignBooking = async (req, res) => {
       // Send assignment notifications
       try {
         const bookingIdStr = String(populated._id);
-        if (populated.merchant?._id) {
+        const orderId = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
+
+        if (populated.merchant?._id && merchantId) {
           await sendPushToUser(
             populated.merchant._id,
             'New Assignment',
-            `You have been assigned to booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
-            { type: 'assignment', role: 'merchant', bookingId: bookingIdStr }
+            `You have been assigned to booking #${orderId}`,
+            { type: 'assignment', role: 'merchant', bookingId: bookingIdStr },
+            'order'
           );
         }
-        if (populated.pickupDriver?._id) {
+
+        if (populated.pickupDriver?._id && driverId) {
           await sendPushToUser(
             populated.pickupDriver._id,
-            'Pickup Assignment',
-            `You have been assigned as pickup driver for booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
-            { type: 'assignment', role: 'pickupDriver', bookingId: bookingIdStr }
+            'New Assignment',
+            `You have been assigned to booking #${orderId}`,
+            { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
+            'order'
           );
         }
-        if (populated.technician?._id) {
+
+        if (populated.technician?._id && technicianId) {
           await sendPushToUser(
             populated.technician._id,
-            'Technician Assignment',
-            `You have been assigned as technician for booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()}`,
-            { type: 'assignment', role: 'technician', bookingId: bookingIdStr }
+            'New Assignment',
+            `You have been assigned to booking #${orderId}`,
+            { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
+            'order'
           );
         }
 
         // Notify Customer about assignments
         if (populated.user?._id) {
-          let assignmentMsg = `Your booking #${populated.orderNumber || bookingIdStr.slice(-6).toUpperCase()} has been updated.`;
-          if (merchantId && populated.merchant) {
-            assignmentMsg = `Merchant ${populated.merchant.name} has been assigned to your booking.`;
-          } else if (driverId && populated.pickupDriver) {
-            assignmentMsg = `Driver ${populated.pickupDriver.name} has been assigned for pickup.`;
+          let assignmentMsg = `Your booking #${orderId} has been updated.`;
+          
+          if (merchantId && (driverId || technicianId)) {
+            assignmentMsg = `Your service #${orderId} has been assigned to a merchant and staff.`;
+          } else if (merchantId) {
+            assignmentMsg = `Merchant ${populated.merchant?.name || ''} has been assigned to your booking #${orderId}.`;
+          } else if (driverId || technicianId) {
+            assignmentMsg = `Staff has been assigned to your booking #${orderId}.`;
           }
           
           await sendPushToUser(
             populated.user._id,
-            'Booking Update',
+            'Service Assigned',
             assignmentMsg,
-            { type: 'assignment_update', bookingId: bookingIdStr }
+            { type: 'assignment_update', bookingId: bookingIdStr },
+            'order'
           );
         }
       } catch (notifyErr) {
@@ -815,6 +831,7 @@ export const updateBookingDetails = async (req, res) => {
       // Emit socket event for real-time updates
       emitBookingUpdate(populated);
 
+      const bookingIdStr = String(populated._id);
       // Notify customer of significant changes (e.g., billing update)
       if (billing && populated.user?._id) {
         await sendPushToUser(

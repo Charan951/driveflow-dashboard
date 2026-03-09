@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -69,23 +69,25 @@ const ServicesPage: React.FC = () => {
     }
   };
 
-  const filteredServices = services.filter((service) => {
-    const matchesCategory = activeCategory === 'all' || service.category === activeCategory;
-    
-    // Handle grouped categories for filtering
-    let matchesGroupedCategory = matchesCategory;
-    if (activeCategory === 'Denting' && (service.category === 'Denting' || service.category === 'Painting')) {
-        matchesGroupedCategory = true;
-    }
-    
-    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // If activeCategory is 'Denting', use matchesGroupedCategory, else use matchesCategory
-    const categoryCheck = activeCategory === 'Denting' ? matchesGroupedCategory : matchesCategory;
+  const filteredServices = useMemo(() => {
+    return services.filter((service) => {
+      const matchesCategory = activeCategory === 'all' || service.category === activeCategory;
+      
+      // Handle grouped categories for filtering
+      let matchesGroupedCategory = matchesCategory;
+      if (activeCategory === 'Denting' && (service.category === 'Denting' || service.category === 'Painting')) {
+          matchesGroupedCategory = true;
+      }
+      
+      const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           service.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // If activeCategory is 'Denting', use matchesGroupedCategory, else use matchesCategory
+      const categoryCheck = activeCategory === 'Denting' ? matchesGroupedCategory : matchesCategory;
 
-    return categoryCheck && matchesSearch;
-  });
+      return categoryCheck && matchesSearch;
+    });
+  }, [services, activeCategory, searchQuery]);
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
