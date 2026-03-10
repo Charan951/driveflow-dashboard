@@ -9,6 +9,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:http/http.dart' as http;
 
 import '../models/service.dart';
+import '../core/env.dart';
 import '../models/vehicle.dart';
 import '../models/booking.dart';
 import '../services/catalog_service.dart';
@@ -897,6 +898,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: Env.userAgent,
                           tileProvider: CancellableNetworkTileProvider(),
                         ),
                         if (_selectedLatLng != null)

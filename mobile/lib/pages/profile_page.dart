@@ -8,6 +8,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:http/http.dart' as http;
 
 import '../models/user.dart';
+import '../core/env.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 
@@ -486,6 +487,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: Env.userAgent,
                           tileProvider: CancellableNetworkTileProvider(),
                         ),
                         MarkerLayer(

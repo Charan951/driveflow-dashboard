@@ -24,7 +24,10 @@ void _onDidReceiveBackgroundNotificationResponse(
   NotificationResponse response,
 ) {
   try {
-    NotificationService()._handleNotificationClick(response.payload);
+    NotificationService()._handleNotificationClick(
+      response.payload,
+      actionId: response.actionId,
+    );
   } catch (_) {}
 }
 
@@ -101,7 +104,7 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        _handleNotificationClick(response.payload);
+        _handleNotificationClick(response.payload, actionId: response.actionId);
       },
       onDidReceiveBackgroundNotificationResponse:
           _onDidReceiveBackgroundNotificationResponse,
@@ -252,20 +255,29 @@ class NotificationService {
     if (kIsWeb) return;
     const int trackingNotificationId = 888;
 
-    final AndroidNotificationDetails
-    androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'tracking_channel',
-      'Live Tracking',
-      channelDescription: 'Used for live tracking updates on lockscreen.',
-      importance: Importance.max,
-      priority: Priority.high,
-      ongoing: true, // Keep it on lockscreen/notification panel
-      autoCancel: false,
-      showWhen: false,
-      icon: '@mipmap/ic_launcher',
-      onlyAlertOnce:
-          !forcePop, // If true, only beep once. If false, beep/pop for every update.
-    );
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'tracking_channel',
+          'Live Tracking',
+          channelDescription: 'Used for live tracking updates on lockscreen.',
+          importance: Importance.max,
+          priority: Priority.high,
+          ongoing: true, // Keep it on lockscreen/notification panel
+          autoCancel: false,
+          showWhen: false,
+          icon: '@mipmap/ic_launcher',
+          onlyAlertOnce: !forcePop,
+          category: AndroidNotificationCategory.status,
+          visibility: NotificationVisibility.public,
+          actions: <AndroidNotificationAction>[
+            AndroidNotificationAction(
+              'track_live_action',
+              'View Map',
+              showsUserInterface: true,
+              cancelNotification: false,
+            ),
+          ],
+        );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
@@ -292,7 +304,10 @@ class NotificationService {
     await _localNotifications.cancel(888);
   }
 
-  Future<void> _handleNotificationClick(String? payload) async {
+  Future<void> _handleNotificationClick(
+    String? payload, {
+    String? actionId,
+  }) async {
     if (payload == null) return;
     try {
       Map<String, dynamic> data = jsonDecode(payload);
@@ -300,10 +315,17 @@ class NotificationService {
       // Use the rootNavigatorKey from main.dart to navigate
       final context = rootNavigatorKey.currentContext;
       if (context != null) {
-        // If it's a booking update, navigate to bookings or notification list
-        if (data['type'] == 'status' ||
-            data['type'] == 'assignment_update' ||
-            data['type'] == 'billing_update') {
+        final String? bookingId = data['bookingId']?.toString();
+        final String? type = data['type']?.toString();
+
+        if ((type == 'status' || actionId == 'track_live_action') &&
+            bookingId != null &&
+            bookingId.isNotEmpty) {
+          // Navigate directly to live tracking map
+          Navigator.pushNamed(context, '/track', arguments: bookingId);
+        } else if (type == 'status' ||
+            type == 'assignment_update' ||
+            type == 'billing_update') {
           Navigator.pushNamed(context, '/bookings');
         } else {
           Navigator.pushNamed(context, '/notifications');

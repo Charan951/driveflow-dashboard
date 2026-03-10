@@ -700,9 +700,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   children: [
                                     TileLayer(
                                       urlTemplate: Env.mapTileUrlTemplate,
+                                      userAgentPackageName: Env.userAgent,
                                       subdomains: Env.mapTileSubdomains,
-                                      userAgentPackageName:
-                                          'com.speshway.staff',
                                     ),
                                     if (staffPos != null || destPos != null)
                                       MarkerLayer(

@@ -22,6 +22,9 @@ class Env {
   static String get apiBaseUrl =>
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
 
+  static String get userAgent =>
+      'com.speshway.app/1.0.0 (Flutter; Android/iOS)';
+
   static String get razorpayKey {
     const key = String.fromEnvironment('RAZORPAY_KEY');
     if (key.isNotEmpty) return key;

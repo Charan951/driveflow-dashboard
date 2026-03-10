@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
 
   static const String mapTileUrlTemplate = String.fromEnvironment(
     'MAP_TILE_URL_TEMPLATE',
@@ -29,6 +29,9 @@ class Env {
 
   static String get apiBaseUrl =>
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
+
+  static String get userAgent =>
+      'com.speshway.staff/1.0.0 (Flutter; Android/iOS)';
 }
 
 class ApiEndpoints {

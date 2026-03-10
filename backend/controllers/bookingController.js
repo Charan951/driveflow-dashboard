@@ -792,6 +792,11 @@ export const updateBookingDetails = async (req, res) => {
           booking.totalAmount = billing.total;
         }
         booking.markModified('billing');
+
+        // If submitting a bill, also mark the service as completed
+        if (booking.status === 'SERVICE_STARTED' || booking.status === 'VEHICLE_AT_MERCHANT') {
+          booking.status = 'SERVICE_COMPLETED';
+        }
       }
       if (revisit) {
         booking.revisit = { ...booking.revisit?._doc, ...revisit };

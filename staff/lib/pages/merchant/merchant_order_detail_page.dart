@@ -1301,26 +1301,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         },
       });
 
-      // Move to SERVICE_COMPLETED
-      await _service.updateBookingStatus(_booking!.id, 'SERVICE_COMPLETED');
-
-      // Set end time if not set
-      if (_booking!.serviceExecution?.jobEndTime == null) {
-        await _service.updateBookingDetails(_booking!.id, {
-          'serviceExecution': {
-            ...(_booking!.serviceExecution != null
-                ? {
-                    'jobStartTime': _booking!.serviceExecution!.jobStartTime,
-                    'beforePhotos': _booking!.serviceExecution!.beforePhotos,
-                    'duringPhotos': _booking!.serviceExecution!.duringPhotos,
-                    'afterPhotos': _booking!.serviceExecution!.afterPhotos,
-                  }
-                : {}),
-            'jobEndTime': DateTime.now().toIso8601String(),
-          },
-        });
-      }
-
       await _load(_booking!.id);
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
@@ -1353,8 +1333,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     String? warningMessage;
 
     switch (_booking!.status) {
-      case 'REACHED_MERCHANT':
-        nextStatuses = ['VEHICLE_AT_MERCHANT'];
+      case 'VEHICLE_PICKED':
+        nextStatuses = ['REACHED_MERCHANT'];
         break;
       case 'VEHICLE_AT_MERCHANT':
       case 'JOB_CARD':

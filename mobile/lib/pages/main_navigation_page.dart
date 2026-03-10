@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/pill_bottom_bar.dart';
-import '../widgets/live_tracking_overlay.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
 import 'book_service_flow_page.dart';
@@ -66,7 +65,6 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         body: Stack(
           children: [
             IndexedStack(index: navProvider.selectedIndex, children: _pages),
-            const LiveTrackingOverlay(),
           ],
         ),
         bottomNavigationBar: Padding(
