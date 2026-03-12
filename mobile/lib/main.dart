@@ -40,10 +40,11 @@ void main() async {
   final socketService = SocketService();
   socketService.setTrackingProvider(trackingProvider);
   final notificationService = NotificationService();
+  await notificationService.initialize();
 
   if (authProvider.isAuthenticated) {
     socketService.init(authProvider.user);
-    notificationService.initialize();
+    notificationService.syncToken();
     trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
   }
 

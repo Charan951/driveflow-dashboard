@@ -1,9 +1,16 @@
-import React from 'react';
-import { useTracking } from '@/hooks/use-tracking';
+
+import React, { useContext } from 'react';
+import { TrackingContext } from '@/context/TrackingContext';
 import { Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const LiveTracker: React.FC<{ className?: string }> = ({ className }) => {
+  const context = useContext(TrackingContext);
+
+  if (!context) {
+    return <div>Loading...</div>; // Or some other fallback
+  }
+
   const { 
     isTracking, 
     location, 
@@ -12,7 +19,7 @@ const LiveTracker: React.FC<{ className?: string }> = ({ className }) => {
     lastServerSync, 
     startTracking, 
     stopTracking 
-  } = useTracking();
+  } = context;
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>

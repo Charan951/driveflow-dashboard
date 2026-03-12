@@ -363,12 +363,20 @@ class UserSummary {
 
 class InspectionData {
   final List<String> photos;
+  final String? frontPhoto;
+  final String? backPhoto;
+  final String? leftPhoto;
+  final String? rightPhoto;
   final String? damageReport;
   final String? completedAt;
   final List<AdditionalPart> additionalParts;
 
   InspectionData({
     this.photos = const [],
+    this.frontPhoto,
+    this.backPhoto,
+    this.leftPhoto,
+    this.rightPhoto,
     this.damageReport,
     this.completedAt,
     this.additionalParts = const [],
@@ -378,6 +386,10 @@ class InspectionData {
     if (json == null) return InspectionData();
     return InspectionData(
       photos: (json['photos'] as List?)?.whereType<String>().toList() ?? [],
+      frontPhoto: json['frontPhoto']?.toString(),
+      backPhoto: json['backPhoto']?.toString(),
+      leftPhoto: json['leftPhoto']?.toString(),
+      rightPhoto: json['rightPhoto']?.toString(),
       damageReport: json['damageReport']?.toString(),
       completedAt: json['completedAt']?.toString(),
       additionalParts:

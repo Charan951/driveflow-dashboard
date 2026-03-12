@@ -28,6 +28,12 @@ const StaffOrderPage: React.FC = () => {
   const handleStatusUpdate = React.useCallback(async (newStatus: string) => {
     if (!order) return;
 
+    // Check if this is a car wash service
+    const isCarWashService = Array.isArray(order.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+      );
+
     if (newStatus === 'REACHED_CUSTOMER') {
       const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
       const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
@@ -57,51 +63,29 @@ const StaffOrderPage: React.FC = () => {
       }
     }
 
-    if (newStatus === 'REACHED_MERCHANT') {
-      const targetLat = order.merchant?.location?.lat;
-      const targetLng = order.merchant?.location?.lng;
+    if (!isCarWashService) {
+      // Regular service location checks
+      if (newStatus === 'REACHED_MERCHANT') {
+        const targetLat = order.merchant?.location?.lat;
+        const targetLng = order.merchant?.location?.lng;
 
-      if (!targetLat || !targetLng) {
-        toast.error('Merchant location is not available');
-        return;
-      }
-
-      if (!staffLocation?.lat || !staffLocation?.lng) {
-        toast.error('Your live location is not available. Turn on tracking to continue.');
-        return;
-      }
-
-      try {
-        const from = turf.point([staffLocation.lng, staffLocation.lat]);
-        const to = turf.point([targetLng, targetLat]);
-        const distance = turf.distance(from, to, { units: 'meters' });
-
-        if (distance > 100) {
-          toast.error('You are too far from merchant location (must be within 100 m).');
+        if (!targetLat || !targetLng) {
+          toast.error('Merchant location is not available');
           return;
         }
-      } catch {
-        toast.error('Could not verify your current location');
-        return;
-      }
-    }
 
-    if (newStatus === 'DELIVERED') {
-      const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
-      const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
-
-      if (targetLat && targetLng) {
         if (!staffLocation?.lat || !staffLocation?.lng) {
-          toast.error('Your live location is not available. Turn on tracking to complete delivery.');
+          toast.error('Your live location is not available. Turn on tracking to continue.');
           return;
         }
+
         try {
           const from = turf.point([staffLocation.lng, staffLocation.lat]);
           const to = turf.point([targetLng, targetLat]);
           const distance = turf.distance(from, to, { units: 'meters' });
 
           if (distance > 100) {
-            toast.error('You are too far from customer location (must be within 100 m) to complete delivery.');
+            toast.error('You are too far from merchant location (must be within 100 m).');
             return;
           }
         } catch {
@@ -109,83 +93,169 @@ const StaffOrderPage: React.FC = () => {
           return;
         }
       }
-    }
 
-    if (newStatus === 'OUT_FOR_DELIVERY') {
-      if (order.paymentStatus !== 'paid') {
-        toast.error('Customer has not paid the service amount yet. Please wait for payment before picking up the vehicle for delivery.');
-        return;
+      if (newStatus === 'DELIVERED') {
+        const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
+        const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
+
+        if (targetLat && targetLng) {
+          if (!staffLocation?.lat || !staffLocation?.lng) {
+            toast.error('Your live location is not available. Turn on tracking to complete delivery.');
+            return;
+          }
+          try {
+            const from = turf.point([staffLocation.lng, staffLocation.lat]);
+            const to = turf.point([targetLng, targetLat]);
+            const distance = turf.distance(from, to, { units: 'meters' });
+
+            if (distance > 100) {
+              toast.error('You are too far from customer location (must be within 100 m) to complete delivery.');
+              return;
+            }
+          } catch {
+            toast.error('Could not verify your current location');
+            return;
+          }
+        }
+      }
+
+      if (newStatus === 'OUT_FOR_DELIVERY') {
+        if (order.paymentStatus !== 'paid') {
+          toast.error('Customer has not paid the service amount yet. Please wait for payment before picking up the vehicle for delivery.');
+          return;
+        }
       }
     }
 
     try {
       setIsUpdating(true);
-      if (newStatus === 'VEHICLE_PICKED') {
-        const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-        if (photos.length < 4) {
-          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
-          setIsUpdating(false);
-          return;
-        }
-      }
-      if (newStatus === 'DELIVERED') {
-        const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
-        if (!otp) {
-          setIsUpdating(false);
-          return;
-        }
-        await bookingService.verifyDeliveryOtp(order._id, otp);
-      }
-      const updated = await bookingService.updateBookingStatus(order._id, newStatus);
-      setOrder(updated);
-      toast.success(`Order updated to ${newStatus}`);
-
-      if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
-        const { lat, lng, address } = order.merchant.location;
-        let url = '';
-        
-        if (lat && lng) {
-          url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-        } else if (address) {
-          url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-        }
-        
-        if (url) {
-          if (staffLocation?.lat && staffLocation?.lng) {
-            url += `&origin=${staffLocation.lat},${staffLocation.lng}`;
+      
+      if (isCarWashService) {
+        // Handle car wash specific status updates
+        if (newStatus === 'CAR_WASH_STARTED') {
+          // For car wash start, we might need to call a specific endpoint
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        } else if (newStatus === 'CAR_WASH_COMPLETED') {
+          // For car wash completion, just update status (no OTP generation yet)
+          console.log('Completing car wash without OTP generation');
+          try {
+            await bookingService.updateBookingStatus(order._id, newStatus);
+          } catch (error) {
+            console.error('Car wash completion error:', error);
+            toast.error('Failed to complete car wash');
+            setIsUpdating(false);
+            return;
           }
-          window.open(url, '_blank');
+        } else if (newStatus === 'DELIVERED') {
+          // For car wash services, generate OTP first (only if not already generated), then ask for verification
+          try {
+            // Check if OTP already exists
+            if (!order.deliveryOtp?.code) {
+              console.log('Generating OTP for car wash delivery completion');
+              await bookingService.generateDeliveryOtp(order._id);
+              
+              // Refresh order to get the OTP
+              const refreshedOrder = await bookingService.getBookingById(order._id);
+              setOrder(refreshedOrder);
+            } else {
+              console.log('OTP already exists, not generating new one');
+            }
+            
+            // Ask for customer's OTP (no alert needed)
+            const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
+            if (!otp) {
+              setIsUpdating(false);
+              return;
+            }
+            
+            // Verify OTP (backend will automatically update status to DELIVERED)
+            await bookingService.verifyDeliveryOtp(order._id, otp);
+          } catch (error) {
+            console.error('Car wash delivery completion error:', error);
+            toast.error('Failed to complete delivery');
+            setIsUpdating(false);
+            return;
+          }
         } else {
-          toast.warning("Merchant location coordinates missing, cannot start navigation automatically.");
+          console.log('Car wash service using generic updateBookingStatus for status:', newStatus);
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        }
+      } else {
+        // Handle regular service status updates
+        if (newStatus === 'ACCEPTED') {
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        } else if (newStatus === 'VEHICLE_PICKED') {
+          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+          if (photos.length < 4) {
+            toast.error('Please upload 4 vehicle photos before picking up the vehicle');
+            setIsUpdating(false);
+            return;
+          }
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        } else if (newStatus === 'DELIVERED') {
+          const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
+          if (!otp) {
+            setIsUpdating(false);
+            return;
+          }
+          await bookingService.verifyDeliveryOtp(order._id, otp);
+        } else {
+          await bookingService.updateBookingStatus(order._id, newStatus);
         }
       }
-      if (newStatus === 'OUT_FOR_DELIVERY') {
-        toast.info('Delivery OTP sent to customer');
-        if (order.location) {
-          const loc =
-            typeof order.location === 'object'
-              ? order.location
-              : { address: order.location as unknown as string };
-          const { lat, lng, address } = loc as {
-            lat?: number;
-            lng?: number;
-            address?: string;
-          };
+
+      const updated = await bookingService.getBookingById(order._id);
+      setOrder(updated);
+      toast.success(`Order updated to ${newStatus.replace('_', ' ')}`);
+      // Navigation logic for regular services
+      if (!isCarWashService) {
+        if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
+          const { lat, lng, address } = order.merchant.location;
           let url = '';
+          
           if (lat && lng) {
             url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
           } else if (address) {
-            url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-              address,
-            )}`;
+            url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
           }
+          
           if (url) {
             if (staffLocation?.lat && staffLocation?.lng) {
               url += `&origin=${staffLocation.lat},${staffLocation.lng}`;
             }
             window.open(url, '_blank');
           } else {
-            toast.warning("Customer location coordinates missing, cannot start navigation automatically.");
+            toast.warning("Merchant location coordinates missing, cannot start navigation automatically.");
+          }
+        }
+        if (newStatus === 'OUT_FOR_DELIVERY') {
+          toast.info('Delivery OTP sent to customer');
+          if (order.location) {
+            const loc =
+              typeof order.location === 'object'
+                ? order.location
+                : { address: order.location as unknown as string };
+            const { lat, lng, address } = loc as {
+              lat?: number;
+              lng?: number;
+              address?: string;
+            };
+            let url = '';
+            if (lat && lng) {
+              url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            } else if (address) {
+              url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                address,
+              )}`;
+            }
+            if (url) {
+              if (staffLocation?.lat && staffLocation?.lng) {
+                url += `&origin=${staffLocation.lat},${staffLocation.lng}`;
+              }
+              window.open(url, '_blank');
+            } else {
+              toast.warning("Customer location coordinates missing, cannot start navigation automatically.");
+            }
           }
         }
       }
@@ -201,8 +271,14 @@ const StaffOrderPage: React.FC = () => {
     // Set active booking ID for tracking context
     if (id) {
       setActiveBookingId(id);
+      startTracking();
     }
-  }, [id, setActiveBookingId]);
+
+    return () => {
+      stopTracking();
+      setActiveBookingId(null);
+    };
+  }, [id, setActiveBookingId, startTracking, stopTracking]);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -227,7 +303,10 @@ const StaffOrderPage: React.FC = () => {
 
         socketService.on('bookingUpdated', (updatedBooking: Booking) => {
             if (updatedBooking._id === id) {
-                setOrder(updatedBooking);
+                // Only update if we're not currently uploading photos
+                if (!isUploadingPrePickup) {
+                    setOrder(updatedBooking);
+                }
             }
         });
 
@@ -283,14 +362,24 @@ const StaffOrderPage: React.FC = () => {
       setEta(null);
       return;
     }
-    const isHeadingToMerchant =
-      order.status === 'VEHICLE_PICKED' || order.status === 'SERVICE_COMPLETED';
+    
+    const isCarWashService = Array.isArray(order.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+      );
+    
+    const isHeadingToMerchant = !isCarWashService && (
+      order.status === 'VEHICLE_PICKED' || order.status === 'SERVICE_COMPLETED'
+    );
+    
     let destLat: number | undefined;
     let destLng: number | undefined;
     if (
       order.status === 'ACCEPTED' ||
       order.status === 'REACHED_CUSTOMER' ||
-      order.status === 'OUT_FOR_DELIVERY'
+      order.status === 'OUT_FOR_DELIVERY' ||
+      order.status === 'CAR_WASH_STARTED' ||
+      order.status === 'CAR_WASH_COMPLETED'
     ) {
       destLat = order.location?.lat;
       destLng = order.location?.lng;
@@ -322,8 +411,15 @@ const StaffOrderPage: React.FC = () => {
   }, [order, staffLocation]);
 
   const handleNavigate = () => {
-    const isHeadingToMerchant =
-      order?.status === 'VEHICLE_PICKED' || order?.status === 'SERVICE_COMPLETED';
+    const isCarWashService = Array.isArray(order?.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+      );
+    
+    const isHeadingToMerchant = !isCarWashService && (
+      order?.status === 'VEHICLE_PICKED' || order?.status === 'SERVICE_COMPLETED'
+    );
+    
     const targetLocation = isHeadingToMerchant ? order?.merchant?.location : order?.location;
     const targetName = isHeadingToMerchant ? 'Merchant' : 'Customer';
 
@@ -397,6 +493,9 @@ const StaffOrderPage: React.FC = () => {
   };
 
   const handlePrePickupUploadClick = () => {
+    console.log('Upload button clicked, triggering file input');
+    console.log('File input element:', prePickupInputRef.current);
+    console.log('File input multiple attribute:', prePickupInputRef.current?.multiple);
     prePickupInputRef.current?.click();
   };
 
@@ -405,23 +504,90 @@ const StaffOrderPage: React.FC = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
     
+    console.log('Files selected:', files.length, files.map(f => f.name));
+    
+    // Check if this is a car wash service
+    const isCarWashService = Array.isArray(order.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+      );
+    
+    console.log('Is car wash service:', isCarWashService, 'Order status:', order.status);
+    
     try {
       setIsUploadingPrePickup(true);
-      const loadingToast = toast.loading('Uploading pre-pickup photos...');
+      const loadingToast = toast.loading(`Uploading ${files.length} photos...`);
+      
+      console.log('Calling uploadService.uploadFiles with', files.length, 'files');
       const res = await uploadService.uploadFiles(files);
+      console.log('Upload response:', res);
+      
       const newUrls = (res.files || []).map((f: { url: string }) => f.url);
+      console.log('New URLs:', newUrls);
       
-      const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-      const updatedPhotos = [...currentPhotos, ...newUrls];
-      
-      await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
-      setOrder({ ...order, prePickupPhotos: updatedPhotos });
+      if (isCarWashService) {
+        // Handle car wash photo uploads based on status
+        if (order.status === 'REACHED_CUSTOMER') {
+          // Upload before wash photos - replace existing photos
+          const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
+          console.log('Uploading before wash photos:', updatedPhotos);
+          
+          // Use car wash service to upload before photos
+          const { carWashService } = await import('@/services/carWashService');
+          const result = await carWashService.uploadBeforePhotos(order._id, updatedPhotos);
+          console.log('Before photos upload result:', result);
+          
+          // Update local state with the result from backend
+          if (result.booking) {
+            setOrder(result.booking);
+          } else {
+            // Fallback to manual state update
+            setOrder({ 
+              ...order, 
+              carWash: { 
+                ...order.carWash, 
+                beforeWashPhotos: updatedPhotos 
+              } 
+            });
+          }
+        } else if (order.status === 'CAR_WASH_STARTED') {
+          // Upload after wash photos - replace existing photos
+          const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
+          console.log('Uploading after wash photos:', updatedPhotos);
+          
+          // Use car wash service to upload after photos
+          const { carWashService } = await import('@/services/carWashService');
+          const result = await carWashService.uploadAfterPhotos(order._id, updatedPhotos);
+          console.log('After photos upload result:', result);
+          
+          // Update local state with the result from backend
+          if (result.booking) {
+            setOrder(result.booking);
+          } else {
+            // Fallback to manual state update
+            setOrder({ 
+              ...order, 
+              carWash: { 
+                ...order.carWash, 
+                afterWashPhotos: updatedPhotos 
+              } 
+            });
+          }
+        }
+      } else {
+        // Regular service pre-pickup photos
+        const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+        const updatedPhotos = [...currentPhotos, ...newUrls];
+        
+        await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
+        setOrder({ ...order, prePickupPhotos: updatedPhotos });
+      }
       
       toast.dismiss(loadingToast);
-      toast.success(`${newUrls.length} photos uploaded`);
+      toast.success(`${newUrls.length} photos uploaded successfully`);
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload pre-pickup photos');
+      console.error('Photo upload error:', error);
+      toast.error(`Failed to upload photos: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploadingPrePickup(false);
       if (prePickupInputRef.current) prePickupInputRef.current.value = '';
@@ -444,15 +610,32 @@ const StaffOrderPage: React.FC = () => {
   const services = Array.isArray(order.services) ? order.services : [];
 
   const getNextStatusAction = (currentStatus: string) => {
-    switch (currentStatus) {
-      case 'ASSIGNED':
-      case 'ACCEPTED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
-      case 'REACHED_CUSTOMER': return { label: 'Pickup Vehicle from Customer', nextStatus: 'VEHICLE_PICKED', color: 'bg-blue-600 hover:bg-blue-700' };
-      case 'VEHICLE_PICKED': return { label: 'Reached Service Center', nextStatus: 'REACHED_MERCHANT', color: 'bg-purple-600 hover:bg-purple-700' };
-      // case 'REACHED_MERCHANT': return { label: 'Handover to Merchant', nextStatus: 'VEHICLE_AT_MERCHANT', color: 'bg-indigo-600 hover:bg-indigo-700' };
-      case 'SERVICE_COMPLETED': return { label: 'Pickup Vehicle from Workshop', nextStatus: 'OUT_FOR_DELIVERY', color: 'bg-orange-600 hover:bg-orange-700' };
-      case 'OUT_FOR_DELIVERY': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
-      default: return null;
+    // Check if this is a car wash service
+    const isCarWashService = Array.isArray(order?.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+      );
+
+    if (isCarWashService) {
+      // Car wash specific workflow - no acceptance needed
+      switch (currentStatus) {
+        case 'ASSIGNED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'REACHED_CUSTOMER': return { label: 'Start Car Wash', nextStatus: 'CAR_WASH_STARTED', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'CAR_WASH_STARTED': return { label: 'Complete Car Wash', nextStatus: 'CAR_WASH_COMPLETED', color: 'bg-green-600 hover:bg-green-700' };
+        case 'CAR_WASH_COMPLETED': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
+        default: return null;
+      }
+    } else {
+      // Regular service workflow - requires acceptance
+      switch (currentStatus) {
+        case 'ASSIGNED': return { label: 'Accept Order', nextStatus: 'ACCEPTED', color: 'bg-primary hover:bg-primary/90' };
+        case 'ACCEPTED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'REACHED_CUSTOMER': return { label: 'Pickup Vehicle from Customer', nextStatus: 'VEHICLE_PICKED', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'VEHICLE_PICKED': return { label: 'Reached Service Center', nextStatus: 'REACHED_MERCHANT', color: 'bg-purple-600 hover:bg-purple-700' };
+        case 'SERVICE_COMPLETED': return { label: 'Pickup Vehicle from Workshop', nextStatus: 'OUT_FOR_DELIVERY', color: 'bg-orange-600 hover:bg-orange-700' };
+        case 'OUT_FOR_DELIVERY': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
+        default: return null;
+      }
     }
   };
 
@@ -465,11 +648,15 @@ const StaffOrderPage: React.FC = () => {
       (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4));
 
   // Determine display location
-  const isHeadingToMerchant = order.status === 'VEHICLE_PICKED';
+  const isCarWashService = Array.isArray(order?.services) && 
+    order.services.some(service => 
+      typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+    );
+  const isHeadingToMerchant = !isCarWashService && order.status === 'VEHICLE_PICKED';
   const isPrePickupPhase = order.status === 'REACHED_CUSTOMER';
   const targetLocation = isHeadingToMerchant ? order.merchant?.location : order.location;
-  const locationLabel = isHeadingToMerchant ? 'Drop-off Location (Workshop)' : 'Pickup Location';
-  const navigateButtonText = isHeadingToMerchant ? 'Navigate to Workshop' : 'Navigate & Start Job';
+  const locationLabel = isHeadingToMerchant ? 'Drop-off Location (Workshop)' : 'Customer Location';
+  const navigateButtonText = isHeadingToMerchant ? 'Navigate to Workshop' : 'Navigate to Customer';
   const addressDisplay = typeof targetLocation === 'string' ? targetLocation : targetLocation?.address || 'No address provided';
 
   return (
@@ -480,7 +667,7 @@ const StaffOrderPage: React.FC = () => {
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${
             order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
           }`}>
-            {order.status}
+            {order.status.replace('_AT_MERCHANT', '')}
           </span>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
@@ -500,7 +687,7 @@ const StaffOrderPage: React.FC = () => {
         </span>
       </div>
 
-      {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY'].includes(order.status)) && (
+      {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
           <h3 className="font-medium">Order Actions</h3>
 
@@ -537,15 +724,31 @@ const StaffOrderPage: React.FC = () => {
               size="lg"
               variant="secondary"
               className="w-full justify-center gap-2"
-              onClick={isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick}
-              disabled={isPrePickupPhase && isUploadingPrePickup}
+              onClick={isCarWashService ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
+              disabled={isCarWashService ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
             >
               <Upload className="w-4 h-4" />
-              {isPrePickupPhase
-                ? isUploadingPrePickup
-                  ? 'Uploading...'
-                  : 'Upload Photos'
-                : 'Upload Photo'}
+              {(() => {
+                const isCarWashService = Array.isArray(order?.services) && 
+                  order.services.some(service => 
+                    typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                  );
+                
+                if (isCarWashService) {
+                  if (order.status === 'REACHED_CUSTOMER') {
+                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Before Wash Photos';
+                  } else if (order.status === 'CAR_WASH_STARTED') {
+                    return isUploadingPrePickup ? 'Uploading...' : 'Upload After Wash Photos';
+                  }
+                  return 'Upload Photos';
+                } else {
+                  return isPrePickupPhase
+                    ? isUploadingPrePickup
+                      ? 'Uploading...'
+                      : 'Upload Photos'
+                    : 'Upload Photo';
+                }
+              })()}
             </Button>
           </div>
 
@@ -555,6 +758,15 @@ const StaffOrderPage: React.FC = () => {
             className="hidden"
             accept="image/*"
             onChange={handleFileChange}
+          />
+
+          <input
+            type="file"
+            ref={prePickupInputRef}
+            className="hidden"
+            accept="image/*"
+            multiple
+            onChange={handlePrePickupFileChange}
           />
 
           {isPrePickupPhase && (
@@ -691,63 +903,147 @@ const StaffOrderPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="media" className="mt-4 space-y-4">
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="space-y-1">
-                <h3 className="font-medium">Pre-Pickup Vehicle Photos</h3>
-                <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                  {order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
-                    <>
-                      <CheckCircle className="w-3 h-3 text-green-600" />
-                      <span className="text-green-700">4/4 photos captured</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="w-3 h-3 text-amber-500" />
-                      <span className="text-amber-600">
-                        {order.prePickupPhotos?.length || 0}/4 photos
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
-                order.prePickupPhotos.map((url, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                    <img src={url} alt={`Pre-pickup ${index + 1}`} className="w-full h-full object-cover" />
+          {(() => {
+            const isCarWashService = Array.isArray(order?.services) && 
+              order.services.some(service => 
+                typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+              );
+
+            if (isCarWashService) {
+              return (
+                <>
+                  {/* Before Wash Photos */}
+                  <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">Before Wash Photos</h3>
+                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
+                          {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length >= 4 ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                              <span className="text-green-700">4/4 photos captured</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              <span className="text-amber-600">
+                                {order.carWash?.beforeWashPhotos?.length || 0}/4 photos
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 ? (
+                        order.carWash.beforeWashPhotos.map((url, index) => (
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`Before wash ${index + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                          No before wash photos yet
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
-                  No pre-pickup photos yet
-                </div>
-              )}
-            </div>
-            <input
-              type="file"
-              ref={prePickupInputRef}
-              className="hidden"
-              accept="image/*"
-              multiple
-              onChange={handlePrePickupFileChange}
-            />
-          </div>
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-            <h3 className="font-medium mb-3">Uploaded Photos</h3>
-            {order.media && order.media.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {order.media.map((url, index) => (
-                  <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
-                    <img src={url} alt={`Order media ${index + 1}`} className="w-full h-32 object-cover" />
+
+                  {/* After Wash Photos */}
+                  <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">After Wash Photos</h3>
+                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
+                          {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length >= 4 ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                              <span className="text-green-700">4/4 photos captured</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              <span className="text-amber-600">
+                                {order.carWash?.afterWashPhotos?.length || 0}/4 photos
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 ? (
+                        order.carWash.afterWashPhotos.map((url, index) => (
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`After wash ${index + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                          No after wash photos yet
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No photos uploaded yet. Use the Actions menu to upload.</p>
-            )}
-          </div>
+                </>
+              );
+            } else {
+              return (
+                <>
+                  {/* Regular Service Photos */}
+                  <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">Pre-Pickup Vehicle Photos</h3>
+                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
+                          {order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                              <span className="text-green-700">4/4 photos captured</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              <span className="text-amber-600">
+                                {order.prePickupPhotos?.length || 0}/4 photos
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
+                        order.prePickupPhotos.map((url, index) => (
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`Pre-pickup ${index + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                          No pre-pickup photos yet
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                    <h3 className="font-medium mb-3">Uploaded Photos</h3>
+                    {order.media && order.media.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {order.media.map((url, index) => (
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`Order media ${index + 1}`} className="w-full h-32 object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No photos uploaded yet. Use the Actions menu to upload.</p>
+                    )}
+                  </div>
+                </>
+              );
+            }
+          })()}
         </TabsContent>
       </Tabs>
     </div>

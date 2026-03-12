@@ -1,11 +1,11 @@
 import Booking from '../models/Booking.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
-import Review from '../models/Review.js';
 import { getIO } from '../socket.js';
 import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
+import crypto from 'crypto';
 
 export const emitBookingUpdate = (booking) => {
   try {
@@ -69,26 +69,6 @@ export const createBooking = async (req, res) => {
   const { vehicleId, serviceIds, date, notes, location } = req.body;
 
   try {
-    // Check for pending feedback on delivered/completed bookings
-    const deliveredBookings = await Booking.find({
-      user: req.user._id,
-      status: { $in: ['DELIVERED', 'COMPLETED'] }
-    });
-
-    for (const booking of deliveredBookings) {
-      const reviews = await Review.find({ booking: booking._id });
-      const categories = reviews.map(r => r.category);
-      
-      const hasMerchantReview = categories.includes('Merchant');
-      const hasPlatformReview = categories.includes('Platform');
-
-      if (!hasMerchantReview || !hasPlatformReview) {
-        return res.status(400).json({ 
-          message: `Please provide feedback for your previous booking (#${booking.orderNumber || booking._id.toString().slice(-6).toUpperCase()}) before booking a new service.` 
-        });
-      }
-    }
-
     // Pickup address is now always required
     const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
     if (!hasAddress) {
@@ -104,6 +84,120 @@ export const createBooking = async (req, res) => {
 
     const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
 
+    // Check if this is a car wash service
+    const isCarWashService = services.some(service => 
+      service.category === 'Car Wash' || service.category === 'Wash'
+    );
+
+    // For car wash services, create booking with pending payment status
+    if (isCarWashService) {
+      const MAX_RETRIES = 5;
+      let lastError = null;
+      let createdBooking = null;
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const orderNumber = await Counter.next('booking');
+          const booking = new Booking({
+            user: req.user._id,
+            vehicle: vehicleId,
+            services: serviceIds,
+            date,
+            orderNumber,
+            notes,
+            location,
+            totalAmount,
+            paymentStatus: 'pending', // Payment required before confirmation
+            status: 'CREATED', // Stays in CREATED until admin assigns staff
+            carWash: {
+              isCarWashService: true,
+              beforeWashPhotos: [],
+              afterWashPhotos: [],
+            }
+          });
+
+          createdBooking = await booking.save();
+          break;
+        } catch (err) {
+          lastError = err;
+          // Retry on duplicate orderNumber, otherwise abort
+          const isDuplicate =
+            err &&
+            err.code === 11000 &&
+            (err.keyPattern?.orderNumber || String(err.message || '').includes('orderNumber_1'));
+
+          if (!isDuplicate) {
+            throw err;
+          }
+
+          // Align counter with current max orderNumber to avoid repeated collisions
+          try {
+            const lastWithOrder = await Booking.findOne({ orderNumber: { $ne: null } })
+              .sort({ orderNumber: -1 })
+              .select('orderNumber')
+              .lean();
+            if (lastWithOrder && typeof lastWithOrder.orderNumber === 'number') {
+              await Counter.findOneAndUpdate(
+                { name: 'booking' },
+                { $set: { seq: lastWithOrder.orderNumber } },
+                { upsert: true }
+              );
+            }
+          } catch (alignError) {
+            console.error('Failed to align booking counter', alignError);
+          }
+        }
+      }
+
+      if (!createdBooking) {
+        throw lastError || new Error('Failed to create booking with unique order number');
+      }
+
+      // Send confirmation email (asynchronously)
+      if (req.user.email) {
+        const serviceNames = services.map(s => s.name).join(', ');
+        sendEmail(
+          req.user.email,
+          'Car Wash Booking Created - Payment Required',
+          `Dear User,\n\nYour car wash booking for ${serviceNames} has been created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nPlease complete the payment to confirm your booking.\n\nThank you for choosing DriveFlow!`
+        ).catch(emailError => console.error('Email sending failed:', emailError));
+      }
+
+      res.status(201).json({
+        ...createdBooking.toObject(),
+        requiresPayment: true,
+        message: 'Car wash booking created. Please complete payment to confirm.'
+      });
+
+      // Send push to customer
+      try {
+        await sendPushToUser(
+          req.user._id,
+          'Car Wash Booking Created',
+          `Your car wash booking (#${createdBooking.orderNumber}) has been created. Please complete payment to confirm.`,
+          { bookingId: createdBooking._id.toString(), type: 'car_wash_payment_required' },
+          'order'
+        );
+      } catch (err) {
+        console.error('Customer notification error (createBooking):', err);
+      }
+
+      // Emit socket event for real-time updates
+      try {
+        const populated = await Booking.findById(createdBooking._id)
+          .populate('user', 'id name email phone')
+          .populate('vehicle')
+          .populate('services');
+          
+        emitBookingUpdate(populated || createdBooking);
+      } catch (err) {
+        console.error('Socket emit error (createBooking):', err);
+      }
+
+      return; // Exit early for car wash services
+    }
+
+    // Regular service booking flow (existing logic)
     const MAX_RETRIES = 5;
     let lastError = null;
     let createdBooking = null;
@@ -238,11 +332,12 @@ export const getMyBookings = async (req, res) => {
     let query = { user: req.user._id };
 
     if (req.user.role === 'staff') {
-      // Staff see bookings where they are the pickup driver OR the technician (if that field exists)
+      // Staff see bookings where they are the pickup driver, technician, OR assigned to car wash
       query = { 
         $or: [
           { pickupDriver: req.user._id },
-          { technician: req.user._id }
+          { technician: req.user._id },
+          { 'carWash.staffAssigned': req.user._id }
         ]
       };
     } else if (req.user.role === 'merchant') {
@@ -263,6 +358,7 @@ export const getMyBookings = async (req, res) => {
       .populate('merchant', 'name email phone location')
       .populate('user', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
+      .populate('carWash.staffAssigned', 'name email phone')
       .lean();
     res.json(bookings);
   } catch (error) {
@@ -367,7 +463,8 @@ export const getBookingById = async (req, res) => {
       .populate('services')
       .populate('merchant', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
-      .populate('technician', 'name email phone');
+      .populate('technician', 'name email phone')
+      .populate('carWash.staffAssigned', 'name email phone');
     
     if (booking) {
       // Check if user is authorized (admin, merchant, or booking owner)
@@ -376,7 +473,8 @@ export const getBookingById = async (req, res) => {
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
       const isAssignedStaff = req.user.role === 'staff' && (
         (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician._id.toString() === req.user._id.toString())
+        (booking.technician && booking.technician._id.toString() === req.user._id.toString()) ||
+        (booking.carWash?.staffAssigned && booking.carWash.staffAssigned._id.toString() === req.user._id.toString())
       );
       
       if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
@@ -401,23 +499,32 @@ export const getBookingById = async (req, res) => {
 // @route   PUT /api/bookings/:id/assign
 // @access  Private/Admin
 export const assignBooking = async (req, res) => {
-  const { merchantId, driverId, technicianId, slot } = req.body;
+  const { merchantId, driverId, technicianId, slot, carWashStaffId } = req.body;
 
   try {
     const booking = await Booking.findById(req.params.id);
 
     if (booking) {
-      if (merchantId) booking.merchant = merchantId;
-      if (driverId) booking.pickupDriver = driverId;
-      if (technicianId) booking.technician = technicianId;
-      if (slot) booking.date = slot; // Assuming date stores the slot time as well
+      // Handle car wash service assignment
+      if (booking.carWash?.isCarWashService) {
+        if (carWashStaffId) {
+          booking.carWash.staffAssigned = carWashStaffId;
+          booking.status = 'ASSIGNED';
+        }
+        if (slot) booking.date = slot;
+      } else {
+        // Handle regular service assignment
+        if (merchantId) booking.merchant = merchantId;
+        if (driverId) booking.pickupDriver = driverId;
+        if (technicianId) booking.technician = technicianId;
+        if (slot) booking.date = slot;
 
-      // Automatic status update rules
-      // - Now always requires both merchant and driver to move to ACCEPTED
-      if (booking.status === 'CREATED') {
-        const canAssign = booking.merchant && booking.pickupDriver;
-        if (canAssign) {
-          booking.status = 'ACCEPTED';
+        // Automatic status update rules for regular services
+        if (booking.status === 'CREATED') {
+          const canAssign = booking.merchant && booking.pickupDriver;
+          if (canAssign) {
+            booking.status = 'ASSIGNED';
+          }
         }
       }
 
@@ -430,7 +537,8 @@ export const assignBooking = async (req, res) => {
         .populate('services')
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone');
+        .populate('technician', 'name email phone')
+        .populate('carWash.staffAssigned', 'name email phone');
 
       // Emit real-time update for all stakeholders
       emitBookingUpdate(populated);
@@ -440,55 +548,78 @@ export const assignBooking = async (req, res) => {
         const bookingIdStr = String(populated._id);
         const orderId = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
 
-        if (populated.merchant?._id && merchantId) {
+        // Car wash assignment notifications
+        if (booking.carWash?.isCarWashService && populated.carWash?.staffAssigned?._id && carWashStaffId) {
           await sendPushToUser(
-            populated.merchant._id,
-            'New Assignment',
-            `You have been assigned to booking #${orderId}`,
-            { type: 'assignment', role: 'merchant', bookingId: bookingIdStr },
+            populated.carWash.staffAssigned._id,
+            'Car Wash Assignment',
+            `You have been assigned to car wash service #${orderId}`,
+            { type: 'assignment', role: 'car_wash_staff', bookingId: bookingIdStr },
             'order'
           );
-        }
 
-        if (populated.pickupDriver?._id && driverId) {
-          await sendPushToUser(
-            populated.pickupDriver._id,
-            'New Assignment',
-            `You have been assigned to booking #${orderId}`,
-            { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
-            'order'
-          );
-        }
-
-        if (populated.technician?._id && technicianId) {
-          await sendPushToUser(
-            populated.technician._id,
-            'New Assignment',
-            `You have been assigned to booking #${orderId}`,
-            { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
-            'order'
-          );
-        }
-
-        // Notify Customer about assignments
-        if (populated.user?._id) {
-          let assignmentMsg = `Your booking #${orderId} has been updated.`;
-          
-          if (merchantId && (driverId || technicianId)) {
-            assignmentMsg = `Your service #${orderId} has been assigned to a merchant and staff.`;
-          } else if (merchantId) {
-            assignmentMsg = `Merchant ${populated.merchant?.name || ''} has been assigned to your booking #${orderId}.`;
-          } else if (driverId || technicianId) {
-            assignmentMsg = `Staff has been assigned to your booking #${orderId}.`;
+          // Notify customer about car wash staff assignment
+          if (populated.user?._id) {
+            await sendPushToUser(
+              populated.user._id,
+              'Car Wash Staff Assigned',
+              `Staff has been assigned to your car wash service #${orderId}. They will reach your location shortly.`,
+              { type: 'car_wash_assignment_update', bookingId: bookingIdStr },
+              'order'
+            );
           }
-          
-          await sendPushToUser(
-            populated.user._id,
-            'Service Assigned',
-            assignmentMsg,
-            { type: 'assignment_update', bookingId: bookingIdStr },
-            'order'
-          );
+        } else {
+          // Regular service assignment notifications
+          if (populated.merchant?._id && merchantId) {
+            await sendPushToUser(
+              populated.merchant._id,
+              'New Assignment',
+              `You have been assigned to booking #${orderId}`,
+              { type: 'assignment', role: 'merchant', bookingId: bookingIdStr },
+              'order'
+            );
+          }
+
+          if (populated.pickupDriver?._id && driverId) {
+            await sendPushToUser(
+              populated.pickupDriver._id,
+              'New Assignment',
+              `You have been assigned to booking #${orderId}`,
+              { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
+              'order'
+            );
+          }
+
+          if (populated.technician?._id && technicianId) {
+            await sendPushToUser(
+              populated.technician._id,
+              'New Assignment',
+              `You have been assigned to booking #${orderId}`,
+              { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
+              'order'
+            );
+          }
+
+          // Notify Customer about regular service assignments
+          if (populated.user?._id) {
+            let assignmentMsg = `Your booking #${orderId} has been updated.`;
+            
+            if (merchantId && (driverId || technicianId)) {
+              assignmentMsg = `Your service #${orderId} has been assigned to a merchant and staff.`;
+            } else if (merchantId) {
+              assignmentMsg = `Merchant ${populated.merchant?.name || ''} has been assigned to your booking #${orderId}.`;
+            } else if (driverId || technicianId) {
+              assignmentMsg = `Staff has been assigned to your booking #${orderId}.`;
+            }
+            
+            await sendPushToUser(
+              populated.user._id,
+              'Service Assigned',
+              assignmentMsg,
+              { type: 'assignment_update', bookingId: bookingIdStr },
+              'order'
+            );
+          }
         }
       } catch (notifyErr) {
         console.error('Push notification error (assignBooking):', notifyErr);
@@ -518,7 +649,8 @@ export const updateBookingStatus = async (req, res) => {
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant.toString() === req.user._id.toString();
       const isAssignedStaff = req.user.role === 'staff' && (
         (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician.toString() === req.user._id.toString())
+        (booking.technician && booking.technician.toString() === req.user._id.toString()) ||
+        (booking.carWash?.staffAssigned && booking.carWash.staffAssigned.toString() === req.user._id.toString())
       );
 
       if (isOwner && !isAdmin && !isAssignedMerchant && !isAssignedStaff) {
@@ -563,6 +695,28 @@ export const updateBookingStatus = async (req, res) => {
         const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
         if (photos.length < 4) {
           return res.status(400).json({ message: 'Please upload 4 vehicle photos before picking up the vehicle' });
+        }
+      }
+
+      // Car wash specific photo requirements
+      if (canonTo === 'CAR_WASH_STARTED') {
+        const beforePhotos = Array.isArray(booking.carWash?.beforeWashPhotos) ? booking.carWash.beforeWashPhotos : [];
+        if (beforePhotos.length < 4) {
+          return res.status(400).json({ message: 'Please upload 4 before wash photos before starting car wash' });
+        }
+      }
+
+      if (canonTo === 'CAR_WASH_COMPLETED') {
+        console.log('Processing CAR_WASH_COMPLETED status update - no OTP generation');
+        const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
+        console.log('After photos count:', afterPhotos.length);
+        if (afterPhotos.length < 4) {
+          return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
+        }
+        
+        // Set wash completion time (but don't generate OTP yet)
+        if (booking.carWash) {
+          booking.carWash.washCompletedAt = new Date();
         }
       }
 
@@ -630,7 +784,8 @@ export const updateBookingStatus = async (req, res) => {
         .populate('services')
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone');
+        .populate('technician', 'name email phone')
+        .populate('carWash.staffAssigned', 'name email phone');
 
       // Emit socket event for real-time updates
       emitBookingUpdate(updatedBooking);
@@ -675,13 +830,25 @@ export const generateDeliveryOtp = async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const isAssignedStaff = req.user.role === 'staff' && (
       (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString()) ||
-      (booking.technician && booking.technician.toString() === req.user._id.toString())
+      (booking.technician && booking.technician.toString() === req.user._id.toString()) ||
+      (booking.carWash?.staffAssigned && booking.carWash.staffAssigned.toString() === req.user._id.toString())
     );
     if (!isAdmin && !isAssignedStaff) {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
+    // Check if OTP already exists and is still valid
+    const existingOtp = booking.deliveryOtp;
+    const now = new Date();
+    
+    if (existingOtp && existingOtp.code && existingOtp.expiresAt && new Date(existingOtp.expiresAt) > now) {
+      console.log('OTP already exists and is valid, not generating new one:', existingOtp.code);
+      return res.json({ message: 'OTP already exists', code: existingOtp.code });
+    }
+
+    // Generate new OTP only if none exists or expired
     const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
+    console.log('Generating new OTP:', code);
     booking.deliveryOtp = {
       code,
       expiresAt: new Date(Date.now() + 20 * 60 * 1000),
@@ -698,7 +865,16 @@ export const generateDeliveryOtp = async (req, res) => {
       );
     }
     await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) });
-    res.json({ message: 'OTP generated' });
+    
+    // Emit socket update so customer sees the OTP immediately
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+    emitBookingUpdate(populated);
+    
+    res.json({ message: 'OTP generated', code });
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -726,10 +902,31 @@ export const verifyDeliveryOtp = async (req, res) => {
       await booking.save();
       return res.status(400).json({ message: 'Invalid OTP' });
     }
+    
+    // Mark OTP as verified
     booking.deliveryOtp.verifiedAt = now;
+    
+    // Update status to DELIVERED when OTP is verified
+    booking.status = 'DELIVERED';
     await booking.save();
-    res.json({ message: 'OTP verified' });
+    
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('merchant', 'name email phone location')
+      .populate('pickupDriver', 'name email phone')
+      .populate('technician', 'name email phone')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    // Emit socket event for real-time updates
+    emitBookingUpdate(populated);
+    
+    console.log('OTP verified and status updated to DELIVERED for booking:', booking._id);
+    res.json({ message: 'OTP verified and delivery completed', booking: populated });
   } catch (e) {
+    console.error('verifyDeliveryOtp error:', e);
     res.status(500).json({ message: e.message });
   }
 };
@@ -759,7 +956,8 @@ export const updateBookingDetails = async (req, res) => {
       const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant.toString() === req.user._id.toString();
       const isAssignedStaff = req.user.role === 'staff' && (
         (booking.pickupDriver && booking.pickupDriver.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician.toString() === req.user._id.toString())
+        (booking.technician && booking.technician.toString() === req.user._id.toString()) ||
+        (booking.carWash?.staffAssigned && booking.carWash.staffAssigned.toString() === req.user._id.toString())
       );
 
       if (!isAdmin && !isAssignedMerchant && !isAssignedStaff) {
@@ -794,7 +992,7 @@ export const updateBookingDetails = async (req, res) => {
         booking.markModified('billing');
 
         // If submitting a bill, also mark the service as completed
-        if (booking.status === 'SERVICE_STARTED' || booking.status === 'VEHICLE_AT_MERCHANT') {
+        if (booking.status === 'SERVICE_STARTED') {
           booking.status = 'SERVICE_COMPLETED';
         }
       }
@@ -831,7 +1029,8 @@ export const updateBookingDetails = async (req, res) => {
         .populate('services')
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone');
+        .populate('technician', 'name email phone')
+        .populate('carWash.staffAssigned', 'name email phone');
 
       // Emit socket event for real-time updates
       emitBookingUpdate(populated);
@@ -851,6 +1050,313 @@ export const updateBookingDetails = async (req, res) => {
     } else {
       res.status(404).json({ message: 'Booking not found' });
     }
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Car wash specific endpoints
+export const uploadCarWashBeforePhotos = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { photos } = req.body; // Array of photo URLs
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (!booking.carWash?.isCarWashService) {
+      return res.status(400).json({ message: 'This is not a car wash service' });
+    }
+
+    // Check if user is assigned staff
+    if (booking.carWash.staffAssigned?.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to upload photos for this booking' });
+    }
+
+    // Limit to 4 photos
+    if (photos.length > 4) {
+      return res.status(400).json({ message: 'Maximum 4 photos allowed' });
+    }
+
+    // Ensure carWash object exists
+    if (!booking.carWash) {
+      booking.carWash = { isCarWashService: true };
+    }
+
+    booking.carWash.beforeWashPhotos = photos;
+    await booking.save();
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    emitBookingUpdate(populated);
+
+    res.json({ message: 'Before wash photos uploaded successfully', booking: populated });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const startCarWash = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (!booking.carWash?.isCarWashService) {
+      return res.status(400).json({ message: 'This is not a car wash service' });
+    }
+
+    // Check if user is assigned staff
+    if (booking.carWash.staffAssigned?.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to start car wash for this booking' });
+    }
+
+    // Check if before photos are uploaded
+    if (!booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0) {
+      return res.status(400).json({ message: 'Please upload before wash photos first' });
+    }
+
+    booking.status = 'CAR_WASH_STARTED';
+    booking.carWash.washStartedAt = new Date();
+    await booking.save();
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    emitBookingUpdate(populated);
+
+    // Notify customer
+    try {
+      await sendPushToUser(
+        booking.user,
+        'Car Wash Started',
+        `Your car wash service (#${booking.orderNumber}) has been started.`,
+        { bookingId: booking._id.toString(), type: 'car_wash_started' },
+        'order'
+      );
+    } catch (err) {
+      console.error('Customer notification error:', err);
+    }
+
+    res.json({ message: 'Car wash started successfully', booking: populated });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const uploadCarWashAfterPhotos = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { photos } = req.body; // Array of photo URLs
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (!booking.carWash?.isCarWashService) {
+      return res.status(400).json({ message: 'This is not a car wash service' });
+    }
+
+    // Check if user is assigned staff
+    if (booking.carWash.staffAssigned?.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to upload photos for this booking' });
+    }
+
+    if (booking.status !== 'CAR_WASH_STARTED') {
+      return res.status(400).json({ message: 'Car wash must be started before uploading after photos' });
+    }
+
+    // Limit to 4 photos
+    if (photos.length > 4) {
+      return res.status(400).json({ message: 'Maximum 4 photos allowed' });
+    }
+
+    // Ensure carWash object exists
+    if (!booking.carWash) {
+      booking.carWash = { isCarWashService: true };
+    }
+
+    booking.carWash.afterWashPhotos = photos;
+    await booking.save();
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    emitBookingUpdate(populated);
+
+    res.json({ message: 'After wash photos uploaded successfully', booking: populated });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const testGenerateOtp = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    console.log('testGenerateOtp called for booking:', bookingId);
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Generate delivery OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('Test generated OTP:', otpCode);
+    
+    booking.deliveryOtp = {
+      code: otpCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0
+    };
+    
+    await booking.save();
+    console.log('Test saved booking with OTP:', booking.deliveryOtp);
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    emitBookingUpdate(populated);
+
+    res.json({ 
+      message: 'Test OTP generated successfully', 
+      booking: populated,
+      deliveryOtp: otpCode 
+    });
+  } catch (error) {
+    console.error('testGenerateOtp error:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const completeCarWash = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    console.log('completeCarWash called for booking:', bookingId);
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      console.log('Booking not found:', bookingId);
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    console.log('Found booking:', booking._id, 'status:', booking.status);
+
+    if (!booking.carWash?.isCarWashService) {
+      console.log('Not a car wash service');
+      return res.status(400).json({ message: 'This is not a car wash service' });
+    }
+
+    // Check if user is assigned staff
+    if (booking.carWash.staffAssigned?.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.log('Not authorized - staff assigned:', booking.carWash.staffAssigned, 'user:', req.user._id);
+      return res.status(403).json({ message: 'Not authorized to complete car wash for this booking' });
+    }
+
+    if (booking.status !== 'CAR_WASH_STARTED') {
+      console.log('Invalid status for completion:', booking.status);
+      return res.status(400).json({ message: 'Car wash must be started before completion' });
+    }
+
+    // Check if after photos are uploaded
+    const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
+    if (afterPhotos.length < 4) {
+      console.log('Not enough after photos:', afterPhotos.length);
+      return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
+    }
+
+    booking.status = 'CAR_WASH_COMPLETED';
+    booking.carWash.washCompletedAt = new Date();
+    await booking.save();
+
+    // Generate delivery OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('Generated OTP:', otpCode);
+    booking.deliveryOtp = {
+      code: otpCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0
+    };
+    await booking.save();
+    console.log('Saved booking with OTP');
+
+    // Populate for real-time consumers
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone');
+
+    console.log('Populated booking OTP:', populated.deliveryOtp);
+
+    emitBookingUpdate(populated);
+
+    // Notify customer with OTP
+    try {
+      console.log('Sending car wash completion notification to user:', booking.user, 'with OTP:', otpCode);
+      const pushResult = await sendPushToUser(
+        booking.user,
+        'Car Wash Completed',
+        `Your car wash service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`,
+        { bookingId: booking._id.toString(), type: 'car_wash_completed', otp: otpCode },
+        'order'
+      );
+      console.log('Push notification result:', pushResult);
+    } catch (err) {
+      console.error('Customer notification error:', err);
+    }
+
+    res.json({ 
+      message: 'Car wash completed successfully', 
+      booking: populated,
+      deliveryOtp: otpCode 
+    });
+  } catch (error) {
+    console.error('completeCarWash error:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const getCarWashBookings = async (req, res) => {
+  try {
+    let query = { 'carWash.isCarWashService': true };
+
+    // If staff user, show only their assigned bookings
+    if (req.user.role === 'staff') {
+      query['carWash.staffAssigned'] = req.user._id;
+    }
+
+    const bookings = await Booking.find(query)
+      .populate('user', 'name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('carWash.staffAssigned', 'name email phone')
+      .sort({ createdAt: -1 });
+
+    res.json(bookings);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

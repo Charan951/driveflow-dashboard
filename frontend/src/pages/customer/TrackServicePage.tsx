@@ -14,7 +14,8 @@ import {
   Image as ImageIcon,
   Loader2,
   Truck,
-  Wrench
+  Wrench,
+  Shield
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -22,7 +23,7 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
-import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
@@ -52,8 +53,20 @@ const MapController = ({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 };
 
+import { useTracking } from '@/hooks/use-tracking';
+
 const TrackServicePage: React.FC = () => {
   const { id } = useParams();
+  const { setActiveBookingId } = useTracking();
+
+  useEffect(() => {
+    if (id) {
+      setActiveBookingId(id);
+    }
+    return () => {
+      setActiveBookingId(null);
+    };
+  }, [id, setActiveBookingId]);
   const navigate = useNavigate();
   const [order, setOrder] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,11 +100,37 @@ const TrackServicePage: React.FC = () => {
         try {
             const data = await bookingService.getBookingById(id);
             setOrder(data);
+            
+            // Check if feedback has already been submitted for this booking
             if (data.status === 'DELIVERED' && !hasSubmittedFeedback) {
-              setDeliveryConfirmed(true);
-              // Show rating modal if delivered but not yet reviewed in this session
-              setShowRatingModal(true);
+              // First check localStorage for quick feedback state
+              const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${data._id}`) === 'true';
+              
+              if (localFeedbackSubmitted) {
+                setHasSubmittedFeedback(true);
+              } else {
+                try {
+                  // Check if reviews already exist for this booking
+                  const existingReviews = await reviewService.getBookingReviews(data._id);
+                  const hasExistingReviews = existingReviews && existingReviews.length > 0;
+                  
+                  if (!hasExistingReviews) {
+                    setDeliveryConfirmed(true);
+                    // Show rating modal only if no reviews exist
+                    setShowRatingModal(true);
+                  } else {
+                    // Reviews already exist, mark as submitted and store in localStorage
+                    setHasSubmittedFeedback(true);
+                    localStorage.setItem(`feedback_submitted_${data._id}`, 'true');
+                  }
+                } catch (reviewError) {
+                  console.error("Failed to check existing reviews", reviewError);
+                  // If we can't check reviews, don't show the modal to avoid spam
+                  setHasSubmittedFeedback(true);
+                }
+              }
             }
+            
             // Restore near-alert state from session to avoid duplicate pop on reloads
             const key = `nearAlert_${id}`;
             nearAlertedRef.current = sessionStorage.getItem(key) === '1';
@@ -114,7 +153,6 @@ const TrackServicePage: React.FC = () => {
         if (!currentOrder) return;
         // if (data.role && data.role !== 'staff') return;
         if (
-          currentOrder.status === 'VEHICLE_AT_MERCHANT' ||
           currentOrder.status === 'SERVICE_STARTED' ||
           currentOrder.status === 'SERVICE_COMPLETED' ||
           currentOrder.status === 'DELIVERED' ||
@@ -171,7 +209,6 @@ const TrackServicePage: React.FC = () => {
         if (updatedBooking._id === id) {
           setOrder(updatedBooking);
           if (
-            updatedBooking.status === 'VEHICLE_AT_MERCHANT' ||
             updatedBooking.status === 'SERVICE_STARTED' ||
             updatedBooking.status === 'SERVICE_COMPLETED' ||
             updatedBooking.status === 'DELIVERED' ||
@@ -316,7 +353,28 @@ const TrackServicePage: React.FC = () => {
       await bookingService.updateBookingStatus(order._id, 'DELIVERED');
       setOrder(prev => prev ? { ...prev, status: 'DELIVERED' } : null);
       setDeliveryConfirmed(true);
-      setShowRatingModal(true);
+      
+      // Check if feedback has already been submitted before showing modal
+      const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${order._id}`) === 'true';
+      if (!localFeedbackSubmitted) {
+        try {
+          const existingReviews = await reviewService.getBookingReviews(order._id);
+          const hasExistingReviews = existingReviews && existingReviews.length > 0;
+          
+          if (!hasExistingReviews) {
+            setShowRatingModal(true);
+          } else {
+            setHasSubmittedFeedback(true);
+            localStorage.setItem(`feedback_submitted_${order._id}`, 'true');
+          }
+        } catch (reviewError) {
+          console.error("Failed to check existing reviews", reviewError);
+          setHasSubmittedFeedback(true);
+        }
+      } else {
+        setHasSubmittedFeedback(true);
+      }
+      
       toast.success('Delivery confirmed! Order completed.');
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -326,17 +384,26 @@ const TrackServicePage: React.FC = () => {
   };
 
   const handleSubmitRating = async () => {
-    if (merchantRating === 0 || platformRating === 0) {
-      toast.error('Please select ratings for both merchant and platform');
-      return;
+    // For car wash services, only platform rating is required
+    if (isCarWashService) {
+      if (platformRating === 0) {
+        toast.error('Please select a rating for the platform');
+        return;
+      }
+    } else {
+      // For regular services, both merchant and platform ratings are required
+      if (merchantRating === 0 || platformRating === 0) {
+        toast.error('Please select ratings for both merchant and platform');
+        return;
+      }
     }
 
     setIsRatingSubmitting(true);
     try {
       const reviewPromises = [];
 
-      // Merchant Review
-      if (order?.merchant?._id) {
+      // Merchant Review - only for non-car wash services
+      if (!isCarWashService && order?.merchant?._id) {
         reviewPromises.push(
           reviewService.createReview({
             target: order.merchant._id,
@@ -348,7 +415,7 @@ const TrackServicePage: React.FC = () => {
         );
       }
 
-      // Platform Review
+      // Platform Review (always required)
       reviewPromises.push(
         reviewService.createReview({
           booking: order?._id,
@@ -362,6 +429,11 @@ const TrackServicePage: React.FC = () => {
       toast.success('Thank you for your feedback!');
       setHasSubmittedFeedback(true);
       setShowRatingModal(false);
+      
+      // Store feedback submission in localStorage to prevent repeated requests
+      if (order?._id) {
+        localStorage.setItem(`feedback_submitted_${order._id}`, 'true');
+      }
     } catch (error) {
       console.error('Failed to submit reviews:', error);
       toast.error('Failed to submit reviews');
@@ -404,7 +476,13 @@ const TrackServicePage: React.FC = () => {
 
     try {
       await paymentService.processDummyPayment(order._id);
-      toast.success('Payment Successful!');
+      
+      if (isCarWashService) {
+        toast.success('Payment Successful! Your car wash booking is now confirmed. Admin will assign staff shortly.');
+      } else {
+        toast.success('Payment Successful!');
+      }
+      
       const updatedOrder = await bookingService.getBookingById(order._id);
       setOrder(updatedOrder);
     } catch (error) {
@@ -434,11 +512,12 @@ const TrackServicePage: React.FC = () => {
         return 1;
       case 'VEHICLE_PICKED':
       case 'REACHED_MERCHANT':
-      case 'VEHICLE_AT_MERCHANT':
+      case 'CAR_WASH_STARTED':
         return 2;
       case 'SERVICE_STARTED':
         return 3;
       case 'SERVICE_COMPLETED':
+      case 'CAR_WASH_COMPLETED':
       case 'OUT_FOR_DELIVERY':
         return 4;
       case 'DELIVERED':
@@ -450,7 +529,10 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const activeStatusFlow: readonly BookingStatus[] = PICKUP_FLOW_ORDER;
+  // Check if this is a car wash service
+  const isCarWashService = order.carWash?.isCarWashService || false;
+  
+  const activeStatusFlow: readonly BookingStatus[] = isCarWashService ? CAR_WASH_FLOW_ORDER : PICKUP_FLOW_ORDER;
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
 
   const timelineSteps = activeStatusFlow.map((s) => {
@@ -606,8 +688,101 @@ const TrackServicePage: React.FC = () => {
         )}
 
         <div className="w-full space-y-6">
+          {/* Car Wash Photos Section */}
+          {isCarWashService && (order.carWash?.beforeWashPhotos?.length || order.carWash?.afterWashPhotos?.length) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6 space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary" />
+                Car Wash Photos
+              </h2>
+              
+              <div className="grid grid-cols-1 gap-6">
+                {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Before Wash</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {order.carWash.beforeWashPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`Before Wash ${i + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">After Wash</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {order.carWash.afterWashPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => window.open(url, '_blank')}
+                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                        >
+                          <img src={url} alt={`After Wash ${i + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Inspection Photos Section */}
+          {order.inspection && (order.inspection.frontPhoto || order.inspection.backPhoto || order.inspection.leftPhoto || order.inspection.rightPhoto) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6 space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Vehicle Inspection
+              </h2>
+              <p className="text-sm text-muted-foreground">Photos of your vehicle taken by the service center before starting the service.</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {['front', 'back', 'left', 'right'].map((side) => {
+                  const url = order.inspection?.[`${side}Photo` as keyof typeof order.inspection] as string;
+                  if (!url) return null;
+                  return (
+                    <div key={side} className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side} side</span>
+                      <button
+                        type="button"
+                        onClick={() => window.open(url, '_blank')}
+                        className="aspect-square w-full rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                      >
+                        <img src={url} alt={`${side} inspection`} className="w-full h-full object-cover" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {order.inspection.damageReport && (
+                <div className="pt-4 border-t border-border">
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Damage Report / Findings</h4>
+                  <p className="text-sm italic text-muted-foreground">"{order.inspection.damageReport}"</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Service Photos Section */}
-          {(order.serviceExecution?.beforePhotos?.length || order.serviceExecution?.duringPhotos?.length || order.serviceExecution?.afterPhotos?.length) ? (
+          {(order.serviceExecution?.afterPhotos?.length || order.serviceExecution?.serviceParts?.length) ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -618,47 +793,11 @@ const TrackServicePage: React.FC = () => {
                 Service Photos
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {order.serviceExecution?.beforePhotos && order.serviceExecution.beforePhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Before Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {order.serviceExecution.beforePhotos.map((url, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => window.open(url, '_blank')}
-                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                        >
-                          <img src={url} alt={`Before ${i}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {order.serviceExecution?.duringPhotos && order.serviceExecution.duringPhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">During Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {order.serviceExecution.duringPhotos.map((url, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => window.open(url, '_blank')}
-                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                        >
-                          <img src={url} alt={`During ${i}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
+              <div className="grid grid-cols-1 gap-6">
                 {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">After Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Service Completed Photos</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {order.serviceExecution.afterPhotos.map((url, i) => (
                         <button
                           key={i}
@@ -666,8 +805,58 @@ const TrackServicePage: React.FC = () => {
                           onClick={() => window.open(url, '_blank')}
                           className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
                         >
-                          <img src={url} alt={`After ${i}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`After Service ${i + 1}`} className="w-full h-full object-cover" />
                         </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Service Parts - Before/After Images */}
+                {order.serviceExecution?.serviceParts && order.serviceExecution.serviceParts.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Replaced Parts</h4>
+                    <div className="space-y-3">
+                      {order.serviceExecution.serviceParts.map((part, i) => (
+                        <div key={i} className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{part.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Qty: {part.quantity} • Price: ₹{part.price}
+                            </p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              part.fromInspection ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {part.fromInspection ? 'From inspection' : 'New discovery'}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            {part.oldImage && (
+                              <div className="flex flex-col items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(part.oldImage!, '_blank')}
+                                  className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                                >
+                                  <img src={part.oldImage} alt="Before" className="w-full h-full object-cover" />
+                                </button>
+                                <span className="text-xs text-muted-foreground">Before</span>
+                              </div>
+                            )}
+                            {part.image && (
+                              <div className="flex flex-col items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(part.image!, '_blank')}
+                                  className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                                >
+                                  <img src={part.image} alt="After" className="w-full h-full object-cover" />
+                                </button>
+                                <span className="text-xs text-muted-foreground">After</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -696,6 +885,20 @@ const TrackServicePage: React.FC = () => {
                   <span>Status</span>
                   <span className="capitalize">{order.paymentStatus}</span>
                 </div>
+                {isCarWashService && order.paymentStatus === 'pending' && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-orange-700 font-medium">
+                      ⚠️ Payment required to confirm your car wash booking
+                    </p>
+                  </div>
+                )}
+                {isCarWashService && order.paymentStatus === 'paid' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-700 font-medium">
+                      ✓ Payment completed during booking for car wash service
+                    </p>
+                  </div>
+                )}
               </div>
 
               {order.paymentStatus !== 'paid' && (
@@ -704,7 +907,7 @@ const TrackServicePage: React.FC = () => {
                   onClick={handlePayment}
                   disabled={isPaymentLoading}
                 >
-                  {isPaymentLoading ? 'Processing...' : 'Pay Now'}
+                  {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
                 </button>
               )}
             </motion.div>
@@ -743,19 +946,7 @@ const TrackServicePage: React.FC = () => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="mt-2 grid grid-cols-2 gap-2">
-                                <div>
-                                  <div className="text-[11px] font-medium text-muted-foreground mb-1">New Part</div>
-                                  {approval.data.image ? (
-                                    <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
-                                      <img src={approval.data.image} alt="New Part" className="w-full h-full object-cover" />
-                                    </div>
-                                  ) : (
-                                    <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-[11px] text-muted-foreground">
-                                      No image
-                                    </div>
-                                  )}
-                                </div>
+                              <div className="mt-2 grid grid-cols-1 gap-2">
                                 <div>
                                   <div className="text-[11px] font-medium text-muted-foreground mb-1">Old Part</div>
                                   {approval.data.oldImage ? (
@@ -804,19 +995,25 @@ const TrackServicePage: React.FC = () => {
           >
             <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
               <Truck className="w-5 h-5 text-primary" />
-              Driver Details
+              {isCarWashService ? 'Staff Details' : 'Driver Details'}
             </h2>
             <div className="flex items-center justify-between">
-              {order.pickupDriver ? (
+              {(isCarWashService ? order.carWash?.staffAssigned : order.pickupDriver) ? (
                 <>
                   <div>
-                    <p className="font-medium text-foreground">{order.pickupDriver.name}</p>
-                    {order.pickupDriver.phone && <p className="text-sm text-muted-foreground">{order.pickupDriver.phone}</p>}
+                    <p className="font-medium text-foreground">
+                      {isCarWashService ? order.carWash?.staffAssigned?.name : order.pickupDriver?.name}
+                    </p>
+                    {(isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone) && (
+                      <p className="text-sm text-muted-foreground">
+                        {isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    {order.pickupDriver.phone && (
+                    {(isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone) && (
                       <a
-                        href={`tel:${order.pickupDriver.phone}`}
+                        href={`tel:${isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone}`}
                         className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
                       >
                         <Phone className="w-5 h-5 text-foreground" />
@@ -825,46 +1022,50 @@ const TrackServicePage: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground italic">Your driver details provided shortly</p>
+                <p className="text-sm text-muted-foreground italic">
+                  Your {isCarWashService ? 'staff' : 'driver'} details provided shortly
+                </p>
               )}
             </div>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card rounded-2xl border border-border p-4"
-          >
-            <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
-            <div className="flex items-center justify-between">
-              {order.merchant ? (
-                <>
-                  <div>
-                    <p className="font-medium text-foreground">{merchantName}</p>
-                    {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
-                    {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCallMerchant}
-                      className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                    >
-                      <Phone className="w-5 h-5 text-foreground" />
-                    </button>
-                    <button
-                      onClick={handleChatMerchant}
-                      className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-                    >
-                      <MessageCircle className="w-5 h-5 text-primary-foreground" />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">Your authorised service center details provide shortly</p>
-              )}
-            </div>
-          </motion.div>
+          {!isCarWashService && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-card rounded-2xl border border-border p-4"
+            >
+              <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
+              <div className="flex items-center justify-between">
+                {order.merchant ? (
+                  <>
+                    <div>
+                      <p className="font-medium text-foreground">{merchantName}</p>
+                      {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
+                      {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCallMerchant}
+                        className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                      >
+                        <Phone className="w-5 h-5 text-foreground" />
+                      </button>
+                      <button
+                        onClick={handleChatMerchant}
+                        className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+                      >
+                        <MessageCircle className="w-5 h-5 text-primary-foreground" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Your authorised service center details provide shortly</p>
+                )}
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -885,32 +1086,53 @@ const TrackServicePage: React.FC = () => {
             <p className="text-muted-foreground">Your vehicle has been delivered. Thank you for using our service!</p>
           </div>
           <button
-            onClick={() => setShowRatingModal(true)}
+            onClick={() => {
+              // Check if feedback has already been submitted
+              const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${order?._id}`) === 'true';
+              if (localFeedbackSubmitted) {
+                toast.info('You have already submitted feedback for this service. Thank you!');
+              } else {
+                setShowRatingModal(true);
+              }
+            }}
             className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
             <Star className="w-5 h-5" />
-            Give Feedback for Merchant & Admin
+            {isCarWashService ? 'Give Feedback for Admin' : 'Give Feedback for Merchant & Admin'}
           </button>
         </motion.div>
       )}
 
-      {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') && !deliveryConfirmed && (
+      {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY' || (order.status === 'CAR_WASH_COMPLETED' && order.deliveryOtp?.code)) && !deliveryConfirmed && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
           className="bg-card rounded-2xl border border-border p-6 text-center"
         >
-          <h2 className="text-xl font-bold text-foreground mb-2">Vehicle Ready</h2>
-          <p className="text-muted-foreground mb-3">Your vehicle is ready for pickup/delivery.</p>
-          {order.deliveryOtp?.code && order.status === 'OUT_FOR_DELIVERY' && (
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            {isCarWashService ? 'Car Wash Completed' : 'Vehicle Ready'}
+          </h2>
+          <p className="text-muted-foreground mb-3">
+            {isCarWashService 
+              ? 'Your car wash service is completed and ready for confirmation.' 
+              : 'Your vehicle is ready for pickup/delivery.'
+            }
+          </p>
+          
+          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' as any) && (
             <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-primary/80">Delivery OTP</p>
+              <p className="text-xs uppercase tracking-wide text-primary/80">
+                {isCarWashService ? 'Completion OTP' : 'Delivery OTP'}
+              </p>
               <p className="mt-1 text-2xl font-mono font-semibold text-primary">
                 {order.deliveryOtp.code}
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Share this code only with our staff at the time of delivery.
+                {isCarWashService 
+                  ? 'Share this code with our staff to confirm service completion.'
+                  : 'Share this code only with our staff at the time of delivery.'
+                }
               </p>
             </div>
           )}
@@ -950,8 +1172,8 @@ const TrackServicePage: React.FC = () => {
                   <p className="text-muted-foreground">Please share your experience with us.</p>
                 </div>
 
-                {/* Merchant Review */}
-                {order?.merchant && (
+                {/* Merchant Review - only for non-car wash services */}
+                {!isCarWashService && order?.merchant && (
                   <div className="space-y-4 pt-4 border-t">
                     <h3 className="font-semibold text-primary">Service Center ({order.merchant.name})</h3>
                     <div className="flex justify-center gap-2">

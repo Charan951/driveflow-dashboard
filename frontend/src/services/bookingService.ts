@@ -9,7 +9,7 @@ export interface Booking {
   vehicle: Vehicle | string;
   services: Service[] | string[];
   date: string;
-  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'VEHICLE_AT_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED';
   totalAmount: number;
   notes?: string;
   location?: {
@@ -40,10 +40,30 @@ export interface Booking {
     quantity: number;
     price: number;
   }[];
+  carWash?: {
+    isCarWashService: boolean;
+    beforeWashPhotos: string[];
+    afterWashPhotos: string[];
+    washStartedAt?: string;
+    washCompletedAt?: string;
+    staffAssigned?: { _id: string; name: string; email: string; phone?: string };
+  };
   inspection?: {
     photos?: string[];
+    frontPhoto?: string;
+    backPhoto?: string;
+    leftPhoto?: string;
+    rightPhoto?: string;
     damageReport?: string;
-    additionalParts?: { name: string; price: number; quantity: number; approved: boolean; approvalStatus?: 'Pending' | 'Approved' | 'Rejected'; image?: string; oldImage?: string }[];
+    additionalParts?: { 
+      name: string; 
+      price: number; 
+      quantity: number; 
+      approved: boolean; 
+      approvalStatus?: 'Pending' | 'Approved' | 'Rejected'; 
+      image?: string; 
+      oldImage?: string 
+    }[];
     completedAt?: string;
   };
   delay?: {
@@ -58,6 +78,18 @@ export interface Booking {
     beforePhotos?: string[];
     duringPhotos?: string[];
     afterPhotos?: string[];
+    serviceParts?: { 
+      name: string; 
+      price: number; 
+      quantity: number; 
+      approved: boolean; 
+      approvalStatus?: 'Pending' | 'Approved' | 'Rejected'; 
+      image?: string; 
+      oldImage?: string;
+      addedDuringService?: boolean;
+      fromInspection?: boolean;
+      inspectionPartId?: string;
+    }[];
   };
   qc?: {
     testRide: boolean;
@@ -166,7 +198,7 @@ export const bookingService = {
     return response.data;
   },
 
-  assignBooking: async (id: string, data: { merchantId?: string; driverId?: string; slot?: string }) => {
+  assignBooking: async (id: string, data: { merchantId?: string; driverId?: string; carWashStaffId?: string; slot?: string }) => {
     const response = await api.put(`/bookings/${id}/assign`, data);
     return response.data;
   },

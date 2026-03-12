@@ -96,6 +96,10 @@ Future<void> _onStart(ServiceInstance service) async {
       'timestamp': now.toIso8601String(),
     };
 
+    debugPrint(
+      'BackgroundTracking: Position update: ${pos.latitude}, ${pos.longitude}',
+    );
+
     if (bookingId != null && bookingId!.isNotEmpty) {
       payload['bookingId'] = bookingId;
     }
@@ -107,13 +111,16 @@ Future<void> _onStart(ServiceInstance service) async {
           socket!.emit('location', payload);
           lastSocketMs = nowMs;
         } else {
+          debugPrint(
+            'BackgroundTracking: Socket not connected, attempting to reconnect',
+          );
           socket!.connect();
         }
       }
     }
 
-    // 2. Persistent update via REST (Throttle to 1 minute to save battery/bandwidth)
-    if (nowMs - lastRestMs > 60000) {
+    // 2. Persistent update via REST (Throttle to 10 seconds as a fallback)
+    if (nowMs - lastRestMs > 10000) {
       try {
         await api.putJson(
           ApiEndpoints.trackingUser,
@@ -126,12 +133,14 @@ Future<void> _onStart(ServiceInstance service) async {
         lastRestMs = nowMs;
         // Also re-assert online status as part of REST sync
         await updateOnlineStatus(true);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('BackgroundTracking: REST update error: $e');
+      }
     }
   });
 
   // Keep the service alive with a periodic heartbeat if the stream is idle
-  Timer.periodic(const Duration(minutes: 5), (_) async {
+  Timer.periodic(const Duration(minutes: 1), (_) async {
     if (socket != null && !socket!.connected) {
       socket!.connect();
     }

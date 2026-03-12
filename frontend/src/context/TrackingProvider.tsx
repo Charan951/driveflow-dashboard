@@ -72,7 +72,8 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Also update via REST for persistence (Throttle to every 2 minutes)
-      if (now - lastRestUpdate.current > 120000) { // 2 minutes
+      const token = sessionStorage.getItem('token');
+      if (token && now - lastRestUpdate.current > 120000) { // 2 minutes
         await updateMyLocation(latitude, longitude, undefined, activeBookingIdRef.current || undefined);
         lastRestUpdate.current = now;
         setLastServerSync(new Date());
@@ -130,11 +131,15 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             };
             if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
             socketService.emit('location', payload);
-            try {
-              await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
-              setLastServerSync(new Date());
-            } catch (error) {
-              console.error('Background geo REST sync failed', error);
+            
+            const token = sessionStorage.getItem('token');
+            if (token) {
+              try {
+                await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
+                setLastServerSync(new Date());
+              } catch (error) {
+                console.error('Background geo REST sync failed', error);
+              }
             }
             setLastUpdate(new Date());
           }
@@ -202,11 +207,15 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               };
               if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
               socketService.emit('location', payload);
-              try {
-                await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
-                setLastServerSync(new Date());
-              } catch (error) {
-                console.error('Background watcher REST sync failed', error);
+              
+              const token = sessionStorage.getItem('token');
+              if (token) {
+                try {
+                  await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
+                  setLastServerSync(new Date());
+                } catch (error) {
+                  console.error('Background watcher REST sync failed', error);
+                }
               }
               setLastUpdate(new Date());
             }
@@ -228,17 +237,52 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user?._id, user?.role, user?.subRole]);
 
   const startTracking = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
+    setIsTracking(true);
+    localStorage.setItem('isTracking', 'true');
+  }, []);
+
+  const stopTracking = useCallback(() => {
+    setIsTracking(false);
+    localStorage.setItem('isTracking', 'false');
+  }, []);
+
+  // Effect to manage watchers based on isTracking state
+  useEffect(() => {
+    if (!isTracking || !user) {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
+      }
+      if (bgRef.current?.stop) {
+        try {
+          bgRef.current.stop();
+        } catch (error) {
+          console.error('Failed to stop background tracking', error);
+        }
+        bgRef.current = null;
+      }
+      
+      const token = sessionStorage.getItem('token');
+      if (token && user) {
+        updateOnlineStatus(false).catch(err => console.error('Failed to set offline status', err));
+      }
       return;
     }
 
-    setIsTracking(true);
-    localStorage.setItem('isTracking', 'true');
+    // Start tracking logic
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      setIsTracking(false);
+      return;
+    }
+
     setError(null);
     socketService.connect();
     
-    updateOnlineStatus(true).catch(err => console.error('Failed to set online status', err));
+    const token = sessionStorage.getItem('token');
+    if (token) {
+      updateOnlineStatus(true).catch(err => console.error('Failed to set online status', err));
+    }
     
     if (user?._id) {
         socketService.joinRoom(`user-${user._id}`);
@@ -289,25 +333,22 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     startWatch(true);
     tryStartNativeBackground();
-  }, [handlePositionUpdate, tryStartNativeBackground, user?._id]);
 
-  const stopTracking = useCallback(() => {
-    if (watchId.current !== null) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
-    }
-    if (bgRef.current?.stop) {
-      try {
-        bgRef.current.stop();
-      } catch (error) {
-        console.error('Failed to stop native background tracking', error);
+    return () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
       }
-      bgRef.current = null;
-    }
-    setIsTracking(false);
-    localStorage.setItem('isTracking', 'false');
-    updateOnlineStatus(false).catch(err => console.error('Failed to set offline status', err));
-  }, []);
+      if (bgRef.current?.stop) {
+        try {
+          bgRef.current.stop();
+        } catch (error) {
+          console.error('Failed to stop background tracking in cleanup', error);
+        }
+        bgRef.current = null;
+      }
+    };
+  }, [isTracking, user?._id, handlePositionUpdate, tryStartNativeBackground, user]);
 
   useEffect(() => {
     activeBookingIdRef.current = activeBookingId;
@@ -315,18 +356,12 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('activeBookingId', activeBookingId);
       socketService.connect();
       if (!isTracking) {
-        startTracking();
+        setIsTracking(true);
       }
     } else {
       localStorage.removeItem('activeBookingId');
     }
-  }, [activeBookingId, isTracking, startTracking]);
-
-  useEffect(() => {
-    if (isTracking) {
-      startTracking();
-    }
-  }, [isTracking, startTracking]);
+  }, [activeBookingId, isTracking]);
 
   useEffect(() => {
     if (!activeBookingId) return;
@@ -334,7 +369,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const handler = (updatedBooking: Booking) => {
       if (!updatedBooking || String(updatedBooking._id) !== String(activeBookingId)) return;
       const status = updatedBooking.status;
-      if (status === 'REACHED_MERCHANT' || status === 'VEHICLE_AT_MERCHANT' || status === 'DELIVERED' || status === 'CANCELLED') {
+      if (status === 'REACHED_MERCHANT' || status === 'DELIVERED' || status === 'CANCELLED') {
         _setActiveBookingId(null);
         localStorage.removeItem('activeBookingId');
         toast.success('Reached milestone; live sharing unbound from booking');
@@ -352,6 +387,10 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const sync = async () => {
       if (!user?._id || user.role !== 'staff') return;
       if (!isTracking) return;
+      
+      const token = sessionStorage.getItem('token');
+      if (!token) return;
+
       try {
         const bookings = (await bookingService.getMyBookings()) as Booking[];
         const active = bookings.find((b) => statuses.includes(b.status));

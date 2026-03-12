@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { useTracking } from '@/hooks/use-tracking';
 import { getETA, ETAResponse } from '@/services/trackingService';
 
-const ACTIVE_STATUSES = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'VEHICLE_AT_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING'];
+const ACTIVE_STATUSES = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED'];
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -75,10 +75,16 @@ const StaffOrdersPage: React.FC = () => {
           
           // Check if this new/updated booking is now assigned to the current staff
           const staffId = user?._id;
-          const isAssignedToMe = (updatedBooking.pickupDriver && (
-            (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
-            (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
-          ));
+          const isAssignedToMe = (
+            (updatedBooking.pickupDriver && (
+              (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
+              (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
+            )) ||
+            (updatedBooking.carWash?.staffAssigned && (
+              (typeof updatedBooking.carWash.staffAssigned === 'string' && updatedBooking.carWash.staffAssigned === staffId) ||
+              (typeof updatedBooking.carWash.staffAssigned === 'object' && updatedBooking.carWash.staffAssigned._id === staffId)
+            ))
+          );
 
           if (isAssignedToMe) {
             // Prepend new order if assigned to me and not already in list
@@ -425,36 +431,78 @@ const StaffOrdersPage: React.FC = () => {
                 )}
 
                 <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-border">
-                  {order.status === 'ASSIGNED' ? (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleAcceptOrder(order._id); }}
-                      className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                      Accept Order
-                    </button>
-                  ) : (
-                    <>
-                      {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
-                          className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                          <Navigation className="w-4 h-4" /> Get Directions
-                        </button>
-                      )}
+                  {(() => {
+                    // Check if this is a car wash service
+                    const isCarWashService = Array.isArray(order.services) && 
+                      order.services.some(service => 
+                        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                      );
 
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
-                          className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                          <Upload className="w-3.5 h-3.5" /> Upload
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
-                          className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                          Update
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    if (order.status === 'ASSIGNED') {
+                      if (isCarWashService) {
+                        // Car wash services don't need acceptance - show direct action buttons
+                        return (
+                          <>
+                            {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
+                                className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                                <Navigation className="w-4 h-4" /> Get Directions
+                              </button>
+                            )}
+
+                            <div className="flex gap-3">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
+                                className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
+                                <Upload className="w-3.5 h-3.5" /> Upload
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
+                                className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                                Update
+                              </button>
+                            </div>
+                          </>
+                        );
+                      } else {
+                        // Regular services need acceptance
+                        return (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleAcceptOrder(order._id); }}
+                            className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                            Accept Order
+                          </button>
+                        );
+                      }
+                    } else {
+                      // For all other statuses, show regular action buttons
+                      return (
+                        <>
+                          {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
+                              className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                              <Navigation className="w-4 h-4" /> Get Directions
+                            </button>
+                          )}
+
+                          <div className="flex gap-3">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
+                              className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
+                              <Upload className="w-3.5 h-3.5" /> Upload
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
+                              className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                              Update
+                            </button>
+                          </div>
+                        </>
+                      );
+                    }
+                  })()}
                 </div>
               </motion.div>
             ))}
@@ -487,7 +535,7 @@ const StaffOrdersPage: React.FC = () => {
               <SelectContent>
                 {ACTIVE_STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
-                    {status}
+                    {status.replace('_', ' ')}
                   </SelectItem>
                 ))}
                 <SelectItem value="Ready">Ready</SelectItem>

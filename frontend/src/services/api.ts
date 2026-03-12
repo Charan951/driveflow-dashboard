@@ -8,6 +8,16 @@ api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // If no token and not an auth request, we might want to cancel the request
+    const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/register');
+    if (!isAuthRequest) {
+      // Return a rejected promise to stop the request
+      return Promise.reject({
+        message: 'No authentication token found',
+        config
+      });
+    }
   }
   return config;
 });

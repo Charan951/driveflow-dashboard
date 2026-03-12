@@ -161,6 +161,8 @@ export const updateUserLocation = async (req, res) => {
 
       await user.save();
 
+      console.log(`User ${user.name} location updated: ${lat}, ${lng}`);
+
       try {
         const io = getIO();
         // Broadcast to admin map

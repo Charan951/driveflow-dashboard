@@ -6,6 +6,8 @@ import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
 
+import '../services/notification_service.dart';
+
 class AuthProvider extends ChangeNotifier {
   final AuthService _auth = AuthService();
   User? user;
@@ -145,6 +147,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         SocketService().init(user);
+        NotificationService().syncToken();
         loading = false;
         notifyListeners();
         return true;
@@ -178,6 +181,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         SocketService().init(user);
+        NotificationService().syncToken();
         loading = false;
         notifyListeners();
         return true;

@@ -164,16 +164,32 @@ export const initSocket = (server) => {
       const userId = String(socket.user._id);
       const now = Date.now();
 
-      // Update isOnline status in DB if not already online
-      // This acts as a heartbeat for staff/merchants
+      // Update isOnline status and location in DB
+      // This acts as a heartbeat for staff/merchants and ensures accuracy on refresh
       try {
+        const updateData = { 
+          isOnline: true, 
+          lastSeen: now 
+        };
+
+        // If lat/lng provided, also update persistent location fields
+        if (typeof data.lat === 'number' && typeof data.lng === 'number') {
+          updateData.location = {
+            ...socket.user.location,
+            lat: data.lat,
+            lng: data.lng,
+            updatedAt: now
+          };
+          updateData.geo = {
+            type: 'Point',
+            coordinates: [data.lng, data.lat]
+          };
+        }
+
+        await User.findByIdAndUpdate(socket.user._id, updateData);
+        
+        // Emit status update to admin if online status just changed or after a while
         if (!socket.user.isOnline || (socket.user.lastSeen && now - socket.user.lastSeen > 60000)) {
-          await User.findByIdAndUpdate(socket.user._id, { 
-            isOnline: true, 
-            lastSeen: now 
-          });
-          
-          // Emit status update to admin
           io.to('admin').emit('userStatusUpdate', {
             userId: socket.user._id,
             isOnline: true,
@@ -181,7 +197,7 @@ export const initSocket = (server) => {
           });
         }
       } catch (e) {
-        console.error('Socket location status update failed:', e.message);
+        console.error('Socket location status/DB update failed:', e.message);
       }
 
       // Broadcast to 'admin' room
@@ -218,6 +234,8 @@ export const initSocket = (server) => {
                   'REACHED_CUSTOMER',
                   'VEHICLE_PICKED',
                   'REACHED_MERCHANT',
+                  'SERVICE_STARTED',
+                  'SERVICE_COMPLETED',
                   'OUT_FOR_DELIVERY'
                 ]
               }
@@ -227,6 +245,7 @@ export const initSocket = (server) => {
               .lean();
 
             if (active?._id) {
+              const booking = await Booking.findById(active._id).lean();
               bookingId = String(active._id);
               activeBookingCache.set(userId, { bookingId, updatedAt: now });
             } else {

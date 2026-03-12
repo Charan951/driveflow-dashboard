@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { distance, point } from '@turf/turf';
 import { SmoothMarker } from '@/components/SmoothMarker';
 import { Booking } from '@/services/bookingService';
-import { 
+import {
   Car, 
   User, 
   Navigation, 
@@ -23,6 +23,8 @@ import {
   Maximize2,
   Store
 } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -60,6 +62,8 @@ const MapController = ({ onMapReady }: { onMapReady: (map: L.Map) => void }) => 
 
 const AdminTrackingPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const locationState = useLocation();
   const [filter, setFilter] = useState<'all' | 'vehicles' | 'staff' | 'merchants'>('all');
   const [selectedItem, setSelectedItem] = useState<TrackedStaff | TrackedVehicle | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null);
@@ -72,8 +76,8 @@ const AdminTrackingPage: React.FC = () => {
   const { data: liveData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['tracking'],
     queryFn: getLiveLocations,
-    refetchInterval: 60000, // Fallback polling every 1 minute
-    staleTime: 10000, // Data is fresh for 10 seconds
+    refetchInterval: 30000, // Fallback polling every 30 seconds
+    staleTime: 5000, // Data is fresh for 5 seconds
   });
 
   useEffect(() => {
@@ -430,6 +434,17 @@ const AdminTrackingPage: React.FC = () => {
       mapInstance.flyTo([item.location.lat, item.location.lng], 16, { duration: 1.5 });
     }
   };
+
+  // Handle passed asset from other pages
+  useEffect(() => {
+    if (locationState.state?.selectedAsset && liveData) {
+      const asset = locationState.state.selectedAsset;
+      const found = filteredItems().find(item => item._id === asset._id);
+      if (found) {
+        handleAssetClick(found);
+      }
+    }
+  }, [locationState.state, liveData]);
 
   const handleMapClick = async (lat: number, lng: number) => {
     if (!selectedItem) {

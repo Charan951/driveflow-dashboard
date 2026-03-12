@@ -62,8 +62,20 @@ const itemVariants = {
   }
 };
 
+import { useTracking } from '@/hooks/use-tracking';
+
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { setActiveBookingId } = useTracking();
+
+  useEffect(() => {
+    if (id) {
+      setActiveBookingId(id);
+    }
+    return () => {
+      setActiveBookingId(null);
+    };
+  }, [id, setActiveBookingId]);
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,10 +165,19 @@ const OrderDetail: React.FC = () => {
 
       {/* Main Content Tabs */}
       <motion.div variants={itemVariants}>
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs 
+          defaultValue={booking.inspection?.completedAt ? "service" : "overview"} 
+          className="w-full"
+        >
             <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="inspection">Inspection</TabsTrigger>
+                <TabsTrigger 
+                    value="inspection"
+                    disabled={booking.status !== 'SERVICE_STARTED'}
+                    title={booking.status !== 'SERVICE_STARTED' ? "Available only when service is started" : ""}
+                >
+                    Inspection
+                </TabsTrigger>
                 <TabsTrigger 
                     value="service"
                     disabled={!booking.inspection?.completedAt}

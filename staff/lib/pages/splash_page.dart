@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../core/storage.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -35,6 +36,9 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _bootstrap() async {
+    // Request notification permissions
+    NotificationService().requestPermissions();
+
     await Future.delayed(const Duration(milliseconds: 600));
     try {
       final token = await AppStorage().getToken();
@@ -44,7 +48,10 @@ class _SplashPageState extends State<SplashPage>
       }
 
       final user = await _authService.getCurrentUser();
-      if (user == null || (user.role != 'staff' && user.role != 'admin' && user.role != 'merchant')) {
+      if (user == null ||
+          (user.role != 'staff' &&
+              user.role != 'admin' &&
+              user.role != 'merchant')) {
         await _authService.logout();
         _goToLogin();
         return;

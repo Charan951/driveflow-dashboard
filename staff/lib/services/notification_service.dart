@@ -25,7 +25,10 @@ void _onDidReceiveBackgroundNotificationResponse(
   NotificationResponse response,
 ) {
   try {
-    NotificationService()._handleNotificationClick(response.payload);
+    NotificationService()._handleNotificationClick(
+      response.payload,
+      actionId: response.actionId,
+    );
   } catch (_) {}
 }
 
@@ -79,10 +82,7 @@ class NotificationService {
     }
     if (_initialized) return;
 
-    // 1. Request permissions
-    await requestPermissions();
-
-    // 2. Initialize Local Notifications
+    // 1. Initialize Local Notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -102,20 +102,16 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        _handleNotificationClick(response.payload);
+        _handleNotificationClick(response.payload, actionId: response.actionId);
       },
       onDidReceiveBackgroundNotificationResponse:
           _onDidReceiveBackgroundNotificationResponse,
     );
 
-    // 3. Create Android Notification Channel
-    if (!kIsWeb) {
-      await PlatformUtils.createAndroidNotificationChannels(
-        _localNotifications,
-      );
-    }
+    // 2. Create Android Notification Channels
+    await PlatformUtils.createAndroidNotificationChannels(_localNotifications);
 
-    // 4. Set up FCM listeners
+    // 3. Set up FCM listeners
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     await FirebaseMessaging.instance
@@ -127,13 +123,11 @@ class NotificationService {
 
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got a message whilst in the foreground!');
       _showLocalNotification(message);
     });
 
     // Background/Terminated state message click
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('A new onMessageOpenedApp event was published!');
       _handleNotificationClick(jsonEncode(message.data));
     });
 
@@ -143,8 +137,8 @@ class NotificationService {
       _handleNotificationClick(jsonEncode(initialMessage.data));
     }
 
-    // 5. Token Management
-    _setupTokenManagement();
+    // 4. Token Management (Listeners only, actual sync happens in syncToken)
+    _setupTokenListeners();
 
     _initialized = true;
   }
@@ -154,42 +148,53 @@ class NotificationService {
     await PlatformUtils.requestMobilePermissions(_messaging);
   }
 
-  void _setupTokenManagement() {
-    // Get initial token
-    _messaging.getToken().then((token) {
-      if (token != null) _saveTokenToBackend(token);
-    });
+  void _setupTokenListeners() {
+    if (kIsWeb) return;
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((newToken) {
-      _saveTokenToBackend(newToken);
+      syncToken();
     });
   }
 
-  Future<void> _saveTokenToBackend(String token) async {
+  Future<void> syncToken() async {
     if (kIsWeb) return;
     try {
+      final token = await _messaging.getToken();
+      if (token == null) return;
+
       String deviceType = PlatformUtils.deviceType;
       await _api.postAny(
         '/users/fcm-token',
         body: {'token': token, 'deviceType': deviceType},
       );
-      debugPrint('FCM Token saved to backend: $token');
 
       // Subscribe to topics
       await _messaging.subscribeToTopic('all_users');
       await _messaging.subscribeToTopic('staff');
-      await _messaging.subscribeToTopic('vendors');
     } catch (e) {
-      debugPrint('Error saving FCM token: $e');
+      // Ignore
     }
   }
 
   void _showLocalNotification(RemoteMessage message) async {
     if (kIsWeb) return;
     RemoteNotification? notification = message.notification;
+    String? imageUrl =
+        message.data['image'] ??
+        notification?.android?.imageUrl ??
+        notification?.apple?.imageUrl;
 
     if (notification != null) {
+      BigPictureStyleInformation? bigPictureStyleInformation;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        // TODO: Download image and save locally for offline display
+        bigPictureStyleInformation = BigPictureStyleInformation(
+          FilePathAndroidBitmap(imageUrl),
+          largeIcon: FilePathAndroidBitmap(imageUrl),
+        );
+      }
+
       await _localNotifications.show(
         notification.hashCode,
         notification.title,
@@ -203,11 +208,17 @@ class NotificationService {
             importance: Importance.max,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
+            visibility: NotificationVisibility.public,
+            styleInformation: bigPictureStyleInformation,
+            largeIcon: imageUrl != null
+                ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
+                : null,
           ),
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
+            interruptionLevel: InterruptionLevel.active,
           ),
         ),
         payload: jsonEncode(message.data),
@@ -218,10 +229,20 @@ class NotificationService {
   Future<void> showLocalNotification({
     required String title,
     required String body,
+    String? imageUrl,
     String? payload,
   }) async {
     if (kIsWeb) return;
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+
+    BigPictureStyleInformation? bigPictureStyleInformation;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      bigPictureStyleInformation = BigPictureStyleInformation(
+        FilePathAndroidBitmap(imageUrl),
+        largeIcon: FilePathAndroidBitmap(imageUrl),
+      );
+    }
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'high_importance_channel',
           'High Importance Notifications',
@@ -231,11 +252,20 @@ class NotificationService {
           priority: Priority.high,
           showWhen: true,
           playSound: true,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: bigPictureStyleInformation,
+          largeIcon: imageUrl != null
+              ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
+              : null,
         );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
-      iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBadge: true,
+      ),
     );
 
     await _localNotifications.show(
@@ -247,23 +277,41 @@ class NotificationService {
     );
   }
 
-  void _handleNotificationClick(String? payload) {
+  Future<void> _handleNotificationClick(
+    String? payload, {
+    String? actionId,
+  }) async {
     if (payload == null) return;
     try {
       Map<String, dynamic> data = jsonDecode(payload);
-      debugPrint('Notification clicked with data: $data');
 
       // Use the rootNavigatorKey from main.dart to navigate
       final context = rootNavigatorKey.currentContext;
       if (context != null) {
-        // Staff/Merchant assignment or update
-        if (data['type'] == 'assignment' || data['type'] == 'status') {
-          // For staff app, usually we go to the home or orders page
-          Navigator.pushNamed(context, '/');
+        final String? bookingId = data['bookingId']?.toString();
+        final String? orderId = data['orderId']?.toString() ?? bookingId;
+        final String? type = data['type']?.toString();
+
+        if (type == 'new_order' || type == 'assignment') {
+          if (orderId != null) {
+            Navigator.pushNamed(context, '/order', arguments: orderId);
+          } else {
+            Navigator.pushNamed(context, '/home');
+          }
+        } else if (type == 'merchant_update') {
+          Navigator.pushNamed(context, '/merchant-orders');
+        } else if (type == 'status_update') {
+          if (orderId != null) {
+            Navigator.pushNamed(context, '/order', arguments: orderId);
+          } else {
+            Navigator.pushNamed(context, '/home');
+          }
+        } else {
+          Navigator.pushNamed(context, '/home');
         }
       }
     } catch (e) {
-      debugPrint('Error handling notification click: $e');
+      // Ignore
     }
   }
 

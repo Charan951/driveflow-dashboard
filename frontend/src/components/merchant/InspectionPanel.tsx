@@ -21,8 +21,11 @@ interface UIAdditionalPart extends BookingAdditionalPart {
 
 const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) => {
   const [damageReport, setDamageReport] = useState(booking.inspection?.damageReport || '');
-  const [inspectionPhotos, setInspectionPhotos] = useState<string[]>(booking.inspection?.photos || []);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [frontPhoto, setFrontPhoto] = useState<string>(booking.inspection?.frontPhoto || '');
+  const [backPhoto, setBackPhoto] = useState<string>(booking.inspection?.backPhoto || '');
+  const [leftPhoto, setLeftPhoto] = useState<string>(booking.inspection?.leftPhoto || '');
+  const [rightPhoto, setRightPhoto] = useState<string>(booking.inspection?.rightPhoto || '');
+  const [uploadingSides, setUploadingSides] = useState<Record<string, boolean>>({});
   
   const [additionalParts, setAdditionalParts] = useState<UIAdditionalPart[]>(
     (booking.inspection?.additionalParts || []).map((p) => ({
@@ -36,23 +39,33 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
   );
   const [loading, setLoading] = useState(false);
 
-  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddSidePhoto = async (side: 'front' | 'back' | 'left' | 'right', e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setUploadingPhotos(true);
+      setUploadingSides(prev => ({ ...prev, [side]: true }));
       try {
         const res = await uploadService.uploadFile(e.target.files[0]);
-        setInspectionPhotos(prev => [...prev, res.url]);
-        toast.success('Photo uploaded');
+        switch (side) {
+          case 'front': setFrontPhoto(res.url); break;
+          case 'back': setBackPhoto(res.url); break;
+          case 'left': setLeftPhoto(res.url); break;
+          case 'right': setRightPhoto(res.url); break;
+        }
+        toast.success(`${side.charAt(0).toUpperCase() + side.slice(1)} photo uploaded`);
       } catch (err) {
-        toast.error('Failed to upload photo');
+        toast.error(`Failed to upload ${side} photo`);
       } finally {
-        setUploadingPhotos(false);
+        setUploadingSides(prev => ({ ...prev, [side]: false }));
       }
     }
   };
 
-  const handleRemovePhoto = (index: number) => {
-    setInspectionPhotos(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveSidePhoto = (side: 'front' | 'back' | 'left' | 'right') => {
+    switch (side) {
+      case 'front': setFrontPhoto(''); break;
+      case 'back': setBackPhoto(''); break;
+      case 'left': setLeftPhoto(''); break;
+      case 'right': setRightPhoto(''); break;
+    }
   };
 
   const handleAddPart = () => {
@@ -86,20 +99,23 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     });
   };
 
-  const handleImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>, type: 'new' | 'old' = 'new') => {
+  const handleImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const newParts = [...additionalParts];
-        if (type === 'new') {
-            newParts[index] = { ...newParts[index], imageFile: file };
-        } else {
-            newParts[index] = { ...newParts[index], oldImageFile: file };
-        }
+        newParts[index] = { ...newParts[index], oldImageFile: file };
         setAdditionalParts(newParts);
     }
   };
 
   const handleSave = async (isFinal: boolean = false) => {
+    if (isFinal) {
+      if (!frontPhoto || !backPhoto || !leftPhoto || !rightPhoto) {
+        toast.error('Please upload all 4 sides of vehicle photos');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       // 0. Upload images first
@@ -107,21 +123,6 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
       for (let i = 0; i < updatedParts.length; i++) {
         let part = updatedParts[i];
         
-        // Upload New Part Image
-        if (part.imageFile) {
-          try {
-            const res = await uploadService.uploadFile(part.imageFile);
-            part = { 
-              ...part, 
-              image: res.url,
-              imageFile: null 
-            };
-          } catch (err) {
-            console.error("Failed to upload image for part", part.name);
-            toast.error(`Failed to upload image for ${part.name}`);
-          }
-        }
-
         // Upload Old Part Image
         if (part.oldImageFile) {
           try {
@@ -160,7 +161,10 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
 
       const inspectionUpdate: BookingDetailsUpdate['inspection'] = {
         damageReport,
-        photos: inspectionPhotos,
+        frontPhoto,
+        backPhoto,
+        leftPhoto,
+        rightPhoto,
         additionalParts: partsToSave
       };
 
@@ -246,35 +250,51 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Inspection Photos</label>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {inspectionPhotos.map((url, i) => (
-              <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
-                <img src={url} alt={`Inspection ${i}`} className="w-full h-full object-cover" />
-                {!isCompleted && (
-                  <button
-                    onClick={() => handleRemovePhoto(i)}
-                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-            
-            {!isCompleted && (
-              <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                {uploadingPhotos ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-[10px] mt-1 text-muted-foreground font-medium">Add Photo</span>
-                  </>
-                )}
-                <input type="file" className="hidden" accept="image/*" onChange={handleAddPhoto} />
-              </label>
-            )}
+          <label className="text-sm font-medium mb-3 block">Vehicle Photos (4 Sides Required)</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {(['front', 'back', 'left', 'right'] as const).map((side) => {
+              const url = side === 'front' ? frontPhoto : side === 'back' ? backPhoto : side === 'left' ? leftPhoto : rightPhoto;
+              const isUploading = uploadingSides[side];
+              
+              return (
+                <div key={side} className="space-y-2">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground block text-center">{side} side</span>
+                  <div className="relative group aspect-square rounded-lg overflow-hidden border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
+                    {url ? (
+                      <>
+                        <img src={url} alt={side} className="w-full h-full object-cover" />
+                        {!isCompleted && (
+                          <button
+                            onClick={() => handleRemoveSidePhoto(side)}
+                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                        {isUploading ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-[10px] mt-1 text-muted-foreground font-medium uppercase">Upload {side}</span>
+                          </>
+                        )}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*" 
+                          onChange={(e) => handleAddSidePhoto(side, e)}
+                          disabled={isCompleted}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -370,36 +390,6 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
             </div>
             
             <div className="flex gap-4">
-                {/* New Part Image */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">New Part:</span>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageChange(index, e, 'new')}
-                        disabled={isDisabled}
-                        className="hidden"
-                        id={`part-image-${index}`}
-                    />
-                    <label 
-                        htmlFor={`part-image-${index}`} 
-                        className={`cursor-pointer p-2 rounded-md flex items-center gap-2 text-xs ${isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
-                        title="Upload New Part Image"
-                    >
-                        {part.imageFile || part.image ? (
-                            <>
-                                <ImageIcon className="w-4 h-4 text-blue-500" />
-                                <span className="text-blue-500">Uploaded</span>
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="w-4 h-4 text-gray-500" />
-                                <span>Upload Photo</span>
-                            </>
-                        )}
-                    </label>
-                </div>
-
                 {/* Old Part Image */}
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Old Part:</span>

@@ -37,22 +37,27 @@ const bookingSchema = mongoose.Schema(
       enum: [
         'CREATED', 
         'ASSIGNED', 
-        'ACCEPTED',
         'REACHED_CUSTOMER',
         'VEHICLE_PICKED', 
         'REACHED_MERCHANT', 
-        'VEHICLE_AT_MERCHANT', 
         'SERVICE_STARTED', 
         'SERVICE_COMPLETED', 
         'OUT_FOR_DELIVERY', 
         'DELIVERED', 
         'COMPLETED',
-        'CANCELLED'
+        'CANCELLED',
+        // Car wash specific statuses
+        'CAR_WASH_STARTED',
+        'CAR_WASH_COMPLETED'
       ],
       default: 'CREATED',
     },
     inspection: {
       photos: [String],
+      frontPhoto: String,
+      backPhoto: String,
+      leftPhoto: String,
+      rightPhoto: String,
       damageReport: String,
       additionalParts: [{
         name: String,
@@ -66,9 +71,9 @@ const bookingSchema = mongoose.Schema(
         },
         rejectionReason: String,
         image: String,
-        oldImage: String
+        oldImage: String,
       }],
-      completedAt: Date
+      completedAt: Date,
     },
     delay: {
       isDelayed: { type: Boolean, default: false },
@@ -85,6 +90,23 @@ const bookingSchema = mongoose.Schema(
       beforePhotos: [String],
       duringPhotos: [String],
       afterPhotos: [String],
+      serviceParts: [{
+        name: String,
+        price: Number,
+        quantity: { type: Number, default: 1 },
+        approved: { type: Boolean, default: false },
+        approvalStatus: {
+          type: String,
+          enum: ['Pending', 'Approved', 'Rejected'],
+          default: 'Pending'
+        },
+        rejectionReason: String,
+        image: String,
+        oldImage: String, // Image from inspection (before replacement)
+        addedDuringService: { type: Boolean, default: true },
+        fromInspection: { type: Boolean, default: false },
+        inspectionPartId: String,
+      }],
     },
     qc: {
       testRide: { type: Boolean, default: false },
@@ -180,6 +202,19 @@ const bookingSchema = mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Car wash specific fields
+    carWash: {
+      isCarWashService: { type: Boolean, default: false },
+      beforeWashPhotos: [String], // 4 photos before wash
+      afterWashPhotos: [String],  // 4 photos after wash
+      washStartedAt: Date,
+      washCompletedAt: Date,
+      staffAssigned: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        index: true,
+      },
+    },
   },
   {
     timestamps: true,
@@ -190,6 +225,8 @@ bookingSchema.index({ user: 1, createdAt: -1 });
 bookingSchema.index({ merchant: 1, createdAt: -1 });
 bookingSchema.index({ pickupDriver: 1, createdAt: -1 });
 bookingSchema.index({ technician: 1, createdAt: -1 });
+bookingSchema.index({ 'carWash.staffAssigned': 1, createdAt: -1 });
+bookingSchema.index({ 'carWash.isCarWashService': 1, status: 1 });
 
 bookingSchema.pre('save', async function () {
   if (!this.isNew) return;

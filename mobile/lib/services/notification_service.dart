@@ -81,10 +81,7 @@ class NotificationService {
     }
     if (_initialized) return;
 
-    // 1. Request permissions
-    await requestPermissions();
-
-    // 2. Initialize Local Notifications
+    // 1. Initialize Local Notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -110,14 +107,10 @@ class NotificationService {
           _onDidReceiveBackgroundNotificationResponse,
     );
 
-    // 3. Create Android Notification Channels
-    if (!kIsWeb) {
-      await PlatformUtils.createAndroidNotificationChannels(
-        _localNotifications,
-      );
-    }
+    // 2. Create Android Notification Channels
+    await PlatformUtils.createAndroidNotificationChannels(_localNotifications);
 
-    // 4. Set up FCM listeners
+    // 3. Set up FCM listeners
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     await FirebaseMessaging.instance
@@ -143,8 +136,8 @@ class NotificationService {
       _handleNotificationClick(jsonEncode(initialMessage.data));
     }
 
-    // 5. Token Management
-    _setupTokenManagement();
+    // 4. Token Management (Listeners only, actual sync happens in syncToken)
+    _setupTokenListeners();
 
     _initialized = true;
   }
@@ -154,21 +147,21 @@ class NotificationService {
     await PlatformUtils.requestMobilePermissions(_messaging);
   }
 
-  void _setupTokenManagement() {
+  void _setupTokenListeners() {
     if (kIsWeb) return;
-    // Get initial token
-    _messaging.getToken().then((token) {
-      if (token != null) _saveTokenToBackend(token);
-    });
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((newToken) {
-      _saveTokenToBackend(newToken);
+      syncToken();
     });
   }
 
-  Future<void> _saveTokenToBackend(String token) async {
+  Future<void> syncToken() async {
+    if (kIsWeb) return;
     try {
+      final token = await _messaging.getToken();
+      if (token == null) return;
+
       String deviceType = PlatformUtils.deviceType;
       await _api.postAny(
         '/users/fcm-token',
@@ -186,8 +179,21 @@ class NotificationService {
   void _showLocalNotification(RemoteMessage message) async {
     if (kIsWeb) return;
     RemoteNotification? notification = message.notification;
+    String? imageUrl =
+        message.data['image'] ??
+        notification?.android?.imageUrl ??
+        notification?.apple?.imageUrl;
 
     if (notification != null) {
+      BigPictureStyleInformation? bigPictureStyleInformation;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        // TODO: Download image and save locally for offline display
+        bigPictureStyleInformation = BigPictureStyleInformation(
+          FilePathAndroidBitmap(imageUrl),
+          largeIcon: FilePathAndroidBitmap(imageUrl),
+        );
+      }
+
       await _localNotifications.show(
         notification.hashCode,
         notification.title,
@@ -201,11 +207,17 @@ class NotificationService {
             importance: Importance.max,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
+            visibility: NotificationVisibility.public,
+            styleInformation: bigPictureStyleInformation,
+            largeIcon: imageUrl != null
+                ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
+                : null,
           ),
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
+            interruptionLevel: InterruptionLevel.active,
           ),
         ),
         payload: jsonEncode(message.data),
@@ -216,10 +228,20 @@ class NotificationService {
   Future<void> showLocalNotification({
     required String title,
     required String body,
+    String? imageUrl,
     String? payload,
   }) async {
     if (kIsWeb) return;
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+
+    BigPictureStyleInformation? bigPictureStyleInformation;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      bigPictureStyleInformation = BigPictureStyleInformation(
+        FilePathAndroidBitmap(imageUrl),
+        largeIcon: FilePathAndroidBitmap(imageUrl),
+      );
+    }
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'high_importance_channel',
           'High Importance Notifications',
@@ -229,11 +251,20 @@ class NotificationService {
           priority: Priority.high,
           showWhen: true,
           playSound: true,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: bigPictureStyleInformation,
+          largeIcon: imageUrl != null
+              ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
+              : null,
         );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
-      iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBadge: true,
+      ),
     );
 
     await _localNotifications.show(
@@ -317,16 +348,25 @@ class NotificationService {
       if (context != null) {
         final String? bookingId = data['bookingId']?.toString();
         final String? type = data['type']?.toString();
+        final String? subType = data['subType']?.toString();
 
         if ((type == 'status' || actionId == 'track_live_action') &&
             bookingId != null &&
             bookingId.isNotEmpty) {
           // Navigate directly to live tracking map
           Navigator.pushNamed(context, '/track', arguments: bookingId);
-        } else if (type == 'status' ||
-            type == 'assignment_update' ||
-            type == 'billing_update') {
-          Navigator.pushNamed(context, '/bookings');
+        } else if (type == 'booking_update' || type == 'status') {
+          if (bookingId != null && bookingId.isNotEmpty) {
+            Navigator.pushNamed(context, '/track', arguments: bookingId);
+          } else {
+            Navigator.pushNamed(context, '/bookings');
+          }
+        } else if (type == 'payment' || subType == 'billing') {
+          Navigator.pushNamed(context, '/payments');
+        } else if (type == 'support') {
+          Navigator.pushNamed(context, '/support');
+        } else if (type == 'promotion') {
+          Navigator.pushNamed(context, '/speshway-dashboard');
         } else {
           Navigator.pushNamed(context, '/notifications');
         }

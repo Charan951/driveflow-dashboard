@@ -13,6 +13,12 @@ import {
   getBookingById,
   assignBooking,
   updateBookingDetails,
+  uploadCarWashBeforePhotos,
+  uploadCarWashAfterPhotos,
+  startCarWash,
+  completeCarWash,
+  testGenerateOtp,
+  getCarWashBookings,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -26,6 +32,14 @@ router.route('/mybookings').get(protect, getMyBookings);
 router.route('/user/:userId').get(protect, merchant, getUserBookings);
 router.route('/vehicle/:vehicleId').get(protect, merchant, getVehicleBookings);
 router.route('/merchant/:merchantId').get(protect, merchant, getMerchantBookings);
+
+// Car wash specific routes
+router.route('/carwash').get(protect, getCarWashBookings);
+router.route('/:bookingId/carwash/before-photos').put(protect, uploadCarWashBeforePhotos);
+router.route('/:bookingId/carwash/after-photos').put(protect, uploadCarWashAfterPhotos);
+router.route('/:bookingId/carwash/start').put(protect, startCarWash);
+router.route('/:bookingId/carwash/complete').put(protect, completeCarWash);
+router.route('/:bookingId/test-generate-otp').put(protect, testGenerateOtp);
 
 router.route('/:id')
   .get(protect, getBookingById);

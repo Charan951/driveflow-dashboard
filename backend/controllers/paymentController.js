@@ -1,4 +1,5 @@
 import Booking from '../models/Booking.js';
+import User from '../models/User.js';
 import crypto from 'crypto';
 import { emitBookingUpdate } from './bookingController.js';
 import { sendPushToUser } from '../utils/pushService.js';
@@ -35,6 +36,9 @@ export const dummyPayment = async (req, res) => {
     booking.platformFee = booking.totalAmount * commissionRate;
     booking.merchantEarnings = booking.totalAmount - booking.platformFee;
     
+    // For car wash services, do NOT auto-assign staff - admin will assign manually
+    // Just update payment status and keep status as CREATED
+    
     await booking.save();
 
     // Populate for real-time consumers
@@ -44,35 +48,47 @@ export const dummyPayment = async (req, res) => {
       .populate('services')
       .populate('merchant', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
-      .populate('technician', 'name email phone');
+      .populate('technician', 'name email phone')
+      .populate('carWash.staffAssigned', 'name email phone');
 
     // Emit socket event for real-time updates
     emitBookingUpdate(populated);
 
-    // Notify merchant and staff
+    // Notify customer and relevant parties
     const bookingIdStr = String(populated._id);
     const orderNum = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
     
-    if (populated.merchant?._id) {
+    if (booking.carWash?.isCarWashService) {
+      // Car wash specific notifications
       await sendPushToUser(
-        populated.merchant._id,
-        'Payment Received',
-        `Payment for booking #${orderNum} has been completed.`,
-        { type: 'payment_update', bookingId: bookingIdStr }
+        booking.user,
+        'Car Wash Payment Confirmed',
+        `Payment for car wash service #${orderNum} has been confirmed. Admin will assign staff to your booking shortly.`,
+        { type: 'car_wash_confirmed', bookingId: bookingIdStr }
       );
-    }
-    
-    if (populated.pickupDriver?._id) {
-      await sendPushToUser(
-        populated.pickupDriver._id,
-        'Payment Completed',
-        `Customer has paid for booking #${orderNum}. You can now proceed with delivery.`,
-        { type: 'payment_update', bookingId: bookingIdStr }
-      );
+    } else {
+      // Regular service notifications
+      if (populated.merchant?._id) {
+        await sendPushToUser(
+          populated.merchant._id,
+          'Payment Received',
+          `Payment for booking #${orderNum} has been completed.`,
+          { type: 'payment_update', bookingId: bookingIdStr }
+        );
+      }
+      
+      if (populated.pickupDriver?._id) {
+        await sendPushToUser(
+          populated.pickupDriver._id,
+          'Payment Completed',
+          `Customer has paid for booking #${orderNum}. You can now proceed with delivery.`,
+          { type: 'payment_update', bookingId: bookingIdStr }
+        );
+      }
     }
 
     res.json({ 
-      message: 'Dummy payment successful', 
+      message: booking.carWash?.isCarWashService ? 'Car wash payment successful and confirmed' : 'Dummy payment successful', 
       bookingId: booking._id,
       paymentId: booking.paymentId,
       status: 'paid'

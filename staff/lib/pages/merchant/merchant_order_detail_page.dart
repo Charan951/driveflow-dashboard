@@ -29,6 +29,11 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   // Inspection State
   final List<Map<String, dynamic>> _newParts = [];
+  String? _frontPhoto;
+  String? _backPhoto;
+  String? _leftPhoto;
+  String? _rightPhoto;
+  final TextEditingController _damageReportController = TextEditingController();
 
   // Service Execution State
   final TextEditingController _extraCostReasonController =
@@ -106,6 +111,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         setState(() {
           _booking = data;
           _isLoading = false;
+
+          // Sync inspection data
+          _frontPhoto = data.inspection?.frontPhoto;
+          _backPhoto = data.inspection?.backPhoto;
+          _leftPhoto = data.inspection?.leftPhoto;
+          _rightPhoto = data.inspection?.rightPhoto;
+          _damageReportController.text = data.inspection?.damageReport ?? '';
 
           // Sync controllers with loaded data
           _invoiceNumberController.text = data.billing?.invoiceNumber ?? '';
@@ -356,27 +368,85 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final isCompleted = inspection?.completedAt != null;
     final additionalParts = inspection?.additionalParts ?? [];
 
+    final canAddParts =
+        _booking!.status == 'VEHICLE_AT_MERCHANT' ||
+        _booking!.status == 'INSPECTION_COMPLETED' ||
+        _booking!.status == 'SERVICE_STARTED' ||
+        _booking!.status == 'SERVICE_COMPLETED';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Text(
+            'Vehicle Photos (4 Sides Required)',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.2,
             children: [
-              Text(
-                'Additional Parts',
-                style: Theme.of(context).textTheme.titleLarge,
+              _buildSidePhotoSlot(
+                'Front',
+                _frontPhoto,
+                (url) => setState(() => _frontPhoto = url),
               ),
-              if (!isCompleted)
-                TextButton.icon(
-                  onPressed: _addNewPart,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Part'),
-                ),
+              _buildSidePhotoSlot(
+                'Back',
+                _backPhoto,
+                (url) => setState(() => _backPhoto = url),
+              ),
+              _buildSidePhotoSlot(
+                'Left',
+                _leftPhoto,
+                (url) => setState(() => _leftPhoto = url),
+              ),
+              _buildSidePhotoSlot(
+                'Right',
+                _rightPhoto,
+                (url) => setState(() => _rightPhoto = url),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          Text(
+            'Damage Report / Findings',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _damageReportController,
+            maxLines: 3,
+            enabled: !isCompleted,
+            decoration: const InputDecoration(
+              hintText: 'Describe any damages or findings...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (canAddParts)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Additional Parts',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (!isCompleted)
+                  TextButton.icon(
+                    onPressed: _addNewPart,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Part'),
+                  ),
+              ],
+            ),
+          if (canAddParts) const SizedBox(height: 16),
           if (isCompleted)
             Container(
               padding: const EdgeInsets.all(12),
@@ -478,17 +548,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 _buildApprovalBadge(part.approvalStatus),
               ],
             ),
-            if (part.image != null || part.oldImage != null)
+            if (part.oldImage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    if (part.image != null) _buildThumbnail(part.image!, 'New'),
-                    const SizedBox(width: 8),
-                    if (part.oldImage != null)
-                      _buildThumbnail(part.oldImage!, 'Old'),
-                  ],
-                ),
+                child: Row(children: [_buildThumbnail(part.oldImage!, 'Old')]),
               ),
           ],
         ),
@@ -549,15 +612,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             Row(
               children: [
                 _buildUploadButton(
-                  label: 'New Part',
-                  url: part['image'],
-                  onTap: () async {
-                    final url = await _showImageSourceSheet();
-                    if (url != null) setState(() => part['image'] = url);
-                  },
-                ),
-                const SizedBox(width: 12),
-                _buildUploadButton(
                   label: 'Old Part',
                   url: part['oldImage'],
                   onTap: () async {
@@ -570,6 +624,80 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSidePhotoSlot(
+    String side,
+    String? url,
+    Function(String) onUpload,
+  ) {
+    final isCompleted = _booking?.inspection?.completedAt != null;
+
+    return Column(
+      children: [
+        Text(
+          side,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: InkWell(
+            onTap: isCompleted
+                ? null
+                : () async {
+                    final newUrl = await _showImageSourceSheet();
+                    if (newUrl != null) onUpload(newUrl);
+                  },
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[50],
+              ),
+              child: url != null
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: url,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        if (!isCompleted)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.red,
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () => onUpload(''),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt, color: Colors.grey),
+                        Text('Upload', style: TextStyle(fontSize: 10)),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -677,6 +805,19 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   Future<void> _saveInspection({required bool isFinal}) async {
     if (_booking == null) return;
+
+    if (isFinal) {
+      if (_frontPhoto == null ||
+          _backPhoto == null ||
+          _leftPhoto == null ||
+          _rightPhoto == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please upload all 4 sides of photos')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       final existingParts = _booking!.inspection?.additionalParts ?? [];
@@ -685,7 +826,14 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         ..._newParts,
       ];
 
-      final Map<String, dynamic> inspectionData = {'additionalParts': allParts};
+      final Map<String, dynamic> inspectionData = {
+        'additionalParts': allParts,
+        'frontPhoto': _frontPhoto,
+        'backPhoto': _backPhoto,
+        'leftPhoto': _leftPhoto,
+        'rightPhoto': _rightPhoto,
+        'damageReport': _damageReportController.text,
+      };
 
       if (isFinal) {
         inspectionData['completedAt'] = DateTime.now().toIso8601String();
@@ -732,51 +880,61 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Widget _buildService() {
     final execution = _booking!.serviceExecution;
+    final canAddPhotos =
+        _booking!.status == 'SERVICE_STARTED' ||
+        _booking!.status == 'SERVICE_COMPLETED';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Service Photos',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildPhotoSection(
-                  'Before Service',
-                  execution?.beforePhotos ?? [],
-                  'before',
+          if (canAddPhotos)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Service Photos',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildPhotoSection(
-                  'During Service',
-                  execution?.duringPhotos ?? [],
-                  'during',
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'Before Service',
+                        execution?.beforePhotos ?? [],
+                        'before',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'During Service',
+                        execution?.duringPhotos ?? [],
+                        'during',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'After Service',
+                        execution?.afterPhotos ?? [],
+                        'after',
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildPhotoSection(
-                  'After Service',
-                  execution?.afterPhotos ?? [],
-                  'after',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+                const SizedBox(height: 24),
+              ],
+            ),
           const Text(
             'Request Extra Cost',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -1300,6 +1458,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           'fileUrl': fileUrl,
         },
       });
+
+      await _service.updateBookingStatus(_booking!.id, 'SERVICE_COMPLETED');
 
       await _load(_booking!.id);
       if (mounted) {

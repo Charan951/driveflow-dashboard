@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { bookingService, Booking } from '@/services/bookingService';
 import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
+import { Vehicle } from '@/services/vehicleService';
 import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
@@ -34,10 +35,53 @@ const BookingDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [merchants, setMerchants] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
+  const [carWashStaff, setCarWashStaff] = useState<User[]>([]);
+  const [selectedMerchant, setSelectedMerchant] = useState<string>('');
+  const [selectedDriver, setSelectedDriver] = useState<string>('');
+  const [selectedCarWashStaff, setSelectedCarWashStaff] = useState<string>('');
+ 
+  // Memoized sorted lists
+  const sortedMerchants = React.useMemo(() => {
+    const targetLat = typeof booking?.location === 'object' ? booking.location.lat : null;
+    const targetLng = typeof booking?.location === 'object' ? booking.location.lng : null;
 
-  // Assignment States
-  const [selectedMerchant, setSelectedMerchant] = useState('');
-  const [selectedDriver, setSelectedDriver] = useState('');
+    return [...merchants].sort((a, b) => {
+      // 1. Open Shop Priority
+      const aOpen = a.isShopOpen !== false;
+      const bOpen = b.isShopOpen !== false;
+      if (aOpen && !bOpen) return -1;
+      if (!aOpen && bOpen) return 1;
+
+      // 2. Proximity
+      if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
+        const from = turf.point([targetLng, targetLat]);
+        const toA = turf.point([a.location.lng, a.location.lat]);
+        const toB = turf.point([b.location.lng, b.location.lat]);
+        return turf.distance(from, toA) - turf.distance(from, toB);
+      }
+      return 0;
+    });
+  }, [merchants, booking?.location]);
+
+  const sortedDrivers = React.useMemo(() => {
+    const targetLat = typeof booking?.location === 'object' ? booking.location.lat : null;
+    const targetLng = typeof booking?.location === 'object' ? booking.location.lng : null;
+
+    return [...drivers].sort((a, b) => {
+      // 1. Online Priority
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+
+      // 2. Proximity
+      if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
+        const from = turf.point([targetLng, targetLat]);
+        const toA = turf.point([a.location.lng, a.location.lat]);
+        const toB = turf.point([b.location.lng, b.location.lat]);
+        return turf.distance(from, toA) - turf.distance(from, toB);
+      }
+      return 0;
+    });
+  }, [drivers, booking?.location]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,58 +100,12 @@ const BookingDetailPage: React.FC = () => {
           setUserBookings(userHistory.filter((b: Booking) => b._id !== id));
         }
         
-        // Helper to sort staff by Online Status and Proximity
-        const sortStaff = (staffList: User[]) => {
-            const targetLat = typeof bookingData.location === 'object' ? bookingData.location.lat : null;
-            const targetLng = typeof bookingData.location === 'object' ? bookingData.location.lng : null;
-
-            return [...staffList].sort((a, b) => {
-                // 1. Online Priority
-                if (a.isOnline && !b.isOnline) return -1;
-                if (!a.isOnline && b.isOnline) return 1;
-
-                // 2. Proximity (if location available)
-                if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
-                     const from = turf.point([targetLng, targetLat]);
-                     const toA = turf.point([a.location.lng, a.location.lat]);
-                     const toB = turf.point([b.location.lng, b.location.lat]);
-                     return turf.distance(from, toA) - turf.distance(from, toB);
-                }
-                return 0;
-            });
-        };
-
-        // Helper to sort merchants by Open Status and Proximity
-        const sortMerchants = (merchantList: User[]) => {
-            const targetLat = typeof bookingData.location === 'object' ? bookingData.location.lat : null;
-            const targetLng = typeof bookingData.location === 'object' ? bookingData.location.lng : null;
-
-            return [...merchantList].sort((a, b) => {
-                // 1. Open Shop Priority (Active/Open shops first)
-                // Note: isShopOpen defaults to true usually, but check explicit false
-                const aOpen = a.isShopOpen !== false; 
-                const bOpen = b.isShopOpen !== false;
-                
-                if (aOpen && !bOpen) return -1;
-                if (!aOpen && bOpen) return 1;
-
-                // 2. Proximity (if location available)
-                if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
-                     const from = turf.point([targetLng, targetLat]);
-                     const toA = turf.point([a.location.lng, a.location.lat]);
-                     const toB = turf.point([b.location.lng, b.location.lat]);
-                     return turf.distance(from, toA) - turf.distance(from, toB);
-                }
-                return 0;
-            });
-        };
-
         // Populate lists for assignment
-        setMerchants(sortMerchants(usersData.filter((u: User) => u.role === 'merchant')));
-
-        setDrivers(sortStaff(usersData.filter((u: User) => 
+        setMerchants(usersData.filter((u: User) => u.role === 'merchant'));
+        setDrivers(usersData.filter((u: User) => 
           u.role === 'staff' && (!u.subRole || u.subRole === 'Driver')
-        )));
+        ));
+        setCarWashStaff(usersData.filter((u: User) => u.role === 'staff'));
 
         // Helper to safely get ID
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,6 +119,7 @@ const BookingDetailPage: React.FC = () => {
         // Set initial values
         if (bookingData.merchant) setSelectedMerchant(getResourceId(bookingData.merchant));
         if (bookingData.pickupDriver) setSelectedDriver(getResourceId(bookingData.pickupDriver));
+        if (bookingData.carWash?.staffAssigned) setSelectedCarWashStaff(getResourceId(bookingData.carWash.staffAssigned));
 
       } catch (error) {
         console.error(error);
@@ -148,9 +147,85 @@ const BookingDetailPage: React.FC = () => {
       }
     });
 
+    socketService.on('liveLocation', (data: { userId: string; lat: number; lng: number; timestamp: string }) => {
+      // Update merchant locations
+      setMerchants(prev => prev.map(m => {
+        if (m._id === data.userId) {
+          return {
+            ...m,
+            isOnline: true,
+            location: {
+              ...m.location,
+              lat: data.lat,
+              lng: data.lng,
+              updatedAt: data.timestamp
+            }
+          };
+        }
+        return m;
+      }));
+
+      // Update driver locations
+      setDrivers(prev => prev.map(d => {
+        if (d._id === data.userId) {
+          return {
+            ...d,
+            isOnline: true,
+            location: {
+              ...d.location,
+              lat: data.lat,
+              lng: data.lng,
+              updatedAt: data.timestamp
+            }
+          };
+        }
+        return d;
+      }));
+
+      // Update car wash staff locations
+      setCarWashStaff(prev => prev.map(s => {
+        if (s._id === data.userId) {
+          return {
+            ...s,
+            isOnline: true,
+            location: {
+              ...s.location,
+              lat: data.lat,
+              lng: data.lng,
+              updatedAt: data.timestamp
+            }
+          };
+        }
+        return s;
+      }));
+    });
+
+    socketService.on('userStatusUpdate', (data: { userId: string; isOnline: boolean; lastSeen: string }) => {
+      setMerchants(prev => prev.map(m => {
+        if (m._id === data.userId) {
+          return { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen };
+        }
+        return m;
+      }));
+      setDrivers(prev => prev.map(d => {
+        if (d._id === data.userId) {
+          return { ...d, isOnline: data.isOnline, lastSeen: data.lastSeen };
+        }
+        return d;
+      }));
+      setCarWashStaff(prev => prev.map(s => {
+        if (s._id === data.userId) {
+          return { ...s, isOnline: data.isOnline, lastSeen: data.lastSeen };
+        }
+        return s;
+      }));
+    });
+
     return () => {
        socketService.leaveRoom('admin');
        socketService.off('bookingUpdated');
+       socketService.off('liveLocation');
+       socketService.off('userStatusUpdate');
     };
   }, [id]);
 
@@ -168,10 +243,24 @@ const BookingDetailPage: React.FC = () => {
   const handleAssignment = async () => {
     if (!booking) return;
     try {
-      await bookingService.assignBooking(booking._id, {
-        merchantId: selectedMerchant || undefined,
-        driverId: selectedDriver || undefined
-      });
+      // Check if this is a car wash service
+      const isCarWashService = Array.isArray(booking.services) && 
+        (booking.services as Service[]).some(service => 
+          service.category === 'Car Wash' || service.category === 'Wash'
+        );
+
+      if (isCarWashService) {
+        // For car wash services, only assign car wash staff
+        await bookingService.assignBooking(booking._id, {
+          carWashStaffId: selectedCarWashStaff || undefined
+        });
+      } else {
+        // For regular services, assign merchant and driver
+        await bookingService.assignBooking(booking._id, {
+          merchantId: selectedMerchant || undefined,
+          driverId: selectedDriver || undefined
+        });
+      }
       
       // Refetch to get populated data back
       const updatedBooking = await bookingService.getBookingById(booking._id);
@@ -188,6 +277,12 @@ const BookingDetailPage: React.FC = () => {
 
   const customer = booking.user as unknown as User;
   const vehicle = booking.vehicle as unknown as Vehicle;
+  
+  // Check if this is a car wash service
+  const isCarWashService = Array.isArray(booking.services) && 
+    (booking.services as Service[]).some(service => 
+      service.category === 'Car Wash' || service.category === 'Wash'
+    );
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
@@ -342,6 +437,101 @@ const BookingDetailPage: React.FC = () => {
             </div>
           )}
 
+          {/* Car Wash Photos */}
+          {isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
+            <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary" /> Car Wash Photos
+              </h3>
+              
+              {booking.carWash.beforeWashPhotos && booking.carWash.beforeWashPhotos.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Before Wash Photos</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {booking.carWash.beforeWashPhotos.map((url, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        className="relative rounded-xl overflow-hidden border border-border bg-muted group"
+                        onClick={() => window.open(url, '_blank')}
+                      >
+                        <img
+                          src={url}
+                          alt={`Before wash ${index + 1}`}
+                          className="w-full h-32 object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {booking.carWash.afterWashPhotos && booking.carWash.afterWashPhotos.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">After Wash Photos</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {booking.carWash.afterWashPhotos.map((url, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        className="relative rounded-xl overflow-hidden border border-border bg-muted group"
+                        onClick={() => window.open(url, '_blank')}
+                      >
+                        <img
+                          src={url}
+                          alt={`After wash ${index + 1}`}
+                          className="w-full h-32 object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" /> Vehicle Inspection Photos
+            </h3>
+            {!isCarWashService && booking.inspection && (booking.inspection.frontPhoto || booking.inspection.backPhoto || booking.inspection.leftPhoto || booking.inspection.rightPhoto) ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {['front', 'back', 'left', 'right'].map((side) => {
+                    const url = booking.inspection?.[`${side}Photo` as keyof typeof booking.inspection] as string;
+                    if (!url) return null;
+                    return (
+                      <div key={side} className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side}</span>
+                        <button
+                          type="button"
+                          className="relative w-full rounded-xl overflow-hidden border border-border bg-muted group aspect-square"
+                          onClick={() => window.open(url, '_blank')}
+                        >
+                          <img
+                            src={url}
+                            alt={`${side} inspection`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {booking.inspection.damageReport && (
+                  <div className="pt-4 border-t border-border">
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Damage Report</h4>
+                    <p className="text-sm italic text-muted-foreground">"{booking.inspection.damageReport}"</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic text-center py-2">
+                {isCarWashService ? 'Vehicle inspection not required for car wash services.' : 'No inspection photos yet.'}
+              </p>
+            )}
+          </div>
+
           <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
               <Car className="w-5 h-5 text-primary" /> Vehicle Details
@@ -482,13 +672,14 @@ const BookingDetailPage: React.FC = () => {
             )}
           </div>
 
-          {Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
+          {/* Additional Parts - Inspection */}
+          {!isCarWashService && Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
             (p) => (p.approvalStatus || (p.approved ? 'Approved' : 'Pending')) !== 'Rejected'
           ).length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-primary" />
-                Additional Parts
+                Additional Parts (Found During Inspection)
               </h3>
               <div className="space-y-4">
                 {booking.inspection.additionalParts
@@ -514,6 +705,7 @@ const BookingDetailPage: React.FC = () => {
                         <div className="text-xs text-muted-foreground flex items-center gap-3">
                           <span>Qty: {part.quantity}</span>
                           <span>Price: ₹{part.price}</span>
+                          <span className="text-blue-600 font-medium">Found during inspection</span>
                           <span className="inline-flex items-center gap-1">
                             {status === 'Approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
                             {status === 'Rejected' && <XCircle className="w-3 h-3 text-red-500" />}
@@ -522,14 +714,6 @@ const BookingDetailPage: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-3">
-                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
-                          {part.image ? (
-                            <img src={part.image} alt="New Part" className="w-full h-full object-cover" />
-                          ) : (
-                            <span>No new image</span>
-                          )}
-                        </div>
                         <div className="w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
                           {part.oldImage ? (
                             <img src={part.oldImage} alt="Old Part" className="w-full h-full object-cover" />
@@ -537,6 +721,74 @@ const BookingDetailPage: React.FC = () => {
                             <span>No old image</span>
                           )}
                         </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Additional Parts - Service */}
+          {!isCarWashService && Array.isArray(booking.serviceExecution?.serviceParts) && booking.serviceExecution.serviceParts.length > 0 && (
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-orange-600" />
+                Service Parts (Replaced/Added During Service)
+              </h3>
+              <div className="space-y-4">
+                {booking.serviceExecution.serviceParts.map((part, index) => {
+                  const status = part.approvalStatus || 'Pending';
+                  const total = (part.price || 0) * (part.quantity || 1);
+                  return (
+                    <div
+                      key={index}
+                      className={`flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-border rounded-xl p-4 ${
+                        part.fromInspection ? 'bg-green-50/40' : 'bg-orange-50/40'
+                      }`}
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-sm">{part.name}</p>
+                          <p className="text-sm font-semibold">
+                            ₹{part.price} × {part.quantity} = ₹{total}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-3">
+                          <span>Qty: {part.quantity}</span>
+                          <span>Price: ₹{part.price}</span>
+                          <span className={`font-medium ${part.fromInspection ? 'text-green-600' : 'text-orange-600'}`}>
+                            {part.fromInspection ? 'From approved inspection' : 'New discovery during service'}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            {status === 'Approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {status === 'Rejected' && <XCircle className="w-3 h-3 text-red-500" />}
+                            {status === 'Pending' && <Clock className="w-3 h-3 text-amber-500" />}
+                            <span className="capitalize">{status.toLowerCase()}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {part.oldImage && (
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
+                              <img src={part.oldImage} alt="Before" className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-xs text-muted-foreground">Before</span>
+                          </div>
+                        )}
+                        {part.image && (
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
+                              <img src={part.image} alt="After" className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-xs text-muted-foreground">After</span>
+                          </div>
+                        )}
+                        {!part.oldImage && !part.image && (
+                          <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                            No image
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -546,54 +798,18 @@ const BookingDetailPage: React.FC = () => {
           )}
 
           {/* Service Media Section */}
-          {(booking.serviceExecution?.beforePhotos?.length || booking.serviceExecution?.duringPhotos?.length || booking.serviceExecution?.afterPhotos?.length) ? (
+          {!isCarWashService && (booking.serviceExecution?.afterPhotos?.length || booking.serviceExecution?.serviceParts?.length) ? (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" />
                 Service Photos
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {booking.serviceExecution?.beforePhotos && booking.serviceExecution.beforePhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Before Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {booking.serviceExecution.beforePhotos.map((url, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => window.open(url, '_blank')}
-                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                        >
-                          <img src={url} alt={`Before ${i}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {booking.serviceExecution?.duringPhotos && booking.serviceExecution.duringPhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-3">During Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {booking.serviceExecution.duringPhotos.map((url, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => window.open(url, '_blank')}
-                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                        >
-                          <img src={url} alt={`During ${i}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
+              <div className="grid grid-cols-1 gap-6">
                 {booking.serviceExecution?.afterPhotos && booking.serviceExecution.afterPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-3">After Service</h4>
-                    <div className="grid grid-cols-2 gap-2">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Service Completed Photos</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {booking.serviceExecution.afterPhotos.map((url, i) => (
                         <button
                           key={i}
@@ -601,7 +817,7 @@ const BookingDetailPage: React.FC = () => {
                           onClick={() => window.open(url, '_blank')}
                           className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
                         >
-                          <img src={url} alt={`After ${i}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`After Service ${i + 1}`} className="w-full h-full object-cover" />
                         </button>
                       ))}
                     </div>
@@ -623,84 +839,152 @@ const BookingDetailPage: React.FC = () => {
                 </button>
              </h3>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+             {isCarWashService ? (
+               // Car wash service assignment - only show staff selection
+               <div className="space-y-4">
+                 <div className="space-y-2">
                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
+                      <UserIcon className="w-4 h-4 text-muted-foreground" /> Car Wash Staff
                    </label>
                    <select 
                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"
-                      value={selectedMerchant}
-                      onChange={(e) => setSelectedMerchant(e.target.value)}
+                      value={selectedCarWashStaff}
+                      onChange={(e) => setSelectedCarWashStaff(e.target.value)}
                    >
-                      <option value="">Select Merchant...</option>
-                      {merchants.map(m => {
-                         let label = m.name;
-                         // Add Open/Closed status
-                         if (m.isShopOpen === false) label += " (Closed 🔴)";
-                         else label += " (Open 🟢)";
-
-                         // Add Distance
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && m.location?.lat) {
+                      <option value="">Select Car Wash Staff...</option>
+                      {carWashStaff.map(s => {
+                         let label = s.name;
+                         if (s.isOnline) label += " 🟢 (Online)";
+                         if (s.subRole) label += ` (${s.subRole})`;
+                         
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && s.location?.lat) {
                             try {
-                               const from = turf.point([booking.location.lng!, booking.location.lat]);
-                               const to = turf.point([m.location.lng!, m.location.lat]);
-                               const distance = turf.distance(from, to);
-                               label += ` - ${distance.toFixed(1)} km`;
-                            } catch (e) {
-                               // ignore error
-                            }
+                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                               const to = turf.point([s.location.lng!, s.location.lat!]);
+                               const dist = turf.distance(from, to);
+                               if (dist < 1) {
+                                  const meters = Math.round(dist * 1000);
+                                  label += ` - ${meters} m`;
+                               } else {
+                                  label += ` - ${dist.toFixed(1)} km`;
+                               }
+                            } catch (e) { /* ignore */ }
                          }
-                         return <option key={m._id} value={m._id}>{label}</option>
+                         return <option key={s._id} value={s._id}>{label}</option>;
                       })}
                    </select>
-                </div>
+                 </div>
+                 {booking.carWash?.staffAssigned && (
+                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                     <p className="text-sm text-green-800">
+                       <strong>Assigned Staff:</strong> {typeof booking.carWash.staffAssigned === 'object' ? booking.carWash.staffAssigned.name : 'Staff'}
+                     </p>
+                   </div>
+                 )}
+               </div>
+             ) : (
+               // Regular service assignment - show merchant and driver
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                     <label className="text-sm font-medium flex items-center gap-2">
+                        <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
+                     </label>
+                     <select 
+                        className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                        value={selectedMerchant}
+                        onChange={(e) => setSelectedMerchant(e.target.value)}
+                     >
+                        <option value="">Select Merchant...</option>
+                        {sortedMerchants.map(m => {
+                           let label = m.name;
+                           // Add Open/Closed status
+                           if (m.isShopOpen === false) label += " (Closed 🔴)";
+                           else label += " (Open 🟢)";
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                     <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
-                  </label>
-                  <select 
-                     className="w-full p-2 rounded-lg border border-border bg-background text-sm"
-                     value={selectedDriver}
-                     onChange={(e) => setSelectedDriver(e.target.value)}
-                  >
-                     <option value="">Select Driver...</option>
-                     {drivers.map(d => {
-                       let label = d.name;
-                       if (d.isOnline) label += " 🟢 (Online)";
-                       if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
-                          try {
-                             const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                             const to = turf.point([d.location.lng!, d.location.lat!]);
-                             const dist = turf.distance(from, to, { units: 'kilometers' });
-                             label += ` - ${dist.toFixed(1)}km`;
-                          } catch (e) { /* ignore */ }
-                       }
-                       return <option key={d._id} value={d._id}>{label}</option>;
-                     })}
-                  </select>
-                </div>
-             </div>
+                           // Add Distance
+                           if (booking?.location && typeof booking.location === 'object' && booking.location.lat && m.location?.lat) {
+                              try {
+                                 const from = turf.point([booking.location.lng!, booking.location.lat]);
+                                 const to = turf.point([m.location.lng!, m.location.lat]);
+                                 const distance = turf.distance(from, to);
+                                 if (distance < 1) {
+                                    const meters = Math.round(distance * 1000);
+                                    label += ` - ${meters} m`;
+                                 } else {
+                                    label += ` - ${distance.toFixed(1)} km`;
+                                 }
+                              } catch (e) {
+                                 // ignore error
+                              }
+                           }
+                           return <option key={m._id} value={m._id}>{label}</option>
+                        })}
+                     </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                       <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
+                    </label>
+                    <select 
+                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                       value={selectedDriver}
+                       onChange={(e) => setSelectedDriver(e.target.value)}
+                    >
+                       <option value="">Select Driver...</option>
+                       {sortedDrivers.map(d => {
+                         let label = d.name;
+                         if (d.isOnline) label += " 🟢 (Online)";
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                            try {
+                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                               const to = turf.point([d.location.lng!, d.location.lat!]);
+                               const dist = turf.distance(from, to);
+                               if (dist < 1) {
+                                  const meters = Math.round(dist * 1000);
+                                  label += ` - ${meters} m`;
+                               } else {
+                                  label += ` - ${dist.toFixed(1)} km`;
+                               }
+                            } catch (e) { /* ignore */ }
+                         }
+                         return <option key={d._id} value={d._id}>{label}</option>;
+                       })}
+                    </select>
+                  </div>
+               </div>
+             )}
           </div>
 
           {/* Status Workflow */}
           <div className="bg-card rounded-2xl border border-border p-6">
              <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
             <div className="flex flex-wrap gap-2">
-               {[
-                  { label: 'Created', value: 'CREATED' },
-                  { label: 'Assigned', value: 'ASSIGNED' },
-                  { label: 'Accepted', value: 'ACCEPTED' },
-                  { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
-                  { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
-                  { label: 'Vehicle At Merchant', value: 'VEHICLE_AT_MERCHANT' },
-                  { label: 'Service Started', value: 'SERVICE_STARTED' },
-                  { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
-                  { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
-                  { label: 'Delivered', value: 'DELIVERED' },
-                  { label: 'Cancelled', value: 'CANCELLED' }
-               ].map((s) => (
+               {(isCarWashService ? (
+                 // Car wash specific workflow
+                 [
+                    { label: 'Created', value: 'CREATED' },
+                    { label: 'Assigned', value: 'ASSIGNED' },
+                    { label: 'Reached Customer', value: 'REACHED_CUSTOMER' },
+                    { label: 'Car Wash Started', value: 'CAR_WASH_STARTED' },
+                    { label: 'Car Wash Completed', value: 'CAR_WASH_COMPLETED' },
+                    { label: 'Delivered', value: 'DELIVERED' },
+                    { label: 'Cancelled', value: 'CANCELLED' }
+                 ]
+               ) : (
+                 // Regular service workflow
+                 [
+                    { label: 'Created', value: 'CREATED' },
+                    { label: 'Assigned', value: 'ASSIGNED' },
+                    { label: 'Vehicle Picked', value: 'VEHICLE_PICKED' },
+                    { label: 'Reached Merchant', value: 'REACHED_MERCHANT' },
+                    { label: 'Service Started', value: 'SERVICE_STARTED' },
+                    { label: 'Service Completed', value: 'SERVICE_COMPLETED' },
+                    { label: 'Out For Delivery', value: 'OUT_FOR_DELIVERY' },
+                    { label: 'Delivered', value: 'DELIVERED' },
+                    { label: 'Cancelled', value: 'CANCELLED' }
+                 ]
+               )).map((s) => (
                   <button
                     key={s.value}
                     onClick={() => handleStatusUpdate(s.value)}

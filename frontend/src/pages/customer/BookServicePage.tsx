@@ -24,7 +24,6 @@ import api from '@/services/api';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
-import { reviewService } from '@/services/reviewService';
 import { useAuthStore } from '@/store/authStore';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
@@ -59,7 +58,6 @@ const BookServicePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [pendingFeedbackBooking, setPendingFeedbackBooking] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -76,18 +74,12 @@ const BookServicePage: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [servicesData, vehiclesData, pendingData] = await Promise.all([
+      const [servicesData, vehiclesData] = await Promise.all([
         serviceService.getServices(),
         vehicleService.getVehicles(),
-        reviewService.checkPendingFeedback(),
       ]);
       setServices(servicesData);
       setVehicles(vehiclesData);
-
-      if (pendingData.hasPending) {
-        setPendingFeedbackBooking(pendingData.bookingId || null);
-        toast.error(`Please provide feedback for your previous booking (#${pendingData.orderNumber}) before booking a new service.`);
-      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load booking data');
@@ -151,6 +143,11 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
+      // Check if this is a car wash service
+      const isCarWashService = selectedServicesData.some(service => 
+        service.category === 'Car Wash' || service.category === 'Wash'
+      );
+
       const bookingData = {
         vehicleId: selectedVehicle,
         serviceIds: selectedServices,
@@ -163,11 +160,18 @@ const BookServicePage: React.FC = () => {
           if (size) note += ` - Size: ${size}`;
           return note;
         }).join(', ')
-        };
+      };
 
       const newBooking = await bookingService.createBooking(bookingData);
-      toast.success('Booking confirmed! We have scheduled your service.');
-      navigate(`/track/${newBooking._id}`);
+      
+      if (isCarWashService && newBooking.requiresPayment) {
+        // For car wash, redirect to payment page
+        toast.success('Car wash booking created! Please complete payment to confirm.');
+        navigate(`/track/${newBooking._id}?payment=required`);
+      } else {
+        toast.success('Booking confirmed! We have scheduled your service.');
+        navigate(`/track/${newBooking._id}`);
+      }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Booking failed:', error);
@@ -230,27 +234,6 @@ const BookServicePage: React.FC = () => {
         <p className="text-muted-foreground">Schedule your vehicle service in a few steps</p>
       </div>
 
-      {pendingFeedbackBooking && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center space-y-4">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-            <Star className="w-8 h-8 text-amber-600" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-bold text-amber-900">Feedback Required</h2>
-            <p className="text-amber-700">
-              To ensure the best quality service, we require feedback for all completed bookings.
-              Please provide feedback for your last service to continue.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate(`/track/${pendingFeedbackBooking}`)}
-            className="px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors"
-          >
-            Go to Booking & Give Feedback
-          </button>
-        </div>
-      )}
-
       {error && (
         <div className="bg-destructive/15 text-destructive p-4 rounded-xl border border-destructive/20">
           <p className="font-medium">Booking Failed</p>
@@ -258,9 +241,7 @@ const BookServicePage: React.FC = () => {
         </div>
       )}
 
-      {pendingFeedbackBooking ? null : (
-        <>
-          {/* Progress Steps */}
+      {/* Progress Steps */}
           <div className="flex items-center justify-between bg-card rounded-2xl p-4 border border-border">
             {steps.map((step, index) => (
               <div key={step} className="flex items-center">
@@ -652,6 +633,23 @@ const BookServicePage: React.FC = () => {
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold">Confirm Booking</h2>
                 
+                {/* Car Wash Payment Notice */}
+                {selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Car className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-blue-900">Car Wash Service - Payment Required</h3>
+                        <p className="text-sm text-blue-700">
+                          You will need to complete payment to confirm your car wash booking. After payment, admin will assign staff to reach your location.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Summary */}
                 <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
                   <div className="flex items-center gap-4 pb-4 border-b border-border">
@@ -738,7 +736,9 @@ const BookServicePage: React.FC = () => {
               {isLoading ? (
                 <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : currentStep === steps.length - 1 ? (
-                'Confirm Booking'
+                selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') 
+                  ? 'Create Booking (Payment Required)'
+                  : 'Confirm Booking'
               ) : (
                 <>
                   Next
@@ -747,8 +747,6 @@ const BookServicePage: React.FC = () => {
               )}
             </button>
           </div>
-        </>
-      )}
     </div>
   );
 };

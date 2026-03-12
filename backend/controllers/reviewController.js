@@ -35,38 +35,6 @@ export const getAllReviews = async (req, res) => {
   }
 };
 
-// @desc    Check for pending feedback on delivered/completed bookings
-// @route   GET /api/reviews/check-pending-feedback
-// @access  Private
-export const checkPendingFeedback = async (req, res) => {
-  try {
-    const deliveredBookings = await Booking.find({
-      user: req.user._id,
-      status: { $in: ['DELIVERED', 'COMPLETED'] }
-    });
-
-    for (const booking of deliveredBookings) {
-      const reviews = await Review.find({ booking: booking._id });
-      const categories = reviews.map(r => r.category);
-      
-      const hasMerchantReview = categories.includes('Merchant');
-      const hasPlatformReview = categories.includes('Platform');
-
-      if (!hasMerchantReview || !hasPlatformReview) {
-        return res.json({ 
-          hasPending: true, 
-          bookingId: booking._id,
-          orderNumber: booking.orderNumber || booking._id.toString().slice(-6).toUpperCase()
-        });
-      }
-    }
-
-    res.json({ hasPending: false });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // @desc    Create a review
 // @route   POST /api/reviews
 // @access  Private
@@ -87,6 +55,21 @@ export const createReview = async (req, res) => {
     res.status(201).json(createdReview);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Get reviews for a specific booking
+// @route   GET /api/reviews/booking/:bookingId
+// @access  Private
+export const getBookingReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({ booking: req.params.bookingId })
+      .populate('reviewer', 'name')
+      .populate('target', 'name')
+      .sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

@@ -69,6 +69,7 @@ const SupportPage = lazy(() => import("./pages/customer/SupportPage"));
 const StaffDashboardPage = lazy(() => import("./pages/staff/StaffDashboardPage"));
 const StaffOrderPage = lazy(() => import("./pages/staff/StaffOrderPage"));
 const StaffOrdersPage = lazy(() => import("./pages/staff/StaffOrdersPage"));
+const StaffCarWashPage = lazy(() => import("./pages/staff/CarWashPage"));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -175,6 +176,7 @@ const App = () => (
               <Route path="/staff/notifications" element={<MyNotificationsPage />} />
               <Route path="/staff/order/:id" element={<StaffOrderPage />} />
               <Route path="/staff/orders" element={<StaffOrdersPage />} />
+              <Route path="/staff/car-wash" element={<StaffCarWashPage />} />
             </Route>
           </Route>
 

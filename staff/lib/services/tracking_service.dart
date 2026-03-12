@@ -211,6 +211,10 @@ class StaffTrackingService {
       lastUpdate: now,
     );
 
+    debugPrint(
+      'TrackingService: Position update: ${position.latitude}, ${position.longitude}',
+    );
+
     if (_targetLat != null &&
         _targetLng != null &&
         _targetForStatus != null &&
@@ -249,11 +253,13 @@ class StaffTrackingService {
       try {
         socket.emit('location', payload);
         _lastSocketMs = nowMs;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('TrackingService: Socket emit error: $e');
+      }
     }
 
-    // Persistent update via REST - every 1 minute as requested
-    if (nowMs - _lastRestMs > 60000) {
+    // Persistent update via REST - every 10 seconds as a fallback
+    if (nowMs - _lastRestMs > 10000) {
       final body = <String, dynamic>{
         'lat': position.latitude,
         'lng': position.longitude,
@@ -267,7 +273,9 @@ class StaffTrackingService {
         final updated = info.value.copyWith(lastServerSync: DateTime.now());
         info.value = updated;
         _lastRestMs = nowMs;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('TrackingService: REST update error: $e');
+      }
     }
   }
 }

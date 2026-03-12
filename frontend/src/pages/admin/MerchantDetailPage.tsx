@@ -70,7 +70,6 @@ const AdminMerchantDetailPage: React.FC = () => {
     'REACHED_CUSTOMER', 
     'VEHICLE_PICKED', 
     'REACHED_MERCHANT', 
-    'VEHICLE_AT_MERCHANT', 
     'SERVICE_STARTED',
     'SERVICE_COMPLETED',
     'OUT_FOR_DELIVERY'
@@ -127,8 +126,33 @@ const AdminMerchantDetailPage: React.FC = () => {
                   <Calendar className="w-4 h-4" />
                   Joined {new Date(merchant.createdAt || '').toLocaleDateString()}
                 </div>
+                {merchant.location && (
+                  <div className="flex items-center gap-2 col-span-1 md:col-span-2">
+                    <MapPin className="w-4 h-4" />
+                    {merchant.location.address || `${merchant.location.lat}, ${merchant.location.lng}`}
+                    {merchant.location.lat && merchant.location.lng && (
+                      <a 
+                        href={`https://www.google.com/maps?q=${merchant.location.lat},${merchant.location.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline text-xs ml-1"
+                      >
+                        (View on Map)
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/admin/tracking', { state: { selectedAsset: merchant } })}
+              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              <MapPin className="w-4 h-4" />
+              Live Tracking
+            </button>
           </div>
         </div>
       </div>

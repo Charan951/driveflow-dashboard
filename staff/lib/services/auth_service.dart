@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/env.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
+import 'notification_service.dart';
 import 'socket_service.dart';
 
 class AuthService {
@@ -38,6 +39,9 @@ class AuthService {
     // Reconnect socket with new token
     await SocketService().reconnect();
 
+    // Sync FCM token
+    NotificationService().syncToken();
+
     return StaffUser.fromJson(response);
   }
 
@@ -45,7 +49,12 @@ class AuthService {
     final json = await AppStorage().getUserJson();
     if (json == null || json.isEmpty) return null;
     final map = jsonDecode(json) as Map<String, dynamic>;
-    return StaffUser.fromJson(map);
+    final user = StaffUser.fromJson(map);
+
+    // Sync FCM token if we have a user
+    NotificationService().syncToken();
+
+    return user;
   }
 
   Future<void> logout() async {

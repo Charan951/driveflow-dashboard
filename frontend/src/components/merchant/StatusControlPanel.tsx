@@ -26,8 +26,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);
 
   let nextStatus = '';
-  if (booking.status === 'REACHED_MERCHANT') nextStatus = 'VEHICLE_AT_MERCHANT';
-  else if (booking.status === 'VEHICLE_AT_MERCHANT') nextStatus = 'SERVICE_STARTED';
+  if (booking.status === 'REACHED_MERCHANT') nextStatus = 'SERVICE_STARTED';
   else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
   else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
   else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
