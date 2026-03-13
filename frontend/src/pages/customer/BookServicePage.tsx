@@ -165,9 +165,21 @@ const BookServicePage: React.FC = () => {
       const newBooking = await bookingService.createBooking(bookingData);
       
       if (isCarWashService && newBooking.requiresPayment) {
-        // For car wash, redirect to payment page
-        toast.success('Car wash booking created! Please complete payment to confirm.');
-        navigate(`/track/${newBooking._id}?payment=required`);
+        // For car wash, store temp booking data and redirect to payment
+        const tempBookingData = {
+          ...bookingData,
+          totalAmount: totalPrice,
+          isCarWashService: true
+        };
+        
+        toast.success('Car wash booking prepared! Please complete payment to create the booking.');
+        // Navigate to a payment page with temp data
+        navigate('/payment', { 
+          state: { 
+            tempBookingData,
+            tempBookingId: newBooking.tempBookingId 
+          } 
+        });
       } else {
         toast.success('Booking confirmed! We have scheduled your service.');
         navigate(`/track/${newBooking._id}`);

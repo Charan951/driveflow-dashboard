@@ -53,6 +53,7 @@ const ServiceDetailsPage = lazy(() => import("./pages/public/ServiceDetailsPage"
 const DashboardPage = lazy(() => import("./pages/customer/DashboardPage"));
 const MyBookingsPage = lazy(() => import("./pages/customer/MyBookingsPage"));
 const MyPaymentsPage = lazy(() => import("./pages/customer/MyPaymentsPage"));
+const PaymentPage = lazy(() => import("./pages/customer/PaymentPage"));
 const AddVehiclePage = lazy(() => import("./pages/customer/AddVehiclePage"));
 const ServicesPage = lazy(() => import("./pages/customer/ServicesPage"));
 const BookServicePage = lazy(() => import("./pages/customer/BookServicePage"));
@@ -156,6 +157,7 @@ const App = () => (
               <Route path="/notifications" element={<MyNotificationsPage />} />
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
               <Route path="/add-vehicle" element={<AddVehiclePage />} />
               <Route path="/dashboard/services" element={<ServicesPage />} />
               <Route path="/book-service" element={<BookServicePage />} />

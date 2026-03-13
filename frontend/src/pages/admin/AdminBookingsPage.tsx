@@ -192,7 +192,11 @@ const AdminBookingsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredBookings.map((booking) => (
-                  <tr key={booking._id} className="hover:bg-muted/30 transition-colors">
+                  <tr 
+                    key={booking._id} 
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/admin/bookings/${booking._id}`)}
+                  >
                     <td className="p-4">
                       <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
                     </td>

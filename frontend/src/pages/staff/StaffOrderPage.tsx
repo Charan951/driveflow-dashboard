@@ -182,9 +182,7 @@ const StaffOrderPage: React.FC = () => {
         }
       } else {
         // Handle regular service status updates
-        if (newStatus === 'ACCEPTED') {
-          await bookingService.updateBookingStatus(order._id, newStatus);
-        } else if (newStatus === 'VEHICLE_PICKED') {
+        if (newStatus === 'VEHICLE_PICKED') {
           const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
           if (photos.length < 4) {
             toast.error('Please upload 4 vehicle photos before picking up the vehicle');
@@ -321,8 +319,8 @@ const StaffOrderPage: React.FC = () => {
   useEffect(() => {
     if (!staffLocation || !order || isUpdating) return;
 
-    // 1. Reaching Customer (Status: ACCEPTED)
-    if (order.status === 'ACCEPTED' && order.location) {
+    // 1. Reaching Customer (Status: ASSIGNED or ACCEPTED)
+    if ((order.status === 'ASSIGNED' || order.status === 'ACCEPTED') && order.location) {
         const targetLat = typeof order.location === 'object' ? order.location.lat : null;
         const targetLng = typeof order.location === 'object' ? order.location.lng : null;
 
@@ -375,6 +373,7 @@ const StaffOrderPage: React.FC = () => {
     let destLat: number | undefined;
     let destLng: number | undefined;
     if (
+      order.status === 'ASSIGNED' ||
       order.status === 'ACCEPTED' ||
       order.status === 'REACHED_CUSTOMER' ||
       order.status === 'OUT_FOR_DELIVERY' ||
@@ -626,9 +625,9 @@ const StaffOrderPage: React.FC = () => {
         default: return null;
       }
     } else {
-      // Regular service workflow - requires acceptance
+      // Regular service workflow - auto-accepted when assigned
       switch (currentStatus) {
-        case 'ASSIGNED': return { label: 'Accept Order', nextStatus: 'ACCEPTED', color: 'bg-primary hover:bg-primary/90' };
+        case 'ASSIGNED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
         case 'ACCEPTED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
         case 'REACHED_CUSTOMER': return { label: 'Pickup Vehicle from Customer', nextStatus: 'VEHICLE_PICKED', color: 'bg-blue-600 hover:bg-blue-700' };
         case 'VEHICLE_PICKED': return { label: 'Reached Service Center', nextStatus: 'REACHED_MERCHANT', color: 'bg-purple-600 hover:bg-purple-700' };

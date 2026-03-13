@@ -89,112 +89,29 @@ export const createBooking = async (req, res) => {
       service.category === 'Car Wash' || service.category === 'Wash'
     );
 
-    // For car wash services, create booking with pending payment status
+    // For car wash services, store booking data temporarily and require payment first
     if (isCarWashService) {
-      const MAX_RETRIES = 5;
-      let lastError = null;
-      let createdBooking = null;
+      // Store booking data in session/temporary storage for payment processing
+      const tempBookingData = {
+        user: req.user._id,
+        vehicle: vehicleId,
+        services: serviceIds,
+        date,
+        notes,
+        location,
+        totalAmount,
+        isCarWashService: true
+      };
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          const orderNumber = await Counter.next('booking');
-          const booking = new Booking({
-            user: req.user._id,
-            vehicle: vehicleId,
-            services: serviceIds,
-            date,
-            orderNumber,
-            notes,
-            location,
-            totalAmount,
-            paymentStatus: 'pending', // Payment required before confirmation
-            status: 'CREATED', // Stays in CREATED until admin assigns staff
-            carWash: {
-              isCarWashService: true,
-              beforeWashPhotos: [],
-              afterWashPhotos: [],
-            }
-          });
-
-          createdBooking = await booking.save();
-          break;
-        } catch (err) {
-          lastError = err;
-          // Retry on duplicate orderNumber, otherwise abort
-          const isDuplicate =
-            err &&
-            err.code === 11000 &&
-            (err.keyPattern?.orderNumber || String(err.message || '').includes('orderNumber_1'));
-
-          if (!isDuplicate) {
-            throw err;
-          }
-
-          // Align counter with current max orderNumber to avoid repeated collisions
-          try {
-            const lastWithOrder = await Booking.findOne({ orderNumber: { $ne: null } })
-              .sort({ orderNumber: -1 })
-              .select('orderNumber')
-              .lean();
-            if (lastWithOrder && typeof lastWithOrder.orderNumber === 'number') {
-              await Counter.findOneAndUpdate(
-                { name: 'booking' },
-                { $set: { seq: lastWithOrder.orderNumber } },
-                { upsert: true }
-              );
-            }
-          } catch (alignError) {
-            console.error('Failed to align booking counter', alignError);
-          }
-        }
-      }
-
-      if (!createdBooking) {
-        throw lastError || new Error('Failed to create booking with unique order number');
-      }
-
-      // Send confirmation email (asynchronously)
-      if (req.user.email) {
-        const serviceNames = services.map(s => s.name).join(', ');
-        sendEmail(
-          req.user.email,
-          'Car Wash Booking Created - Payment Required',
-          `Dear User,\n\nYour car wash booking for ${serviceNames} has been created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nPlease complete the payment to confirm your booking.\n\nThank you for choosing DriveFlow!`
-        ).catch(emailError => console.error('Email sending failed:', emailError));
-      }
-
+      // Return temporary booking data for payment processing
       res.status(201).json({
-        ...createdBooking.toObject(),
+        tempBookingId: `temp_${Date.now()}_${req.user._id}`,
+        ...tempBookingData,
         requiresPayment: true,
-        message: 'Car wash booking created. Please complete payment to confirm.'
+        message: 'Car wash booking prepared. Please complete payment to create the booking.'
       });
 
-      // Send push to customer
-      try {
-        await sendPushToUser(
-          req.user._id,
-          'Car Wash Booking Created',
-          `Your car wash booking (#${createdBooking.orderNumber}) has been created. Please complete payment to confirm.`,
-          { bookingId: createdBooking._id.toString(), type: 'car_wash_payment_required' },
-          'order'
-        );
-      } catch (err) {
-        console.error('Customer notification error (createBooking):', err);
-      }
-
-      // Emit socket event for real-time updates
-      try {
-        const populated = await Booking.findById(createdBooking._id)
-          .populate('user', 'id name email phone')
-          .populate('vehicle')
-          .populate('services');
-          
-        emitBookingUpdate(populated || createdBooking);
-      } catch (err) {
-        console.error('Socket emit error (createBooking):', err);
-      }
-
-      return; // Exit early for car wash services
+      return; // Exit early for car wash services - no actual booking created yet
     }
 
     // Regular service booking flow (existing logic)
@@ -509,6 +426,7 @@ export const assignBooking = async (req, res) => {
       if (booking.carWash?.isCarWashService) {
         if (carWashStaffId) {
           booking.carWash.staffAssigned = carWashStaffId;
+          // Auto-accept when admin assigns car wash staff
           booking.status = 'ASSIGNED';
         }
         if (slot) booking.date = slot;
@@ -523,8 +441,15 @@ export const assignBooking = async (req, res) => {
         if (booking.status === 'CREATED') {
           const canAssign = booking.merchant && booking.pickupDriver;
           if (canAssign) {
+            // Auto-accept when admin assigns both merchant and driver
             booking.status = 'ASSIGNED';
           }
+        }
+        
+        // If only staff is assigned (driver or technician), also auto-accept
+        if (booking.status === 'ASSIGNED' && (driverId || technicianId)) {
+          // Staff automatically accepts when assigned by admin
+          // No manual acceptance required
         }
       }
 

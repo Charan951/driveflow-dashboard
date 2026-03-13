@@ -23,8 +23,11 @@ export interface PaymentData {
 
 export const paymentService = {
   // Dummy payment (replaces Razorpay)
-  processDummyPayment: async (bookingId: string) => {
-    const response = await api.post('/payments/dummy-pay', { bookingId });
+  processDummyPayment: async (bookingId: string, tempBookingData?: any) => {
+    const response = await api.post('/payments/dummy-pay', { 
+      bookingId: tempBookingData ? undefined : bookingId,
+      tempBookingData 
+    });
     return response.data;
   },
 

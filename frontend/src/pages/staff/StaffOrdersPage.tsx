@@ -181,20 +181,6 @@ const StaffOrdersPage: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleAcceptOrder = async (orderId: string) => {
-    try {
-        const loadingToast = toast.loading('Accepting order...');
-        await bookingService.updateBookingStatus(orderId, 'ACCEPTED');
-        setActiveBookingId(orderId);
-        toast.dismiss(loadingToast);
-        toast.success('Order accepted successfully');
-        fetchData();
-    } catch (error) {
-        console.error(error);
-        toast.error('Failed to accept order');
-    }
-  };
-
   const handleGetDirections = (order: Booking) => {
     const destLat = order.location?.lat;
     const destLng = order.location?.lng;
@@ -439,42 +425,31 @@ const StaffOrdersPage: React.FC = () => {
                       );
 
                     if (order.status === 'ASSIGNED') {
-                      if (isCarWashService) {
-                        // Car wash services don't need acceptance - show direct action buttons
-                        return (
-                          <>
-                            {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
-                                className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                                <Navigation className="w-4 h-4" /> Get Directions
-                              </button>
-                            )}
+                      // All services auto-accepted when assigned by admin - show direct action buttons
+                      return (
+                        <>
+                          {(['ASSIGNED', 'ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
+                              className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                              <Navigation className="w-4 h-4" /> Get Directions
+                            </button>
+                          )}
 
-                            <div className="flex gap-3">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
-                                className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                                <Upload className="w-3.5 h-3.5" /> Upload
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
-                                className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                                Update
-                              </button>
-                            </div>
-                          </>
-                        );
-                      } else {
-                        // Regular services need acceptance
-                        return (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleAcceptOrder(order._id); }}
-                            className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                            Accept Order
-                          </button>
-                        );
-                      }
+                          <div className="flex gap-3">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
+                              className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
+                              <Upload className="w-3.5 h-3.5" /> Upload
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
+                              className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                              Update
+                            </button>
+                          </div>
+                        </>
+                      );
                     } else {
                       // For all other statuses, show regular action buttons
                       return (

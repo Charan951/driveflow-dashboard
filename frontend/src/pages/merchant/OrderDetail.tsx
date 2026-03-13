@@ -80,19 +80,46 @@ const OrderDetail: React.FC = () => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   const fetchBooking = useCallback(async () => {
     if (!id) return;
     try {
       const data = await bookingService.getBookingById(id);
+      const previousQCStatus = booking?.qc?.completedAt;
+      const newQCStatus = data.qc?.completedAt;
+      
       setBooking(data);
+      
+      // Auto-switch to Billing tab when QC is completed (since Service is now last)
+      if (!previousQCStatus && newQCStatus) {
+        setActiveTab('billing');
+      }
+      
+      // Set initial tab based on booking state
+      if (!activeTab || activeTab === 'overview') {
+        if (data.qc?.completedAt) {
+          setActiveTab('billing'); // Go to billing after QC completion
+        } else if (data.inspection?.completedAt) {
+          setActiveTab('qc');
+        } else if (data.status === 'SERVICE_STARTED') {
+          setActiveTab('inspection');
+        } else {
+          setActiveTab('overview');
+        }
+      }
     } catch (error) {
       toast.error('Failed to load order details');
       navigate('/merchant/orders');
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, booking?.qc?.completedAt, activeTab]);
+
+  const handleQCUpdate = useCallback(async () => {
+    await fetchBooking();
+    // The fetchBooking function will handle the tab switch automatically
+  }, [fetchBooking]);
 
   useEffect(() => {
     fetchBooking();
@@ -166,7 +193,8 @@ const OrderDetail: React.FC = () => {
       {/* Main Content Tabs */}
       <motion.div variants={itemVariants}>
         <Tabs 
-          defaultValue={booking.inspection?.completedAt ? "service" : "overview"} 
+          value={activeTab}
+          onValueChange={setActiveTab}
           className="w-full"
         >
             <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
@@ -177,13 +205,6 @@ const OrderDetail: React.FC = () => {
                     title={booking.status !== 'SERVICE_STARTED' ? "Available only when service is started" : ""}
                 >
                     Inspection
-                </TabsTrigger>
-                <TabsTrigger 
-                    value="service"
-                    disabled={!booking.inspection?.completedAt}
-                    title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
-                >
-                    Service
                 </TabsTrigger>
                 <TabsTrigger 
                     value="qc"
@@ -198,6 +219,13 @@ const OrderDetail: React.FC = () => {
                     title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
                 >
                     Billing
+                </TabsTrigger>
+                <TabsTrigger 
+                    value="service"
+                    disabled={!booking.qc?.completedAt}
+                    title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                >
+                    Service
                 </TabsTrigger>
             </TabsList>
 
@@ -363,7 +391,7 @@ const OrderDetail: React.FC = () => {
 
             {/* QC Tab */}
             <TabsContent value="qc" className="mt-6">
-                <QCPanel booking={booking} onUpdate={fetchBooking} />
+                <QCPanel booking={booking} onUpdate={handleQCUpdate} />
             </TabsContent>
 
             {/* Billing Tab */}

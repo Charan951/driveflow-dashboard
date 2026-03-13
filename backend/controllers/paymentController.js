@@ -10,9 +10,135 @@ import { sendPushToUser } from '../utils/pushService.js';
  * @access  Private
  */
 export const dummyPayment = async (req, res) => {
-  const { bookingId } = req.body;
+  const { bookingId, tempBookingData } = req.body;
 
   try {
+    console.log('Payment request received:', { bookingId, tempBookingData });
+
+    // Handle car wash temporary booking creation after payment
+    if (tempBookingData && tempBookingData.isCarWashService) {
+      console.log('Processing car wash payment with temp data:', tempBookingData);
+      
+      // Import required models
+      const Counter = (await import('../models/Counter.js')).default;
+      const Service = (await import('../models/Service.js')).default;
+      
+      // Create the actual booking after successful payment
+      const MAX_RETRIES = 5;
+      let lastError = null;
+      let createdBooking = null;
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const orderNumber = await Counter.next('booking');
+          const booking = new Booking({
+            user: tempBookingData.user || req.user._id,
+            vehicle: tempBookingData.vehicleId,
+            services: tempBookingData.serviceIds,
+            date: tempBookingData.date,
+            orderNumber,
+            notes: tempBookingData.notes,
+            location: tempBookingData.location,
+            totalAmount: tempBookingData.totalAmount,
+            paymentStatus: 'paid', // Payment completed
+            status: 'CREATED', // Created after payment
+            paymentId: `dummy_pay_${crypto.randomBytes(8).toString('hex')}`,
+            carWash: {
+              isCarWashService: true,
+              beforeWashPhotos: [],
+              afterWashPhotos: [],
+            }
+          });
+
+          // Calculate platform commission (10%)
+          const commissionRate = 0.10;
+          booking.platformFee = tempBookingData.totalAmount * commissionRate;
+          booking.merchantEarnings = tempBookingData.totalAmount - booking.platformFee;
+
+          console.log('Attempting to save booking:', booking);
+          createdBooking = await booking.save();
+          console.log('Booking saved successfully:', createdBooking._id);
+          break;
+        } catch (err) {
+          console.error('Error saving booking:', err);
+          lastError = err;
+          const isDuplicate =
+            err &&
+            err.code === 11000 &&
+            (err.keyPattern?.orderNumber || String(err.message || '').includes('orderNumber_1'));
+
+          if (!isDuplicate) {
+            throw err;
+          }
+
+          // Align counter with current max orderNumber
+          try {
+            const lastWithOrder = await Booking.findOne({ orderNumber: { $ne: null } })
+              .sort({ orderNumber: -1 })
+              .select('orderNumber')
+              .lean();
+            if (lastWithOrder && typeof lastWithOrder.orderNumber === 'number') {
+              await Counter.findOneAndUpdate(
+                { name: 'booking' },
+                { $set: { seq: lastWithOrder.orderNumber } },
+                { upsert: true }
+              );
+            }
+          } catch (alignError) {
+            console.error('Failed to align booking counter', alignError);
+          }
+        }
+      }
+
+      if (!createdBooking) {
+        console.error('Failed to create booking after retries:', lastError);
+        throw lastError || new Error('Failed to create booking with unique order number');
+      }
+
+      // Populate for real-time consumers
+      const populated = await Booking.findById(createdBooking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('merchant', 'name email phone location')
+        .populate('pickupDriver', 'name email phone')
+        .populate('technician', 'name email phone')
+        .populate('carWash.staffAssigned', 'name email phone');
+
+      // Emit socket event for real-time updates
+      emitBookingUpdate(populated);
+
+      // Send confirmation email
+      if (req.user.email) {
+        const services = await Service.find({ _id: { $in: tempBookingData.serviceIds } });
+        const serviceNames = services.map(s => s.name).join(', ');
+        const { sendEmail } = await import('../utils/emailService.js');
+        sendEmail(
+          req.user.email,
+          'Car Wash Booking Confirmed',
+          `Dear User,\n\nYour car wash booking for ${serviceNames} has been confirmed after payment.\nDate: ${new Date(tempBookingData.date).toLocaleDateString()}\nTotal Amount: ₹${tempBookingData.totalAmount}\nOrder Number: #${createdBooking.orderNumber}\n\nAdmin will assign staff to your booking shortly.\n\nThank you for choosing DriveFlow!`
+        ).catch(emailError => console.error('Email sending failed:', emailError));
+      }
+
+      // Notify customer about successful booking creation
+      await sendPushToUser(
+        req.user._id,
+        'Car Wash Booking Confirmed',
+        `Payment successful! Your car wash booking #${createdBooking.orderNumber} has been created. Admin will assign staff shortly.`,
+        { type: 'car_wash_confirmed', bookingId: createdBooking._id.toString() }
+      );
+
+      console.log('Car wash payment completed successfully:', createdBooking._id);
+      return res.json({ 
+        message: 'Car wash payment successful and booking created',
+        bookingId: createdBooking._id,
+        orderNumber: createdBooking.orderNumber,
+        paymentId: createdBooking.paymentId,
+        status: 'paid'
+      });
+    }
+
+    // Handle existing booking payment (regular services)
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
@@ -27,7 +153,7 @@ export const dummyPayment = async (req, res) => {
       return res.json({ message: 'Payment already completed', booking });
     }
 
-    // Process dummy payment
+    // Process dummy payment for existing booking
     booking.paymentStatus = 'paid';
     booking.paymentId = `dummy_pay_${crypto.randomBytes(8).toString('hex')}`;
     
@@ -35,9 +161,6 @@ export const dummyPayment = async (req, res) => {
     const commissionRate = 0.10;
     booking.platformFee = booking.totalAmount * commissionRate;
     booking.merchantEarnings = booking.totalAmount - booking.platformFee;
-    
-    // For car wash services, do NOT auto-assign staff - admin will assign manually
-    // Just update payment status and keep status as CREATED
     
     await booking.save();
 
