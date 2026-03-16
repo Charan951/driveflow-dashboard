@@ -15,9 +15,9 @@ export const dummyPayment = async (req, res) => {
   try {
     console.log('Payment request received:', { bookingId, tempBookingData });
 
-    // Handle car wash temporary booking creation after payment
-    if (tempBookingData && tempBookingData.isCarWashService) {
-      console.log('Processing car wash payment with temp data:', tempBookingData);
+    // Handle temporary booking creation after payment (Car Wash, Battery, Tires)
+    if (tempBookingData && tempBookingData.requiresPaymentService) {
+      console.log('Processing payment-required service with temp data:', tempBookingData);
       
       // Import required models
       const Counter = (await import('../models/Counter.js')).default;
@@ -44,7 +44,7 @@ export const dummyPayment = async (req, res) => {
             status: 'CREATED', // Created after payment
             paymentId: `dummy_pay_${crypto.randomBytes(8).toString('hex')}`,
             carWash: {
-              isCarWashService: true,
+              isCarWashService: tempBookingData.requiresPaymentService,
               beforeWashPhotos: [],
               afterWashPhotos: [],
             }
@@ -112,25 +112,38 @@ export const dummyPayment = async (req, res) => {
       if (req.user.email) {
         const services = await Service.find({ _id: { $in: tempBookingData.serviceIds } });
         const serviceNames = services.map(s => s.name).join(', ');
+        const serviceType = services.some(s => s.category === 'Car Wash' || s.category === 'Wash') 
+          ? 'Car Wash' 
+          : services.some(s => s.category === 'Battery' || s.category === 'Tyre & Battery')
+          ? 'Battery'
+          : 'Tire';
+        
         const { sendEmail } = await import('../utils/emailService.js');
         sendEmail(
           req.user.email,
-          'Car Wash Booking Confirmed',
-          `Dear User,\n\nYour car wash booking for ${serviceNames} has been confirmed after payment.\nDate: ${new Date(tempBookingData.date).toLocaleDateString()}\nTotal Amount: ₹${tempBookingData.totalAmount}\nOrder Number: #${createdBooking.orderNumber}\n\nAdmin will assign staff to your booking shortly.\n\nThank you for choosing DriveFlow!`
+          `${serviceType} Service Booking Confirmed`,
+          `Dear User,\n\nYour ${serviceType.toLowerCase()} service booking for ${serviceNames} has been confirmed after payment.\nDate: ${new Date(tempBookingData.date).toLocaleDateString()}\nTotal Amount: ₹${tempBookingData.totalAmount}\nOrder Number: #${createdBooking.orderNumber}\n\nAdmin will assign staff to your booking shortly.\n\nThank you for choosing DriveFlow!`
         ).catch(emailError => console.error('Email sending failed:', emailError));
       }
 
       // Notify customer about successful booking creation
+      const serviceType = await Service.findOne({ _id: { $in: tempBookingData.serviceIds } });
+      const notificationTitle = serviceType?.category === 'Car Wash' || serviceType?.category === 'Wash'
+        ? 'Car Wash Booking Confirmed'
+        : serviceType?.category === 'Battery' || serviceType?.category === 'Tyre & Battery'
+        ? 'Battery Service Booking Confirmed'
+        : 'Tire Service Booking Confirmed';
+        
       await sendPushToUser(
         req.user._id,
-        'Car Wash Booking Confirmed',
-        `Payment successful! Your car wash booking #${createdBooking.orderNumber} has been created. Admin will assign staff shortly.`,
-        { type: 'car_wash_confirmed', bookingId: createdBooking._id.toString() }
+        notificationTitle,
+        `Payment successful! Your service booking #${createdBooking.orderNumber} has been created. Admin will assign staff shortly.`,
+        { type: 'service_confirmed', bookingId: createdBooking._id.toString() }
       );
 
-      console.log('Car wash payment completed successfully:', createdBooking._id);
+      console.log('Payment-required service completed successfully:', createdBooking._id);
       return res.json({ 
-        message: 'Car wash payment successful and booking created',
+        message: 'Payment successful and booking created',
         bookingId: createdBooking._id,
         orderNumber: createdBooking.orderNumber,
         paymentId: createdBooking.paymentId,

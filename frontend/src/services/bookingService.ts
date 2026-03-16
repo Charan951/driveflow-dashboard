@@ -9,7 +9,7 @@ export interface Booking {
   vehicle: Vehicle | string;
   services: Service[] | string[];
   date: string;
-  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED';
+  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED' | 'STAFF_REACHED_MERCHANT' | 'PICKUP_BATTERY_TIRE' | 'INSTALLATION' | 'DELIVERY';
   totalAmount: number;
   notes?: string;
   location?: {
@@ -47,6 +47,17 @@ export interface Booking {
     washStartedAt?: string;
     washCompletedAt?: string;
     staffAssigned?: { _id: string; name: string; email: string; phone?: string };
+  };
+  batteryTire?: {
+    isBatteryTireService: boolean;
+    merchantApproval: {
+      status: 'PENDING' | 'APPROVED' | 'REJECTED';
+      price?: number;
+      image?: string;
+      notes?: string;
+      approvedAt?: string;
+      rejectedAt?: string;
+    };
   };
   inspection?: {
     photos?: string[];
@@ -205,6 +216,12 @@ export const bookingService = {
 
   updateBookingDetails: async (id: string, data: BookingDetailsUpdate) => {
     const response = await api.put(`/bookings/${id}/details`, data);
+    return response.data;
+  },
+
+  // Battery/Tire specific
+  batteryTireApproval: async (id: string, data: { status: 'APPROVED' | 'REJECTED'; price?: number; image?: string; notes?: string }) => {
+    const response = await api.put(`/bookings/${id}/battery-tire-approval`, data);
     return response.data;
   },
 };

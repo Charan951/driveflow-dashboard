@@ -19,6 +19,7 @@ import {
   completeCarWash,
   testGenerateOtp,
   getCarWashBookings,
+  batteryTireApproval,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -40,6 +41,9 @@ router.route('/:bookingId/carwash/after-photos').put(protect, uploadCarWashAfter
 router.route('/:bookingId/carwash/start').put(protect, startCarWash);
 router.route('/:bookingId/carwash/complete').put(protect, completeCarWash);
 router.route('/:bookingId/test-generate-otp').put(protect, testGenerateOtp);
+
+// Battery/Tire specific routes
+router.route('/:id/battery-tire-approval').put(protect, batteryTireApproval);
 
 router.route('/:id')
   .get(protect, getBookingById);

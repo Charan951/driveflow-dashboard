@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
@@ -34,6 +35,16 @@ const StaffOrderPage: React.FC = () => {
         typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
       );
 
+    // Check if this is a battery or tire service
+    const isBatteryOrTireService = Array.isArray(order?.services) && 
+      order.services.some(service => 
+        typeof service === 'object' && (
+          service.category === 'Battery' || 
+          service.category === 'Tyres' || 
+          service.category === 'Tyre & Battery'
+        )
+      );
+
     if (newStatus === 'REACHED_CUSTOMER') {
       const targetLat = typeof order.location === 'object' ? order.location?.lat : null;
       const targetLng = typeof order.location === 'object' ? order.location?.lng : null;
@@ -55,6 +66,35 @@ const StaffOrderPage: React.FC = () => {
 
         if (distance > 100) {
           toast.error('You are too far from customer location (must be within 100 m).');
+          return;
+        }
+      } catch {
+        toast.error('Could not verify your current location');
+        return;
+      }
+    }
+
+    if (newStatus === 'STAFF_REACHED_MERCHANT') {
+      const targetLat = order.merchant?.location?.lat;
+      const targetLng = order.merchant?.location?.lng;
+
+      if (!targetLat || !targetLng) {
+        toast.error('Merchant location is not available');
+        return;
+      }
+
+      if (!staffLocation?.lat || !staffLocation?.lng) {
+        toast.error('Your live location is not available. Turn on tracking to continue.');
+        return;
+      }
+
+      try {
+        const from = turf.point([staffLocation.lng, staffLocation.lat]);
+        const to = turf.point([targetLng, targetLat]);
+        const distance = turf.distance(from, to, { units: 'meters' });
+
+        if (distance > 100) {
+          toast.error('You are too far from merchant location (must be within 100 m).');
           return;
         }
       } catch {
@@ -130,7 +170,20 @@ const StaffOrderPage: React.FC = () => {
     try {
       setIsUpdating(true);
       
-      if (isCarWashService) {
+      const isCarWashNow = Array.isArray(order?.services) && 
+        order.services.some(service => 
+          typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+        );
+
+      // Check if this is a battery or tire service
+      const isBatteryOrTireNow = Array.isArray(order?.services) && 
+        order.services.some(service => {
+          if (typeof service !== 'object' || !service.category) return false;
+          const cat = service.category.toLowerCase();
+          return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+        });
+      
+      if (isCarWashNow) {
         // Handle car wash specific status updates
         if (newStatus === 'CAR_WASH_STARTED') {
           // For car wash start, we might need to call a specific endpoint
@@ -180,6 +233,58 @@ const StaffOrderPage: React.FC = () => {
           console.log('Car wash service using generic updateBookingStatus for status:', newStatus);
           await bookingService.updateBookingStatus(order._id, newStatus);
         }
+      } else if (isBatteryOrTireNow) {
+        // Handle battery/tire specific status updates
+        if (newStatus === 'PICKUP_BATTERY_TIRE') {
+          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+          if (photos.length < 1) {
+            toast.error('Please upload at least 1 photo of the battery/tire before picking up');
+            setIsUpdating(false);
+            return;
+          }
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        } else if (newStatus === 'INSTALLATION') {
+          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+          if (photos.length < 2) {
+            toast.error('Please upload the New Part photo before starting installation');
+            setIsUpdating(false);
+            return;
+          }
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        } else if (newStatus === 'DELIVERY') {
+          // For battery/tire delivery, generate OTP first and ensure all 3 photos are uploaded
+          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+          if (photos.length < 3) {
+            toast.error('Please upload the Old Part photo before completing installation');
+            setIsUpdating(false);
+            return;
+          }
+          try {
+            // Check if OTP already exists
+            if (!order.deliveryOtp?.code) {
+              console.log('Generating OTP for battery/tire delivery');
+              await bookingService.generateDeliveryOtp(order._id);
+            }
+            
+            // Update status to DELIVERY (this will generate OTP in backend)
+            await bookingService.updateBookingStatus(order._id, newStatus);
+          } catch (error) {
+            console.error('Battery/tire delivery error:', error);
+            toast.error('Failed to start delivery');
+            setIsUpdating(false);
+            return;
+          }
+        } else if (newStatus === 'COMPLETED') {
+          // For battery/tire completion, verify OTP
+          const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
+          if (!otp) {
+            setIsUpdating(false);
+            return;
+          }
+          await bookingService.verifyDeliveryOtp(order._id, otp);
+        } else {
+          await bookingService.updateBookingStatus(order._id, newStatus);
+        }
       } else {
         // Handle regular service status updates
         if (newStatus === 'VEHICLE_PICKED') {
@@ -205,8 +310,11 @@ const StaffOrderPage: React.FC = () => {
       const updated = await bookingService.getBookingById(order._id);
       setOrder(updated);
       toast.success(`Order updated to ${newStatus.replace('_', ' ')}`);
-      // Navigation logic for regular services
-      if (!isCarWashService) {
+
+      // Emit manual socket update for immediate UI refresh across all portals
+      socketService.emit('bookingUpdated', updated);
+      // Navigation logic
+      if (!isCarWashNow) {
         if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
           const { lat, lng, address } = order.merchant.location;
           let url = '';
@@ -226,8 +334,15 @@ const StaffOrderPage: React.FC = () => {
             toast.warning("Merchant location coordinates missing, cannot start navigation automatically.");
           }
         }
-        if (newStatus === 'OUT_FOR_DELIVERY') {
-          toast.info('Delivery OTP sent to customer');
+        
+        // Navigation to customer for regular and battery/tire delivery
+        if (newStatus === 'OUT_FOR_DELIVERY' || newStatus === 'PICKUP_BATTERY_TIRE') {
+          if (newStatus === 'OUT_FOR_DELIVERY') {
+            toast.info('Delivery OTP sent to customer');
+          } else if (newStatus === 'PICKUP_BATTERY_TIRE') {
+            toast.info('Item picked up. Navigating to customer location.');
+          }
+
           if (order.location) {
             const loc =
               typeof order.location === 'object'
@@ -319,37 +434,72 @@ const StaffOrderPage: React.FC = () => {
   useEffect(() => {
     if (!staffLocation || !order || isUpdating) return;
 
-    // 1. Reaching Customer (Status: ASSIGNED or ACCEPTED)
-    if ((order.status === 'ASSIGNED' || order.status === 'ACCEPTED') && order.location) {
-        const targetLat = typeof order.location === 'object' ? order.location.lat : null;
-        const targetLng = typeof order.location === 'object' ? order.location.lng : null;
+    // 1. Reaching Customer (Status: ASSIGNED or ACCEPTED or PICKUP_BATTERY_TIRE)
+    if ((order.status === 'ASSIGNED' || order.status === 'ACCEPTED' || order.status === 'PICKUP_BATTERY_TIRE') && order.location) {
+        // Only for non-battery/tire services (regular flow)
+        const isBatteryOrTireService = Array.isArray(order?.services) && 
+          order.services.some(service => 
+            typeof service === 'object' && (
+              service.category === 'Battery' || 
+              service.category === 'Tyres' || 
+              service.category === 'Tyre & Battery'
+            )
+          );
 
-        if (targetLat && targetLng && staffLocation.lat && staffLocation.lng) {
-             const from = turf.point([staffLocation.lng, staffLocation.lat]);
-             const to = turf.point([targetLng, targetLat]);
-             const distance = turf.distance(from, to, { units: 'meters' });
-             
-             if (distance < 100) {
-                 toast.info("You have arrived at the customer location.");
-                 handleStatusUpdate('REACHED_CUSTOMER');
-             }
+        const isBtPickupDone = isBatteryOrTireService && order.status === 'PICKUP_BATTERY_TIRE';
+        const isRegularAssigned = !isBatteryOrTireService && (order.status === 'ASSIGNED' || order.status === 'ACCEPTED');
+
+        if (isBtPickupDone || isRegularAssigned) {
+          const targetLat = typeof order.location === 'object' ? order.location.lat : null;
+          const targetLng = typeof order.location === 'object' ? order.location.lng : null;
+
+          if (targetLat && targetLng && staffLocation.lat && staffLocation.lng) {
+               const from = turf.point([staffLocation.lng, staffLocation.lat]);
+               const to = turf.point([targetLng, targetLat]);
+               const distance = turf.distance(from, to, { units: 'meters' });
+               
+               if (distance < 100) {
+                   toast.info("You have arrived at the customer location.");
+                   handleStatusUpdate('REACHED_CUSTOMER');
+               }
+          }
         }
     }
 
-    // 2. Reaching Merchant (Status: VEHICLE_PICKED)
-    if (order.status === 'VEHICLE_PICKED' && order.merchant?.location) {
-        const targetLat = order.merchant.location.lat;
-        const targetLng = order.merchant.location.lng;
+    // 2. Reaching Merchant (Status: VEHICLE_PICKED or Battery/Tire ASSIGNED)
+    if (order.merchant?.location) {
+        const isBatteryOrTireService = Array.isArray(order?.services) && 
+          order.services.some(service => 
+            typeof service === 'object' && (
+              service.category === 'Battery' || 
+              service.category === 'Tyres' || 
+              service.category === 'Tyre & Battery'
+            )
+          );
 
-        if (targetLat && targetLng && staffLocation.lat && staffLocation.lng) {
-             const from = turf.point([staffLocation.lng, staffLocation.lat]);
-             const to = turf.point([targetLng, targetLat]);
-             const distance = turf.distance(from, to, { units: 'meters' });
-             
-             if (distance < 100) {
-                 toast.info("You have arrived at the merchant location.");
-                 handleStatusUpdate('REACHED_MERCHANT');
-             }
+        const isMerchantApproved = order.batteryTire?.merchantApproval?.status === 'APPROVED';
+
+        const isHeadingToMerchant = (order.status === 'VEHICLE_PICKED') || 
+                                   (isBatteryOrTireService && order.status === 'ASSIGNED' && isMerchantApproved);
+
+        if (isHeadingToMerchant) {
+          const targetLat = order.merchant.location.lat;
+          const targetLng = order.merchant.location.lng;
+
+          if (targetLat && targetLng && staffLocation.lat && staffLocation.lng) {
+               const from = turf.point([staffLocation.lng, staffLocation.lat]);
+               const to = turf.point([targetLng, targetLat]);
+               const distance = turf.distance(from, to, { units: 'meters' });
+               
+               if (distance < 100) {
+                   toast.info("You have arrived at the merchant location.");
+                   if (isBatteryOrTireService && order.status === 'ASSIGNED') {
+                       handleStatusUpdate('STAFF_REACHED_MERCHANT');
+                   } else {
+                       handleStatusUpdate('REACHED_MERCHANT');
+                   }
+               }
+          }
         }
     }
   }, [order, staffLocation, isUpdating, handleStatusUpdate]);
@@ -410,13 +560,10 @@ const StaffOrderPage: React.FC = () => {
   }, [order, staffLocation]);
 
   const handleNavigate = () => {
-    const isCarWashService = Array.isArray(order?.services) && 
-      order.services.some(service => 
-        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-      );
-    
-    const isHeadingToMerchant = !isCarWashService && (
-      order?.status === 'VEHICLE_PICKED' || order?.status === 'SERVICE_COMPLETED'
+    const isHeadingToMerchant = !isCarWash && (
+      order?.status === 'VEHICLE_PICKED' || 
+      order?.status === 'SERVICE_COMPLETED' ||
+      (isBatteryOrTire && (order?.status === 'ASSIGNED' || order?.status === 'STAFF_REACHED_MERCHANT'))
     );
     
     const targetLocation = isHeadingToMerchant ? order?.merchant?.location : order?.location;
@@ -608,20 +755,42 @@ const StaffOrderPage: React.FC = () => {
 
   const services = Array.isArray(order.services) ? order.services : [];
 
-  const getNextStatusAction = (currentStatus: string) => {
-    // Check if this is a car wash service
-    const isCarWashService = Array.isArray(order?.services) && 
-      order.services.some(service => 
-        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-      );
+  // Service type flags (Consolidated)
+  const isCarWash = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('car wash') || cat.includes('wash');
+    });
 
-    if (isCarWashService) {
+  const isBatteryOrTire = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+    });
+
+  const isMerchantApproved = order.batteryTire?.merchantApproval?.status === 'APPROVED';
+
+  const getNextStatusAction = (currentStatus: string) => {
+    if (isCarWash) {
       // Car wash specific workflow - no acceptance needed
       switch (currentStatus) {
         case 'ASSIGNED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
         case 'REACHED_CUSTOMER': return { label: 'Start Car Wash', nextStatus: 'CAR_WASH_STARTED', color: 'bg-blue-600 hover:bg-blue-700' };
         case 'CAR_WASH_STARTED': return { label: 'Complete Car Wash', nextStatus: 'CAR_WASH_COMPLETED', color: 'bg-green-600 hover:bg-green-700' };
         case 'CAR_WASH_COMPLETED': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
+        default: return null;
+      }
+    } else if (isBatteryOrTire) {
+      // Battery/Tire specific workflow
+      switch (currentStatus) {
+        case 'ASSIGNED': return { label: 'Reached Merchant', nextStatus: 'STAFF_REACHED_MERCHANT', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'STAFF_REACHED_MERCHANT': return { label: 'Pickup Battery/Tire', nextStatus: 'PICKUP_BATTERY_TIRE', color: 'bg-purple-600 hover:bg-purple-700' };
+        case 'PICKUP_BATTERY_TIRE': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-orange-600 hover:bg-orange-700' };
+        case 'REACHED_CUSTOMER': return { label: 'Start Installation', nextStatus: 'INSTALLATION', color: 'bg-indigo-600 hover:bg-indigo-700' };
+        case 'INSTALLATION': return { label: 'Complete & Deliver', nextStatus: 'DELIVERY', color: 'bg-teal-600 hover:bg-teal-700' };
+        case 'DELIVERY': return { label: 'Verify OTP & Complete', nextStatus: 'COMPLETED', color: 'bg-green-600 hover:bg-green-700' };
         default: return null;
       }
     } else {
@@ -640,22 +809,46 @@ const StaffOrderPage: React.FC = () => {
 
   const nextAction = getNextStatusAction(order.status);
   const isWaitingForPayment = order.status === 'SERVICE_COMPLETED' && order.paymentStatus !== 'paid';
+  
+  const isAssignedStaff = user?._id === (typeof order.pickupDriver === 'object' ? order.pickupDriver?._id : order.pickupDriver) ||
+                          user?._id === (typeof order.technician === 'object' ? order.technician?._id : order.technician) ||
+                          user?._id === (typeof order.carWash?.staffAssigned === 'object' ? order.carWash?.staffAssigned?._id : order.carWash?.staffAssigned);
+
   const shouldDisablePrimaryAction =
     isUpdating ||
     isWaitingForPayment ||
+    !isAssignedStaff ||
     (nextAction?.nextStatus === 'VEHICLE_PICKED' &&
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4));
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4)) ||
+    (isBatteryOrTire && order.status === 'ASSIGNED' && !isMerchantApproved) ||
+    (isBatteryOrTire && nextAction?.nextStatus === 'PICKUP_BATTERY_TIRE' && 
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 1)) ||
+    (isBatteryOrTire && nextAction?.nextStatus === 'INSTALLATION' && 
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 2)) ||
+    (isBatteryOrTire && nextAction?.nextStatus === 'DELIVERY' && 
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 3));
 
-  // Determine display location
-  const isCarWashService = Array.isArray(order?.services) && 
-    order.services.some(service => 
-      typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+  // Determine display location and labels
+  const isHeadingToMerchant = !isCarWash && (
+      order.status === 'VEHICLE_PICKED' || 
+      (isBatteryOrTire && (order.status === 'ASSIGNED' || order.status === 'STAFF_REACHED_MERCHANT'))
     );
-  const isHeadingToMerchant = !isCarWashService && order.status === 'VEHICLE_PICKED';
-  const isPrePickupPhase = order.status === 'REACHED_CUSTOMER';
-  const targetLocation = isHeadingToMerchant ? order.merchant?.location : order.location;
-  const locationLabel = isHeadingToMerchant ? 'Drop-off Location (Workshop)' : 'Customer Location';
-  const navigateButtonText = isHeadingToMerchant ? 'Navigate to Workshop' : 'Navigate to Customer';
+  
+  const isPrePickupPhase = order.status === 'REACHED_CUSTOMER' || order.status === 'INSTALLATION' || (isBatteryOrTire && order.status === 'STAFF_REACHED_MERCHANT');
+  
+  // For battery/tire, target is ALWAYS merchant when status is ASSIGNED or STAFF_REACHED_MERCHANT
+  const targetLocation = isHeadingToMerchant 
+    ? order.merchant?.location 
+    : order.location;
+
+  const locationLabel = isHeadingToMerchant
+    ? 'Merchant/Workshop Location' 
+    : 'Customer Location';
+
+  const navigateButtonText = isHeadingToMerchant
+    ? 'Navigate to Merchant' 
+    : 'Navigate to Customer';
+
   const addressDisplay = typeof targetLocation === 'string' ? targetLocation : targetLocation?.address || 'No address provided';
 
   return (
@@ -664,29 +857,50 @@ const StaffOrderPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Order Details</h1>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-            order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+            order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
           }`}>
             {order.status.replace('_AT_MERCHANT', '')}
           </span>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
-          {Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
-            <>
-              <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-              <span className="text-green-700">Pickup photos ready</span>
-            </>
+          {isBatteryOrTire ? (
+            Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 3 ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <span className="text-green-700">All photos ready</span>
+              </>
+            ) : Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 1 ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <span className="text-green-700">Photos ready ({order.prePickupPhotos.length}/3)</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-amber-600">
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/3 photos` : '0/3 photos'}
+                </span>
+              </>
+            )
           ) : (
-            <>
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-amber-600">
-                {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4 photos` : '0/4 photos'}
-              </span>
-            </>
+            Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <span className="text-green-700">Pickup photos ready</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-amber-600">
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4 photos` : '0/4 photos'}
+                </span>
+              </>
+            )
           )}
         </span>
       </div>
 
-      {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED'].includes(order.status)) && (
+      {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'INSTALLATION', 'DELIVERY'].includes(order.status)) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
           <h3 className="font-medium">Order Actions</h3>
 
@@ -695,6 +909,12 @@ const StaffOrderPage: React.FC = () => {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>Waiting for Customer Payment (₹{order.totalAmount}). Staff cannot pick up the vehicle until payment is completed.</span>
+              </div>
+            )}
+            {isBatteryOrTire && order.status === 'ASSIGNED' && !isMerchantApproved && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>Waiting for Merchant Approval. You can only proceed once the merchant approves the service.</span>
               </div>
             )}
             {nextAction && (
@@ -723,21 +943,25 @@ const StaffOrderPage: React.FC = () => {
               size="lg"
               variant="secondary"
               className="w-full justify-center gap-2"
-              onClick={isCarWashService ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
-              disabled={isCarWashService ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
+              onClick={isCarWash ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
+              disabled={isCarWash ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
             >
               <Upload className="w-4 h-4" />
               {(() => {
-                const isCarWashService = Array.isArray(order?.services) && 
-                  order.services.some(service => 
-                    typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-                  );
-                
-                if (isCarWashService) {
+                if (isCarWash) {
                   if (order.status === 'REACHED_CUSTOMER') {
                     return isUploadingPrePickup ? 'Uploading...' : 'Upload Before Wash Photos';
                   } else if (order.status === 'CAR_WASH_STARTED') {
                     return isUploadingPrePickup ? 'Uploading...' : 'Upload After Wash Photos';
+                  }
+                  return 'Upload Photos';
+                } else if (isBatteryOrTire) {
+                  if (order.status === 'STAFF_REACHED_MERCHANT') {
+                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Merchant Pickup Photo';
+                  } else if (order.status === 'REACHED_CUSTOMER') {
+                    return isUploadingPrePickup ? 'Uploading...' : 'Upload New Part Photo';
+                  } else if (order.status === 'INSTALLATION') {
+                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Old Part Photo';
                   }
                   return 'Upload Photos';
                 } else {
@@ -903,12 +1127,7 @@ const StaffOrderPage: React.FC = () => {
 
         <TabsContent value="media" className="mt-4 space-y-4">
           {(() => {
-            const isCarWashService = Array.isArray(order?.services) && 
-              order.services.some(service => 
-                typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-              );
-
-            if (isCarWashService) {
+            if (isCarWash) {
               return (
                 <>
                   {/* Before Wash Photos */}
@@ -989,24 +1208,42 @@ const StaffOrderPage: React.FC = () => {
             } else {
               return (
                 <>
-                  {/* Regular Service Photos */}
+                  {/* Regular/Battery/Tire Service Photos */}
                   <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="space-y-1">
-                        <h3 className="font-medium">Pre-Pickup Vehicle Photos</h3>
+                        <h3 className="font-medium">
+                          {isBatteryOrTire ? 'Pickup & Installation Photos' : 'Pre-Pickup Vehicle Photos'}
+                        </h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
-                            <>
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                              <span className="text-green-700">4/4 photos captured</span>
-                            </>
+                          {isBatteryOrTire ? (
+                            order.prePickupPhotos && order.prePickupPhotos.length >= 3 ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                                <span className="text-green-700">3/3 photos captured</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                <span className="text-amber-600">
+                                  {order.prePickupPhotos?.length || 0}/3 photos
+                                </span>
+                              </>
+                            )
                           ) : (
-                            <>
-                              <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              <span className="text-amber-600">
-                                {order.prePickupPhotos?.length || 0}/4 photos
-                              </span>
-                            </>
+                            order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                                <span className="text-green-700">4/4 photos captured</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                <span className="text-amber-600">
+                                  {order.prePickupPhotos?.length || 0}/4 photos
+                                </span>
+                              </>
+                            )
                           )}
                         </div>
                       </div>
@@ -1014,13 +1251,18 @@ const StaffOrderPage: React.FC = () => {
                     <div className="grid grid-cols-4 gap-2">
                       {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
                         order.prePickupPhotos.map((url, index) => (
-                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                            <img src={url} alt={`Pre-pickup ${index + 1}`} className="w-full h-full object-cover" />
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
+                            <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                            {isBatteryOrTire && (
+                              <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
+                                {index === 0 ? 'Pickup' : index === 1 ? 'New Part' : index === 2 ? 'Old Part' : `Photo ${index + 1}`}
+                              </div>
+                            )}
                           </div>
                         ))
                       ) : (
                         <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
-                          No pre-pickup photos yet
+                          No photos yet
                         </div>
                       )}
                     </div>

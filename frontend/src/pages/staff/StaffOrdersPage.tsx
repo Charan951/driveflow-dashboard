@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { useTracking } from '@/hooks/use-tracking';
 import { getETA, ETAResponse } from '@/services/trackingService';
 
-const ACTIVE_STATUSES = ['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED'];
+const ACTIVE_STATUSES = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'DELIVERY'];
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();

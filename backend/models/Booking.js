@@ -48,7 +48,12 @@ const bookingSchema = mongoose.Schema(
         'CANCELLED',
         // Car wash specific statuses
         'CAR_WASH_STARTED',
-        'CAR_WASH_COMPLETED'
+        'CAR_WASH_COMPLETED',
+        // Battery and Tire specific statuses
+        'STAFF_REACHED_MERCHANT',
+        'PICKUP_BATTERY_TIRE',
+        'INSTALLATION',
+        'DELIVERY'
       ],
       default: 'CREATED',
     },
@@ -214,6 +219,22 @@ const bookingSchema = mongoose.Schema(
         ref: 'User',
         index: true,
       },
+    },
+    // Battery and Tire specific fields
+    batteryTire: {
+      isBatteryTireService: { type: Boolean, default: false },
+      merchantApproval: {
+        status: {
+          type: String,
+          enum: ['PENDING', 'APPROVED', 'REJECTED'],
+          default: 'PENDING'
+        },
+        price: { type: Number },
+        image: { type: String },
+        notes: { type: String },
+        approvedAt: { type: Date },
+        rejectedAt: { type: Date }
+      }
     },
   },
   {

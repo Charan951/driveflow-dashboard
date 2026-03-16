@@ -23,7 +23,9 @@ import {
   Signal,
   ImageIcon,
   FileText,
-  Download
+  Download,
+  IndianRupee,
+  Camera
 } from 'lucide-react';
 import * as turf from '@turf/turf';
 
@@ -249,25 +251,45 @@ const BookingDetailPage: React.FC = () => {
           service.category === 'Car Wash' || service.category === 'Wash'
         );
 
+      // Check if this is a battery or tire service
+      const isBatteryOrTireService = Array.isArray(booking.services) && 
+        (booking.services as Service[]).some(service => 
+          service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
+        );
+
+      let assignmentData = {};
+
       if (isCarWashService) {
         // For car wash services, only assign car wash staff
-        await bookingService.assignBooking(booking._id, {
+        assignmentData = {
           carWashStaffId: selectedCarWashStaff || undefined
-        });
-      } else {
-        // For regular services, assign merchant and driver
-        await bookingService.assignBooking(booking._id, {
+        };
+      } else if (isBatteryOrTireService) {
+        // For battery/tire services, assign both merchant and staff
+        assignmentData = {
           merchantId: selectedMerchant || undefined,
           driverId: selectedDriver || undefined
-        });
+        };
+      } else {
+        // For regular services, assign merchant and driver
+        assignmentData = {
+          merchantId: selectedMerchant || undefined,
+          driverId: selectedDriver || undefined
+        };
       }
+
+      console.log('Sending assignment data:', assignmentData);
+      
+      const result = await bookingService.assignBooking(booking._id, assignmentData);
+      console.log('Assignment result:', result);
       
       // Refetch to get populated data back
       const updatedBooking = await bookingService.getBookingById(booking._id);
       setBooking(updatedBooking);
       toast.success('Assignments updated successfully');
     } catch (error) {
-      toast.error('Failed to update assignments');
+      console.error('Assignment error:', error);
+      toast.error(`Failed to update assignments: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -282,6 +304,12 @@ const BookingDetailPage: React.FC = () => {
   const isCarWashService = Array.isArray(booking.services) && 
     (booking.services as Service[]).some(service => 
       service.category === 'Car Wash' || service.category === 'Wash'
+    );
+
+  // Check if this is a battery or tire service
+  const isBatteryOrTireService = Array.isArray(booking.services) && 
+    (booking.services as Service[]).some(service => 
+      service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
     );
 
   return (
@@ -494,7 +522,7 @@ const BookingDetailPage: React.FC = () => {
             <h3 className="font-semibold flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" /> Vehicle Inspection Photos
             </h3>
-            {!isCarWashService && booking.inspection && (booking.inspection.frontPhoto || booking.inspection.backPhoto || booking.inspection.leftPhoto || booking.inspection.rightPhoto) ? (
+            {!isCarWashService && !isBatteryOrTireService && booking.inspection && (booking.inspection.frontPhoto || booking.inspection.backPhoto || booking.inspection.leftPhoto || booking.inspection.rightPhoto) ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {['front', 'back', 'left', 'right'].map((side) => {
@@ -527,7 +555,9 @@ const BookingDetailPage: React.FC = () => {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground italic text-center py-2">
-                {isCarWashService ? 'Vehicle inspection not required for car wash services.' : 'No inspection photos yet.'}
+                {isCarWashService ? 'Vehicle inspection not required for car wash services.' : 
+                 isBatteryOrTireService ? 'Vehicle inspection not required for battery/tire services.' : 
+                 'No inspection photos yet.'}
               </p>
             )}
           </div>
@@ -615,6 +645,117 @@ const BookingDetailPage: React.FC = () => {
 
         {/* Center/Right Column - Booking Details & Actions */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Merchant Approval Details (Battery/Tire Service) */}
+          {isBatteryOrTireService && booking.batteryTire?.merchantApproval && (
+            <div className="bg-card rounded-2xl border-2 border-primary/20 p-6 space-y-4 shadow-sm">
+              <h3 className="font-bold text-xl flex items-center gap-2 text-primary">
+                <Store className="w-6 h-6" />
+                Merchant Service Approval
+              </h3>
+              
+              <div className="flex flex-col md:flex-row gap-8">
+                {booking.batteryTire.merchantApproval.image && (
+                  <div className="w-full md:w-64 aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted group relative shadow-md">
+                    <img 
+                      src={booking.batteryTire.merchantApproval.image} 
+                      alt="Merchant Upload" 
+                      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(booking.batteryTire!.merchantApproval!.image, '_blank')}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-sm font-medium flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4" /> Click to enlarge
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex-1 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</p>
+                      <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider ${
+                        booking.batteryTire.merchantApproval.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                        booking.batteryTire.merchantApproval.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {booking.batteryTire.merchantApproval.status === 'APPROVED' && <CheckCircle className="w-4 h-4 mr-2" />}
+                        {booking.batteryTire.merchantApproval.status === 'REJECTED' && <XCircle className="w-4 h-4 mr-2" />}
+                        {booking.batteryTire.merchantApproval.status}
+                      </span>
+                    </div>
+                    {booking.batteryTire.merchantApproval.status === 'APPROVED' && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Estimated Price</p>
+                        <span className="text-2xl font-black text-primary flex items-center gap-1">
+                          <IndianRupee className="w-6 h-6" />
+                          {booking.batteryTire.merchantApproval.price}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {booking.batteryTire.merchantApproval.notes && (
+                    <div className="p-4 bg-muted/50 rounded-2xl border border-border relative">
+                      <p className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5" />
+                        {booking.batteryTire.merchantApproval.status === 'REJECTED' ? 'Rejection Reason' : 'Merchant Note'}
+                      </p>
+                      <p className="text-base italic leading-relaxed">"{booking.batteryTire.merchantApproval.notes}"</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2">
+                    {booking.batteryTire.merchantApproval.approvedAt && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Approved: {new Date(booking.batteryTire.merchantApproval.approvedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {booking.batteryTire.merchantApproval.rejectedAt && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Rejected: {new Date(booking.batteryTire.merchantApproval.rejectedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Staff Pickup & Installation Photos (Visible to Admin) */}
+                  {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length > 0 && (
+                    <div className="pt-4 border-t border-border space-y-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <Camera className="w-3.5 h-3.5" />
+                        {isBatteryOrTireService ? 'Pickup & Installation Photos' : 'Staff Pickup Photos'}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {booking.prePickupPhotos.map((url, index) => (
+                          <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted group shadow-sm">
+                            <img 
+                              src={url} 
+                              alt={`Staff Photo ${index + 1}`} 
+                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                              onClick={() => window.open(url, '_blank')}
+                            />
+                            <div className="absolute bottom-1 right-1 p-1 bg-black/50 text-white rounded text-[8px] opacity-100 transition-opacity">
+                              {isBatteryOrTireService ? (
+                                index === 0 ? 'Merchant Pickup' :
+                                index === 1 ? 'New Part' :
+                                index === 2 ? 'Old Part' :
+                                `Photo ${index + 1}`
+                              ) : (
+                                `Photo ${index + 1}`
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Service Details */}
           <div className="bg-card rounded-2xl border border-border p-6">
             <h3 className="font-semibold text-lg mb-4">Service Details</h3>
@@ -673,7 +814,7 @@ const BookingDetailPage: React.FC = () => {
           </div>
 
           {/* Additional Parts - Inspection */}
-          {!isCarWashService && Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
+          {!isCarWashService && !isBatteryOrTireService && Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
             (p) => (p.approvalStatus || (p.approved ? 'Approved' : 'Pending')) !== 'Rejected'
           ).length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6">
@@ -729,7 +870,7 @@ const BookingDetailPage: React.FC = () => {
           )}
 
           {/* Additional Parts - Service */}
-          {!isCarWashService && Array.isArray(booking.serviceExecution?.serviceParts) && booking.serviceExecution.serviceParts.length > 0 && (
+          {!isCarWashService && !isBatteryOrTireService && Array.isArray(booking.serviceExecution?.serviceParts) && booking.serviceExecution.serviceParts.length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-orange-600" />
@@ -798,7 +939,7 @@ const BookingDetailPage: React.FC = () => {
           )}
 
           {/* Service Media Section */}
-          {!isCarWashService && (booking.serviceExecution?.afterPhotos?.length || booking.serviceExecution?.serviceParts?.length) ? (
+          {!isCarWashService && !isBatteryOrTireService && (booking.serviceExecution?.afterPhotos?.length || booking.serviceExecution?.serviceParts?.length) ? (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" />
@@ -879,6 +1020,91 @@ const BookingDetailPage: React.FC = () => {
                      <p className="text-sm text-green-800">
                        <strong>Assigned Staff:</strong> {typeof booking.carWash.staffAssigned === 'object' ? booking.carWash.staffAssigned.name : 'Staff'}
                      </p>
+                   </div>
+                 )}
+               </div>
+             ) : isBatteryOrTireService ? (
+               // Battery/Tire service assignment - show both merchant and staff selection
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                   <label className="text-sm font-medium flex items-center gap-2">
+                      <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
+                   </label>
+                   <select 
+                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                      value={selectedMerchant}
+                      onChange={(e) => setSelectedMerchant(e.target.value)}
+                   >
+                      <option value="">Select Merchant...</option>
+                      {sortedMerchants.map(m => {
+                         let label = m.name;
+                         // Add Open/Closed status
+                         if (m.isShopOpen === false) label += " (Closed 🔴)";
+                         else label += " (Open 🟢)";
+
+                         // Add Distance
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && m.location?.lat) {
+                            try {
+                               const from = turf.point([booking.location.lng!, booking.location.lat]);
+                               const to = turf.point([m.location.lng!, m.location.lat]);
+                               const distance = turf.distance(from, to);
+                               if (distance < 1) {
+                                  const meters = Math.round(distance * 1000);
+                                  label += ` - ${meters} m`;
+                               } else {
+                                  label += ` - ${distance.toFixed(1)} km`;
+                               }
+                            } catch (e) {
+                               // ignore error
+                            }
+                         }
+                         return <option key={m._id} value={m._id}>{label}</option>
+                      })}
+                   </select>
+                 </div>
+
+                 <div className="space-y-2">
+                   <label className="text-sm font-medium flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-muted-foreground" /> Battery/Tire Service Staff
+                   </label>
+                   <select 
+                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                      value={selectedDriver}
+                      onChange={(e) => setSelectedDriver(e.target.value)}
+                   >
+                      <option value="">Select Service Staff...</option>
+                      {sortedDrivers.map(d => {
+                         let label = d.name;
+                         if (d.isOnline) label += " 🟢 (Online)";
+                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                            try {
+                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
+                               const to = turf.point([d.location.lng!, d.location.lat!]);
+                               const dist = turf.distance(from, to);
+                               if (dist < 1) {
+                                  const meters = Math.round(dist * 1000);
+                                  label += ` - ${meters} m`;
+                               } else {
+                                  label += ` - ${dist.toFixed(1)} km`;
+                               }
+                            } catch (e) { /* ignore */ }
+                         }
+                         return <option key={d._id} value={d._id}>{label}</option>;
+                      })}
+                   </select>
+                 </div>
+
+                 {/* Show current assignments */}
+                 {(booking.merchant || booking.pickupDriver) && (
+                   <div className="md:col-span-2 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                     <div className="space-y-1 text-sm text-green-800">
+                       {booking.merchant && (
+                         <p><strong>Assigned Merchant:</strong> {typeof booking.merchant === 'object' ? booking.merchant.name : 'Merchant'}</p>
+                       )}
+                       {booking.pickupDriver && (
+                         <p><strong>Assigned Staff:</strong> {typeof booking.pickupDriver === 'object' ? booking.pickupDriver.name : 'Staff'}</p>
+                       )}
+                     </div>
                    </div>
                  )}
                </div>
@@ -969,6 +1195,19 @@ const BookingDetailPage: React.FC = () => {
                     { label: 'Car Wash Started', value: 'CAR_WASH_STARTED' },
                     { label: 'Car Wash Completed', value: 'CAR_WASH_COMPLETED' },
                     { label: 'Delivered', value: 'DELIVERED' },
+                    { label: 'Cancelled', value: 'CANCELLED' }
+                 ]
+               ) : isBatteryOrTireService ? (
+                 // Battery/Tire specific workflow
+                 [
+                    { label: 'Created', value: 'CREATED' },
+                    { label: 'Assigned', value: 'ASSIGNED' },
+                    { label: 'Staff Reached Merchant', value: 'STAFF_REACHED_MERCHANT' },
+                    { label: 'Pickup Battery/Tire', value: 'PICKUP_BATTERY_TIRE' },
+                    { label: 'Reached Customer', value: 'REACHED_CUSTOMER' },
+                    { label: 'Installation', value: 'INSTALLATION' },
+                    { label: 'Delivery', value: 'DELIVERY' },
+                    { label: 'Completed', value: 'COMPLETED' },
                     { label: 'Cancelled', value: 'CANCELLED' }
                  ]
                ) : (

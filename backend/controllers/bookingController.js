@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
@@ -50,6 +51,7 @@ export const emitBookingUpdate = (booking) => {
       booking.merchant?._id || booking.merchant,
       booking.pickupDriver?._id || booking.pickupDriver,
       booking.technician?._id || booking.technician,
+      booking.carWash?.staffAssigned?._id || booking.carWash?.staffAssigned,
     ].filter(id => id); // Remove null/undefined
 
     usersToNotify.forEach(userId => {
@@ -59,6 +61,22 @@ export const emitBookingUpdate = (booking) => {
     });
   } catch (err) {
     console.error('Socket emit error (emitBookingUpdate):', err);
+  }
+};
+
+// Helper function to check if booking is for battery or tire service
+const isBatteryOrTireBooking = async (booking) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: booking.services } });
+    return services.some(service => 
+      service.category === 'Battery' ||
+      service.category === 'Tyres' ||
+      service.category === 'Tyre & Battery'
+    );
+  } catch (error) {
+    console.error('Error checking battery/tire service:', error);
+    return false;
   }
 };
 
@@ -84,23 +102,27 @@ export const createBooking = async (req, res) => {
 
     const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
 
-    // Check if this is a car wash service
-    const isCarWashService = services.some(service => 
-      service.category === 'Car Wash' || service.category === 'Wash'
+    // Check if this is a service that requires payment (Car Wash, Battery, or Tires)
+    const requiresPaymentService = services.some(service => 
+      service.category === 'Car Wash' || 
+      service.category === 'Wash' ||
+      service.category === 'Battery' ||
+      service.category === 'Tyres' ||
+      service.category === 'Tyre & Battery'
     );
 
-    // For car wash services, store booking data temporarily and require payment first
-    if (isCarWashService) {
+    // For services requiring payment, store booking data temporarily and require payment first
+    if (requiresPaymentService) {
       // Store booking data in session/temporary storage for payment processing
       const tempBookingData = {
         user: req.user._id,
-        vehicle: vehicleId,
-        services: serviceIds,
+        vehicleId: vehicleId,
+        serviceIds: serviceIds,
         date,
         notes,
         location,
         totalAmount,
-        isCarWashService: true
+        requiresPaymentService: true
       };
 
       // Return temporary booking data for payment processing
@@ -108,10 +130,10 @@ export const createBooking = async (req, res) => {
         tempBookingId: `temp_${Date.now()}_${req.user._id}`,
         ...tempBookingData,
         requiresPayment: true,
-        message: 'Car wash booking prepared. Please complete payment to create the booking.'
+        message: 'Service booking prepared. Please complete payment to create the booking.'
       });
 
-      return; // Exit early for car wash services - no actual booking created yet
+      return; // Exit early for payment-required services - no actual booking created yet
     }
 
     // Regular service booking flow (existing logic)
@@ -122,6 +144,14 @@ export const createBooking = async (req, res) => {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const orderNumber = await Counter.next('booking');
+        
+        // Check if this is a battery or tire service
+        const isBatteryTireService = services.some(service => 
+          service.category === 'Battery' ||
+          service.category === 'Tyres' ||
+          service.category === 'Tyre & Battery'
+        );
+        
         const booking = new Booking({
           user: req.user._id,
           vehicle: vehicleId,
@@ -131,6 +161,15 @@ export const createBooking = async (req, res) => {
           notes,
           location,
           totalAmount,
+          // Mark as battery/tire service if applicable
+          ...(isBatteryTireService && {
+            batteryTire: {
+              isBatteryTireService: true,
+              merchantApproval: {
+                status: 'PENDING'
+              }
+            }
+          })
         });
 
         createdBooking = await booking.save();
@@ -417,144 +456,121 @@ export const getBookingById = async (req, res) => {
 // @access  Private/Admin
 export const assignBooking = async (req, res) => {
   const { merchantId, driverId, technicianId, slot, carWashStaffId } = req.body;
+  const bookingId = req.params.id;
 
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking) {
-      // Handle car wash service assignment
-      if (booking.carWash?.isCarWashService) {
-        if (carWashStaffId) {
-          booking.carWash.staffAssigned = carWashStaffId;
-          // Auto-accept when admin assigns car wash staff
-          booking.status = 'ASSIGNED';
-        }
-        if (slot) booking.date = slot;
-      } else {
-        // Handle regular service assignment
-        if (merchantId) booking.merchant = merchantId;
-        if (driverId) booking.pickupDriver = driverId;
-        if (technicianId) booking.technician = technicianId;
-        if (slot) booking.date = slot;
+    console.log(`[assignBooking] Processing update for ${bookingId}. Body:`, req.body);
 
-        // Automatic status update rules for regular services
-        if (booking.status === 'CREATED') {
-          const canAssign = booking.merchant && booking.pickupDriver;
-          if (canAssign) {
-            // Auto-accept when admin assigns both merchant and driver
-            booking.status = 'ASSIGNED';
-          }
-        }
-        
-        // If only staff is assigned (driver or technician), also auto-accept
-        if (booking.status === 'ASSIGNED' && (driverId || technicianId)) {
-          // Staff automatically accepts when assigned by admin
-          // No manual acceptance required
-        }
-      }
+    const updateData = {};
+    if (slot) updateData.date = slot;
 
-      const updatedBooking = await booking.save();
-      
-      // Populate essential fields for real-time consumers
-      const populated = await Booking.findById(updatedBooking._id)
-        .populate('user', 'id name email phone')
-        .populate('vehicle')
-        .populate('services')
-        .populate('merchant', 'name email phone location')
-        .populate('pickupDriver', 'name email phone')
-        .populate('technician', 'name email phone')
-        .populate('carWash.staffAssigned', 'name email phone');
-
-      // Emit real-time update for all stakeholders
-      emitBookingUpdate(populated);
-
-      // Send assignment notifications
-      try {
-        const bookingIdStr = String(populated._id);
-        const orderId = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
-
-        // Car wash assignment notifications
-        if (booking.carWash?.isCarWashService && populated.carWash?.staffAssigned?._id && carWashStaffId) {
-          await sendPushToUser(
-            populated.carWash.staffAssigned._id,
-            'Car Wash Assignment',
-            `You have been assigned to car wash service #${orderId}`,
-            { type: 'assignment', role: 'car_wash_staff', bookingId: bookingIdStr },
-            'order'
-          );
-
-          // Notify customer about car wash staff assignment
-          if (populated.user?._id) {
-            await sendPushToUser(
-              populated.user._id,
-              'Car Wash Staff Assigned',
-              `Staff has been assigned to your car wash service #${orderId}. They will reach your location shortly.`,
-              { type: 'car_wash_assignment_update', bookingId: bookingIdStr },
-              'order'
-            );
-          }
-        } else {
-          // Regular service assignment notifications
-          if (populated.merchant?._id && merchantId) {
-            await sendPushToUser(
-              populated.merchant._id,
-              'New Assignment',
-              `You have been assigned to booking #${orderId}`,
-              { type: 'assignment', role: 'merchant', bookingId: bookingIdStr },
-              'order'
-            );
-          }
-
-          if (populated.pickupDriver?._id && driverId) {
-            await sendPushToUser(
-              populated.pickupDriver._id,
-              'New Assignment',
-              `You have been assigned to booking #${orderId}`,
-              { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
-              'order'
-            );
-          }
-
-          if (populated.technician?._id && technicianId) {
-            await sendPushToUser(
-              populated.technician._id,
-              'New Assignment',
-              `You have been assigned to booking #${orderId}`,
-              { type: 'assignment', role: 'staff', bookingId: bookingIdStr },
-              'order'
-            );
-          }
-
-          // Notify Customer about regular service assignments
-          if (populated.user?._id) {
-            let assignmentMsg = `Your booking #${orderId} has been updated.`;
-            
-            if (merchantId && (driverId || technicianId)) {
-              assignmentMsg = `Your service #${orderId} has been assigned to a merchant and staff.`;
-            } else if (merchantId) {
-              assignmentMsg = `Merchant ${populated.merchant?.name || ''} has been assigned to your booking #${orderId}.`;
-            } else if (driverId || technicianId) {
-              assignmentMsg = `Staff has been assigned to your booking #${orderId}.`;
-            }
-            
-            await sendPushToUser(
-              populated.user._id,
-              'Service Assigned',
-              assignmentMsg,
-              { type: 'assignment_update', bookingId: bookingIdStr },
-              'order'
-            );
-          }
-        }
-      } catch (notifyErr) {
-        console.error('Push notification error (assignBooking):', notifyErr);
-      }
-
-      res.json(populated);
-    } else {
-      res.status(404).json({ message: 'Booking not found' });
+    // Direct assignment updates
+    if (merchantId) updateData.merchant = merchantId;
+    if (driverId) updateData.pickupDriver = driverId;
+    if (technicianId) updateData.technician = technicianId;
+    
+    // Handle Car Wash Staff
+    if (carWashStaffId) {
+      updateData['carWash.staffAssigned'] = carWashStaffId;
+      // Mark as car wash service if assigning staff to it
+      updateData['carWash.isCarWashService'] = true;
     }
+
+    // Battery/Tire specific logic
+    const isBatteryTire = await isBatteryOrTireBooking(booking);
+    if (isBatteryTire) {
+      updateData['batteryTire.isBatteryTireService'] = true;
+      if (!booking.batteryTire?.merchantApproval?.status) {
+        updateData['batteryTire.merchantApproval.status'] = 'PENDING';
+      }
+    }
+
+    // CRITICAL: Status transition to ASSIGNED
+    // If status is CREATED and we have ANY assignment (old or new), move to ASSIGNED
+    const hasAnyAssignment = !!(
+      merchantId || 
+      driverId || 
+      technicianId || 
+      carWashStaffId || 
+      booking.merchant || 
+      booking.pickupDriver || 
+      booking.technician || 
+      booking.carWash?.staffAssigned
+    );
+
+    if (booking.status === 'CREATED' && hasAnyAssignment) {
+      updateData.status = 'ASSIGNED';
+      console.log(`[assignBooking] Status transitioning to ASSIGNED for ${bookingId}`);
+    }
+
+    console.log(`[assignBooking] Final updateData for ${bookingId}:`, updateData);
+
+    // Apply updates directly to database to avoid middleware/validation pitfalls of save()
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+    .populate('user', 'id name email phone')
+    .populate('vehicle')
+    .populate('services')
+    .populate('merchant', 'name email phone location')
+    .populate('pickupDriver', 'name email phone')
+    .populate('technician', 'name email phone')
+    .populate('carWash.staffAssigned', 'name email phone');
+
+    if (!updatedBooking) throw new Error('Failed to retrieve updated booking');
+
+    // Broadcast the update via socket
+    emitBookingUpdate(updatedBooking);
+
+    // Notifications
+    try {
+      const orderId = updatedBooking.orderNumber || String(updatedBooking._id).slice(-6).toUpperCase();
+      
+      // Notify Merchant
+      if (updatedBooking.merchant?._id && merchantId) {
+        await sendPushToUser(
+          updatedBooking.merchant._id, 
+          'New Assignment', 
+          `You have been assigned to booking #${orderId}`, 
+          { type: 'assignment', role: 'merchant', bookingId }, 
+          'order'
+        );
+      }
+
+      // Notify Staff (Driver, Technician, or Car Wash Staff)
+      const staffId = driverId || technicianId || carWashStaffId;
+      if (staffId) {
+        await sendPushToUser(
+          staffId, 
+          'New Assignment', 
+          `You have been assigned to booking #${orderId}`, 
+          { type: 'assignment', role: 'staff', bookingId }, 
+          'order'
+        );
+      }
+
+      // Notify Customer
+      if (updatedBooking.user?._id) {
+        await sendPushToUser(
+          updatedBooking.user._id, 
+          'Service Assigned', 
+          `Your service #${orderId} has been updated.`, 
+          { type: 'assignment_update', bookingId }, 
+          'order'
+        );
+      }
+    } catch (notifyErr) {
+      console.error('[assignBooking] Notification error:', notifyErr);
+    }
+
+    res.json(updatedBooking);
   } catch (error) {
+    console.error(`[assignBooking] Error updating ${bookingId}:`, error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -645,6 +661,55 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
+      // Battery and Tire specific validations
+      const isBatteryTireService = await isBatteryOrTireBooking(booking);
+      
+      if (isBatteryTireService) {
+        // Check merchant approval for battery/tire services
+        if (canonTo === 'STAFF_REACHED_MERCHANT') {
+          if (booking.batteryTire?.merchantApproval?.status !== 'APPROVED') {
+            return res.status(400).json({ message: 'Merchant approval required before staff can proceed to merchant location' });
+          }
+        }
+        
+        // For battery/tire services, generate OTP for delivery step
+        if (canonTo === 'INSTALLATION') {
+          const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
+          if (photos.length < 2) {
+            return res.status(400).json({ message: 'Please upload at least 2 photos (pickup and new part) before starting installation' });
+          }
+
+          const code = Math.floor(1000 + Math.random() * 9000).toString();
+          booking.deliveryOtp = {
+            code,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            attempts: 0,
+            verifiedAt: null
+          };
+          if (booking.user?.email) {
+            await sendEmail(
+              booking.user.email,
+              'Installation & Delivery OTP',
+              `Your OTP for battery/tire installation and delivery is ${code}. It expires in 24 hours.`
+            ).catch(err => console.error('Email error:', err));
+          }
+          await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm installation completion', { type: 'otp', bookingId: String(booking._id) }).catch(err => console.error('Push error:', err));
+        }
+
+        if (canonTo === 'DELIVERY') {
+          const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
+          if (photos.length < 3) {
+            return res.status(400).json({ message: 'Please upload at least 3 photos (pickup, new part, and old part) before completing installation' });
+          }
+        }
+
+        if (canonTo === 'COMPLETED') {
+          if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
+            return res.status(400).json({ message: 'OTP verification required before marking as COMPLETED' });
+          }
+        }
+      }
+
       // OTP gating for delivery
       if (canonTo === 'OUT_FOR_DELIVERY') {
         const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
@@ -671,31 +736,35 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       // Stock Auto Adjustment
-      if ((canonTo === 'SERVICE_COMPLETED') && 
-          !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(booking.status)) {
+      if (((canonTo === 'SERVICE_COMPLETED') && 
+          !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(booking.status)) ||
+          (isBatteryTireService && canonTo === 'COMPLETED' && 
+          !['COMPLETED'].includes(booking.status))) {
           
           const Product = (await import('../models/Product.js')).default;
           const Notification = (await import('../models/Notification.js')).default;
           
-          for (const part of booking.parts) {
-              if (part.product) {
-                  const product = await Product.findById(part.product);
-                  if (product) {
-                      product.quantity = Math.max(0, product.quantity - part.quantity);
-                      await product.save();
-                      
-                      // Check for low stock
-                      if (product.quantity <= product.threshold) {
-                          // Trigger alert (Create a notification)
-                          await Notification.create({
-                              user: product.merchant,
-                              title: 'Low Stock Alert',
-                              message: `Product ${product.name} is running low on stock (${product.quantity} left).`,
-                              type: 'system'
-                          });
-                      }
-                  }
-              }
+          if (Array.isArray(booking.parts)) {
+            for (const part of booking.parts) {
+                if (part.product) {
+                    const product = await Product.findById(part.product);
+                    if (product) {
+                        product.quantity = Math.max(0, product.quantity - part.quantity);
+                        await product.save();
+                        
+                        // Check for low stock
+                        if (product.quantity <= product.threshold) {
+                            // Trigger alert (Create a notification)
+                            await Notification.create({
+                                user: product.merchant,
+                                title: 'Low Stock Alert',
+                                message: `Product ${product.name} is running low on stock (${product.quantity} left).`,
+                                type: 'system'
+                            });
+                        }
+                    }
+                }
+            }
           }
       }
 
@@ -727,13 +796,13 @@ export const updateBookingStatus = async (req, res) => {
 
       // Send status update email
       if (updatedBooking.user && updatedBooking.user.email) {
-        await sendEmail(
+        sendEmail(
           updatedBooking.user.email,
-          'Booking Status Update - DriveFlow',
+          'Booking Status Update - Speshway',
           `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
-        );
+        ).catch(err => console.error('Email status update error:', err));
       }
-      await sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) });
+      sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) }).catch(err => console.error('Push status update error:', err));
 
       res.json(updatedBooking);
     } else {
@@ -831,8 +900,11 @@ export const verifyDeliveryOtp = async (req, res) => {
     // Mark OTP as verified
     booking.deliveryOtp.verifiedAt = now;
     
-    // Update status to DELIVERED when OTP is verified
-    booking.status = 'DELIVERED';
+    // Check if it's a battery or tire service to set the correct final status
+    const isBatteryTireService = await isBatteryOrTireBooking(booking);
+    
+    // Update status to COMPLETED for battery/tire, otherwise DELIVERED
+    booking.status = isBatteryTireService ? 'COMPLETED' : 'DELIVERED';
     await booking.save();
     
     // Populate for real-time consumers
@@ -1284,5 +1356,117 @@ export const getCarWashBookings = async (req, res) => {
     res.json(bookings);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Merchant approval/rejection for battery/tire services
+// @route   PUT /api/bookings/:id/battery-tire-approval
+// @access  Private (Merchant only)
+export const batteryTireApproval = async (req, res) => {
+  const { status, price, image, notes } = req.body;
+
+  try {
+    const booking = await Booking.findById(req.params.id).populate('merchant');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Check if this is a battery/tire service
+    if (!booking.batteryTire?.isBatteryTireService) {
+      return res.status(400).json({ message: 'This is not a battery/tire service' });
+    }
+
+    // Check if user is the assigned merchant
+    const isAssignedMerchant = req.user.role === 'merchant' && 
+      booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
+    
+    if (!isAssignedMerchant && req.user.role !== 'admin') {
+      return res.status(401).json({ message: 'Not authorized to approve/reject this booking' });
+    }
+
+    // Validate status
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ message: 'Status must be APPROVED or REJECTED' });
+    }
+
+    // Update approval status
+    booking.batteryTire.merchantApproval.status = status;
+    booking.batteryTire.merchantApproval.notes = notes;
+
+    if (status === 'APPROVED') {
+      if (!price || price <= 0) {
+        return res.status(400).json({ message: 'Price is required for approval' });
+      }
+      booking.batteryTire.merchantApproval.price = price;
+      booking.batteryTire.merchantApproval.image = image;
+      booking.batteryTire.merchantApproval.approvedAt = new Date();
+      
+      // Update total amount with merchant's price
+      booking.totalAmount = price;
+    } else {
+      booking.batteryTire.merchantApproval.rejectedAt = new Date();
+    }
+
+    const updatedBooking = await booking.save();
+
+    // Populate for response
+    const populated = await Booking.findById(updatedBooking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('merchant', 'name email phone location')
+      .populate('pickupDriver', 'name email phone');
+
+    // Emit socket event for real-time updates
+    emitBookingUpdate(populated);
+
+    // Send notifications
+    try {
+      const orderId = populated.orderNumber || populated._id.toString().slice(-6).toUpperCase();
+      
+      // Notify admin
+      await sendPushToRole(
+        'admin',
+        `Battery/Tire Service ${status}`,
+        `Merchant has ${status.toLowerCase()} battery/tire service #${orderId}${status === 'APPROVED' ? ` for ₹${price}` : ''}`,
+        { type: 'battery_tire_approval', bookingId: populated._id.toString(), status },
+        'order'
+      );
+
+      // Notify customer
+      if (populated.user?._id) {
+        const message = status === 'APPROVED' 
+          ? `Your battery/tire service #${orderId} has been approved by the merchant for ₹${price}. Staff will collect the items and deliver to you.`
+          : `Your battery/tire service #${orderId} has been rejected by the merchant. ${notes ? `Reason: ${notes}` : ''}`;
+        
+        await sendPushToUser(
+          populated.user._id,
+          `Service ${status}`,
+          message,
+          { type: 'battery_tire_approval', bookingId: populated._id.toString(), status },
+          'order'
+        );
+      }
+
+      // If approved, notify assigned staff
+      if (status === 'APPROVED' && populated.pickupDriver?._id) {
+        await sendPushToUser(
+          populated.pickupDriver._id,
+          'Battery/Tire Service Approved',
+          `Battery/tire service #${orderId} has been approved. Please go to merchant location to collect items.`,
+          { type: 'battery_tire_approved', bookingId: populated._id.toString() },
+          'order'
+        );
+      }
+
+    } catch (notifyErr) {
+      console.error('Notification error (batteryTireApproval):', notifyErr);
+    }
+
+    res.json(populated);
+  } catch (error) {
+    console.error('Battery/Tire approval error:', error);
+    res.status(500).json({ message: error.message });
   }
 };

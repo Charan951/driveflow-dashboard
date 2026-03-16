@@ -3,7 +3,7 @@ import { Activity, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
 
 interface StatusControlPanelProps {
   booking: Booking;
@@ -22,7 +22,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
   const [delayNote, setDelayNote] = useState('');
 
-  const activeStatusFlow = PICKUP_FLOW_ORDER;
+  const activeStatusFlow = getFlowForService(booking.services || []);
   const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);
 
   let nextStatus = '';
@@ -132,7 +132,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
         </h3>
         <div className="flex flex-col items-end gap-1">
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              booking.status === 'SERVICE_COMPLETED' || booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+              booking.status === 'SERVICE_COMPLETED' || booking.status === 'DELIVERED' || booking.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
               booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
               'bg-blue-100 text-blue-800'
           }`}>

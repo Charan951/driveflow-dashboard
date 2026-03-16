@@ -23,7 +23,7 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
-import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
@@ -349,9 +349,23 @@ const TrackServicePage: React.FC = () => {
         toast.error('Please enter the OTP to confirm delivery');
         return;
       }
+      
+      // Check if this is a battery/tire service
+      const isBatteryOrTireService = Array.isArray(order.services) && 
+        order.services.some(service => 
+          typeof service === 'object' && (
+            service.category === 'Battery' || 
+            service.category === 'Tyres' || 
+            service.category === 'Tyre & Battery'
+          )
+        );
+      
       await bookingService.verifyDeliveryOtp(order._id, otp);
-      await bookingService.updateBookingStatus(order._id, 'DELIVERED');
-      setOrder(prev => prev ? { ...prev, status: 'DELIVERED' } : null);
+      
+      // Update status based on service type
+      const finalStatus = isBatteryOrTireService ? 'COMPLETED' : 'DELIVERED';
+      await bookingService.updateBookingStatus(order._id, finalStatus);
+      setOrder(prev => prev ? { ...prev, status: finalStatus } : null);
       setDeliveryConfirmed(true);
       
       // Check if feedback has already been submitted before showing modal
@@ -531,8 +545,15 @@ const TrackServicePage: React.FC = () => {
 
   // Check if this is a car wash service
   const isCarWashService = order.carWash?.isCarWashService || false;
+
+  const isBatteryOrTire = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+    });
   
-  const activeStatusFlow: readonly BookingStatus[] = isCarWashService ? CAR_WASH_FLOW_ORDER : PICKUP_FLOW_ORDER;
+  const activeStatusFlow: readonly BookingStatus[] = getFlowForService(order.services || []);
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
 
   const timelineSteps = activeStatusFlow.map((s) => {
@@ -633,7 +654,11 @@ const TrackServicePage: React.FC = () => {
           'REACHED_CUSTOMER',
           'VEHICLE_PICKED',
           'REACHED_MERCHANT',
-          'OUT_FOR_DELIVERY'
+          'OUT_FOR_DELIVERY',
+          'STAFF_REACHED_MERCHANT',
+          'PICKUP_BATTERY_TIRE',
+          'INSTALLATION',
+          'DELIVERY'
         ].includes(order.status)) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -782,7 +807,9 @@ const TrackServicePage: React.FC = () => {
           )}
 
           {/* Service Photos Section */}
-          {(order.serviceExecution?.afterPhotos?.length || order.serviceExecution?.serviceParts?.length) ? (
+          {(order.serviceExecution?.afterPhotos?.length || 
+            order.serviceExecution?.serviceParts?.length || 
+            (Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0)) ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -794,6 +821,29 @@ const TrackServicePage: React.FC = () => {
               </h2>
               
               <div className="grid grid-cols-1 gap-6">
+                {/* Battery/Tire Pickup & Installation Photos */}
+                {isBatteryOrTire && Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Pickup & Installation</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {order.prePickupPhotos.map((url, i) => (
+                        <div key={i} className="space-y-1.5">
+                          <button
+                            type="button"
+                            onClick={() => window.open(url, '_blank')}
+                            className="w-full aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                          >
+                            <img src={url} alt={`Step ${i + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                          <p className="text-[10px] font-bold text-center uppercase text-muted-foreground">
+                            {i === 0 ? 'Merchant Pickup' : i === 1 ? 'New Part' : i === 2 ? 'Old Part' : `Photo ${i + 1}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 && (
                   <div>
                     <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Service Completed Photos</h4>
@@ -1072,7 +1122,7 @@ const TrackServicePage: React.FC = () => {
       
 
       {/* Delivery Confirmation */}
-      {order.status === 'DELIVERED' && !hasSubmittedFeedback && (
+      {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && !hasSubmittedFeedback && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1103,7 +1153,7 @@ const TrackServicePage: React.FC = () => {
         </motion.div>
       )}
 
-      {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY' || (order.status === 'CAR_WASH_COMPLETED' && order.deliveryOtp?.code)) && !deliveryConfirmed && (
+      {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY' || (order.status === 'CAR_WASH_COMPLETED' && order.deliveryOtp?.code) || (order.status === 'DELIVERY' && order.deliveryOtp?.code)) && !deliveryConfirmed && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1120,7 +1170,7 @@ const TrackServicePage: React.FC = () => {
             }
           </p>
           
-          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' as any) && (
+          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY') && (
             <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-primary/80">
                 {isCarWashService ? 'Completion OTP' : 'Delivery OTP'}

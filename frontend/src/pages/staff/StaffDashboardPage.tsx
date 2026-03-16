@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { STATUS_LABELS } from '@/lib/statusFlow';
 
 const StaffDashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -99,7 +100,7 @@ const StaffDashboardPage: React.FC = () => {
           return;
         }
       }
-      if (newStatus === 'DELIVERED') {
+      if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
         const otp = window.prompt('Enter delivery OTP');
         if (!otp) {
           toast.dismiss(loadingToast);
@@ -166,9 +167,9 @@ const StaffDashboardPage: React.FC = () => {
 
       const todaysOrders = data.filter(b => b.date && b.date.startsWith(today)).length;
       const pending = data.filter(b => activeStatuses.includes(b.status)).length;
-      const completed = data.filter(b => ['SERVICE_COMPLETED', 'DELIVERED'].includes(b.status)).length;
+      const completed = data.filter(b => ['SERVICE_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(b.status)).length;
       const earnings = data
-        .filter(b => ['SERVICE_COMPLETED', 'DELIVERED'].includes(b.status))
+        .filter(b => ['SERVICE_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(b.status))
         .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
 
       setStats({
@@ -200,21 +201,6 @@ const StaffDashboardPage: React.FC = () => {
     'SERVICE_COMPLETED',
     'OUT_FOR_DELIVERY'
   ];
-  
-  const STATUS_LABELS: Record<string, string> = {
-    'CREATED': 'Created',
-    'ASSIGNED': 'Assigned',
-    'ACCEPTED': 'Accepted',
-    'REACHED_CUSTOMER': 'Reached Location',
-    'VEHICLE_PICKED': 'Vehicle Picked',
-    'REACHED_MERCHANT': 'Reached Garage',
-    'JOB_CARD': 'Job Card Created',
-    'SERVICE_STARTED': 'Service Started',
-    'SERVICE_COMPLETED': 'Service Completed',
-    'OUT_FOR_DELIVERY': 'Out for Delivery',
-    'DELIVERED': 'Delivered',
-    'CANCELLED': 'Cancelled'
-  };
 
   const activeOrders = bookings.filter(b => activeStatuses.includes(b.status));
 

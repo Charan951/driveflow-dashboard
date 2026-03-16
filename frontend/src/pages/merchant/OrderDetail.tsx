@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapPin, Navigation } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapPin, Navigation, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { socketService } from '@/services/socket';
@@ -38,10 +38,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Panels
 import StatusControlPanel from '../../components/merchant/StatusControlPanel';
 import InspectionPanel from '../../components/merchant/InspectionPanel';
+import BatteryTireApprovalPanel from '../../components/merchant/BatteryTireApprovalPanel';
 import QCPanel from '../../components/merchant/QCPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
 import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
 import ChatPanel from '../../components/merchant/ChatPanel';
+import LiveTracker from '@/components/LiveTracker';
 
 // Animation variants
 const containerVariants = {
@@ -231,6 +233,11 @@ const OrderDetail: React.FC = () => {
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6 mt-6">
+                {booking.batteryTire?.isBatteryTireService && (
+                    <div className="mb-6">
+                        <BatteryTireApprovalPanel booking={booking} onUpdate={fetchBooking} />
+                    </div>
+                )}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         {/* Order Info Card */}
@@ -334,7 +341,11 @@ const OrderDetail: React.FC = () => {
                           'REACHED_CUSTOMER',
                           'VEHICLE_PICKED',
                           'REACHED_MERCHANT',
-                          'OUT_FOR_DELIVERY'
+                          'OUT_FOR_DELIVERY',
+                          'STAFF_REACHED_MERCHANT',
+                          'PICKUP_BATTERY_TIRE',
+                          'INSTALLATION',
+                          'DELIVERY'
                         ].includes(booking.status)) && (
                           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                             <div className="p-4 border-b border-border flex justify-between items-center">
@@ -342,38 +353,43 @@ const OrderDetail: React.FC = () => {
                                 <Navigation className="w-5 h-5 text-primary" />
                                 Live Staff Tracking
                               </h3>
-                              {staffLocation && <span className="text-xs text-green-600 font-medium animate-pulse">● Live</span>}
+                              <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-bold uppercase animate-pulse">Live</span>
                             </div>
-                            <div className="h-64 w-full relative bg-muted">
-                               {staffLocation ? (
-                                 <MapContainer 
-                                     center={[staffLocation.lat, staffLocation.lng]} 
-                                     zoom={16} 
-                                     style={{ height: '100%', width: '100%' }}
-                                     zoomControl={false}
-                                 >
-                                     <MapController center={[staffLocation.lat, staffLocation.lng]} zoom={16} />
-                                     <TileLayer
-                                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                    />
-                                    <Marker position={[staffLocation.lat, staffLocation.lng]}>
-                                      <Popup>
-                                        Staff is here
-                                      </Popup>
-                                    </Marker>
-                                 </MapContainer>
-                               ) : (
-                                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                   <MapPin className="w-8 h-8 mb-2 opacity-50" />
-                                   <p className="text-sm">Waiting for live location...</p>
-                                 </div>
-                               )}
+                            <div className="h-[300px] bg-muted relative">
+                                <LiveTracker bookingId={booking._id} />
                             </div>
                           </div>
                         )}
 
-                        {/* Chat */}
+                        {/* Staff Pickup & Installation Photos (Visible to Merchant) */}
+                        {booking.batteryTire?.isBatteryTireService && Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length > 0 && (
+                          <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
+                            <h3 className="font-semibold flex items-center gap-2">
+                              <Camera className="w-5 h-5 text-primary" />
+                              Staff Pickup & Installation Photos
+                            </h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {booking.prePickupPhotos.map((url, index) => (
+                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted group shadow-sm">
+                                  <img 
+                                    src={url} 
+                                    alt={`Staff Photo ${index + 1}`} 
+                                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                    onClick={() => window.open(url, '_blank')}
+                                  />
+                                  <div className="absolute bottom-1 right-1 p-1 bg-black/50 text-white rounded text-[8px] opacity-100 transition-opacity">
+                                    {index === 0 ? 'Merchant Pickup' :
+                                     index === 1 ? 'New Part' :
+                                     index === 2 ? 'Old Part' :
+                                     `Photo ${index + 1}`}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Communication Panel */}
                         <ChatPanel bookingId={booking._id} />
                     </div>
                 </div>

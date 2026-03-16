@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench } from 'lucide-react';
+import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc } from 'lucide-react';
 import { toast } from 'sonner';
 import { paymentService } from '@/services/paymentService';
 
@@ -24,6 +24,32 @@ const PaymentPage: React.FC = () => {
     }
   }, [location.state, navigate]);
 
+  // Determine service type for display
+  const getServiceInfo = () => {
+    if (!tempBookingData) {
+      return { type: 'Service', icon: Wrench, color: 'blue' };
+    }
+    
+    // Check if this is a car wash service
+    if (tempBookingData.isCarWashService) {
+      return { type: 'Car Wash', icon: Car, color: 'blue' };
+    }
+    
+    // For new payment flow, check service categories from the booking data
+    // This assumes the service data is available in tempBookingData
+    if (tempBookingData.requiresPaymentService) {
+      // We can determine the type based on the service names or categories
+      // For now, we'll use a generic approach since we don't have service details
+      // In a real implementation, you'd fetch service details by serviceIds
+      return { type: 'Service', icon: Wrench, color: 'blue' };
+    }
+    
+    // Default to generic service
+    return { type: 'Service', icon: Wrench, color: 'blue' };
+  };
+
+  const serviceInfo = getServiceInfo();
+
   const handlePayment = async () => {
     if (!tempBookingData) return;
 
@@ -31,7 +57,7 @@ const PaymentPage: React.FC = () => {
     try {
       const result = await paymentService.processDummyPayment('', tempBookingData);
       
-      toast.success('Payment successful! Your car wash booking has been created.');
+      toast.success('Payment successful! Your service booking has been created.');
       
       // Navigate to the newly created booking's tracking page
       navigate(`/track/${result.bookingId}`);
@@ -67,11 +93,11 @@ const PaymentPage: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Complete Payment</h1>
-          <p className="text-muted-foreground">Complete payment to create your car wash booking</p>
+          <p className="text-muted-foreground">Complete payment to create your service booking</p>
         </div>
       </motion.div>
 
-      {/* Car Wash Notice */}
+      {/* Service Notice */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -79,10 +105,10 @@ const PaymentPage: React.FC = () => {
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <Car className="w-4 h-4 text-blue-600" />
+            <serviceInfo.icon className="w-4 h-4 text-blue-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-blue-900">Car Wash Service</h3>
+            <h3 className="font-semibold text-blue-900">{serviceInfo.type} Service</h3>
             <p className="text-sm text-blue-700">
               Your booking will be created after successful payment. Admin will then assign staff to reach your location.
             </p>
@@ -106,9 +132,9 @@ const PaymentPage: React.FC = () => {
               <Wrench className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="font-medium text-foreground">Car Wash Services</p>
+              <p className="font-medium text-foreground">{serviceInfo.type} Services</p>
               <p className="text-sm text-muted-foreground">
-                {tempBookingData.notes || 'Car wash service'}
+                {tempBookingData.notes || `${serviceInfo.type} service`}
               </p>
             </div>
           </div>

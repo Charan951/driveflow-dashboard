@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Car, 
   Settings, 
@@ -14,13 +14,32 @@ import {
   Calendar,
   MessageSquare,
   X,
-  CreditCard
+  CreditCard,
+  ChevronDown,
+  ChevronRight,
+  Disc,
+  Sparkles,
+  Snowflake,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/appStore';
 import { slideInLeft } from '@/animations/variants';
 
-const menuItems = [
+interface MenuItem {
+  icon: React.ComponentType<any>;
+  label: string;
+  path?: string;
+  subItems?: SubMenuItem[];
+}
+
+interface SubMenuItem {
+  icon: React.ComponentType<any>;
+  label: string;
+  path: string;
+}
+
+const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Calendar, label: 'My Bookings', path: '/bookings' },
   { icon: Car, label: 'My Vehicles', path: '/add-vehicle' },
@@ -36,6 +55,10 @@ const menuItems = [
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const { sidebarOpen, setSidebarOpen } = useAppStore();
+
+  const isItemActive = (item: MenuItem) => {
+    return location.pathname + location.search === item.path;
+  };
 
   return (
     <>
@@ -81,11 +104,12 @@ export const Sidebar: React.FC = () => {
           {/* Menu Items */}
           <nav className="p-4 space-y-1">
             {menuItems.map((item) => {
-              const isActive = location.pathname + location.search === item.path;
+              const isActive = isItemActive(item);
+              
               return (
                 <Link
-                  key={item.path}
-                  to={item.path}
+                  key={item.label}
+                  to={item.path!}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',

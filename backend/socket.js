@@ -236,7 +236,11 @@ export const initSocket = (server) => {
                   'REACHED_MERCHANT',
                   'SERVICE_STARTED',
                   'SERVICE_COMPLETED',
-                  'OUT_FOR_DELIVERY'
+                  'OUT_FOR_DELIVERY',
+                  'STAFF_REACHED_MERCHANT',
+                  'PICKUP_BATTERY_TIRE',
+                  'INSTALLATION',
+                  'DELIVERY'
                 ]
               }
             })
@@ -268,6 +272,29 @@ export const initSocket = (server) => {
           isOnline: true
         });
       }
+    });
+
+    // Handle manual booking update emission from client (for faster sync)
+    socket.on('bookingUpdated', (booking) => {
+      if (!booking || !booking._id) return;
+      const bookingId = String(booking._id);
+      
+      // Broadcast to relevant rooms
+      io.to('admin').emit('bookingUpdated', booking);
+      io.to(`booking_${bookingId}`).emit('bookingUpdated', booking);
+      
+      // Notify individual users involved
+      const userIds = [
+        booking.user?._id || booking.user,
+        booking.merchant?._id || booking.merchant,
+        booking.pickupDriver?._id || booking.pickupDriver,
+        booking.technician?._id || booking.technician,
+        booking.carWash?.staffAssigned?._id || booking.carWash?.staffAssigned
+      ].filter(id => id);
+
+      userIds.forEach(uid => {
+        io.to(`user_${String(uid)}`).emit('bookingUpdated', booking);
+      });
     });
 
     socket.on('disconnect', () => {

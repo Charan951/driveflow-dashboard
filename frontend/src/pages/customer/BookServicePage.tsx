@@ -114,7 +114,13 @@ const BookServicePage: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    setActiveSubCategory('All');
+    const category = searchParams.get('category');
+    
+    if (category === 'Tyres') {
+      setActiveSubCategory('Tyres'); // Default to Tyres instead of All
+    } else {
+      setActiveSubCategory('All');
+    }
   }, [searchParams]);
 
   const handleNext = async () => {
@@ -143,9 +149,13 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
-      // Check if this is a car wash service
-      const isCarWashService = selectedServicesData.some(service => 
-        service.category === 'Car Wash' || service.category === 'Wash'
+      // Check if this is a service that requires payment first (Car Wash, Battery, or Tires)
+      const requiresPaymentService = selectedServicesData.some(service => 
+        service.category === 'Car Wash' || 
+        service.category === 'Wash' ||
+        service.category === 'Battery' ||
+        service.category === 'Tyres' ||
+        service.category === 'Tyre & Battery'
       );
 
       const bookingData = {
@@ -164,15 +174,21 @@ const BookServicePage: React.FC = () => {
 
       const newBooking = await bookingService.createBooking(bookingData);
       
-      if (isCarWashService && newBooking.requiresPayment) {
-        // For car wash, store temp booking data and redirect to payment
+      if (requiresPaymentService && newBooking.requiresPayment) {
+        // For services requiring payment, store temp booking data and redirect to payment
         const tempBookingData = {
           ...bookingData,
           totalAmount: totalPrice,
-          isCarWashService: true
+          requiresPaymentService: true
         };
         
-        toast.success('Car wash booking prepared! Please complete payment to create the booking.');
+        const serviceType = selectedServicesData.some(service => 
+          service.category === 'Car Wash' || service.category === 'Wash'
+        ) ? 'car wash' : selectedServicesData.some(service => 
+          service.category === 'Battery' || service.category === 'Tyre & Battery'
+        ) ? 'battery' : 'tire';
+        
+        toast.success(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} service booking prepared! Please complete payment to create the booking.`);
         // Navigate to a payment page with temp data
         navigate('/payment', { 
           state: { 
@@ -349,60 +365,49 @@ const BookServicePage: React.FC = () => {
             {/* Step 2: Select Service */}
             {currentStep === 1 && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
-                    {location.state?.service && (
-                      <button 
-                        onClick={() => {
-                          // Clear the state by navigating to the same path without state
-                          navigate(location.pathname + location.search, { replace: true, state: {} });
-                        }}
-                        className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
-                      >
-                        Show all services
-                      </button>
-                    )}
-                  </div>
+                <div className="flex flex-col items-center gap-6">
+                  {/* Only show heading for non-Tyres categories */}
+                  {searchParams.get('category') !== 'Tyres' && (
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
+                      {location.state?.service && (
+                        <button 
+                          onClick={() => {
+                            // Clear the state by navigating to the same path without state
+                            navigate(location.pathname + location.search, { replace: true, state: {} });
+                          }}
+                          className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
+                        >
+                          Show all services
+                        </button>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Sub-category Tabs for Tyres & Battery */}
                   {searchParams.get('category') === 'Tyres' && (
-                    <div className="flex gap-2 p-1 bg-muted rounded-xl w-fit">
-                      <button
-                        onClick={() => setActiveSubCategory('All')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          activeSubCategory === 'All'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        All
-                      </button>
+                    <div className="flex gap-4 w-full">
                       <button
                         onClick={() => setActiveSubCategory('Tyres')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Tyres'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
+                            ? 'bg-primary text-primary-foreground shadow-lg'
+                            : 'bg-muted text-foreground hover:bg-muted/80'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <Disc className="w-4 h-4" />
-                          Tires
-                        </div>
+                        <Disc className="w-5 h-5" />
+                        Tires
                       </button>
                       <button
                         onClick={() => setActiveSubCategory('Battery')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Battery'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
+                            ? 'bg-primary text-primary-foreground shadow-lg'
+                            : 'bg-muted text-foreground hover:bg-muted/80'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <Battery className="w-4 h-4" />
-                          Battery
-                        </div>
+                        <Battery className="w-5 h-5" />
+                        Battery
                       </button>
                     </div>
                   )}
@@ -645,17 +650,36 @@ const BookServicePage: React.FC = () => {
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold">Confirm Booking</h2>
                 
-                {/* Car Wash Payment Notice */}
-                {selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') && (
+                {/* Payment Required Notice for Car Wash, Battery, and Tires */}
+                {selectedServicesData.some(service => 
+                  service.category === 'Car Wash' || 
+                  service.category === 'Wash' ||
+                  service.category === 'Battery' ||
+                  service.category === 'Tyres' ||
+                  service.category === 'Tyre & Battery'
+                ) && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Car className="w-4 h-4 text-blue-600" />
+                        {selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') ? (
+                          <Car className="w-4 h-4 text-blue-600" />
+                        ) : selectedServicesData.some(service => service.category === 'Battery' || service.category === 'Tyre & Battery') ? (
+                          <Battery className="w-4 h-4 text-blue-600" />
+                        ) : (
+                          <Disc className="w-4 h-4 text-blue-600" />
+                        )}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-blue-900">Car Wash Service - Payment Required</h3>
+                        <h3 className="font-semibold text-blue-900">
+                          {selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') 
+                            ? 'Car Wash Service - Payment Required'
+                            : selectedServicesData.some(service => service.category === 'Battery' || service.category === 'Tyre & Battery')
+                            ? 'Battery Service - Payment Required'
+                            : 'Tire Service - Payment Required'
+                          }
+                        </h3>
                         <p className="text-sm text-blue-700">
-                          You will need to complete payment to confirm your car wash booking. After payment, admin will assign staff to reach your location.
+                          You will need to complete payment to confirm your booking. After payment, admin will assign staff to reach your location.
                         </p>
                       </div>
                     </div>
@@ -748,7 +772,13 @@ const BookServicePage: React.FC = () => {
               {isLoading ? (
                 <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : currentStep === steps.length - 1 ? (
-                selectedServicesData.some(service => service.category === 'Car Wash' || service.category === 'Wash') 
+                selectedServicesData.some(service => 
+                  service.category === 'Car Wash' || 
+                  service.category === 'Wash' ||
+                  service.category === 'Battery' ||
+                  service.category === 'Tyres' ||
+                  service.category === 'Tyre & Battery'
+                ) 
                   ? 'Create Booking (Payment Required)'
                   : 'Confirm Booking'
               ) : (

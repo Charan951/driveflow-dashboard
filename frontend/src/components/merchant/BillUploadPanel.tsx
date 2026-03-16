@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
-import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, getFlowForService } from '@/lib/statusFlow';
 
 interface BillUploadPanelProps {
   booking: Booking;
@@ -100,7 +100,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
         // Automatically move status to SERVICE_COMPLETED
         // We do this if the status is currently anywhere before SERVICE_COMPLETED
-        const activeFlow = PICKUP_FLOW_ORDER;
+        const activeFlow = getFlowForService(booking.services || []);
         const currentIndex = activeFlow.indexOf(booking.status as (typeof activeFlow)[number]);
         const completedIndex = activeFlow.indexOf('SERVICE_COMPLETED' as (typeof activeFlow)[number]);
 
