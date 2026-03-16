@@ -9,9 +9,19 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   } else {
-    // If no token and not an auth request, we might want to cancel the request
-    const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/register');
-    if (!isAuthRequest) {
+    // List of public endpoints that don't need a token
+    const publicEndpoints = [
+      '/auth/login',
+      '/auth/register',
+      '/services',
+      '/reviews',
+      '/products',
+      '/settings/public'
+    ];
+    
+    const isPublicRequest = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
+    
+    if (!isPublicRequest) {
       // Return a rejected promise to stop the request
       return Promise.reject({
         message: 'No authentication token found',
