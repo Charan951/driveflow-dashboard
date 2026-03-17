@@ -25,14 +25,14 @@ export const CounterCard: React.FC<CounterCardProps> = ({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, delay: delay * 0.1 }}
       className={cn(
-        'p-4 bg-card rounded-2xl border border-border shadow-card',
+        'p-3 sm:p-4 bg-card rounded-2xl border border-border shadow-card',
         className
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
+        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{label}</p>
         {icon && (
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             {icon}
           </div>
         )}
@@ -42,7 +42,7 @@ export const CounterCard: React.FC<CounterCardProps> = ({
         initial={{ scale: 0.5 }}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 10, delay: delay * 0.1 + 0.2 }}
-        className="text-2xl font-bold text-foreground"
+        className="text-lg sm:text-2xl font-bold text-foreground"
       >
         {value}
       </motion.p>

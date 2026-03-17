@@ -72,7 +72,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       whileTap="tap"
       onClick={onClick}
       className={cn(
-        'relative p-4 bg-card rounded-2xl border border-border cursor-pointer min-w-[280px]',
+        'relative p-4 bg-card rounded-2xl border border-border cursor-pointer w-full max-w-[280px] mx-auto',
         'shadow-card',
         className
       )}
@@ -104,10 +104,10 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         )}
       </div>
 
-      <h3 className="font-semibold text-foreground mb-1">
+      <h3 className="font-semibold text-foreground mb-1 line-clamp-1">
         {year} {make} {model}
       </h3>
-      <p className="text-sm text-muted-foreground mb-3">{licensePlate}</p>
+      <p className="text-sm text-muted-foreground mb-3 line-clamp-1">{licensePlate}</p>
 
       {nextService && (
         <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg">

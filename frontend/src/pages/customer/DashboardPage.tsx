@@ -19,6 +19,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
 import { useAuthStore } from '@/store/authStore';
+import { getTimeBasedGreeting } from '@/lib/timeUtils';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -27,7 +28,23 @@ const DashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [greeting, setGreeting] = useState(getTimeBasedGreeting());
   const navigate = useNavigate();
+
+  // Update greeting every minute
+  useEffect(() => {
+    const updateGreeting = () => {
+      setGreeting(getTimeBasedGreeting());
+    };
+
+    // Update immediately
+    updateGreeting();
+
+    // Set up interval to update every minute
+    const interval = setInterval(updateGreeting, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,20 +148,27 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-full overflow-hidden">
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Good Morning! 👋</h1>
-          <p className="text-muted-foreground">Manage your vehicles and services</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">{greeting}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your vehicles and services</p>
         </div>
         <Link
           to="/book-service"
-          className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
+          className="flex sm:hidden items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors w-full"
+        >
+          <Plus className="w-4 h-4" />
+          Book Service
+        </Link>
+        <Link
+          to="/book-service"
+          className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
           Book Service
@@ -159,38 +183,35 @@ const DashboardPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gradient-primary rounded-2xl p-5 text-primary-foreground"
+          className="bg-gradient-primary rounded-2xl p-4 sm:p-5 text-primary-foreground"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
+            <div className="min-w-0 flex-1">
               <p className="text-sm text-primary-foreground/70 mb-1">Ongoing Service</p>
-              <h3 className="text-lg font-semibold">
+              <h3 className="text-base sm:text-lg font-semibold break-words">
                 {Array.isArray(upcomingBooking.services) 
                   ? (upcomingBooking.services[0] as Service)?.name || 'Service' 
                   : 'Service'}
                  {upcomingBooking.services.length > 1 && ` +${upcomingBooking.services.length - 1} more`}
               </h3>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium bg-white/20`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium bg-white/20 flex-shrink-0 self-start`}>
               {upcomingBooking.status}
             </span>
           </div>
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4 flex-shrink-0" />
               <span className="text-sm">{new Date(upcomingBooking.date).toLocaleDateString()}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              <span className="text-sm">
-                 {/* Time is not always available in booking, maybe derived or just show date */}
-                 10:00 AM
-              </span>
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">10:00 AM</span>
             </div>
           </div>
           <Link
             to={`/track/${upcomingBooking._id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-foreground text-primary rounded-xl text-sm font-medium hover:bg-primary-foreground/90 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary-foreground text-primary rounded-xl text-sm font-medium hover:bg-primary-foreground/90 transition-colors w-full sm:w-auto"
           >
             Track Service
             <ArrowRight className="w-4 h-4" />
@@ -203,29 +224,31 @@ const DashboardPage: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">My Vehicles</h2>
-          <Link to="/add-vehicle" className="text-sm text-primary font-medium flex items-center gap-1">
+          <Link to="/add-vehicle" className="text-sm text-primary font-medium flex items-center gap-1 flex-shrink-0">
             View all <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
         <div 
           ref={vehiclesRef}
           className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {vehicles.length === 0 && (
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: vehicles.length * 0.1 }}
+              className="w-full"
             >
               <Link
                 to="/add-vehicle"
-                className="flex flex-col items-center justify-center min-w-[280px] h-[230px] bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
+                className="flex flex-col items-center justify-center w-full min-h-[200px] sm:min-h-[230px] bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
               >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                   <Plus className="w-6 h-6 text-primary" />
                 </div>
                 <p className="font-medium text-foreground">Add Vehicle</p>
-                <p className="text-sm text-muted-foreground">Register a new vehicle</p>
+                <p className="text-sm text-muted-foreground text-center px-4">Register a new vehicle</p>
               </Link>
             </motion.div>
           )}
@@ -237,7 +260,7 @@ const DashboardPage: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Quick Services</h2>
-          <Link to="/services" className="text-sm text-primary font-medium flex items-center gap-1">
+          <Link to="/services" className="text-sm text-primary font-medium flex items-center gap-1 flex-shrink-0">
             View all <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -245,20 +268,20 @@ const DashboardPage: React.FC = () => {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
           {services.slice(0, 4).map((service) => (
             <motion.div key={service._id} variants={staggerItem}>
               <Link
                 to="/book-service"
                 state={{ service }}
-                className="flex flex-col items-center p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-card transition-all"
+                className="flex flex-col items-center p-3 sm:p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-card transition-all min-h-[120px] sm:min-h-[140px]"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                  <Car className="w-6 h-6 text-primary" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2 sm:mb-3 flex-shrink-0">
+                  <Car className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
-                <p className="text-sm font-medium text-foreground text-center">{service.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">${service.price}</p>
+                <p className="text-xs sm:text-sm font-medium text-foreground text-center line-clamp-2 mb-1">{service.name}</p>
+                <p className="text-xs text-muted-foreground">${service.price}</p>
               </Link>
             </motion.div>
           ))}

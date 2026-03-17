@@ -163,93 +163,188 @@ const MyBookingsPage = () => {
       }
 
       return (
-        <div className="overflow-x-auto">
-          <Table className="min-w-[800px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Services</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Total Amount</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bookingsList.map((booking) => {
-                const additionalParts = Array.isArray(booking.inspection?.additionalParts)
-                  ? booking.inspection.additionalParts
-                  : [];
-                const approvedParts = additionalParts.filter(
-                  (p) => p.approvalStatus === 'Approved' || p.approved
-                );
-                const approvedPartsCount = approvedParts.length;
-                const approvedPartsTotal = approvedParts.reduce(
-                  (sum, part) => sum + (part.price || 0) * (part.quantity || 1),
-                  0
-                );
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
+            <Table className="min-w-[800px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Services</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Total Amount</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bookingsList.map((booking) => {
+                  const additionalParts = Array.isArray(booking.inspection?.additionalParts)
+                    ? booking.inspection.additionalParts
+                    : [];
+                  const approvedParts = additionalParts.filter(
+                    (p) => p.approvalStatus === 'Approved' || p.approved
+                  );
+                  const approvedPartsCount = approvedParts.length;
+                  const approvedPartsTotal = approvedParts.reduce(
+                    (sum, part) => sum + (part.price || 0) * (part.quantity || 1),
+                    0
+                  );
 
-                return (
-                <TableRow key={booking._id}>
-                  <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
-                  <TableCell>
-                    {typeof booking.vehicle === 'object' 
-                      ? `${booking.vehicle.make} ${booking.vehicle.model} (${booking.vehicle.licensePlate})`
-                      : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {Array.isArray(booking.services) 
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      ? booking.services.map((s: any) => s.name).join(', ') 
-                      : 'N/A'}
-                  </TableCell>
-                  <TableCell>
+                  return (
+                  <TableRow key={booking._id}>
+                    <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
+                    <TableCell>
+                      {typeof booking.vehicle === 'object' 
+                        ? `${booking.vehicle.make} ${booking.vehicle.model} (${booking.vehicle.licensePlate})`
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {Array.isArray(booking.services) 
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ? booking.services.map((s: any) => s.name).join(', ') 
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <Badge variant={getStatusColor(booking.status) as any}>
+                        {booking.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span>₹{booking.totalAmount}</span>
+                        {approvedPartsCount > 0 && (
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <Wrench className="w-3 h-3" />
+                            {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">{booking.paymentStatus}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                          <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/track/${booking._id}`)}
+                              title="Track Booking"
+                          >
+                              <Eye className="w-4 h-4" />
+                          </Button>
+                          {booking.status === 'Delivered' && (
+                          <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleReviewClick(booking)}
+                              className="flex items-center gap-1"
+                          >
+                              <MessageSquarePlus className="w-4 h-4" />
+                              Review
+                          </Button>
+                          )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )})}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4">
+            {bookingsList.map((booking) => {
+              const additionalParts = Array.isArray(booking.inspection?.additionalParts)
+                ? booking.inspection.additionalParts
+                : [];
+              const approvedParts = additionalParts.filter(
+                (p) => p.approvalStatus === 'Approved' || p.approved
+              );
+              const approvedPartsCount = approvedParts.length;
+              const approvedPartsTotal = approvedParts.reduce(
+                (sum, part) => sum + (part.price || 0) * (part.quantity || 1),
+                0
+              );
+
+              return (
+                <Card key={booking._id} className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {format(new Date(booking.date), 'PPP')}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {typeof booking.vehicle === 'object' 
+                          ? `${booking.vehicle.make} ${booking.vehicle.model} (${booking.vehicle.licensePlate})`
+                          : 'N/A'}
+                      </p>
+                    </div>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Badge variant={getStatusColor(booking.status) as any}>
+                    <Badge variant={getStatusColor(booking.status) as any} className="flex-shrink-0">
                       {booking.status}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span>₹{booking.totalAmount}</span>
-                      {approvedPartsCount > 0 && (
-                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                          <Wrench className="w-3 h-3" />
-                          {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
-                        </span>
-                      )}
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Services</p>
+                      <p className="text-sm font-medium">
+                        {Array.isArray(booking.services) 
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          ? booking.services.map((s: any) => s.name).join(', ') 
+                          : 'N/A'}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell className="capitalize">{booking.paymentStatus}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/track/${booking._id}`)}
-                            title="Track Booking"
-                        >
-                            <Eye className="w-4 h-4" />
-                        </Button>
-                        {booking.status === 'Delivered' && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleReviewClick(booking)}
-                            className="flex items-center gap-1"
-                        >
-                            <MessageSquarePlus className="w-4 h-4" />
-                            Review
-                        </Button>
-                        )}
+                    
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Amount</p>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium">₹{booking.totalAmount}</span>
+                          {approvedPartsCount > 0 && (
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <Wrench className="w-3 h-3" />
+                              {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payment</p>
+                        <p className="text-sm font-medium capitalize">{booking.paymentStatus}</p>
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              )})}
-            </TableBody>
-          </Table>
-        </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/track/${booking._id}`)}
+                      className="flex-1"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Track
+                    </Button>
+                    {booking.status === 'Delivered' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleReviewClick(booking)}
+                        className="flex-1"
+                      >
+                        <MessageSquarePlus className="w-4 h-4 mr-2" />
+                        Review
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       );
   };
 
@@ -262,24 +357,24 @@ const MyBookingsPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8 max-w-full">
       
       {/* Pending Approvals Section */}
       {approvals.length > 0 && (
-        <div className="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            Action Required
+        <div className="mb-6 sm:mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-bold text-amber-800 dark:text-amber-400 mb-4 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="min-w-0">Action Required</span>
           </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {approvals.map(approval => (
               <div key={approval._id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-amber-100 dark:border-gray-700">
-                <div className="flex justify-between items-start mb-2">
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">
+                <div className="flex justify-between items-start mb-2 gap-2">
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 flex-shrink-0">
                     {approval.type === 'PartReplacement' ? 'Part Replacement' : 
                      approval.type === 'ExtraCost' ? 'Extra Cost' : approval.type}
                   </Badge>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 flex-shrink-0">
                     {format(new Date(approval.createdAt), 'MMM d, yyyy')}
                   </span>
                 </div>
@@ -297,15 +392,15 @@ const MyBookingsPage = () => {
                   {Object.entries(approval.data || {}).map(([key, value]) => {
                       if (key === 'image') return null;
                       return (
-                        <div key={key} className="flex justify-between text-sm">
-                          <span className="text-gray-500 capitalize">{key}:</span>
-                          <span className="font-medium">{String(value)}</span>
+                        <div key={key} className="flex justify-between text-sm gap-2">
+                          <span className="text-gray-500 capitalize flex-shrink-0">{key}:</span>
+                          <span className="font-medium text-right min-w-0 break-words">{String(value)}</span>
                         </div>
                       );
                   })}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button 
                     size="sm" 
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white"
@@ -328,15 +423,17 @@ const MyBookingsPage = () => {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Bookings</h1>
-        <Button onClick={() => navigate('/book-service')}>Book New Service</Button>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Bookings</h1>
+        <Button onClick={() => navigate('/book-service')} className="w-full sm:w-auto">
+          Book New Service
+        </Button>
       </div>
       
       <Tabs defaultValue="live" className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2 mb-6">
-          <TabsTrigger value="live">Live Bookings</TabsTrigger>
-          <TabsTrigger value="past">Past History</TabsTrigger>
+        <TabsList className="grid w-full max-w-full sm:max-w-[400px] grid-cols-2 mb-6">
+          <TabsTrigger value="live" className="text-sm">Live Bookings</TabsTrigger>
+          <TabsTrigger value="past" className="text-sm">Past History</TabsTrigger>
         </TabsList>
         
         <TabsContent value="live">

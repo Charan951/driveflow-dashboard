@@ -5,11 +5,11 @@ import { Home, Settings, Droplets, Battery, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { icon: Settings, label: 'Services', path: '/dashboard/services' },
+  { icon: Settings, label: 'Services', path: '/book-service?category=Periodic' },
   { icon: Shield, label: 'Insurance', path: '/insurance' },
   { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
-  { icon: Droplets, label: 'Car Wash', path: '/car-wash' },
-  { icon: Battery, label: 'Tires', path: '/tires-battery' },
+  { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
+  { icon: Battery, label: 'Tires', path: '/book-service?category=Tyres' },
 ];
 
 export const BottomNav: React.FC = () => {
@@ -19,7 +19,7 @@ export const BottomNav: React.FC = () => {
     <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border pb-safe lg:hidden z-40">
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item, index) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname + location.search === item.path;
           const isMain = item.isMain;
 
           return (

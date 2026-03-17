@@ -100,7 +100,7 @@ app.options(/(.*)/, cors(corsOptions));
 app.use(express.json());
 
 // Routes
-app.get('/api/test-cors', (req, res) => {
+app.get('/api/test-cors', (_, res) => {
   res.json({ message: 'CORS is working!' });
 });
 app.use('/api/auth', authRoutes);
@@ -131,7 +131,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Basic Route
-app.get('/', (req, res) => {
+app.get('/', (_, res) => {
   res.send('DriveFlow API is running');
 });
 

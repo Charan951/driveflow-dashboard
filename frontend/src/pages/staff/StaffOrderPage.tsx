@@ -852,47 +852,49 @@ const StaffOrderPage: React.FC = () => {
   const addressDisplay = typeof targetLocation === 'string' ? targetLocation : targetLocation?.address || 'No address provided';
 
   return (
-    <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
+    <div className="container-mobile space-y-6 max-w-2xl mx-auto pb-24 no-horizontal-scroll">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Order Details</h1>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold truncate">Order Details</h1>
+          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
             order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
           }`}>
             {order.status.replace('_AT_MERCHANT', '')}
           </span>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+        <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
           {isBatteryOrTire ? (
             Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 3 ? (
               <>
-                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                <span className="text-green-700">All photos ready</span>
+                <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                <span className="text-green-700 hidden sm:inline">All photos ready</span>
+                <span className="text-green-700 sm:hidden">3/3</span>
               </>
             ) : Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 1 ? (
               <>
-                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                <span className="text-green-700">Photos ready ({order.prePickupPhotos.length}/3)</span>
+                <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                <span className="text-green-700">({order.prePickupPhotos.length}/3)</span>
               </>
             ) : (
               <>
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
                 <span className="text-amber-600">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/3 photos` : '0/3 photos'}
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/3` : '0/3'}
                 </span>
               </>
             )
           ) : (
             Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
               <>
-                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                <span className="text-green-700">Pickup photos ready</span>
+                <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                <span className="text-green-700 hidden sm:inline">Pickup photos ready</span>
+                <span className="text-green-700 sm:hidden">4/4</span>
               </>
             ) : (
               <>
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
                 <span className="text-amber-600">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4 photos` : '0/4 photos'}
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4` : '0/4'}
                 </span>
               </>
             )
@@ -901,8 +903,8 @@ const StaffOrderPage: React.FC = () => {
       </div>
 
       {(['ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'INSTALLATION', 'DELIVERY'].includes(order.status)) && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-          <h3 className="font-medium">Order Actions</h3>
+        <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
+          <h3 className="font-medium text-sm sm:text-base">Order Actions</h3>
 
           <div className="space-y-3">
             {isWaitingForPayment && (
@@ -921,7 +923,7 @@ const StaffOrderPage: React.FC = () => {
               <Button
                 disabled={shouldDisablePrimaryAction}
                 size="lg"
-                className={`w-full justify-center gap-2 text-white ${nextAction.color}`}
+                className={`w-full justify-center gap-2 text-white text-sm sm:text-base ${nextAction.color}`}
                 onClick={() => handleStatusUpdate(nextAction.nextStatus)}
               >
                 <CheckCircle className="w-4 h-4" />
@@ -932,17 +934,18 @@ const StaffOrderPage: React.FC = () => {
             <Button
               size="lg"
               variant="outline"
-              className="w-full justify-center gap-2"
+              className="w-full justify-center gap-2 text-sm sm:text-base"
               onClick={handleNavigate}
             >
               <Navigation className="w-4 h-4" />
-              Navigate to Location
+              <span className="hidden sm:inline">Navigate to Location</span>
+              <span className="sm:hidden">Navigate</span>
             </Button>
 
             <Button
               size="lg"
               variant="secondary"
-              className="w-full justify-center gap-2"
+              className="w-full justify-center gap-2 text-sm sm:text-base"
               onClick={isCarWash ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
               disabled={isCarWash ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
             >
@@ -950,18 +953,43 @@ const StaffOrderPage: React.FC = () => {
               {(() => {
                 if (isCarWash) {
                   if (order.status === 'REACHED_CUSTOMER') {
-                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Before Wash Photos';
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload Before Wash Photos</span>
+                        <span className="sm:hidden">Before Photos</span>
+                      </>
+                    );
                   } else if (order.status === 'CAR_WASH_STARTED') {
-                    return isUploadingPrePickup ? 'Uploading...' : 'Upload After Wash Photos';
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload After Wash Photos</span>
+                        <span className="sm:hidden">After Photos</span>
+                      </>
+                    );
                   }
                   return 'Upload Photos';
                 } else if (isBatteryOrTire) {
                   if (order.status === 'STAFF_REACHED_MERCHANT') {
-                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Merchant Pickup Photo';
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload Merchant Pickup Photo</span>
+                        <span className="sm:hidden">Pickup Photo</span>
+                      </>
+                    );
                   } else if (order.status === 'REACHED_CUSTOMER') {
-                    return isUploadingPrePickup ? 'Uploading...' : 'Upload New Part Photo';
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload New Part Photo</span>
+                        <span className="sm:hidden">New Part</span>
+                      </>
+                    );
                   } else if (order.status === 'INSTALLATION') {
-                    return isUploadingPrePickup ? 'Uploading...' : 'Upload Old Part Photo';
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload Old Part Photo</span>
+                        <span className="sm:hidden">Old Part</span>
+                      </>
+                    );
                   }
                   return 'Upload Photos';
                 } else {
@@ -997,12 +1025,12 @@ const StaffOrderPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Pre-pickup photos</span>
                 <span className="text-[11px] text-muted-foreground">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/4` : '0/4'}
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/${isBatteryOrTire ? '3' : '4'}` : `0/${isBatteryOrTire ? '3' : '4'}`}
                 </span>
               </div>
               {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
-                <div className="grid grid-cols-4 gap-2">
-                  {order.prePickupPhotos.slice(0, 4).map((url, index) => (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {order.prePickupPhotos.slice(0, isBatteryOrTire ? 3 : 4).map((url, index) => (
                     <div
                       key={index}
                       className="relative rounded-lg overflow-hidden border border-border bg-muted"
@@ -1010,14 +1038,14 @@ const StaffOrderPage: React.FC = () => {
                       <img
                         src={url}
                         alt={`Pre-pickup ${index + 1}`}
-                        className="w-full h-16 object-cover"
+                        className="w-full h-12 sm:h-16 object-cover"
                       />
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-[11px] text-muted-foreground">
-                  No photos uploaded yet. Upload 4 clear photos of the vehicle before pickup.
+                  No photos uploaded yet. Upload {isBatteryOrTire ? '3' : '4'} clear photos {isBatteryOrTire ? 'for the service' : 'of the vehicle before pickup'}.
                 </p>
               )}
             </div>
@@ -1026,9 +1054,9 @@ const StaffOrderPage: React.FC = () => {
       )}
 
       {order.status === 'REACHED_MERCHANT' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm space-y-2">
-          <h3 className="font-medium text-yellow-800 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-2">
+          <h3 className="font-medium text-yellow-800 flex items-center gap-2 text-sm sm:text-base">
+            <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5" />
             Waiting for Handover
           </h3>
           <p className="text-sm text-yellow-700">
@@ -1039,26 +1067,29 @@ const StaffOrderPage: React.FC = () => {
       )}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
-          <TabsTrigger value="navigation">Navigation</TabsTrigger>
-          <TabsTrigger value="media">Photos</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 text-xs sm:text-sm">
+          <TabsTrigger value="overview" className="px-2 sm:px-4">Overview</TabsTrigger>
+          <TabsTrigger value="vehicle" className="px-2 sm:px-4">Vehicle</TabsTrigger>
+          <TabsTrigger value="navigation" className="px-2 sm:px-4">
+            <span className="hidden sm:inline">Navigation</span>
+            <span className="sm:hidden">Nav</span>
+          </TabsTrigger>
+          <TabsTrigger value="media" className="px-2 sm:px-4">Photos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-purple-50 rounded-full">
-                <User className="w-5 h-5 text-purple-600" />
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-purple-50 rounded-full flex-shrink-0">
+                <User className="w-4 sm:w-5 h-4 sm:h-5 text-purple-600" />
               </div>
-              <div>
-                <h3 className="font-medium text-lg">{userDetails.name || 'Guest User'}</h3>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium text-base sm:text-lg truncate">{userDetails.name || 'Guest User'}</h3>
                 <p className="text-muted-foreground text-sm">{userDetails.phone || 'No phone'}</p>
               </div>
               {userDetails.phone && (
-                <a href={`tel:${userDetails.phone}`} className="ml-auto p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100">
-                  <Phone className="w-5 h-5" />
+                <a href={`tel:${userDetails.phone}`} className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100 flex-shrink-0">
+                  <Phone className="w-4 sm:w-5 h-4 sm:h-5" />
                 </a>
               )}
             </div>
@@ -1066,13 +1097,13 @@ const StaffOrderPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="vehicle" className="space-y-4 mt-4">
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-50 rounded-full">
-                <Car className="w-5 h-5 text-blue-600" />
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-blue-50 rounded-full flex-shrink-0">
+                <Car className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-medium">{vehicle.make} {vehicle.model}</h3>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium text-sm sm:text-base">{vehicle.make} {vehicle.model}</h3>
                 <p className="text-muted-foreground text-sm">{vehicle.licensePlate || 'No Plate'}</p>
               </div>
             </div>
@@ -1082,7 +1113,7 @@ const StaffOrderPage: React.FC = () => {
               <ul className="space-y-2">
                 {services.map((s, idx: number) => (
                   <li key={idx} className="text-sm p-2 bg-gray-50 rounded flex justify-between">
-                    <span>{typeof s === 'string' ? s : s.name || 'Service'}</span>
+                    <span className="truncate">{typeof s === 'string' ? s : s.name || 'Service'}</span>
                   </li>
                 ))}
               </ul>
@@ -1091,14 +1122,14 @@ const StaffOrderPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="navigation" className="space-y-4 mt-4">
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-amber-50 rounded-full">
-                <MapPin className="w-5 h-5 text-amber-600" />
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-amber-50 rounded-full flex-shrink-0">
+                <MapPin className="w-4 sm:w-5 h-4 sm:h-5 text-amber-600" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-medium mb-1">{locationLabel}</h3>
-                <p className="text-sm text-muted-foreground mb-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium mb-1 text-sm sm:text-base">{locationLabel}</h3>
+                <p className="text-sm text-muted-foreground mb-3 break-words">
                   {addressDisplay}
                 </p>
                 {eta && (
@@ -1109,15 +1140,17 @@ const StaffOrderPage: React.FC = () => {
                   </div>
                 )}
                 
-                <Button onClick={handleNavigate} className="w-full gap-2">
+                <Button onClick={handleNavigate} className="w-full gap-2 text-sm sm:text-base">
                   <Navigation className="w-4 h-4" />
-                  {navigateButtonText}
+                  <span className="hidden sm:inline">{navigateButtonText}</span>
+                  <span className="sm:hidden">Navigate</span>
                 </Button>
                 
                 {isTracking && (
                   <div className="mt-2 flex items-center justify-center gap-2 text-xs text-green-600 font-medium animate-pulse">
                     <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                    Sharing Live Location
+                    <span className="hidden sm:inline">Sharing Live Location</span>
+                    <span className="sm:hidden">Live Location</span>
                   </div>
                 )}
               </div>

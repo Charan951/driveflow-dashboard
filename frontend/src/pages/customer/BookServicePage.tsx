@@ -226,6 +226,40 @@ const BookServicePage: React.FC = () => {
     'Other': ['Other', 'Painting', 'Denting', 'Accessories']
   };
 
+  // Dynamic title mapping based on category
+  const getServiceTitle = () => {
+    const categoryParam = searchParams.get('category');
+    
+    switch (categoryParam) {
+      case 'Wash':
+        return 'Book a Car Wash Service';
+      case 'Tyres':
+        return 'Book a Tires & Battery Service';
+      case 'Periodic':
+        return 'Book a Periodic Service';
+      case 'Insurance':
+        return 'Book an Insurance Service';
+      case 'Services':
+        return 'Book a General Service';
+      case 'Repair':
+        return 'Book a Repair Service';
+      case 'AC':
+        return 'Book an AC Service';
+      case 'Detailing':
+        return 'Book a Detailing Service';
+      case 'Painting':
+        return 'Book a Painting Service';
+      case 'Denting':
+        return 'Book a Denting Service';
+      case 'Accessories':
+        return 'Book an Accessories Service';
+      case 'Other':
+        return 'Book a Service';
+      default:
+        return 'Book a Service';
+    }
+  };
+
   const filteredServices = services.filter(service => {
     // If we have a pre-selected service from location state, show only that one
     if (location.state?.service?._id) {
@@ -255,11 +289,11 @@ const BookServicePage: React.FC = () => {
   });
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-full overflow-hidden">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Book a Service</h1>
-        <p className="text-muted-foreground">Schedule your vehicle service in a few steps</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">{getServiceTitle()}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Schedule your vehicle service in a few steps</p>
       </div>
 
       {error && (
@@ -270,9 +304,9 @@ const BookServicePage: React.FC = () => {
       )}
 
       {/* Progress Steps */}
-          <div className="flex items-center justify-between bg-card rounded-2xl p-4 border border-border">
+          <div className="flex items-center justify-between bg-card rounded-2xl p-3 sm:p-4 border border-border overflow-x-auto">
             {steps.map((step, index) => (
-              <div key={step} className="flex items-center">
+              <div key={step} className="flex items-center flex-shrink-0">
                 <div className="flex flex-col items-center">
                   <motion.div
                     initial={false}
@@ -280,22 +314,22 @@ const BookServicePage: React.FC = () => {
                       backgroundColor: index <= currentStep ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
                       scale: index === currentStep ? 1.1 : 1,
                     }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium"
                   >
                     {index < currentStep ? (
-                      <Check className="w-4 h-4 text-primary-foreground" />
+                      <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
                     ) : (
                       <span className={index <= currentStep ? 'text-primary-foreground' : 'text-muted-foreground'}>
                         {index + 1}
                       </span>
                     )}
                   </motion.div>
-                  <span className={`text-xs mt-1 ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  <span className={`text-xs mt-1 text-center max-w-[60px] sm:max-w-none line-clamp-2 sm:line-clamp-1 ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {step}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`h-0.5 w-8 sm:w-16 mx-2 ${index < currentStep ? 'bg-primary' : 'bg-muted'}`} />
+                  <div className={`h-0.5 w-4 sm:w-8 lg:w-16 mx-1 sm:mx-2 ${index < currentStep ? 'bg-primary' : 'bg-muted'}`} />
                 )}
               </div>
             ))}
@@ -321,7 +355,7 @@ const BookServicePage: React.FC = () => {
                       </button>
                     </div>
                 ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
                     <motion.button
                       key={vehicle._id}
@@ -333,25 +367,25 @@ const BookServicePage: React.FC = () => {
                           : 'border-border bg-card hover:border-primary/50'
                       }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-20 h-16 rounded-xl bg-muted overflow-hidden">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-16 h-12 sm:w-20 sm:h-16 rounded-xl bg-muted overflow-hidden flex-shrink-0">
                           {vehicle.image ? (
                             <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Car className="w-8 h-8 text-muted-foreground" />
+                              <Car className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                             </div>
                           )}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-foreground">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground text-sm sm:text-base line-clamp-1">
                             {vehicle.year} {vehicle.make} {vehicle.model}
                           </p>
-                          <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
                         </div>
                         {selectedVehicle === vehicle._id && (
-                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="w-4 h-4 text-primary-foreground" />
+                          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
                           </div>
                         )}
                       </div>
@@ -386,28 +420,28 @@ const BookServicePage: React.FC = () => {
                   
                   {/* Sub-category Tabs for Tyres & Battery */}
                   {searchParams.get('category') === 'Tyres' && (
-                    <div className="flex gap-4 w-full">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
                       <button
                         onClick={() => setActiveSubCategory('Tyres')}
-                        className={`flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
+                        className={`flex-1 py-3 sm:py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Tyres'
                             ? 'bg-primary text-primary-foreground shadow-lg'
                             : 'bg-muted text-foreground hover:bg-muted/80'
                         }`}
                       >
-                        <Disc className="w-5 h-5" />
-                        Tires
+                        <Disc className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span className="text-sm sm:text-base">Tires</span>
                       </button>
                       <button
                         onClick={() => setActiveSubCategory('Battery')}
-                        className={`flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
+                        className={`flex-1 py-3 sm:py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Battery'
                             ? 'bg-primary text-primary-foreground shadow-lg'
                             : 'bg-muted text-foreground hover:bg-muted/80'
                         }`}
                       >
-                        <Battery className="w-5 h-5" />
-                        Battery
+                        <Battery className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span className="text-sm sm:text-base">Battery</span>
                       </button>
                     </div>
                   )}
@@ -424,27 +458,27 @@ const BookServicePage: React.FC = () => {
                         <motion.button
                           whileTap={{ scale: 0.98 }}
                           onClick={() => toggleService(service._id)}
-                          className={`flex items-center gap-4 p-6 rounded-2xl border-2 transition-all w-full ${
+                          className={`flex items-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-2xl border-2 transition-all w-full ${
                             selectedServices.includes(service._id)
                               ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
                               : 'border-border bg-card hover:border-primary/50'
                           }`}
                         >
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${
                             selectedServices.includes(service._id) ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
                           }`}>
                             <img src={service.image} alt={service.name} className="w-full h-full object-cover rounded-xl" />
                           </div>
-                          <div className="flex-1 text-left">
-                            <span className="font-bold text-lg text-foreground block">{service.name}</span>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex-1 text-left min-w-0">
+                            <span className="font-bold text-base sm:text-lg text-foreground block line-clamp-2">{service.name}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span>Price: ₹{service.price}</span>
                               <span>Time: {service.duration} mins</span>
                             </div>
                           </div>
                           {selectedServices.includes(service._id) && (
-                            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="w-4 h-4 text-primary-foreground" />
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
                             </div>
                           )}
                         </motion.button>
@@ -455,7 +489,7 @@ const BookServicePage: React.FC = () => {
                           <motion.div 
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
-                            className="bg-card border-2 border-primary/20 rounded-2xl p-6 ml-4 space-y-4"
+                            className="bg-card border-2 border-primary/20 rounded-2xl p-4 sm:p-6 ml-2 sm:ml-4 space-y-4"
                           >
                             <div className="flex items-center justify-between">
                               <label className="text-sm font-bold text-foreground uppercase tracking-wider">Select Size</label>
@@ -479,12 +513,12 @@ const BookServicePage: React.FC = () => {
                                 className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium"
                               />
                             ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                                 {COMMON_TIRE_SIZES.map(size => (
                                   <button
                                     key={size}
                                     onClick={() => setTireSizes(prev => ({ ...prev, [service._id]: size }))}
-                                    className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                    className={`p-2 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-medium transition-all ${
                                       tireSizes[service._id] === size
                                         ? 'border-primary bg-primary/10 text-primary'
                                         : 'border-border bg-muted/20 hover:border-primary/30'
@@ -504,7 +538,7 @@ const BookServicePage: React.FC = () => {
                                   <button
                                     key={qty}
                                     onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
-                                    className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+                                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
                                       (serviceQuantities[service._id] || 1) === qty
                                         ? 'border-primary bg-primary/10 text-primary'
                                         : 'border-border bg-muted/20 hover:border-primary/30'
@@ -526,11 +560,11 @@ const BookServicePage: React.FC = () => {
 
             {/* Step 3: Schedule */}
             {currentStep === 2 && (
-              <div className="space-y-8">
-                <div className="bg-card rounded-[2rem] border-2 border-border p-8 shadow-sm">
-                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <Calendar className="w-6 h-6 text-primary" />
-                    Select Schedule
+              <div className="space-y-6 sm:space-y-8">
+                <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
+                  <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                    <span>Select Schedule</span>
                   </h2>
                   <SlotPicker
                     selectedDate={selectedDate}
@@ -540,21 +574,21 @@ const BookServicePage: React.FC = () => {
                   />
                 </div>
 
-                <div className="bg-card rounded-[2rem] border-2 border-border p-8 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                      <MapPin className="w-6 h-6 text-primary" />
-                      Customer Location
+                <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+                    <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                      <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                      <span>Customer Location</span>
                     </h2>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {user?.addresses && user.addresses.length > 0 && (
                       <div className="space-y-3">
-                        <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                        <label className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest">
                           Choose From Saved Addresses
                         </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           {user.addresses.map((addr, index) => (
                             <button
                               key={index}
@@ -564,20 +598,20 @@ const BookServicePage: React.FC = () => {
                                 setShowCustomLocation(false);
                                 toast.success(`Selected ${addr.label}`);
                               }}
-                              className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
+                              className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all text-left ${
                                 pickupLocation.address === addr.address && !showCustomLocation
                                   ? 'border-primary bg-primary/5 shadow-md'
                                   : 'border-border bg-muted/20 hover:border-primary/30'
                               }`}
                             >
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
                                 pickupLocation.address === addr.address && !showCustomLocation ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
                               }`}>
-                                <MapPin className="w-5 h-5" />
+                                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-foreground truncate">{addr.label}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-1">{addr.address}</p>
+                                <p className="font-bold text-foreground text-sm sm:text-base truncate">{addr.label}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
                               </div>
                             </button>
                           ))}
@@ -585,10 +619,10 @@ const BookServicePage: React.FC = () => {
                       </div>
                     )}
 
-                    <div className={cn("pt-4", user?.addresses?.length > 0 && "border-t border-border/50")}>
+                    <div className={cn("pt-3 sm:pt-4", user?.addresses?.length > 0 && "border-t border-border/50")}>
                       {user?.addresses?.length > 0 && (
-                        <div className="flex items-center justify-between mb-4">
-                          <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+                          <label className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest">
                             Or Enter Custom Address
                           </label>
                           <button
@@ -598,7 +632,7 @@ const BookServicePage: React.FC = () => {
                                 setPickupLocation({ address: '' });
                               }
                             }}
-                            className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
+                            className="text-xs font-bold text-primary uppercase tracking-tight hover:underline self-start sm:self-auto"
                           >
                             {showCustomLocation ? 'Cancel' : '+ Add Custom'}
                           </button>
@@ -609,33 +643,33 @@ const BookServicePage: React.FC = () => {
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-muted/30 rounded-2xl border-2 border-border overflow-hidden p-4"
+                          className="bg-muted/30 rounded-xl sm:rounded-2xl border-2 border-border overflow-hidden p-3 sm:p-4"
                         >
                           {(!user?.addresses || user.addresses.length === 0) && (
-                             <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest block mb-4">
+                             <label className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest block mb-3 sm:mb-4">
                                Enter Pickup Address
                              </label>
                           )}
                           <LocationPicker 
                             value={pickupLocation} 
                             onChange={setPickupLocation}
-                            mapClassName="h-[300px] w-full rounded-xl mt-4 border-2 border-border shadow-inner"
+                            mapClassName="h-[250px] sm:h-[300px] w-full rounded-lg sm:rounded-xl mt-3 sm:mt-4 border-2 border-border shadow-inner"
                           />
                         </motion.div>
                       ) : !pickupLocation.address && (
-                        <div className="text-center py-8 bg-muted/20 rounded-2xl border-2 border-dashed border-border">
-                          <p className="text-sm text-muted-foreground font-medium">Please select a saved address or enter a custom address.</p>
+                        <div className="text-center py-6 sm:py-8 bg-muted/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-border">
+                          <p className="text-xs sm:text-sm text-muted-foreground font-medium px-4">Please select a saved address or enter a custom address.</p>
                         </div>
                       )}
 
                       {pickupLocation.address && !showCustomLocation && user?.addresses?.length > 0 && (
-                        <div className="flex items-start gap-4 p-4 bg-primary/5 rounded-2xl border-2 border-primary/20">
-                           <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-                             <Check className="w-5 h-5" />
+                        <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-primary/5 rounded-xl sm:rounded-2xl border-2 border-primary/20">
+                           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                             <Check className="w-4 h-4 sm:w-5 sm:h-5" />
                            </div>
-                           <div>
+                           <div className="min-w-0">
                              <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Selected Location</p>
-                             <p className="text-sm font-bold text-foreground leading-relaxed">{pickupLocation.address}</p>
+                             <p className="text-sm font-bold text-foreground leading-relaxed break-words">{pickupLocation.address}</p>
                            </div>
                         </div>
                       )}
@@ -755,11 +789,11 @@ const BookServicePage: React.FC = () => {
           </motion.div>
 
           {/* Navigation Buttons */}
-          <div className="flex gap-4 pt-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-border">
             {currentStep > 0 && (
               <button
                 onClick={() => setCurrentStep(currentStep - 1)}
-                className="flex-1 py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+                className="w-full sm:flex-1 py-3 sm:py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
               >
                 Back
               </button>
@@ -767,10 +801,10 @@ const BookServicePage: React.FC = () => {
             <button
               onClick={handleNext}
               disabled={!canProceed() || isLoading}
-              className="flex-1 py-4 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 py-3 sm:py-4 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : currentStep === steps.length - 1 ? (
                 selectedServicesData.some(service => 
                   service.category === 'Car Wash' || 
@@ -779,12 +813,12 @@ const BookServicePage: React.FC = () => {
                   service.category === 'Tyres' ||
                   service.category === 'Tyre & Battery'
                 ) 
-                  ? 'Create Booking (Payment Required)'
+                  ? <span className="text-center">Create Booking (Payment Required)</span>
                   : 'Confirm Booking'
               ) : (
                 <>
                   Next
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </>
               )}
             </button>

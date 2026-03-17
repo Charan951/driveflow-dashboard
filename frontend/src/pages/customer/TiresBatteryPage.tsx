@@ -63,15 +63,15 @@ const TiresBatteryPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Tires & Battery</h1>
-        <p className="text-muted-foreground">Shop quality parts for your vehicle</p>
+      <div className="text-center sm:text-left">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tires & Battery</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Shop quality parts for your vehicle</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-muted rounded-xl">
+      <div className="flex gap-1 sm:gap-2 p-1 bg-muted rounded-xl">
         <button
           onClick={() => setActiveTab('tires')}
           className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
@@ -81,8 +81,8 @@ const TiresBatteryPage: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-center gap-2">
-            <Circle className="w-4 h-4" />
-            Tires
+            <Circle className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-sm sm:text-base">Tires</span>
           </div>
         </button>
         <button
@@ -94,15 +94,15 @@ const TiresBatteryPage: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-center gap-2">
-            <Battery className="w-4 h-4" />
-            Batteries
+            <Battery className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-sm sm:text-base">Batteries</span>
           </div>
         </button>
       </div>
 
       {/* Content */}
       {activeTab === 'tires' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Size Selector */}
           <div>
             <h3 className="text-sm font-medium text-foreground mb-3">Select Tire Size</h3>
@@ -111,7 +111,7 @@ const TiresBatteryPage: React.FC = () => {
                 <button
                   key={size}
                   onClick={() => setSelectedTireSize(size)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${
                     selectedTireSize === size
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:text-foreground'
@@ -129,7 +129,7 @@ const TiresBatteryPage: React.FC = () => {
               variants={staggerContainer}
               initial="hidden"
               animate="show"
-              className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
             >
               {tires.map((tire) => (
                 <motion.div
@@ -137,7 +137,7 @@ const TiresBatteryPage: React.FC = () => {
                   variants={staggerItem}
                   className="bg-card rounded-2xl border border-border p-4 card-hover flex flex-col"
                 >
-                  <div className="w-full h-32 rounded-xl bg-muted mb-4 overflow-hidden relative">
+                  <div className="w-full h-24 sm:h-32 rounded-xl bg-muted mb-4 overflow-hidden relative">
                     {tire.image ? (
                       <img
                         src={tire.image}
@@ -146,15 +146,15 @@ const TiresBatteryPage: React.FC = () => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        <Circle className="w-12 h-12 opacity-20" />
+                        <Circle className="w-8 h-8 sm:w-12 sm:h-12 opacity-20" />
                       </div>
                     )}
                   </div>
-                  <h3 className="font-semibold text-foreground">{tire.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{tire.description}</p>
+                  <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{tire.name}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">{tire.description}</p>
                   <div className="mt-auto">
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-lg font-bold text-primary">${tire.price}</span>
+                      <span className="text-base sm:text-lg font-bold text-primary">${tire.price}</span>
                       {tire.stock > 0 ? (
                         <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">
                           In Stock: {tire.stock}
@@ -168,7 +168,7 @@ const TiresBatteryPage: React.FC = () => {
                     <button
                       onClick={() => handleOrder(tire.name)}
                       disabled={tire.stock === 0}
-                      className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base min-h-[44px]"
                     >
                       {tire.stock > 0 ? 'Order Now' : 'Out of Stock'}
                     </button>
@@ -177,27 +177,27 @@ const TiresBatteryPage: React.FC = () => {
               ))}
             </motion.div>
           ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-muted-foreground" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Package className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground">No tires available</h3>
-              <p className="text-muted-foreground">Check back later for new stock.</p>
+              <h3 className="text-base sm:text-lg font-medium text-foreground">No tires available</h3>
+              <p className="text-sm text-muted-foreground">Check back later for new stock.</p>
             </div>
           )}
         </div>
       )}
 
       {activeTab === 'batteries' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Current Battery Status */}
           {vehicles.length > 0 && (
-            <div className="bg-gradient-primary rounded-2xl p-5 text-primary-foreground">
+            <div className="bg-gradient-primary rounded-2xl p-4 sm:p-5 text-primary-foreground">
               <div className="flex items-center gap-3 mb-4">
-                <Battery className="w-8 h-8" />
-                <div>
-                  <h3 className="font-semibold">Current Battery</h3>
-                  <p className="text-sm text-primary-foreground/70">
+                <Battery className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-sm sm:text-base">Current Battery</h3>
+                  <p className="text-xs sm:text-sm text-primary-foreground/70 truncate">
                     {vehicles[0].make} {vehicles[0].model}
                   </p>
                 </div>
@@ -205,13 +205,13 @@ const TiresBatteryPage: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm">Status</span>
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="text-xs sm:text-sm">Status</span>
                   </div>
-                  <p className="text-2xl font-bold">Good</p>
+                  <p className="text-xl sm:text-2xl font-bold">Good</p>
                 </div>
-                <div className="w-16 h-16 rounded-full border-4 border-primary-foreground/30 flex items-center justify-center">
-                  <span className="text-lg font-bold">100%</span>
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-primary-foreground/30 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm sm:text-lg font-bold">100%</span>
                 </div>
               </div>
             </div>
@@ -223,7 +223,7 @@ const TiresBatteryPage: React.FC = () => {
               variants={staggerContainer}
               initial="hidden"
               animate="show"
-              className="grid sm:grid-cols-2 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
             >
               {batteries.map((battery) => {
                 const daysUntilExpiry = getDaysUntilExpiry();
@@ -236,29 +236,29 @@ const TiresBatteryPage: React.FC = () => {
                     className="bg-card rounded-2xl border border-border p-4 card-hover flex flex-col"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-semibold text-foreground">{battery.name}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-1">{battery.description}</p>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{battery.name}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{battery.description}</p>
                       </div>
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Battery className="w-6 h-6 text-primary" />
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-3">
+                        <Battery className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                       </div>
                     </div>
 
                     <div className="mt-auto">
                       <div className="space-y-2 mb-4">
-                         <div className="flex justify-between text-sm">
+                         <div className="flex justify-between text-xs sm:text-sm">
                            <span className="text-muted-foreground">Stock</span>
                            <span className="font-medium">{battery.stock} units</span>
                          </div>
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary">${battery.price}</span>
+                        <span className="text-base sm:text-lg font-bold text-primary">${battery.price}</span>
                         <button
                           onClick={() => handleOrder(battery.name)}
                           disabled={battery.stock === 0}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium text-xs sm:text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
                         >
                           Order
                         </button>
@@ -269,12 +269,12 @@ const TiresBatteryPage: React.FC = () => {
               })}
             </motion.div>
           ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <Battery className="w-8 h-8 text-muted-foreground" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Battery className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground">No batteries available</h3>
-              <p className="text-muted-foreground">Check back later for new stock.</p>
+              <h3 className="text-base sm:text-lg font-medium text-foreground">No batteries available</h3>
+              <p className="text-sm text-muted-foreground">Check back later for new stock.</p>
             </div>
           )}
         </div>

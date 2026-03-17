@@ -209,85 +209,92 @@ const StaffDashboardPage: React.FC = () => {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="space-y-8"
+      className="container-mobile space-y-6 no-horizontal-scroll"
     >
       <motion.div variants={staggerItem}>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-primary">Staff Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Staff Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               Overview of your assigned jobs and live orders
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex justify-start">
             <Link
               to="/staff/car-wash"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
             >
               <Car className="w-4 h-4" />
-              Car Wash Services
+              <span className="hidden sm:inline">Car Wash Services</span>
+              <span className="sm:hidden">Car Wash</span>
             </Link>
           </div>
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <motion.div variants={staggerItem} className="lg:col-span-2 space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <CounterCard label="Today's Orders" value={stats.todaysOrders} icon={<Package className="w-5 h-5 text-primary" />} delay={0} />
-            <CounterCard label="Pending" value={stats.pending} icon={<Clock className="w-5 h-5 text-primary" />} delay={1} />
-            <CounterCard label="Completed" value={stats.completed} icon={<CheckCircle className="w-5 h-5 text-primary" />} delay={2} />
-            <CounterCard label="Job Value" value={`₹${stats.earnings}`} icon={<DollarSign className="w-5 h-5 text-primary" />} delay={3} />
+      <div className="space-y-6">
+        <motion.div variants={staggerItem} className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <CounterCard label="Today's Orders" value={stats.todaysOrders} icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={0} />
+            <CounterCard label="Pending" value={stats.pending} icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={1} />
+            <CounterCard label="Completed" value={stats.completed} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={2} />
+            <CounterCard label="Job Value" value={`₹${stats.earnings}`} icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={3} />
           </div>
 
           <div>
             <h2 className="font-semibold text-lg mb-4">Active Orders</h2>
             {activeOrders.length === 0 ? (
-              <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
-                <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <h3 className="text-lg font-medium">No active orders</h3>
-                <p className="text-muted-foreground">You don't have any active orders assigned.</p>
+              <div className="text-center py-8 sm:py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
+                <Package className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-base sm:text-lg font-medium">No active orders</h3>
+                <p className="text-muted-foreground text-sm sm:text-base">You don't have any active orders assigned.</p>
               </div>
             ) : (
               <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
                 {activeOrders.map((order) => (
                   <motion.div key={order._id} variants={staggerItem} className="bg-card rounded-2xl border border-border p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
+                    <div className="flex items-start justify-between mb-3 gap-3">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
-                        <h3 className="font-semibold">
+                        <h3 className="font-semibold text-sm sm:text-base line-clamp-2">
                           {order.services && order.services.length > 0
                             ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
                             : 'Service'}
                           {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
                         </p>
                       </div>
-                      <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium">{STATUS_LABELS[order.status] || order.status}</span>
+                      <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{STATUS_LABELS[order.status] || order.status}</span>
                     </div>
                     
                     <div className="space-y-2 mb-4">
                       {Array.isArray(order.services) &&
-                        order.services.map((service, i) => (
+                        order.services.slice(0, 2).map((service, i) => (
                           <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <CheckCircle className="w-4 h-4 text-muted" />
-                            {typeof service === 'object' ? service.name : service}
+                            <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
+                            <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
                           </div>
                         ))}
+                      {Array.isArray(order.services) && order.services.length > 2 && (
+                        <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 2} more services</div>
+                      )}
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <button 
                         onClick={() => handleUploadClick(order._id)}
-                        className="flex-1 py-3 bg-muted rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                        <Upload className="w-4 h-4" /> Upload Photos
+                        className="flex-1 py-2 sm:py-3 bg-muted rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors text-sm">
+                        <Upload className="w-4 h-4" /> 
+                        <span className="hidden sm:inline">Upload Photos</span>
+                        <span className="sm:hidden">Upload</span>
                       </button>
                       <button 
                         onClick={() => openStatusDialog(order)}
-                        className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
-                        Update Status
+                        className="flex-1 py-2 sm:py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors text-sm">
+                        <span className="hidden sm:inline">Update Status</span>
+                        <span className="sm:hidden">Update</span>
                       </button>
                     </div>
                   </motion.div>
@@ -295,9 +302,6 @@ const StaffDashboardPage: React.FC = () => {
               </motion.div>
             )}
           </div>
-        </motion.div>
-
-        <motion.div variants={staggerItem} className="space-y-6">
         </motion.div>
       </div>
 

@@ -8,7 +8,6 @@ import {
   Calendar, 
   UserCog, 
   Store, 
-  CheckSquare, 
   Map, 
   DollarSign, 
   FileText, 
@@ -35,7 +34,6 @@ const adminMenuItems = [
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
   { icon: UserCog, label: 'Staff', path: '/admin/staff' },
   { icon: Store, label: 'Merchants', path: '/admin/merchants' },
-  { icon: CheckSquare, label: 'Approvals', path: '/admin/approvals' },
   { icon: Map, label: 'Live Tracking', path: '/admin/tracking' },
   { icon: DollarSign, label: 'Payments', path: '/admin/payments' },
   { icon: FileText, label: 'Documents', path: '/admin/documents' },
@@ -66,7 +64,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <div className="min-h-screen flex w-full max-w-full bg-background overflow-hidden">
       {/* Overlay */}
       {sidebarOpen && (
         <motion.div
@@ -81,8 +79,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
-          'lg:translate-x-0 lg:static',
+          'fixed left-0 top-0 h-screen w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+          'lg:translate-x-0 lg:static lg:shrink-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
@@ -103,7 +101,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
 
         {/* Menu */}
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll">
           {adminMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -147,25 +145,33 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 hover:bg-muted rounded-lg"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-muted-foreground hover:text-foreground relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-card" />
+      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-hidden">
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-3 lg:px-4 shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-muted rounded-lg shrink-0"
+            >
+              <Menu className="w-5 h-5" />
             </button>
+            <h1 className="text-base lg:text-lg font-semibold truncate">Dashboard</h1>
+          </div>
+          
+          <div className="flex items-center shrink-0 ml-2">
+            <Link
+              to="/admin/notifications"
+              className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
+            >
+              <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-card" />
+            </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
-          {children || <Outlet />}
+        <main className="flex-1 overflow-auto bg-muted/20 p-3 lg:p-4 max-w-full">
+          <div className="max-w-full overflow-hidden">
+            {children || <Outlet />}
+          </div>
         </main>
       </div>
     </div>

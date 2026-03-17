@@ -321,16 +321,16 @@ const StaffOrdersPage: React.FC = () => {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="space-y-6"
+      className="container-mobile space-y-6 no-horizontal-scroll"
     >
-      <motion.div variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div variants={staggerItem} className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Service Orders</h1>
-          <p className="text-muted-foreground mt-1">Handle your assigned bookings and status updates</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Service Orders</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Handle your assigned bookings and status updates</p>
         </div>
         
-        <div className="flex gap-2">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+          <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Search orders..." 
@@ -340,7 +340,7 @@ const StaffOrdersPage: React.FC = () => {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
             <SelectContent>
@@ -354,24 +354,24 @@ const StaffOrdersPage: React.FC = () => {
 
       <motion.div variants={staggerItem} className="space-y-4">
         {filteredBookings.length === 0 ? (
-          <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <h3 className="text-lg font-medium">No orders found</h3>
-            <p className="text-muted-foreground">Try adjusting your filters or search query.</p>
+          <div className="text-center py-8 sm:py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
+            <Package className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-3" />
+            <h3 className="text-base sm:text-lg font-medium">No orders found</h3>
+            <p className="text-muted-foreground text-sm sm:text-base">Try adjusting your filters or search query.</p>
           </div>
         ) : (
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 gap-4">
             {filteredBookings.map((order) => (
               <motion.div 
                 key={order._id} 
                 variants={staggerItem} 
-                className="bg-card rounded-2xl border border-border p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
+                className="bg-card rounded-2xl border border-border p-4 flex flex-col cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => navigate(`/staff/order/${order._id}`)}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
+                <div className="flex items-start justify-between mb-3 gap-3">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
-                    <h3 className="font-semibold line-clamp-1">
+                    <h3 className="font-semibold line-clamp-2 text-sm sm:text-base">
                       {order.services && order.services.length > 0
                         ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
                         : 'Service'}
@@ -382,7 +382,7 @@ const StaffOrdersPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{order.status}</span>
+                    <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{order.status}</span>
                     {etaByBooking[order._id] && (
                       <span className="px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-200">
                         ETA {etaByBooking[order._id].textDuration}
@@ -393,14 +393,14 @@ const StaffOrdersPage: React.FC = () => {
                 
                 <div className="space-y-2 mb-4 flex-1">
                   {Array.isArray(order.services) &&
-                    order.services.slice(0, 3).map((service, i) => (
+                    order.services.slice(0, 2).map((service, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
                         <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
                       </div>
                     ))}
-                  {Array.isArray(order.services) && order.services.length > 3 && (
-                     <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 3} more services</div>
+                  {Array.isArray(order.services) && order.services.length > 2 && (
+                     <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 2} more services</div>
                   )}
                 </div>
 
@@ -408,7 +408,7 @@ const StaffOrdersPage: React.FC = () => {
                   <div className="mt-3 mb-2 p-3 bg-muted/30 rounded-lg border border-border/50">
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-foreground">Pickup Location</p>
                         <p className="text-xs text-muted-foreground line-clamp-2">{order.location.address}</p>
                       </div>
@@ -432,20 +432,25 @@ const StaffOrdersPage: React.FC = () => {
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
                               className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                              <Navigation className="w-4 h-4" /> Get Directions
+                              <Navigation className="w-4 h-4" /> 
+                              <span className="hidden sm:inline">Get Directions</span>
+                              <span className="sm:hidden">Directions</span>
                             </button>
                           )}
 
-                          <div className="flex gap-3">
+                          <div className="flex gap-2 sm:gap-3">
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
                               className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                              <Upload className="w-3.5 h-3.5" /> Upload
+                              <Upload className="w-3.5 h-3.5" /> 
+                              <span className="hidden sm:inline">Upload</span>
+                              <span className="sm:hidden">Upload</span>
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
                               className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                              Update
+                              <span className="hidden sm:inline">Update</span>
+                              <span className="sm:hidden">Update</span>
                             </button>
                           </div>
                         </>
@@ -458,20 +463,25 @@ const StaffOrdersPage: React.FC = () => {
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
                               className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                              <Navigation className="w-4 h-4" /> Get Directions
+                              <Navigation className="w-4 h-4" /> 
+                              <span className="hidden sm:inline">Get Directions</span>
+                              <span className="sm:hidden">Directions</span>
                             </button>
                           )}
 
-                          <div className="flex gap-3">
+                          <div className="flex gap-2 sm:gap-3">
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
                               className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                              <Upload className="w-3.5 h-3.5" /> Upload
+                              <Upload className="w-3.5 h-3.5" /> 
+                              <span className="hidden sm:inline">Upload</span>
+                              <span className="sm:hidden">Upload</span>
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
                               className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                              Update
+                              <span className="hidden sm:inline">Update</span>
+                              <span className="sm:hidden">Update</span>
                             </button>
                           </div>
                         </>

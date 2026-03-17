@@ -78,22 +78,22 @@ const PaymentPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-2xl mx-auto">
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4"
+        className="flex items-center gap-3 sm:gap-4"
       >
         <button 
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-muted rounded-full transition-colors"
+          className="p-2 hover:bg-muted rounded-full transition-colors flex-shrink-0"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Complete Payment</h1>
-          <p className="text-muted-foreground">Complete payment to create your service booking</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg sm:text-2xl font-bold text-foreground">Complete Payment</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Complete payment to create your service booking</p>
         </div>
       </motion.div>
 
@@ -103,13 +103,13 @@ const PaymentPage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-blue-50 border border-blue-200 rounded-xl p-4"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
             <serviceInfo.icon className="w-4 h-4 text-blue-600" />
           </div>
-          <div>
-            <h3 className="font-semibold text-blue-900">{serviceInfo.type} Service</h3>
-            <p className="text-sm text-blue-700">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-blue-900 text-sm sm:text-base">{serviceInfo.type} Service</h3>
+            <p className="text-xs sm:text-sm text-blue-700 mt-1">
               Your booking will be created after successful payment. Admin will then assign staff to reach your location.
             </p>
           </div>
@@ -121,19 +121,19 @@ const PaymentPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-card rounded-2xl border border-border p-6 space-y-4"
+        className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-4"
       >
-        <h2 className="text-lg font-semibold mb-4">Booking Summary</h2>
+        <h2 className="text-base sm:text-lg font-semibold mb-4">Booking Summary</h2>
         
         {/* Services */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Wrench className="w-5 h-5 text-primary" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">{serviceInfo.type} Services</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-foreground text-sm sm:text-base">{serviceInfo.type} Services</p>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                 {tempBookingData.notes || `${serviceInfo.type} service`}
               </p>
             </div>
@@ -142,18 +142,18 @@ const PaymentPage: React.FC = () => {
 
         {/* Date */}
         <div className="flex items-center gap-3 pt-3 border-t border-border">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-primary" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           </div>
-          <div>
-            <p className="font-medium text-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground text-sm sm:text-base">
               {new Date(tempBookingData.date).toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 month: 'long', 
                 day: 'numeric' 
               })}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {new Date(tempBookingData.date).toLocaleTimeString('en-US', { 
                 hour: 'numeric', 
                 minute: '2-digit',
@@ -165,14 +165,14 @@ const PaymentPage: React.FC = () => {
 
         {/* Location */}
         <div className="flex items-start gap-3 pt-3 border-t border-border">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <MapPin className="w-5 h-5 text-primary" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
               Pickup Location
             </p>
-            <p className="text-sm font-medium text-foreground leading-relaxed">
+            <p className="text-xs sm:text-sm font-medium text-foreground leading-relaxed break-words">
               {tempBookingData.location?.address || 'Location not specified'}
             </p>
           </div>
@@ -184,22 +184,22 @@ const PaymentPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-card rounded-2xl border border-border p-6"
+        className="bg-card rounded-2xl border border-border p-4 sm:p-6"
       >
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-primary" />
+        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2">
+          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           Payment Details
         </h2>
         
         <div className="space-y-3">
           <div className="flex justify-between text-foreground">
-            <span>Service Amount</span>
-            <span className="font-semibold">₹{tempBookingData.totalAmount}</span>
+            <span className="text-sm sm:text-base">Service Amount</span>
+            <span className="font-semibold text-sm sm:text-base">₹{tempBookingData.totalAmount}</span>
           </div>
           
           <div className="flex justify-between text-foreground pt-3 border-t border-border">
-            <span className="font-semibold">Total Amount</span>
-            <span className="text-xl font-bold text-primary">₹{tempBookingData.totalAmount}</span>
+            <span className="font-semibold text-sm sm:text-base">Total Amount</span>
+            <span className="text-lg sm:text-xl font-bold text-primary">₹{tempBookingData.totalAmount}</span>
           </div>
         </div>
       </motion.div>
@@ -214,14 +214,15 @@ const PaymentPage: React.FC = () => {
         <button
           onClick={handlePayment}
           disabled={isLoading}
-          className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 sm:py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
         >
           {isLoading ? (
-            <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
           ) : (
             <>
-              <CreditCard className="w-5 h-5" />
-              Pay ₹{tempBookingData.totalAmount} & Create Booking
+              <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Pay ₹{tempBookingData.totalAmount} & Create Booking</span>
+              <span className="sm:hidden">Pay ₹{tempBookingData.totalAmount}</span>
             </>
           )}
         </button>

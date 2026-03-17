@@ -588,18 +588,18 @@ const TrackServicePage: React.FC = () => {
   const showTwoColumnPaymentRow = hasRightColumnContent;
 
   return (
-    <div className="px-4 lg:px-6 py-4 lg:py-6 space-y-6 pb-24 max-w-6xl mx-auto">
+    <div className="px-4 lg:px-6 py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <Link
           to="/dashboard"
-          className="p-2 hover:bg-muted rounded-xl transition-colors"
+          className="p-2 hover:bg-muted rounded-xl transition-colors flex-shrink-0"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </Link>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Track Service</h1>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Track Service</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
             Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}
           </p>
         </div>
@@ -611,23 +611,23 @@ const TrackServicePage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-card rounded-2xl border border-border p-4"
       >
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-muted overflow-hidden flex-shrink-0">
             {vehicle.image ? (
               <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Car className="w-8 h-8 text-muted-foreground" />
+                <Car className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               </div>
             )}
           </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-foreground">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h3>
-            <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
             {/* Display services as comma separated string */}
-            <p className="text-sm text-primary font-medium mt-1">
+            <p className="text-xs sm:text-sm text-primary font-medium mt-1 line-clamp-2">
                 {Array.isArray(order.services) 
                     ? order.services.map((s) => typeof s === 'string' ? s : s.name).join(', ') 
                     : 'Service'}
@@ -641,13 +641,13 @@ const TrackServicePage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="bg-card rounded-2xl border border-border p-6"
+        className="bg-card rounded-2xl border border-border p-4 sm:p-6"
       >
-        <h2 className="text-lg font-semibold text-foreground mb-4">Status & Workflow</h2>
-        <Timeline steps={timelineSteps} vertical={false} className="gap-2" />
+        <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Status & Workflow</h2>
+        <Timeline steps={timelineSteps} vertical={false} className="gap-3 sm:gap-2" />
       </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
         {([
           'ASSIGNED',
           'ACCEPTED',
@@ -665,12 +665,12 @@ const TrackServicePage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card rounded-2xl border border-border overflow-hidden w-full"
           >
-            <div className="p-4 border-b border-border flex justify-between items-center">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-primary" />
-                Live Tracking
+            <div className="p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <h3 className="font-semibold text-sm sm:text-base text-foreground flex items-center gap-2">
+                <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                <span>Live Tracking</span>
               </h3>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 {eta && (
                   <div className="text-xs text-muted-foreground">
                     ETA: <span className="font-medium text-foreground">{eta.textDuration}</span>
@@ -685,7 +685,7 @@ const TrackServicePage: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="h-64 w-full relative bg-muted">
+            <div className="h-48 sm:h-64 w-full relative bg-muted">
               {staffLocation ? (
                 <MapContainer
                   center={[staffLocation.lat, staffLocation.lng]}

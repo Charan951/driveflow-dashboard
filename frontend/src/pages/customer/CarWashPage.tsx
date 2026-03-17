@@ -120,18 +120,18 @@ const CarWashPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Car Wash</h1>
-        <p className="text-muted-foreground">Choose a package and book your slot</p>
+      <div className="text-center sm:text-left">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Car Wash</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Choose a package and book your slot</p>
       </div>
 
       {services.length === 0 ? (
-        <div className="text-center py-12 bg-muted/30 rounded-2xl">
-          <Droplets className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground">No Wash Packages Available</h3>
-          <p className="text-muted-foreground">Please check back later.</p>
+        <div className="text-center py-8 sm:py-12 bg-muted/30 rounded-2xl">
+          <Droplets className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-base sm:text-lg font-medium text-foreground">No Wash Packages Available</h3>
+          <p className="text-sm text-muted-foreground">Please check back later.</p>
         </div>
       ) : (
         /* Package Cards */
@@ -139,48 +139,48 @@ const CarWashPage: React.FC = () => {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
         >
           {services.map((pkg) => (
             <motion.div
               key={pkg._id}
               variants={staggerItem}
-              className="relative bg-card rounded-2xl border-2 border-border p-6 transition-all hover:border-primary/50"
+              className="relative bg-card rounded-2xl border-2 border-border p-4 sm:p-6 transition-all hover:border-primary/50"
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Droplets className="w-6 h-6 text-primary" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Droplets className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{pkg.name}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{pkg.description}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{pkg.name}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{pkg.description}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-2 mb-4 text-xs sm:text-sm text-muted-foreground">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>{pkg.duration}</span>
               </div>
 
               {pkg.features && pkg.features.length > 0 && (
                 <ul className="space-y-2 mb-6">
                   {pkg.features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-success" />
-                      <span className="text-foreground">{feature}</span>
+                    <li key={index} className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Check className="w-3 h-3 sm:w-4 sm:h-4 text-success flex-shrink-0" />
+                      <span className="text-foreground line-clamp-1">{feature}</span>
                     </li>
                   ))}
                 </ul>
               )}
 
               <div className="flex items-center justify-between mb-4 mt-auto">
-                <span className="text-3xl font-bold text-primary">${pkg.price}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-primary">${pkg.price}</span>
               </div>
 
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleBookNow(pkg._id)}
-                className="w-full py-3 rounded-xl font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full py-3 rounded-xl font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 text-sm sm:text-base min-h-[44px]"
               >
                 Book Now
               </motion.button>
@@ -212,19 +212,19 @@ const CarWashPage: React.FC = () => {
               {/* Header */}
               <div className="sticky top-0 flex items-center justify-between p-4 border-b border-border bg-card z-10">
                 <div>
-                  <h2 className="font-semibold text-lg">Book {selectedPackageData?.name}</h2>
+                  <h2 className="font-semibold text-base sm:text-lg truncate">Book {selectedPackageData?.name}</h2>
                   <p className="text-sm text-muted-foreground">${selectedPackageData?.price}</p>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Content */}
-              <div className="p-4 space-y-6">
+              <div className="p-4 space-y-4 sm:space-y-6">
                 {/* Vehicle Selection */}
                 <div>
                   <h3 className="text-sm font-medium mb-3">Select Vehicle</h3>
@@ -239,19 +239,19 @@ const CarWashPage: React.FC = () => {
                             : 'border-border hover:bg-muted/50'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <Car className="w-5 h-5 text-muted-foreground" />
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <Car className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                         </div>
-                        <div className="text-left">
-                          <p className="font-medium text-foreground">
+                        <div className="text-left min-w-0 flex-1">
+                          <p className="font-medium text-foreground text-sm truncate">
                             {vehicle.make} {vehicle.model}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground truncate">
                             {vehicle.licensePlate}
                           </p>
                         </div>
                         {selectedVehicle === vehicle._id && (
-                          <div className="ml-auto w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <div className="ml-auto w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="w-3 h-3 text-primary-foreground" />
                           </div>
                         )}
@@ -286,12 +286,12 @@ const CarWashPage: React.FC = () => {
                               : 'border-border hover:bg-muted/50'
                           }`}
                         >
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                            <MapPin className="w-5 h-5 text-muted-foreground" />
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground truncate">{addr.label}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-1">{addr.address}</p>
+                            <p className="font-medium text-foreground text-sm truncate">{addr.label}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
                           </div>
                         </button>
                       ))}
@@ -317,7 +317,7 @@ const CarWashPage: React.FC = () => {
                       <LocationPicker 
                         value={pickupLocation} 
                         onChange={setPickupLocation}
-                        mapClassName="h-[200px] w-full rounded-xl"
+                        mapClassName="h-[180px] sm:h-[200px] w-full rounded-xl"
                       />
                     </div>
                   )}
@@ -329,7 +329,7 @@ const CarWashPage: React.FC = () => {
                 <button
                   onClick={handleConfirmBooking}
                   disabled={!selectedDate || !selectedTime || !selectedVehicle || !pickupLocation.address || isBooking}
-                  className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px]"
                 >
                   {isBooking ? (
                     <>

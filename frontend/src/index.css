@@ -120,6 +120,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+  }
+  
+  html {
+    overflow-x: hidden; /* Prevent horizontal scrolling */
   }
   
   /* Custom scrollbar */
@@ -129,11 +134,38 @@
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-muted/50 rounded-full;
+    @apply bg-transparent;
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-primary/20 rounded-full hover:bg-primary/40 transition-colors;
+    @apply bg-primary/20 rounded-full transition-colors;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/40;
+  }
+  
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.2) transparent;
+  }
+  
+  /* Sidebar specific scrollbar */
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .sidebar-scroll::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    @apply bg-primary/15 rounded-full transition-all duration-200;
+  }
+  
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    @apply bg-primary/30;
   }
 }
 
@@ -297,5 +329,126 @@
   }
   .animation-delay-500 {
     animation-delay: 500ms;
+  }
+  
+  /* Text truncation utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+  
+  /* Hide scrollbar utilities */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Mobile-first responsive utilities */
+  .container-mobile {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .container-mobile {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .container-mobile {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+  
+  /* Prevent horizontal overflow */
+  .no-horizontal-scroll {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  .no-horizontal-scroll * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Staff dashboard specific responsive utilities */
+  .staff-grid-responsive {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  @media (min-width: 640px) {
+    .staff-grid-responsive {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+  }
+  
+  /* Ensure buttons don't overflow */
+  .btn-responsive {
+    min-width: 0;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  /* Card responsive padding */
+  .card-responsive {
+    padding: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .card-responsive {
+      padding: 1.25rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .card-responsive {
+      padding: 1.5rem;
+    }
+  }
+  
+  /* Safe area utilities for mobile */
+  .safe-area-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+  
+  .safe-area-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
   }
 }

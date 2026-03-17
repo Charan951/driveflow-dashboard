@@ -42,8 +42,6 @@ import BatteryTireApprovalPanel from '../../components/merchant/BatteryTireAppro
 import QCPanel from '../../components/merchant/QCPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
 import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
-import ChatPanel from '../../components/merchant/ChatPanel';
-import LiveTracker from '@/components/LiveTracker';
 
 // Animation variants
 const containerVariants = {
@@ -91,16 +89,31 @@ const OrderDetail: React.FC = () => {
       const previousQCStatus = booking?.qc?.completedAt;
       const newQCStatus = data.qc?.completedAt;
       
+      const previousApprovalStatus = booking?.batteryTire?.isApproved;
+      const newApprovalStatus = data.batteryTire?.isApproved;
+      
       setBooking(data);
       
-      // Auto-switch to Billing tab when QC is completed (since Service is now last)
-      if (!previousQCStatus && newQCStatus) {
+      // Auto-switch to Battery/Tire Approved tab when service is approved
+      if (!previousApprovalStatus && newApprovalStatus && data.batteryTire?.isBatteryTireService) {
+        setActiveTab('battery-tire-approved');
+      }
+      
+      // Auto-switch to Billing tab when QC is completed (only for non-battery/tire services)
+      if (!previousQCStatus && newQCStatus && !data.batteryTire?.isBatteryTireService) {
         setActiveTab('billing');
       }
       
       // Set initial tab based on booking state
       if (!activeTab || activeTab === 'overview') {
-        if (data.qc?.completedAt) {
+        if (data.batteryTire?.isBatteryTireService) {
+          // For battery/tire services, switch to approved tab if approved
+          if (data.batteryTire?.isApproved) {
+            setActiveTab('battery-tire-approved');
+          } else {
+            setActiveTab('overview');
+          }
+        } else if (data.qc?.completedAt) {
           setActiveTab('billing'); // Go to billing after QC completion
         } else if (data.inspection?.completedAt) {
           setActiveTab('qc');
@@ -199,45 +212,46 @@ const OrderDetail: React.FC = () => {
           onValueChange={setActiveTab}
           className="w-full"
         >
-            <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+            <TabsList className={`grid w-full ${booking.batteryTire?.isBatteryTireService ? 'grid-cols-2' : 'grid-cols-5'} lg:w-[600px]`}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger 
-                    value="inspection"
-                    disabled={booking.status !== 'SERVICE_STARTED'}
-                    title={booking.status !== 'SERVICE_STARTED' ? "Available only when service is started" : ""}
-                >
-                    Inspection
-                </TabsTrigger>
-                <TabsTrigger 
-                    value="qc"
-                    disabled={!booking.inspection?.completedAt}
-                    title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
-                >
-                    QC Check
-                </TabsTrigger>
-                <TabsTrigger 
-                    value="billing"
-                    disabled={!booking.qc?.completedAt}
-                    title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
-                >
-                    Billing
-                </TabsTrigger>
-                <TabsTrigger 
-                    value="service"
-                    disabled={!booking.qc?.completedAt}
-                    title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
-                >
-                    Service
-                </TabsTrigger>
+                {booking.batteryTire?.isBatteryTireService ? (
+                    <TabsTrigger value="battery-tire-approved">Battery/Tire Service Approved</TabsTrigger>
+                ) : (
+                    <>
+                        <TabsTrigger 
+                            value="inspection"
+                            disabled={booking.status !== 'SERVICE_STARTED'}
+                            title={booking.status !== 'SERVICE_STARTED' ? "Available only when service is started" : ""}
+                        >
+                            Inspection
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="qc"
+                            disabled={!booking.inspection?.completedAt}
+                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                        >
+                            QC Check
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="billing"
+                            disabled={!booking.qc?.completedAt}
+                            title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                        >
+                            Billing
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="service"
+                            disabled={!booking.qc?.completedAt}
+                            title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                        >
+                            Service
+                        </TabsTrigger>
+                    </>
+                )}
             </TabsList>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6 mt-6">
-                {booking.batteryTire?.isBatteryTireService && (
-                    <div className="mb-6">
-                        <BatteryTireApprovalPanel booking={booking} onUpdate={fetchBooking} />
-                    </div>
-                )}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         {/* Order Info Card */}
@@ -356,7 +370,36 @@ const OrderDetail: React.FC = () => {
                               <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-bold uppercase animate-pulse">Live</span>
                             </div>
                             <div className="h-[300px] bg-muted relative">
-                                <LiveTracker bookingId={booking._id} />
+                                {staffLocation ? (
+                                    <MapContainer
+                                        center={[staffLocation.lat, staffLocation.lng]}
+                                        zoom={16}
+                                        style={{ height: '100%', width: '100%' }}
+                                        className="rounded-b-xl"
+                                    >
+                                        <MapController center={[staffLocation.lat, staffLocation.lng]} zoom={16} />
+                                        <TileLayer
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        />
+                                        <Marker position={[staffLocation.lat, staffLocation.lng]}>
+                                            <Popup>
+                                                <div className="text-center">
+                                                    <p className="font-medium">Staff Location</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Last updated: {new Date().toLocaleTimeString()}
+                                                    </p>
+                                                </div>
+                                            </Popup>
+                                        </Marker>
+                                    </MapContainer>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                        <Navigation className="w-8 h-8 mb-2 opacity-50" />
+                                        <p className="text-sm">Waiting for staff location...</p>
+                                        <p className="text-xs mt-1">Staff will appear here when they start tracking</p>
+                                    </div>
+                                )}
                             </div>
                           </div>
                         )}
@@ -389,31 +432,109 @@ const OrderDetail: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Communication Panel */}
-                        <ChatPanel bookingId={booking._id} />
+
                     </div>
                 </div>
             </TabsContent>
 
+            {/* Battery/Tire Service Approved Tab - Only for battery/tire services */}
+            {booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="battery-tire-approved" className="space-y-6 mt-6">
+                    {/* Battery/Tire Approval Panel */}
+                    <BatteryTireApprovalPanel booking={booking} onUpdate={fetchBooking} />
+                    
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                        <h2 className="text-lg font-semibold mb-4">Battery/Tire Service Status</h2>
+                        <div className="space-y-4">
+                            {booking.batteryTire?.isApproved ? (
+                                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                        <span className="font-medium text-green-800">Service Approved</span>
+                                    </div>
+                                    <p className="text-sm text-green-700">
+                                        The battery/tire service has been approved and is ready for processing.
+                                    </p>
+                                    {booking.batteryTire?.approvedAt && (
+                                        <p className="text-xs text-green-600 mt-2">
+                                            Approved on: {new Date(booking.batteryTire.approvedAt).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                        <span className="font-medium text-yellow-800">Pending Approval</span>
+                                    </div>
+                                    <p className="text-sm text-yellow-700">
+                                        Waiting for customer approval for the battery/tire service.
+                                    </p>
+                                </div>
+                            )}
+                            
+                            {/* Service Details */}
+                            <div className="border-t pt-4">
+                                <h3 className="font-medium mb-3">Service Details</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {booking.batteryTire?.batteryDetails && (
+                                        <div className="p-3 bg-muted/50 rounded-lg">
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Battery Service</p>
+                                            <p className="text-sm">{booking.batteryTire.batteryDetails}</p>
+                                        </div>
+                                    )}
+                                    {booking.batteryTire?.tireDetails && (
+                                        <div className="p-3 bg-muted/50 rounded-lg">
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Tire Service</p>
+                                            <p className="text-sm">{booking.batteryTire.tireDetails}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Estimated Cost */}
+                            {booking.batteryTire?.estimatedCost && (
+                                <div className="border-t pt-4">
+                                    <h3 className="font-medium mb-2">Estimated Cost</h3>
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-lg font-semibold text-blue-800">
+                                            ₹{booking.batteryTire.estimatedCost}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+            )}
+
             {/* Inspection Tab */}
-            <TabsContent value="inspection" className="mt-6">
-                <InspectionPanel booking={booking} onUpdate={fetchBooking} />
-            </TabsContent>
+            {!booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="inspection" className="mt-6">
+                    <InspectionPanel booking={booking} onUpdate={fetchBooking} />
+                </TabsContent>
+            )}
 
             {/* Service Tab */}
-            <TabsContent value="service" className="space-y-6 mt-6">
-                <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
-            </TabsContent>
+            {!booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="service" className="space-y-6 mt-6">
+                    <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
+                </TabsContent>
+            )}
 
             {/* QC Tab */}
-            <TabsContent value="qc" className="mt-6">
-                <QCPanel booking={booking} onUpdate={handleQCUpdate} />
-            </TabsContent>
+            {!booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="qc" className="mt-6">
+                    <QCPanel booking={booking} onUpdate={handleQCUpdate} />
+                </TabsContent>
+            )}
 
             {/* Billing Tab */}
-            <TabsContent value="billing" className="mt-6">
-                <BillUploadPanel booking={booking} onUploadComplete={fetchBooking} />
-            </TabsContent>
+            {!booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="billing" className="mt-6">
+                    <BillUploadPanel booking={booking} onUploadComplete={fetchBooking} />
+                </TabsContent>
+            )}
         </Tabs>
       </motion.div>
     </motion.div>

@@ -44,42 +44,44 @@ const MyPaymentsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">My Payments</h1>
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+      <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">My Payments</h1>
       
       <Card>
         <CardHeader>
-          <CardTitle>Payment History</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Payment History</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {payments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground px-4">
               No payments found.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table className="min-w-[800px]">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Booking Ref</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Date</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Booking Ref</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Description</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Amount</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payments.map((booking) => (
                     <TableRow key={booking._id}>
-                      <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">{format(new Date(booking.date), 'PPP')}</TableCell>
                       <TableCell className="font-mono text-xs">{booking.orderNumber ?? booking._id.slice(-8).toUpperCase()}</TableCell>
-                      <TableCell>
-                        Service for {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : 'Vehicle'}
+                      <TableCell className="text-xs sm:text-sm">
+                        <div className="max-w-[150px] sm:max-w-none truncate">
+                          Service for {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : 'Vehicle'}
+                        </div>
                       </TableCell>
-                      <TableCell>₹{booking.totalAmount}</TableCell>
+                      <TableCell className="text-xs sm:text-sm font-medium">₹{booking.totalAmount}</TableCell>
                       <TableCell>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <Badge variant={booking.paymentStatus === 'paid' ? 'success' : booking.paymentStatus === 'failed' ? 'destructive' : 'outline' as any}>
+                        <Badge variant={booking.paymentStatus === 'paid' ? 'success' : booking.paymentStatus === 'failed' ? 'destructive' : 'outline' as any} className="text-xs">
                           {booking.paymentStatus}
                         </Badge>
                       </TableCell>

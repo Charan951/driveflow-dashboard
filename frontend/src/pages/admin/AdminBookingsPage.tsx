@@ -127,16 +127,16 @@ const AdminBookingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-[1600px] mx-auto">
+    <div className="space-y-4 p-4 max-w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Booking Management</h1>
-          <p className="text-muted-foreground">Manage service requests and order flow.</p>
+          <h1 className="text-xl lg:text-2xl font-bold mb-1">Booking Management</h1>
+          <p className="text-sm text-muted-foreground">Manage service requests and order flow.</p>
         </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-card p-4 rounded-xl border border-border">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-card p-3 lg:p-4 rounded-xl border border-border">
         <div className="flex gap-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0">
           {[
             { id: 'all', label: 'All Bookings' },
@@ -148,7 +148,7 @@ const AdminBookingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 statusFilter === tab.id 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-muted/50 text-muted-foreground hover:bg-muted'
@@ -159,7 +159,7 @@ const AdminBookingsPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="relative w-full lg:w-96">
+        <div className="relative w-full lg:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
@@ -177,17 +177,16 @@ const AdminBookingsPage: React.FC = () => {
       ) : (
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[1000px]">
+            <table className="w-full text-sm text-left">
               <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="p-4 font-medium">Order #</th>
-                  <th className="p-4 font-medium">Customer & Vehicle</th>
-                  <th className="p-4 font-medium">Service Info</th>
-                  <th className="p-4 font-medium">Date & Slot</th>
-                  <th className="p-4 font-medium">Assigned To</th>
-                  <th className="p-4 font-medium">Status</th>
-                  <th className="p-4 font-medium">Amount</th>
-                  <th className="p-4 font-medium text-right">Actions</th>
+                  <th className="p-3 font-medium w-20">Order #</th>
+                  <th className="p-3 font-medium w-48">Customer & Vehicle</th>
+                  <th className="p-3 font-medium w-40">Service Info</th>
+                  <th className="p-3 font-medium w-32">Date & Slot</th>
+                  <th className="p-3 font-medium w-28">Assigned To</th>
+                  <th className="p-3 font-medium w-24">Status</th>
+                  <th className="p-3 font-medium w-20 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -197,65 +196,59 @@ const AdminBookingsPage: React.FC = () => {
                     className="hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() => navigate(`/admin/bookings/${booking._id}`)}
                   >
-                    <td className="p-4">
+                    <td className="p-3">
                       <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
                     </td>
-                    <td className="p-4">
+                    <td className="p-3">
                       <div className="flex flex-col">
-                        <span className="font-medium">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
+                        <span className="font-medium text-sm truncate max-w-[180px]">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                          <Car className="w-3 h-3" />
-                          {(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}
+                          <Car className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div className="max-w-[200px] truncate" title={Array.isArray(booking.services) ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') : ''}>
+                    <td className="p-3">
+                      <div className="max-w-[150px] truncate text-sm" title={Array.isArray(booking.services) ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') : ''}>
                          {Array.isArray(booking.services) 
                             ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
                             : 'Service'}
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-3">
                       <div className="flex flex-col">
-                        <span className="flex items-center gap-1">
-                           <Calendar className="w-3 h-3 text-muted-foreground" />
-                           {new Date(booking.date).toLocaleDateString()}
+                        <span className="flex items-center gap-1 text-xs">
+                           <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                           <span className="truncate">{new Date(booking.date).toLocaleDateString('en-GB')}</span>
                         </span>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                           <Clock className="w-3 h-3" /> 10:00 AM {/* Mock slot for now */}
+                           <Clock className="w-3 h-3 shrink-0" /> 
+                           <span>10:00 AM</span>
                         </span>
                       </div>
                     </td>
-                    <td className="p-4 text-sm">
-                      {(() => {
-                        // Check if this is a car wash service
-                        const isCarWashService = Array.isArray(booking.services) && 
-                          booking.services.some(service => 
-                            typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-                          );
-                        
-                        if (isCarWashService) {
-                          return booking.carWash?.staffAssigned?.name || <span className="text-muted-foreground italic">Unassigned</span>;
-                        } else {
-                          return booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>;
-                        }
-                      })()}
+                    <td className="p-3 text-sm">
+                      <div className="max-w-[100px] truncate">
+                        {(() => {
+                          // Check if this is a car wash service
+                          const isCarWashService = Array.isArray(booking.services) && 
+                            booking.services.some(service => 
+                              typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                            );
+                          
+                          if (isCarWashService) {
+                            return booking.carWash?.staffAssigned?.name || <span className="text-muted-foreground italic">Unassigned</span>;
+                          } else {
+                            return booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>;
+                          }
+                        })()}
+                      </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-3">
                       {getStatusBadge(booking.status)}
                     </td>
-                    <td className="p-4 font-medium">
-                      ₹{booking.totalAmount}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button 
-                        onClick={() => navigate(`/admin/bookings/${booking._id}`)}
-                        className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    <td className="p-3 font-medium text-right">
+                      <span className="text-sm">₹{booking.totalAmount}</span>
                     </td>
                   </tr>
                 ))}

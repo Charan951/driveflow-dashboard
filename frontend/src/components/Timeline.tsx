@@ -24,7 +24,12 @@ export const Timeline: React.FC<TimelineProps> = ({
   const activeIndex = steps.findIndex((s) => !s.completed);
 
   return (
-    <div className={cn(vertical ? 'space-y-0' : 'flex items-start justify-between', className)}>
+    <div className={cn(
+      vertical 
+        ? 'space-y-0' 
+        : 'flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-2', 
+      className
+    )}>
       {steps.map((step, index) => {
         const isActive = index === activeIndex;
         const isCompleted = step.completed;
@@ -36,11 +41,15 @@ export const Timeline: React.FC<TimelineProps> = ({
             className={cn(
               vertical
                 ? 'flex gap-4'
-                : 'flex flex-col items-center text-center flex-1'
+                : 'flex flex-row sm:flex-col items-center sm:text-center flex-1 gap-3 sm:gap-0'
             )}
           >
             {/* Dot and Line */}
-            <div className={cn(vertical ? 'flex flex-col items-center' : 'flex items-center w-full')}>
+            <div className={cn(
+              vertical 
+                ? 'flex flex-col items-center' 
+                : 'flex flex-row sm:flex-col items-center w-auto sm:w-full'
+            )}>
               <motion.div
                 initial={false}
                 animate={{
@@ -52,12 +61,12 @@ export const Timeline: React.FC<TimelineProps> = ({
                     : 'hsl(var(--muted))',
                 }}
                 className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 relative z-10',
-                  isActive && 'ring-4 ring-primary/20'
+                  'w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 relative z-10',
+                  isActive && 'ring-2 sm:ring-4 ring-primary/20'
                 )}
               >
                 {isCompleted ? (
-                  <Check className="w-4 h-4 text-success-foreground" />
+                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-success-foreground" />
                 ) : (
                   <span
                     className={cn(
@@ -77,7 +86,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 )}
               </motion.div>
 
-              {!isLast && (
+              {!isLast && !vertical && (
                 <motion.div
                   initial={false}
                   animate={{
@@ -85,19 +94,33 @@ export const Timeline: React.FC<TimelineProps> = ({
                       ? 'hsl(var(--success))'
                       : 'hsl(var(--muted))',
                   }}
-                  className={cn(
-                    vertical ? 'w-0.5 h-12 -my-1' : 'h-0.5 flex-1 mx-2'
-                  )}
+                  className="hidden sm:block h-0.5 flex-1 mx-2"
+                />
+              )}
+
+              {!isLast && vertical && (
+                <motion.div
+                  initial={false}
+                  animate={{
+                    backgroundColor: isCompleted
+                      ? 'hsl(var(--success))'
+                      : 'hsl(var(--muted))',
+                  }}
+                  className="w-0.5 h-12 -my-1"
                 />
               )}
             </div>
 
             {/* Content */}
-            <div className={cn(vertical ? 'pb-8' : 'mt-3', !vertical && 'flex-1')}>
+            <div className={cn(
+              vertical ? 'pb-8' : 'flex-1 sm:mt-3',
+              !vertical && 'min-w-0'
+            )}>
               <p
                 className={cn(
-                  'font-medium text-sm',
-                  isCompleted || isActive ? 'text-foreground' : 'text-muted-foreground'
+                  'font-medium text-xs sm:text-sm leading-tight',
+                  isCompleted || isActive ? 'text-foreground' : 'text-muted-foreground',
+                  !vertical && 'line-clamp-2 sm:line-clamp-none'
                 )}
               >
                 {step.step}

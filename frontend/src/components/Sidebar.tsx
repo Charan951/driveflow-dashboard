@@ -46,7 +46,7 @@ const menuItems: MenuItem[] = [
   { icon: Settings, label: 'Services', path: '/book-service?category=Periodic' },
   { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
   { icon: Battery, label: 'Tires & Battery', path: '/book-service?category=Tyres' },
-  { icon: Shield, label: 'Insurance', path: '/book-service?category=Insurance' },
+  { icon: Shield, label: 'Insurance', path: '/insurance' },
   { icon: FileText, label: 'Documents', path: '/documents' },
   { icon: MessageSquare, label: 'Support', path: '/support' },
   { icon: User, label: 'Profile', path: '/profile' },

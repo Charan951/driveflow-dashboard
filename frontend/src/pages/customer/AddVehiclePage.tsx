@@ -133,16 +133,16 @@ const AddVehiclePage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">My Vehicles</h1>
-          <p className="text-muted-foreground">Manage your registered vehicles</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">My Vehicles</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your registered vehicles</p>
         </div>
         <button
           onClick={() => { setShowForm(!showForm); setStep(1); }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Add Vehicle
@@ -155,15 +155,15 @@ const AddVehiclePage: React.FC = () => {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="bg-card rounded-2xl border border-border p-6"
+          className="bg-card rounded-2xl border border-border p-4 sm:p-6"
         >
-          <h2 className="text-lg font-semibold mb-6">Add New Vehicle</h2>
+          <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6">Add New Vehicle</h2>
           
           {step === 1 ? (
             <form onSubmit={handleRegNoSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Vehicle Registration Number</label>
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <input
                     type="text"
                     name="licensePlate"
@@ -173,26 +173,28 @@ const AddVehiclePage: React.FC = () => {
                     required
                     className="flex-1 px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
                   />
-                  <button
-                    type="submit"
-                    disabled={!formData.licensePlate || isLoading}
-                    className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  >
-                    {isLoading ? 'Fetching...' : 'Next'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleManualEntry}
-                    className="px-6 py-3 border border-border rounded-xl font-medium text-foreground hover:bg-muted/80 transition-colors"
-                  >
-                    Enter manually
-                  </button>
+                  <div className="flex gap-2 sm:gap-3">
+                    <button
+                      type="submit"
+                      disabled={!formData.licensePlate || isLoading}
+                      className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      {isLoading ? 'Fetching...' : 'Next'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleManualEntry}
+                      className="flex-1 sm:flex-none px-4 sm:px-6 py-3 border border-border rounded-xl font-medium text-foreground hover:bg-muted/80 transition-colors"
+                    >
+                      Manual
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
           ) : (
             <form onSubmit={handleFinalSubmit} className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Make</label>
                   <input
@@ -258,18 +260,18 @@ const AddVehiclePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+                  className="w-full sm:flex-1 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="w-full sm:flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {isLoading ? 'Adding...' : 'Confirm Vehicle'}
                 </button>
@@ -291,7 +293,7 @@ const AddVehiclePage: React.FC = () => {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {vehicles.map((vehicle) => (
             <motion.div key={vehicle._id} variants={staggerItem}>
@@ -312,13 +314,13 @@ const AddVehiclePage: React.FC = () => {
           <motion.div variants={staggerItem}>
             <button
               onClick={() => setShowForm(true)}
-              className="w-full h-full min-h-[230px] flex flex-col items-center justify-center bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
+              className="w-full h-full min-h-[200px] sm:min-h-[230px] flex flex-col items-center justify-center bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <Plus className="w-6 h-6 text-primary" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
-              <p className="font-medium text-foreground">Add Vehicle</p>
-              <p className="text-sm text-muted-foreground">Register a new vehicle</p>
+              <p className="font-medium text-foreground text-sm sm:text-base">Add Vehicle</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center px-4">Register a new vehicle</p>
             </button>
           </motion.div>
         </motion.div>

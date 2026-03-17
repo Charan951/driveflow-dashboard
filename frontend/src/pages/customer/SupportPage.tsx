@@ -124,8 +124,8 @@ const SupportPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground">Support</h1>
+    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+      <h1 className="text-xl sm:text-2xl font-bold text-foreground">Support</h1>
 
       {/* Create Ticket */}
       {!selectedTicketId && (
@@ -133,10 +133,10 @@ const SupportPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }} 
           onSubmit={handleSubmit} 
-          className="bg-card rounded-2xl border border-border p-6 space-y-4 shadow-sm"
+          className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-4 shadow-sm"
         >
-          <h2 className="font-semibold text-lg flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" /> Create Ticket
+          <h2 className="font-semibold text-base sm:text-lg flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> Create Ticket
           </h2>
           <input 
             type="text" 
@@ -144,7 +144,7 @@ const SupportPage: React.FC = () => {
             onChange={(e) => setSubject(e.target.value)} 
             placeholder="Subject" 
             required 
-            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" 
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base" 
           />
           <textarea 
             value={description} 
@@ -152,16 +152,16 @@ const SupportPage: React.FC = () => {
             placeholder="Describe your issue..." 
             rows={4} 
             required 
-            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" 
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none text-sm sm:text-base" 
           />
           <button 
             type="submit" 
             disabled={isSubmitting}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 disabled:opacity-70 disabled:cursor-not-allowed transition-all text-sm sm:text-base"
           >
             {isSubmitting ? 'Submitting...' : (
               <>
-                <Send className="w-5 h-5" /> Submit Ticket
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" /> Submit Ticket
               </>
             )}
           </button>
@@ -170,12 +170,12 @@ const SupportPage: React.FC = () => {
 
       {/* Existing Tickets */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-lg">{selectedTicketId ? 'Ticket Details' : 'Your Tickets'}</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="font-semibold text-base sm:text-lg">{selectedTicketId ? 'Ticket Details' : 'Your Tickets'}</h2>
           {selectedTicketId && (
             <button 
               onClick={() => setSelectedTicketId(null)}
-              className="text-sm text-primary hover:underline font-medium"
+              className="text-sm text-primary hover:underline font-medium self-start sm:self-auto"
             >
               Back to all tickets
             </button>
@@ -250,8 +250,8 @@ const SupportPage: React.FC = () => {
 
                 {/* Reply Section */}
                 {selectedTicketId && ticket.status !== 'Closed' && ticket.status !== 'Resolved' && (
-                  <div className="p-5 border-t border-border bg-muted/10">
-                    <div className="flex gap-3">
+                  <div className="p-4 sm:p-5 border-t border-border bg-muted/10">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <textarea 
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
@@ -262,7 +262,7 @@ const SupportPage: React.FC = () => {
                       <button 
                         onClick={() => handleReply(ticket._id)}
                         disabled={isReplying || !replyText.trim()}
-                        className="px-6 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-all shadow-lg shadow-primary/20"
+                        className="px-6 py-3 sm:py-0 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-all shadow-lg shadow-primary/20 min-h-[44px]"
                       >
                         {isReplying ? <div className="animate-spin h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full" /> : <Send className="w-5 h-5" />}
                       </button>

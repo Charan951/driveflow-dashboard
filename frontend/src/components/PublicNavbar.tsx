@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
@@ -16,7 +16,21 @@ const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const location = useLocation();
+
+  const closeSidebar = () => {
+    setIsOpen(false);
+  };
+
+  const toggleCategory = (title: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(title) 
+        ? prev.filter(t => t !== title) 
+        : [...prev, title]
+    );
+  };
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -61,6 +75,11 @@ const PublicNavbar: React.FC = () => {
     return categories;
   }, [services]);
 
+  // Close sidebar on route change
+  useEffect(() => {
+    closeSidebar();
+  }, [location.pathname]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -87,12 +106,13 @@ const PublicNavbar: React.FC = () => {
         : 'bg-transparent'
     }`}>
       <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link 
+          to="/" 
+          className="flex items-center gap-2">
           <img
             src="/speshway-logo.png"
             alt="Speshway Solutions"
-            className="w-10 h-10 rounded-xl object-cover"
-          />
+            className="w-10 h-10 rounded-xl object-cover"/>
           <span className={`font-semibold text-lg ${isScrolled ? 'text-foreground' : 'text-white'}`}>Speshway Solutions</span>
         </Link>
 
@@ -122,8 +142,7 @@ const PublicNavbar: React.FC = () => {
                                     <NavigationMenuLink key={item.name} asChild>
                                       <Link 
                                         to={item.path}
-                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1"
-                                      >
+                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
                                         {item.name}
                                       </Link>
                                     </NavigationMenuLink>
@@ -132,8 +151,7 @@ const PublicNavbar: React.FC = () => {
                                   <NavigationMenuLink asChild>
                                     <Link 
                                       to={category.path!}
-                                      className="text-sm text-muted-foreground hover:text-primary transition-colors py-1"
-                                    >
+                                      className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
                                       View Insurance
                                     </Link>
                                   </NavigationMenuLink>
@@ -155,8 +173,7 @@ const PublicNavbar: React.FC = () => {
                           location.pathname === link.path
                             ? 'text-primary'
                             : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
-                        }`}
-                      >
+                        }`}>
                         {link.name}
                       </Link>
                     </NavigationMenuLink>
@@ -172,14 +189,12 @@ const PublicNavbar: React.FC = () => {
             to="/login" 
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white'
-            }`}
-          >
+            }`}>
             Login
           </Link>
           <Link 
             to="/register" 
-            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
+            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
             Get Started
           </Link>
         </div>
@@ -189,96 +204,133 @@ const PublicNavbar: React.FC = () => {
           onClick={() => setIsOpen(!isOpen)}
           className={`md:hidden p-2 transition-colors ${
             isScrolled ? 'text-foreground hover:text-primary' : 'text-white hover:text-white/80'
-          }`}
-        >
+          }`}>
           {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Sidebar */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border bg-card overflow-y-auto max-h-[calc(100vh-64px)]"
-          >
-            <div className="container mx-auto px-4 py-6 flex flex-col gap-2">
-              {links.map((link) => {
-                if (link.name === 'Services') {
-                  return (
-                    <div key={link.name} className="flex flex-col gap-2">
-                      <div className="text-sm font-semibold text-primary uppercase tracking-wider px-2 py-1">
-                        {link.name}
-                      </div>
-                      <div className="flex flex-col gap-4 pl-4 border-l border-border ml-2 my-2">
-                        {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
-                          <div key={category.title} className="flex flex-col gap-2">
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
-                              {category.title}
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              {category.items.length > 0 ? (
-                                category.items.map((item) => (
-                                  <Link
-                                    key={item.name}
-                                    to={item.path}
-                                    onClick={() => setIsOpen(false)}
-                                    className="text-sm text-foreground hover:text-primary transition-colors py-1.5"
-                                  >
-                                    {item.name}
-                                  </Link>
-                                ))
-                              ) : (
-                                <Link
-                                  to={category.path!}
-                                  onClick={() => setIsOpen(false)}
-                                  className="text-sm text-foreground hover:text-primary transition-colors py-1.5"
-                                >
-                                  View Insurance
-                                </Link>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    onClick={() => setIsOpen(false)}
-                    className={`text-sm font-medium transition-colors px-2 py-2 rounded-lg ${
-                      location.pathname === link.path
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                );
-              })}
-              <div className="flex flex-col gap-3 pt-6 mt-4 border-t border-border">
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeSidebar}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] md:hidden"/>
+            
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 left-0 bottom-0 w-[300px] bg-card border-r border-border z-[70] md:hidden flex flex-col shadow-2xl">
+              <div className="h-16 flex items-center justify-between px-4 border-b border-border">
                 <Link 
-                  to="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-center text-foreground hover:text-primary transition-colors"
-                >
-                  Login
+                  to="/" 
+                  className="flex items-center gap-2">
+                  <img
+                    src="/speshway-logo.png"
+                    alt="Speshway Solutions"
+                    className="w-8 h-8 rounded-lg object-cover"/>
+                  <span className="font-semibold text-base">Speshway Solutions</span>
                 </Link>
-                <Link 
-                  to="/register"
-                  onClick={() => setIsOpen(false)}
-                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium text-center hover:bg-primary/90 transition-colors"
-                >
-                  Get Started
-                </Link>
+                <button
+                  onClick={closeSidebar}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
-          </motion.div>
+
+              <div className="flex-1 overflow-y-auto px-2 py-6 flex flex-col gap-1 custom-scrollbar">
+                {links.map((link) => {
+                  if (link.name === 'Services') {
+                    return (
+                      <div key={link.name} className="flex flex-col gap-1">
+                        <button
+                          onClick={() => setIsServicesExpanded(!isServicesExpanded)}
+                          className={`w-full flex items-center justify-between text-sm font-semibold text-primary uppercase tracking-wider px-3 py-2.5 rounded-lg hover:bg-muted transition-colors ${
+                            location.pathname.startsWith('/services') ? 'bg-primary/5' : ''
+                          }`}>
+                          {link.name}
+                          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isServicesExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isServicesExpanded && (
+                          <div className="flex flex-col gap-1 pl-4 border-l border-border ml-3 my-1">
+                            {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
+                              <div key={category.title} className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => toggleCategory(category.title)}
+                                  className="w-full flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-tight px-3 py-2 hover:bg-muted rounded-md transition-colors text-left">
+                                  {category.title}
+                                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${expandedCategories.includes(category.title) ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                {expandedCategories.includes(category.title) && (
+                                  <div className="flex flex-col gap-1 pl-4">
+                                    {category.items.length > 0 ? (
+                                      category.items.map((item) => (
+                                        <Link
+                                          key={item.name}
+                                          to={item.path}
+                                          className="text-sm text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted/50">
+                                          {item.name}
+                                        </Link>
+                                      ))
+                                    ) : (
+                                      <Link
+                                        to={category.path!}
+                                        className="text-sm text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted/50">
+                                        View Insurance
+                                      </Link>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            <Link
+                              to="/services"
+                              className="text-sm font-medium text-primary hover:underline px-3 py-2.5">
+                              View All Services
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      className={`text-sm font-medium transition-colors px-3 py-2.5 rounded-lg ${
+                        location.pathname === link.path
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-foreground hover:bg-muted'
+                      }`}>
+                      {link.name}
+                    </Link>
+                  );
+                })}
+                
+                <div className="flex flex-col gap-3 pt-6 mt-4 border-t border-border px-2">
+                  <Link 
+                    to="/login"
+                    className="px-4 py-2.5 text-sm font-medium text-center text-foreground hover:text-primary transition-colors border border-border rounded-xl">
+                    Login
+                  </Link>
+                  <Link 
+                    to="/register"
+                    className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium text-center hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    Get Started
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </nav>

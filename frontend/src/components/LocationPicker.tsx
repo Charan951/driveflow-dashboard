@@ -291,16 +291,16 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
           value={query}
           onChange={handleInputChange}
           placeholder="Search for a location..."
-          className="w-full pl-10 pr-10 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="w-full pl-10 pr-12 py-2.5 sm:py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm sm:text-base"
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-2">
           {isLoading || isLocating ? (
             <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
           ) : (
             <button
               type="button"
               onClick={handleGetCurrentLocation}
-              className="text-gray-400 hover:text-blue-500 transition-colors"
+              className="text-gray-400 hover:text-blue-500 transition-colors p-1"
               title="Use current location"
             >
               <Locate className="w-4 h-4" />

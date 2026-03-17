@@ -119,8 +119,8 @@ const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+    <div className="p-4 lg:p-6 space-y-6 sm:space-y-8 max-w-4xl mx-auto">
+      <h1 className="text-xl sm:text-2xl font-bold text-foreground">Profile</h1>
 
       {/* Avatar */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center">
@@ -141,8 +141,8 @@ const ProfilePage: React.FC = () => {
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <User className="w-5 h-5 text-primary" /> Personal Details
         </h3>
-        <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-6 space-y-4 shadow-sm">
-          <div className="grid md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <div className="relative">
@@ -229,7 +229,7 @@ const ProfilePage: React.FC = () => {
           </Dialog>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {user?.addresses && user.addresses.length > 0 ? (
             user.addresses.map((addr, index) => (
               <div key={index} className="bg-card border border-border rounded-xl p-4 flex justify-between items-start group hover:border-primary/50 transition-colors">
@@ -306,7 +306,7 @@ const ProfilePage: React.FC = () => {
           </Dialog>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {user?.paymentMethods && user.paymentMethods.length > 0 ? (
             user.paymentMethods.map((pm, index) => (
               <div key={index} className="bg-card border border-border rounded-xl p-4 flex justify-between items-start group hover:border-primary/50 transition-colors">

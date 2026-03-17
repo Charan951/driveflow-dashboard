@@ -160,12 +160,12 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   };
 
   return (
-    <div className="space-y-6">
+    <div className="container-mobile space-y-4 sm:space-y-6 no-horizontal-scroll">
       {/* Booking Info */}
-      <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Car Wash Service #{booking.orderNumber}</h3>
-          <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+      <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+          <h3 className="text-base sm:text-lg font-semibold">Car Wash Service #{booking.orderNumber}</h3>
+          <span className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full self-start sm:self-auto ${
             booking.status === 'REACHED_CUSTOMER' ? 'bg-blue-100 text-blue-800' :
             booking.status === 'CAR_WASH_STARTED' ? 'bg-yellow-100 text-yellow-800' :
             booking.status === 'CAR_WASH_COMPLETED' ? 'bg-green-100 text-green-800' :
@@ -175,34 +175,35 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           </span>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted-foreground">Customer</p>
-            <p className="font-medium">{booking.user.name}</p>
-            <p className="text-sm text-muted-foreground">{booking.user.phone}</p>
+            <p className="font-medium text-sm sm:text-base truncate">{booking.user.name}</p>
+            <p className="text-sm text-muted-foreground truncate">{booking.user.phone}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Vehicle</p>
-            <p className="font-medium">{booking.vehicle.make} {booking.vehicle.model}</p>
-            <p className="text-sm text-muted-foreground">{booking.vehicle.registrationNumber}</p>
+            <p className="font-medium text-sm sm:text-base truncate">{booking.vehicle.make} {booking.vehicle.model}</p>
+            <p className="text-sm text-muted-foreground truncate">{booking.vehicle.registrationNumber}</p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm">{booking.location.address}</p>
+        <div className="mt-4 flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-sm break-words">{booking.location.address}</p>
         </div>
       </div>
 
       {/* Before Wash Photos */}
-      <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Camera className="w-5 h-5 text-primary" />
-            Before Wash Photos
+      <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+          <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+            <Camera className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
+            <span className="hidden sm:inline">Before Wash Photos</span>
+            <span className="sm:hidden">Before Photos</span>
           </h3>
           {booking.carWash.beforeWashPhotos?.length > 0 && (
-            <CheckCircle className="w-5 h-5 text-green-600" />
+            <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-green-600" />
           )}
         </div>
 
@@ -210,7 +211,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         {booking.carWash.beforeWashPhotos?.length > 0 && (
           <div className="mb-4">
             <h4 className="text-sm font-medium text-muted-foreground mb-3">Uploaded Photos</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {booking.carWash.beforeWashPhotos.map((url, i) => (
                 <div key={`existing-before-${i}`} className="aspect-square rounded-lg overflow-hidden border border-border">
                   <button
@@ -228,23 +229,23 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         {/* Upload New Before Photos */}
         {canUploadBefore && (
           <div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
               {beforeImages.map((file, i) => (
                 <div key={`new-before-${i}`} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
                   <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
                   <button
                     onClick={() => removeBeforeImage(i)}
-                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 sm:top-2 right-1 sm:right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3 sm:w-4 h-3 sm:h-4" />
                   </button>
                 </div>
               ))}
               
               {beforeImages.length < 4 && (
                 <label className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all">
-                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground text-center">Add Photo</span>
+                  <Upload className="w-6 sm:w-8 h-6 sm:h-8 text-muted-foreground mb-1 sm:mb-2" />
+                  <span className="text-xs sm:text-sm text-muted-foreground text-center">Add Photo</span>
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -260,9 +261,14 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
               <button 
                 onClick={uploadBeforePhotos}
                 disabled={loading || beforeImages.length === 0}
-                className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="px-4 sm:px-6 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
-                {loading ? 'Uploading...' : 'Upload Before Photos'}
+                {loading ? 'Uploading...' : (
+                  <>
+                    <span className="hidden sm:inline">Upload Before Photos</span>
+                    <span className="sm:hidden">Upload</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -271,23 +277,30 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
 
       {/* Start Car Wash */}
       {canStartWash && (
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                Start Car Wash
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                <Clock className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
+                <span className="hidden sm:inline">Start Car Wash</span>
+                <span className="sm:hidden">Start Wash</span>
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Begin the car wash service after uploading before photos
+                <span className="hidden sm:inline">Begin the car wash service after uploading before photos</span>
+                <span className="sm:hidden">Begin service after uploading photos</span>
               </p>
             </div>
             <button 
               onClick={startWash}
               disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="px-4 sm:px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base self-start sm:self-auto"
             >
-              {loading ? 'Starting...' : 'Start Car Wash'}
+              {loading ? 'Starting...' : (
+                <>
+                  <span className="hidden sm:inline">Start Car Wash</span>
+                  <span className="sm:hidden">Start</span>
+                </>
+              )}
             </button>
           </div>
         </div>
