@@ -63,7 +63,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -72,8 +72,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         <aside
           className={cn(
             'fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
-            'lg:translate-x-0 lg:static',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           {/* Logo */}
@@ -84,7 +83,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 hover:bg-muted rounded-lg"
+              className="p-2 hover:bg-muted rounded-lg"
             >
               <X className="w-5 h-5" />
             </button>
@@ -93,7 +92,8 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
           {/* Menu */}
           <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
             {customerMenuItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname + location.search === item.path || 
+                              (item.path === '/dashboard' && location.pathname === '/dashboard');
               return (
                 <Link
                   key={item.path}
@@ -116,7 +116,10 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
           {/* Logout */}
           <div className="p-4 shrink-0">
             <button
-              onClick={handleLogout}
+              onClick={() => {
+                setSidebarOpen(false);
+                handleLogout();
+              }}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
             >
               <LogOut className="w-5 h-5" />
@@ -132,7 +135,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 hover:bg-muted rounded-xl"
+                className="p-2 hover:bg-muted rounded-xl"
               >
                 <Menu className="w-6 h-6" />
               </button>

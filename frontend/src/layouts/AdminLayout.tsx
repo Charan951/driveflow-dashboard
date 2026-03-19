@@ -71,7 +71,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -80,8 +80,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <aside
         className={cn(
           'fixed left-0 top-0 h-screen w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
-          'lg:translate-x-0 lg:static lg:shrink-0',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Logo */}
@@ -94,7 +93,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 hover:bg-muted rounded-lg"
+            className="p-2 hover:bg-muted rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -135,7 +134,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              setSidebarOpen(false);
+              handleLogout();
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all duration-200"
           >
             <LogOut className="w-5 h-5" />
@@ -150,7 +152,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-muted rounded-lg shrink-0"
+              className="p-2 hover:bg-muted rounded-lg shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
