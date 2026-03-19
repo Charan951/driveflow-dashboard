@@ -56,7 +56,9 @@ export const useAppStore = create<AppState>((set) => ({
         notifications: data.map(mapUserNotification),
       });
     } catch (error) {
-      console.error(error);
+      if (import.meta.env.DEV) {
+        console.error(error);
+      }
     } finally {
       set({ notificationsLoading: false });
     }
@@ -82,7 +84,9 @@ export const useAppStore = create<AppState>((set) => ({
         ),
       }));
     } catch (error) {
-      console.error(error);
+      if (import.meta.env.DEV) {
+        console.error(error);
+      }
     }
   },
   clearNotifications: () => set({ notifications: [] }),

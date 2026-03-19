@@ -13,11 +13,11 @@ export const dummyPayment = async (req, res) => {
   const { bookingId, tempBookingData } = req.body;
 
   try {
-    console.log('Payment request received:', { bookingId, tempBookingData });
+    
 
     // Handle temporary booking creation after payment (Car Wash, Battery, Tires)
     if (tempBookingData && tempBookingData.requiresPaymentService) {
-      console.log('Processing payment-required service with temp data:', tempBookingData);
+      
       
       // Import required models
       const Counter = (await import('../models/Counter.js')).default;
@@ -55,12 +55,12 @@ export const dummyPayment = async (req, res) => {
           booking.platformFee = tempBookingData.totalAmount * commissionRate;
           booking.merchantEarnings = tempBookingData.totalAmount - booking.platformFee;
 
-          console.log('Attempting to save booking:', booking);
+          
           createdBooking = await booking.save();
-          console.log('Booking saved successfully:', createdBooking._id);
+          
           break;
         } catch (err) {
-          console.error('Error saving booking:', err);
+          
           lastError = err;
           const isDuplicate =
             err &&
@@ -85,13 +85,13 @@ export const dummyPayment = async (req, res) => {
               );
             }
           } catch (alignError) {
-            console.error('Failed to align booking counter', alignError);
+            
           }
         }
       }
 
       if (!createdBooking) {
-        console.error('Failed to create booking after retries:', lastError);
+        
         throw lastError || new Error('Failed to create booking with unique order number');
       }
 
@@ -123,7 +123,7 @@ export const dummyPayment = async (req, res) => {
           req.user.email,
           `${serviceType} Service Booking Confirmed`,
           `Dear User,\n\nYour ${serviceType.toLowerCase()} service booking for ${serviceNames} has been confirmed after payment.\nDate: ${new Date(tempBookingData.date).toLocaleDateString()}\nTotal Amount: ₹${tempBookingData.totalAmount}\nOrder Number: #${createdBooking.orderNumber}\n\nAdmin will assign staff to your booking shortly.\n\nThank you for choosing DriveFlow!`
-        ).catch(emailError => console.error('Email sending failed:', emailError));
+        ).catch(emailError => console.error('Error sending confirmation email:', emailError));
       }
 
       // Notify customer about successful booking creation
@@ -141,7 +141,7 @@ export const dummyPayment = async (req, res) => {
         { type: 'service_confirmed', bookingId: createdBooking._id.toString() }
       );
 
-      console.log('Payment-required service completed successfully:', createdBooking._id);
+      
       return res.json({ 
         message: 'Payment successful and booking created',
         bookingId: createdBooking._id,
@@ -273,3 +273,4 @@ export const getAllPayments = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

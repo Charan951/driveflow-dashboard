@@ -17,7 +17,6 @@ import {
   uploadCarWashAfterPhotos,
   startCarWash,
   completeCarWash,
-  testGenerateOtp,
   getCarWashBookings,
   batteryTireApproval,
   addWarranty,
@@ -41,7 +40,6 @@ router.route('/:bookingId/carwash/before-photos').put(protect, uploadCarWashBefo
 router.route('/:bookingId/carwash/after-photos').put(protect, uploadCarWashAfterPhotos);
 router.route('/:bookingId/carwash/start').put(protect, startCarWash);
 router.route('/:bookingId/carwash/complete').put(protect, completeCarWash);
-router.route('/:bookingId/test-generate-otp').put(protect, testGenerateOtp);
 
 // Battery/Tire specific routes
 router.route('/:id/battery-tire-approval').put(protect, batteryTireApproval);

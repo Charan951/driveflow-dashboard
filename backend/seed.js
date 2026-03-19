@@ -133,11 +133,11 @@ const users = [
 const seedData = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB Connected');
+    
 
     await Service.deleteMany();
     await User.deleteMany(); 
-    console.log('Data cleared');
+    
 
     await Service.insertMany(services);
     
@@ -145,13 +145,14 @@ const seedData = async () => {
         await User.create(user);
     }
 
-    console.log('Data seeded');
+    
 
     process.exit();
   } catch (error) {
-    console.error(error);
+    
     process.exit(1);
   }
 };
 
 seedData();
+

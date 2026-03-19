@@ -85,7 +85,7 @@ export const fetchVehicleDetails = async (req, res) => {
     // 1. Try RapidAPI if configured
     if (process.env.RAPIDAPI_KEY && process.env.RAPIDAPI_HOST) {
       try {
-        console.log(`Fetching details for ${normalizedPlate} from RapidAPI...`);
+        
         const options = {
           method: 'GET',
           url: `https://${process.env.RAPIDAPI_HOST}/`,
@@ -98,7 +98,7 @@ export const fetchVehicleDetails = async (req, res) => {
 
         const response = await axios.request(options);
         const data = response.data;
-        console.log('RapidAPI Response:', JSON.stringify(data).substring(0, 500)); // Log response for debugging
+         // Log response for debugging
 
         // Check if API returned valid data
         if (data && (data.make || data.maker_name || data.model || data.maker_model)) {
@@ -124,7 +124,7 @@ export const fetchVehicleDetails = async (req, res) => {
           });
         }
       } catch (apiError) {
-        console.error('RapidAPI Error details:', apiError.response?.data || apiError.message);
+        
         const status = apiError.response?.status;
 
         if (status === 404) {
@@ -196,3 +196,4 @@ export const deleteVehicle = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

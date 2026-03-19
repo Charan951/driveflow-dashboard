@@ -28,7 +28,7 @@ try {
   }
   serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
 } catch (error) {
-  console.error(`Failed to load Firebase service account:`, error.message);
+  
   // Optional: provide a more descriptive error if needed
   throw error;
 }
@@ -38,3 +38,4 @@ admin.initializeApp({
 });
 
 export default admin;
+

@@ -120,7 +120,7 @@ export const getETA = async (req, res) => {
       return res.status(502).json({ message: 'Routing lookup failed' });
     }
   } catch (error) {
-    console.error('Error in updateUserLocation:', error);
+    
     return res.status(500).json({ message: error.message, stack: error.stack });
   }
 };
@@ -161,7 +161,7 @@ export const updateUserLocation = async (req, res) => {
 
       await user.save();
 
-      console.log(`User ${user.name} location updated: ${lat}, ${lng}`);
+      
 
       try {
         const io = getIO();
@@ -209,7 +209,7 @@ export const updateUserLocation = async (req, res) => {
               }
             }
           } catch (e) {
-            console.error('Near-arrival notify error:', e.message);
+            
           }
         }
         // Also emit status heartbeat for online indicator
@@ -219,7 +219,7 @@ export const updateUserLocation = async (req, res) => {
           lastSeen: user.lastSeen
         });
       } catch (e) {
-        console.error('Socket emit error (updateUserLocation):', e.message);
+        
       }
 
       res.json({ message: 'Location updated', location: user.location });
@@ -325,3 +325,4 @@ export const searchGeocode = async (req, res) => {
     return res.status(status).json({ message: 'Search geocoding failed' });
   }
 };
+

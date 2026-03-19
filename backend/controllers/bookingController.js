@@ -15,12 +15,10 @@ export const emitBookingUpdate = (booking) => {
     
     // Notify admin
     io.to('admin').emit('bookingUpdated', booking);
-    console.log(`Emitted bookingUpdated for booking ${bookingId} to 'admin' room`);
     
     // Also notify admin specifically about new bookings
     if (booking.status === 'CREATED') {
       io.to('admin').emit('bookingCreated', booking);
-      console.log(`Emitted bookingCreated for booking ${bookingId} to 'admin' room`);
       
       // Save notification to history and send push to admins
       sendPushToRole(
@@ -29,7 +27,7 @@ export const emitBookingUpdate = (booking) => {
         `A new booking (#${booking.orderNumber || bookingId.slice(-6).toUpperCase()}) has been created.`,
         { bookingId, type: 'order' },
         'order'
-      ).catch(err => console.error('Admin notification error (emitBookingUpdate):', err));
+      );
     } else if (booking.status === 'CANCELLED') {
       io.to('admin').emit('bookingCancelled', booking);
       
@@ -39,7 +37,7 @@ export const emitBookingUpdate = (booking) => {
         `Booking #${booking.orderNumber || bookingId.slice(-6).toUpperCase()} has been cancelled.`,
         { bookingId, type: 'order' },
         'order'
-      ).catch(err => console.error('Admin notification error (emitBookingUpdate - Cancelled):', err));
+      );
     }
     
     // Notify specific booking room
@@ -60,7 +58,7 @@ export const emitBookingUpdate = (booking) => {
       io.to(room).emit('bookingCreated', booking); // Also emit bookingCreated for compatibility
     });
   } catch (err) {
-    console.error('Socket emit error (emitBookingUpdate):', err);
+    // Error handling
   }
 };
 
@@ -75,7 +73,6 @@ const isBatteryOrTireBooking = async (booking) => {
       service.category === 'Tyre & Battery'
     );
   } catch (error) {
-    console.error('Error checking battery/tire service:', error);
     return false;
   }
 };
@@ -192,7 +189,7 @@ export const createBooking = async (req, res) => {
             );
           }
         } catch (err) {
-          console.error('Push notification error (createBooking):', err);
+          
         }
 
         break;
@@ -223,7 +220,7 @@ export const createBooking = async (req, res) => {
             );
           }
         } catch (alignError) {
-          console.error('Failed to align booking counter', alignError);
+          
         }
       }
     }
@@ -239,7 +236,7 @@ export const createBooking = async (req, res) => {
         req.user.email,
         'Booking Confirmation - DriveFlow',
         `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing DriveFlow!`
-      ).catch(emailError => console.error('Email sending failed:', emailError));
+      ).catch(() => {});
     }
 
     res.status(201).json(createdBooking);
@@ -254,7 +251,7 @@ export const createBooking = async (req, res) => {
         'order'
       );
     } catch (err) {
-      console.error('Customer notification error (createBooking):', err);
+      
     }
 
     // Emit socket event for real-time updates
@@ -267,11 +264,11 @@ export const createBooking = async (req, res) => {
         
       emitBookingUpdate(populated || createdBooking);
     } catch (err) {
-      console.error('Socket emit error (createBooking):', err);
+      
     }
   } catch (error) {
-    console.error('Create Booking Error:', error);
-    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    
+    
     if (error.name === 'ValidationError') {
        const messages = Object.values(error.errors).map(val => val.message);
        return res.status(400).json({ message: messages.join(', ') });
@@ -318,7 +315,7 @@ export const getMyBookings = async (req, res) => {
       .lean();
     res.json(bookings);
   } catch (error) {
-    console.error('getMyBookings Error:', error);
+    
     res.status(500).json({ message: error.message });
   }
 };
@@ -442,7 +439,7 @@ export const getBookingById = async (req, res) => {
       res.status(404).json({ message: 'Booking not found' });
     }
   } catch (error) {
-    console.error('Update Booking Status Error:', error);
+    
     if (error.name === 'ValidationError') {
         const messages = Object.values(error.errors).map(val => val.message);
         return res.status(400).json({ message: messages.join(', ') });
@@ -462,7 +459,7 @@ export const assignBooking = async (req, res) => {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    console.log(`[assignBooking] Processing update for ${bookingId}. Body:`, req.body);
+    
 
     const updateData = {};
     if (slot) updateData.date = slot;
@@ -503,10 +500,10 @@ export const assignBooking = async (req, res) => {
 
     if (booking.status === 'CREATED' && hasAnyAssignment) {
       updateData.status = 'ASSIGNED';
-      console.log(`[assignBooking] Status transitioning to ASSIGNED for ${bookingId}`);
+      
     }
 
-    console.log(`[assignBooking] Final updateData for ${bookingId}:`, updateData);
+    
 
     // Apply updates directly to database to avoid middleware/validation pitfalls of save()
     const updatedBooking = await Booking.findByIdAndUpdate(
@@ -565,12 +562,12 @@ export const assignBooking = async (req, res) => {
         );
       }
     } catch (notifyErr) {
-      console.error('[assignBooking] Notification error:', notifyErr);
+      
     }
 
     res.json(updatedBooking);
   } catch (error) {
-    console.error(`[assignBooking] Error updating ${bookingId}:`, error);
+    
     res.status(400).json({ message: error.message });
   }
 };
@@ -648,9 +645,9 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       if (canonTo === 'CAR_WASH_COMPLETED') {
-        console.log('Processing CAR_WASH_COMPLETED status update - no OTP generation');
+        
         const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
-        console.log('After photos count:', afterPhotos.length);
+        
         if (afterPhotos.length < 4) {
           return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
         }
@@ -688,13 +685,13 @@ export const updateBookingStatus = async (req, res) => {
           };
           if (booking.user?.email) {
             await sendEmail(
-              booking.user.email,
-              'Installation & Delivery OTP',
-              `Your OTP for battery/tire installation and delivery is ${code}. It expires in 24 hours.`
-            ).catch(err => console.error('Email error:', err));
-          }
-          await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm installation completion', { type: 'otp', bookingId: String(booking._id) }).catch(err => console.error('Push error:', err));
+            booking.user.email,
+            'Installation & Delivery OTP',
+            `Your OTP for battery/tire installation and delivery is ${code}. It expires in 24 hours.`
+          ).catch(() => {});
         }
+        await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm installation completion', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
+      }
 
         if (canonTo === 'DELIVERY') {
           const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
@@ -790,7 +787,7 @@ export const updateBookingStatus = async (req, res) => {
           const userId = typeof booking.user === 'object' ? booking.user._id : booking.user;
           io.to(`user_${userId}`).emit('bookingCancelled', { id: updatedBooking._id, status: 'CANCELLED' });
         } catch (err) {
-          console.error('Socket emit error (bookingCancelled):', err);
+          
         }
       }
 
@@ -800,9 +797,9 @@ export const updateBookingStatus = async (req, res) => {
           updatedBooking.user.email,
           'Booking Status Update - Speshway',
           `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
-        ).catch(err => console.error('Email status update error:', err));
+        ).catch(() => {});
       }
-      sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) }).catch(err => console.error('Push status update error:', err));
+      sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) }).catch(() => {});
 
       res.json(updatedBooking);
     } else {
@@ -836,13 +833,13 @@ export const generateDeliveryOtp = async (req, res) => {
     const now = new Date();
     
     if (existingOtp && existingOtp.code && existingOtp.expiresAt && new Date(existingOtp.expiresAt) > now) {
-      console.log('OTP already exists and is valid, not generating new one:', existingOtp.code);
+      
       return res.json({ message: 'OTP already exists', code: existingOtp.code });
     }
 
     // Generate new OTP only if none exists or expired
     const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
-    console.log('Generating new OTP:', code);
+    
     booking.deliveryOtp = {
       code,
       expiresAt: new Date(Date.now() + 20 * 60 * 1000),
@@ -920,10 +917,10 @@ export const verifyDeliveryOtp = async (req, res) => {
     // Emit socket event for real-time updates
     emitBookingUpdate(populated);
     
-    console.log('OTP verified and status updated to DELIVERED for booking:', booking._id);
+    
     res.json({ message: 'OTP verified and delivery completed', booking: populated });
   } catch (e) {
-    console.error('verifyDeliveryOtp error:', e);
+    
     res.status(500).json({ message: e.message });
   }
 };
@@ -1146,7 +1143,7 @@ export const startCarWash = async (req, res) => {
         'order'
       );
     } catch (err) {
-      console.error('Customer notification error:', err);
+      
     }
 
     res.json({ message: 'Car wash started successfully', booking: populated });
@@ -1206,82 +1203,39 @@ export const uploadCarWashAfterPhotos = async (req, res) => {
   }
 };
 
-export const testGenerateOtp = async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    console.log('testGenerateOtp called for booking:', bookingId);
-
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    // Generate delivery OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log('Test generated OTP:', otpCode);
-    
-    booking.deliveryOtp = {
-      code: otpCode,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      attempts: 0
-    };
-    
-    await booking.save();
-    console.log('Test saved booking with OTP:', booking.deliveryOtp);
-
-    // Populate for real-time consumers
-    const populated = await Booking.findById(booking._id)
-      .populate('user', 'id name email phone')
-      .populate('vehicle')
-      .populate('services')
-      .populate('carWash.staffAssigned', 'name email phone');
-
-    emitBookingUpdate(populated);
-
-    res.json({ 
-      message: 'Test OTP generated successfully', 
-      booking: populated,
-      deliveryOtp: otpCode 
-    });
-  } catch (error) {
-    console.error('testGenerateOtp error:', error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
 export const completeCarWash = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    console.log('completeCarWash called for booking:', bookingId);
+    
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      console.log('Booking not found:', bookingId);
+      
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    console.log('Found booking:', booking._id, 'status:', booking.status);
+    
 
     if (!booking.carWash?.isCarWashService) {
-      console.log('Not a car wash service');
+      
       return res.status(400).json({ message: 'This is not a car wash service' });
     }
 
     // Check if user is assigned staff
     if (booking.carWash.staffAssigned?.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      console.log('Not authorized - staff assigned:', booking.carWash.staffAssigned, 'user:', req.user._id);
+      
       return res.status(403).json({ message: 'Not authorized to complete car wash for this booking' });
     }
 
     if (booking.status !== 'CAR_WASH_STARTED') {
-      console.log('Invalid status for completion:', booking.status);
+      
       return res.status(400).json({ message: 'Car wash must be started before completion' });
     }
 
     // Check if after photos are uploaded
     const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
     if (afterPhotos.length < 4) {
-      console.log('Not enough after photos:', afterPhotos.length);
+      
       return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
     }
 
@@ -1291,14 +1245,14 @@ export const completeCarWash = async (req, res) => {
 
     // Generate delivery OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log('Generated OTP:', otpCode);
+    
     booking.deliveryOtp = {
       code: otpCode,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       attempts: 0
     };
     await booking.save();
-    console.log('Saved booking with OTP');
+    
 
     // Populate for real-time consumers
     const populated = await Booking.findById(booking._id)
@@ -1307,13 +1261,13 @@ export const completeCarWash = async (req, res) => {
       .populate('services')
       .populate('carWash.staffAssigned', 'name email phone');
 
-    console.log('Populated booking OTP:', populated.deliveryOtp);
+    
 
     emitBookingUpdate(populated);
 
     // Notify customer with OTP
     try {
-      console.log('Sending car wash completion notification to user:', booking.user, 'with OTP:', otpCode);
+      
       const pushResult = await sendPushToUser(
         booking.user,
         'Car Wash Completed',
@@ -1321,9 +1275,9 @@ export const completeCarWash = async (req, res) => {
         { bookingId: booking._id.toString(), type: 'car_wash_completed', otp: otpCode },
         'order'
       );
-      console.log('Push notification result:', pushResult);
+      
     } catch (err) {
-      console.error('Customer notification error:', err);
+      
     }
 
     res.json({ 
@@ -1332,7 +1286,7 @@ export const completeCarWash = async (req, res) => {
       deliveryOtp: otpCode 
     });
   } catch (error) {
-    console.error('completeCarWash error:', error);
+    
     res.status(400).json({ message: error.message });
   }
 };
@@ -1461,12 +1415,12 @@ export const batteryTireApproval = async (req, res) => {
       }
 
     } catch (notifyErr) {
-      console.error('Notification error (batteryTireApproval):', notifyErr);
+      
     }
 
     res.json(populated);
   } catch (error) {
-    console.error('Battery/Tire approval error:', error);
+    
     res.status(500).json({ message: error.message });
   }
 };
@@ -1555,12 +1509,12 @@ export const addWarranty = async (req, res) => {
       }
 
     } catch (notifyErr) {
-      console.error('Notification error (addWarranty):', notifyErr);
+      
     }
 
     res.json(populated);
   } catch (error) {
-    console.error('Add warranty error:', error);
+    
     res.status(500).json({ message: error.message });
   }
 };

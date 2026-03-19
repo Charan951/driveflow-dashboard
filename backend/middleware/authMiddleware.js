@@ -31,7 +31,7 @@ export const protect = async (req, res, next) => {
 
       return next();
     } catch (error) {
-      console.error('JWT Error:', error.message);
+      
       return res.status(401).json({ message: 'Not authorized, token failed' });
     }
   }
@@ -57,3 +57,4 @@ export const merchant = (req, res, next) => {
     return res.status(403).json({ message: 'Access denied. Merchant role required.' });
   }
 };
+

@@ -126,7 +126,7 @@ export const updateUserProfile = async (req, res) => {
             isShopOpen: user.isShopOpen
           });
         } catch (err) {
-          console.error('Socket emit error:', err);
+          
         }
       }
       if (req.body.location) {
@@ -144,7 +144,7 @@ export const updateUserProfile = async (req, res) => {
             timestamp: new Date().toISOString()
           });
         } catch (err) {
-          console.error('Socket emit error:', err);
+          
         }
       }
 
@@ -288,7 +288,7 @@ export const createUser = async (req, res) => {
 
         await sendEmail(email, subject, text);
       } catch (e) {
-        console.error('Failed to send user creation email:', e.message);
+        
       }
 
       res.status(201).json({
@@ -316,7 +316,7 @@ export const updateOnlineStatus = async (req, res) => {
       return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    console.log(`Updating online status for user ${req.user._id}: ${isOnline}`);
+    
     const user = await User.findById(req.user._id);
     
     if (user) {
@@ -326,7 +326,7 @@ export const updateOnlineStatus = async (req, res) => {
       }
       
       await user.save();
-      console.log(`User ${user.name} is now ${isOnline ? 'Online' : 'Offline'}`);
+      
 
       // Emit socket event for real-time status update
       try {
@@ -336,9 +336,9 @@ export const updateOnlineStatus = async (req, res) => {
             isOnline: user.isOnline,
             lastSeen: user.lastSeen
         });
-        console.log(`Emitted userStatusUpdate for ${user.name}`);
+        
       } catch (err) {
-        console.error('Socket emit error:', err);
+        
       }
 
       res.json({ 
@@ -350,9 +350,10 @@ export const updateOnlineStatus = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
-    console.error('Error updating online status:', error);
+    
     res.status(500).json({ message: error.message, stack: error.stack });
   }
 };
 
 // Device token APIs removed – push notifications disabled
+

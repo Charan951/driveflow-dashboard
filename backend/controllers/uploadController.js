@@ -44,14 +44,10 @@ const upload = multer({
 
 // Single file upload handler
 export const uploadFile = (req, res) => {
-  console.log('Upload File Request:', {
-    file: req.file,
-    body: req.body,
-    headers: req.headers
-  });
+  
 
   if (!req.file) {
-    console.error('No file uploaded');
+    
     return res.status(400).json({ message: 'No file uploaded' });
   }
   
@@ -85,3 +81,4 @@ export const uploadFiles = (req, res) => {
 };
 
 export { upload };
+

@@ -107,7 +107,7 @@ export const createApproval = async (req, res) => {
 
     res.status(201).json(createdApproval);
   } catch (error) {
-    console.error('Create Approval Error:', error);
+    
     res.status(400).json({ message: error.message });
   }
 };
@@ -339,3 +339,4 @@ export const updateApprovalStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

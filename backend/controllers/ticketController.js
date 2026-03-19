@@ -52,9 +52,9 @@ export const createTicket = async (req, res) => {
         `New ticket #${populatedTicket._id.toString().slice(-6)}: ${populatedTicket.subject}`,
         { ticketId: populatedTicket._id.toString(), type: 'support' },
         'support'
-      ).catch(err => console.error('Admin ticket notification error:', err));
+      ).catch(err => console.error('Push notification error (admin):', err));
     } catch (error) {
-      console.error('Socket emit failed:', error.message);
+      
     }
 
     res.status(201).json(populatedTicket);
@@ -165,7 +165,7 @@ export const addMessage = async (req, res) => {
                 `A reply has been added to your ticket #${ticket._id.toString().slice(-6)}`,
                 { ticketId: ticket._id.toString(), type: 'support' },
                 'support'
-            ).catch(err => console.error('Customer ticket notification error:', err));
+            ).catch(err => console.error('Push notification error (user):', err));
         } else {
             // Notify admins if customer replied
             sendPushToRole(
@@ -174,10 +174,10 @@ export const addMessage = async (req, res) => {
                 `User ${req.user.name} replied to ticket #${ticket._id.toString().slice(-6)}`,
                 { ticketId: ticket._id.toString(), type: 'support' },
                 'support'
-            ).catch(err => console.error('Admin ticket reply notification error:', err));
+            ).catch(err => console.error('Push notification error (admin):', err));
         }
       } catch (error) {
-        console.error('Socket emit failed:', error.message);
+        
       }
 
       res.json(populatedTicket);
@@ -188,3 +188,4 @@ export const addMessage = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

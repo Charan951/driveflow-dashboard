@@ -33,7 +33,7 @@ export const sendPushToUser = async (userId, title, body, data = {}, type = 'gen
         io.to(`user_${userId}`).emit('notification', notification);
       }
     } catch (socketErr) {
-      console.error('Socket notification emit error:', socketErr);
+      // Socket notification emit error
     }
 
     if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
@@ -86,7 +86,6 @@ export const sendPushToUser = async (userId, title, body, data = {}, type = 'gen
 
     return { success: true, response };
   } catch (error) {
-    console.error('Error sending push notification:', error);
     return { success: false, error: error.message };
   }
 };
@@ -140,7 +139,6 @@ export const sendPushToRole = async (role, title, body, data = {}, type = 'gener
 
     return { success: true };
   } catch (error) {
-    console.error('Error sending push to role:', error);
     return { success: false, error: error.message };
   }
 };
@@ -180,7 +178,6 @@ export const sendPushToTopic = async (topic, title, body, data = {}, type = 'gen
 
     return { success: true, response };
   } catch (error) {
-    console.error('Error sending push to topic:', error);
     return { success: false, error: error.message };
   }
 };
@@ -209,6 +206,6 @@ export const sendSilentPush = async (userId, data = {}) => {
 
     await admin.messaging().sendEachForMulticast(message);
   } catch (error) {
-    console.error('Error sending silent push:', error);
+    // Silent push error
   }
 };

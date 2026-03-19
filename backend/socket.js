@@ -52,7 +52,7 @@ export const initSocket = (server) => {
           return callback(null, true);
         }
 
-        console.log(`Socket CORS blocked for origin: ${origin}`);
+        
         callback(null, false);
       },
       methods: ['GET', 'POST'],
@@ -71,7 +71,7 @@ export const initSocket = (server) => {
       }
       next();
     } catch (error) {
-      console.error('Socket Auth Error:', error.message);
+      
       // We allow connection even if auth fails, but they won't have socket.user
       // Or we can strict reject: next(new Error('Authentication error'));
       // For now, let's allow but they can't do privileged actions
@@ -80,28 +80,28 @@ export const initSocket = (server) => {
   });
 
   io.on('connection', (socket) => {
-    console.log(`New client connected: ${socket.id} (User: ${socket.user?.name || 'Guest'})`);
+    
 
     // Automatically join user room if authenticated
     if (socket.user) {
       socket.join(`user_${socket.user._id}`);
-      console.log(`User ${socket.user.name} joined room user_${socket.user._id}`);
+      
     }
 
     // Join a specific room
     socket.on('join', (room) => {
-      console.log(`Socket ${socket.id} (User: ${socket.user?.name || 'Guest'}) requested to join room: ${room}`);
+      
       // Security check for admin room
       if (room === 'admin') {
         if (socket.user?.role !== 'admin') {
-          console.log(`Unauthorized join attempt to 'admin' room by ${socket.user?.name || 'Guest'}`);
+          
           return;
         }
-        console.log(`Admin ${socket.user?.name} is joining 'admin' room`);
+        
       }
       
       socket.join(room);
-      console.log(`Socket ${socket.id} successfully joined room ${room}`);
+      
       (async () => {
         try {
           if (typeof room === 'string' && room.startsWith('booking_')) {
@@ -145,7 +145,7 @@ export const initSocket = (server) => {
             }
           }
         } catch (e) {
-          console.error('Join fallback emit failed:', e.message);
+          
         }
       })();
     });
@@ -153,7 +153,7 @@ export const initSocket = (server) => {
     // Leave a room
     socket.on('leave', (room) => {
       socket.leave(room);
-      console.log(`Socket ${socket.id} left room ${room}`);
+      
     });
 
     // Handle live location updates
@@ -197,7 +197,7 @@ export const initSocket = (server) => {
           });
         }
       } catch (e) {
-        console.error('Socket location status/DB update failed:', e.message);
+        
       }
 
       // Broadcast to 'admin' room
@@ -256,7 +256,7 @@ export const initSocket = (server) => {
               activeBookingCache.delete(userId);
             }
           } catch (e) {
-            console.error('Socket location booking lookup failed:', e.message);
+            
           }
         }
       }
@@ -298,7 +298,7 @@ export const initSocket = (server) => {
     });
 
     socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
+      
     });
   });
 
@@ -311,3 +311,4 @@ export const getIO = () => {
   }
   return io;
 };
+

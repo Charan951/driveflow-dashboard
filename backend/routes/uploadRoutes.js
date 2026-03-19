@@ -8,7 +8,6 @@ const router = express.Router();
 router.post('/', protect, (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
-      console.error('Upload Error:', err);
       return res.status(400).json({ message: err.message || 'File upload failed' });
     }
     next();
@@ -19,7 +18,6 @@ router.post('/', protect, (req, res, next) => {
 router.post('/multiple', protect, (req, res, next) => {
   upload.array('files', 10)(req, res, (err) => {
     if (err) {
-      console.error('Upload Error:', err);
       return res.status(400).json({ message: err.message || 'File upload failed' });
     }
     next();

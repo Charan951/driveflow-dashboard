@@ -33,8 +33,6 @@ initSocket(server);
 
 const PORT = process.env.PORT || 5000;
 
-console.log('Mongo URI:', process.env.MONGO_URI);
-
  // CORS Configuration
 const allowedOrigins = process.env.FRONTEND_URLS 
   ? process.env.FRONTEND_URLS.split(',').map(o => o.trim().toLowerCase().replace(/\/$/, ""))
@@ -74,7 +72,6 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    console.log(`CORS blocked for origin: ${origin}`);
     callback(null, false);
   },
   credentials: true,
@@ -100,9 +97,6 @@ app.options(/(.*)/, cors(corsOptions));
 app.use(express.json());
 
 // Routes
-app.get('/api/test-cors', (_, res) => {
-  res.json({ message: 'CORS is working!' });
-});
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/services', serviceRoutes);
@@ -126,15 +120,11 @@ app.use('/api/upload', uploadRoutes);
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGO_URI);
 
 // Basic Route
 app.get('/', (_, res) => {
   res.send('DriveFlow API is running');
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT);

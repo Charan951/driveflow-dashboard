@@ -12,7 +12,7 @@ export const logAudit = async ({ user, action, targetModel, targetId, details, i
       ipAddress,
     });
   } catch (error) {
-    console.error('Audit Log Error:', error);
+    
   }
 };
 
@@ -42,3 +42,4 @@ export const getAuditLogs = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

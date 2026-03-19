@@ -29,6 +29,23 @@ export default defineConfig(({ mode }) => {
         ext: '.br',
       }),
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['lucide-react', 'framer-motion', '@radix-ui/react-accordion', '@radix-ui/react-alert-dialog'],
+            'vendor-charts': ['recharts'],
+            'vendor-maps': ['leaflet', 'react-leaflet'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+      minify: 'esbuild',
+    },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

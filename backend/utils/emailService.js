@@ -15,8 +15,6 @@ const transporter = nodemailer.createTransport({
 
 export const sendEmail = async (to, subject, text, html) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log('Email credentials not found. Skipping email sending.');
-    console.log(`To: ${to}, Subject: ${subject}, Body: ${text}`);
     return;
   }
 
@@ -31,6 +29,6 @@ export const sendEmail = async (to, subject, text, html) => {
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error('Error sending email:', error);
+    // Error sending email
   }
 };
