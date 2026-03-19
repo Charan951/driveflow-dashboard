@@ -120,7 +120,7 @@ const CarWashPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="text-center sm:text-left">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Car Wash</h1>

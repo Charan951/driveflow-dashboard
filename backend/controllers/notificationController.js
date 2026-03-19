@@ -54,7 +54,21 @@ export const getMyNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ userId: req.user._id })
       .sort({ createdAt: -1 });
-    res.json(notifications);
+    
+    // Map the response to match frontend expectations
+    const mappedNotifications = notifications.map(notification => ({
+      _id: notification._id,
+      title: notification.title,
+      message: notification.body, // Map 'body' to 'message'
+      type: notification.type === 'order' ? 'info' : 
+            notification.type === 'support' ? 'warning' : 
+            notification.type === 'system' ? 'error' : 'info',
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+      data: notification.data
+    }));
+    
+    res.json(mappedNotifications);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

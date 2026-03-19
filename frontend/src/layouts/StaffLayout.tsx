@@ -7,18 +7,20 @@ import {
   LogOut,
   Menu,
   X,
-  User
+  User,
+  UserCog,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
 import { TrackingProvider } from '@/context/TrackingProvider';
-import { useTracking } from '@/hooks/use-tracking';
 
 const staffMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
+  { icon: User, label: 'Profile', path: '/staff/profile' },
 ];
 
 interface StaffLayoutProps {
@@ -28,28 +30,8 @@ interface StaffLayoutProps {
 export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const ActiveBookingChip: React.FC = () => {
-    const { activeBookingId, setActiveBookingId, isTracking } = useTracking();
-    if (!activeBookingId) return null;
-    const shortId = activeBookingId.slice(-6).toUpperCase();
-    return (
-      <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-1.5 border border-border">
-        <span className="text-xs font-medium text-foreground">
-          Active #{shortId}
-        </span>
-        <button
-          onClick={() => setActiveBookingId(null)}
-          className="text-xs px-2 py-1 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
-          disabled={!isTracking}
-          title={isTracking ? 'Unbind from booking' : 'Start sharing to unbind'}
-        >
-          Unbind
-        </button>
-      </div>
-    );
-  };
 
   const handleLogout = () => {
     logout();
@@ -58,102 +40,127 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
 
   return (
     <TrackingProvider>
-      <div className="min-h-screen flex w-full bg-background">
-      {/* Overlay */}
-      {sidebarOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
-          'lg:translate-x-0 lg:static',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}
-      >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-          <span className="font-semibold text-lg">Staff Portal</span>
-          <button
+      <div className="min-h-screen flex w-full max-w-full bg-background overflow-hidden">
+        {/* Overlay */}
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 hover:bg-muted rounded-lg"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          />
+        )}
 
-        {/* Menu */}
-        <nav className="p-4 space-y-1 flex-1">
-          {staffMenuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Logout */}
-        <div className="p-4 border-t border-border mt-auto space-y-4">
-          <LiveTracker className="bg-muted/50 border-none shadow-none" />
-          
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-6 bg-card/95 backdrop-blur-xl border-b border-border">
-          <div className="flex items-center gap-4">
+        {/* Sidebar */}
+        <aside
+          className={cn(
+            'fixed left-0 top-0 h-screen w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+            'lg:translate-x-0 lg:static lg:shrink-0',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          )}
+        >
+          {/* Logo */}
+          <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
+            <div className="flex items-center gap-2">
+              <LayoutDashboard className="w-6 h-6 text-primary" />
+              <span className="font-semibold text-lg">
+                Staff Portal
+              </span>
+            </div>
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-muted rounded-xl"
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 hover:bg-muted rounded-lg"
             >
-              <Menu className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
-            <h1 className="font-semibold text-lg">Staff Portal</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <ActiveBookingChip />
-            <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <User className="w-5 h-5 text-primary-foreground" />
+
+          {/* Menu */}
+          <nav className="p-4 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
+            {staffMenuItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Bottom Section - Live Tracker and User Profile */}
+          <div className="border-t border-border shrink-0">
+            {/* Live Tracker */}
+            <div className="p-4">
+              <LiveTracker className="bg-muted/50 border-none shadow-none" />
+            </div>
+            
+            {/* User Profile */}
+            <div className="p-4 border-t border-border">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserCog className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="font-medium text-sm truncate">{user?.name || 'Staff Member'}</p>
+                  <p className="text-xs text-muted-foreground truncate uppercase">{user?.role || 'Staff'}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all duration-200"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium text-sm">Sign Out</span>
+              </button>
             </div>
           </div>
-        </header>
+        </aside>
 
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-3 sm:p-4 lg:p-6">
-          <PageTransition>
-            {children || <Outlet />}
-          </PageTransition>
-        </main>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-hidden">
+          <header className="h-16 border-b border-border bg-card flex items-center justify-between px-3 lg:px-4 shrink-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 hover:bg-muted rounded-lg shrink-0"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <h1 className="text-base lg:text-lg font-semibold truncate">Staff Portal</h1>
+            </div>
+            
+            <div className="flex items-center shrink-0 ml-2">
+              <Link
+                to="/staff/notifications"
+                className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
+              >
+                <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-card" />
+              </Link>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-auto bg-muted/20 p-3 lg:p-4 max-w-full">
+            <div className="max-w-full overflow-hidden">
+              <PageTransition>
+                {children || <Outlet />}
+              </PageTransition>
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
     </TrackingProvider>
   );
 };

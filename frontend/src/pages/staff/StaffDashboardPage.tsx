@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Clock, DollarSign, CheckCircle, Upload, Car } from 'lucide-react';
+import { Package, Clock, DollarSign, CheckCircle, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
@@ -219,16 +219,7 @@ const StaffDashboardPage: React.FC = () => {
               Overview of your assigned jobs and live orders
             </p>
           </div>
-          <div className="flex justify-start">
-            <Link
-              to="/staff/car-wash"
-              className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
-            >
-              <Car className="w-4 h-4" />
-              <span className="hidden sm:inline">Car Wash Services</span>
-              <span className="sm:hidden">Car Wash</span>
-            </Link>
-          </div>
+
         </div>
       </motion.div>
 

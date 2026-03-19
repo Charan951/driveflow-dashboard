@@ -8,6 +8,15 @@ interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
   read: boolean;
   createdAt: Date;
+  data?: {
+    type?: string;
+    bookingId?: string;
+    ticketId?: string;
+    orderId?: string;
+    status?: string;
+    distance?: number;
+    [key: string]: any;
+  };
 }
 
 interface AppState {
@@ -20,6 +29,7 @@ interface AppState {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   markAsRead: (id: string) => Promise<void>;
   clearNotifications: () => void;
+  clearAllNotifications: () => Promise<void>;
 }
 
 const mapUserNotification = (item: UserNotification): Notification => ({
@@ -29,6 +39,7 @@ const mapUserNotification = (item: UserNotification): Notification => ({
   type: item.type,
   read: item.isRead,
   createdAt: new Date(item.createdAt),
+  data: item.data,
 });
 
 export const useAppStore = create<AppState>((set) => ({
@@ -75,4 +86,31 @@ export const useAppStore = create<AppState>((set) => ({
     }
   },
   clearNotifications: () => set({ notifications: [] }),
+  clearAllNotifications: async () => {
+    set({ notificationsLoading: true });
+    try {
+      await notificationService.clearMyNotifications();
+      set({ notifications: [] });
+    } catch (error: any) {
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.error('Clear notifications error:', error);
+      }
+      
+      // Handle specific error cases
+      const errorCode = error?.response?.data?.code;
+      if (errorCode === 'PENDING_APPROVAL') {
+        // Don't clear session for pending approval
+        throw error;
+      } else if (error?.response?.status === 401) {
+        // Clear session for other 401 errors
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('auth-storage');
+      }
+      
+      throw error;
+    } finally {
+      set({ notificationsLoading: false });
+    }
+  },
 }));

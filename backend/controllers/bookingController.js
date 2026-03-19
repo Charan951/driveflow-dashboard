@@ -1470,3 +1470,97 @@ export const batteryTireApproval = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Add warranty information for battery/tire service
+// @route   PUT /api/bookings/:id/warranty
+// @access  Private (Merchant only)
+export const addWarranty = async (req, res) => {
+  const { name, price, warrantyMonths, image } = req.body;
+
+  try {
+    const booking = await Booking.findById(req.params.id).populate('merchant');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Check if this is a battery/tire service
+    if (!booking.batteryTire?.isBatteryTireService) {
+      return res.status(400).json({ message: 'This is not a battery/tire service' });
+    }
+
+    // Check if user is the assigned merchant
+    const isAssignedMerchant = req.user.role === 'merchant' && 
+      booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
+    
+    if (!isAssignedMerchant && req.user.role !== 'admin') {
+      return res.status(401).json({ message: 'Not authorized to add warranty for this booking' });
+    }
+
+    // Validate required fields
+    if (!name || !price || !warrantyMonths) {
+      return res.status(400).json({ message: 'Name, price, and warranty months are required' });
+    }
+
+    if (price <= 0 || warrantyMonths <= 0) {
+      return res.status(400).json({ message: 'Price and warranty months must be positive numbers' });
+    }
+
+    // Add warranty information
+    booking.batteryTire.warranty = {
+      name,
+      price: parseFloat(price),
+      warrantyMonths: parseInt(warrantyMonths),
+      image,
+      addedAt: new Date(),
+      addedBy: req.user._id
+    };
+
+    const updatedBooking = await booking.save();
+
+    // Populate for response
+    const populated = await Booking.findById(updatedBooking._id)
+      .populate('user', 'id name email phone')
+      .populate('vehicle')
+      .populate('services')
+      .populate('merchant', 'name email phone location')
+      .populate('pickupDriver', 'name email phone')
+      .populate('batteryTire.warranty.addedBy', 'name email');
+
+    // Emit socket event for real-time updates
+    emitBookingUpdate(populated);
+
+    // Send notifications
+    try {
+      const orderId = populated.orderNumber || populated._id.toString().slice(-6).toUpperCase();
+      
+      // Notify admin
+      await sendPushToRole(
+        'admin',
+        'Warranty Added',
+        `Warranty information added for battery/tire service #${orderId} - ${name} (${warrantyMonths} months)`,
+        { type: 'warranty_added', bookingId: populated._id.toString() },
+        'order'
+      );
+
+      // Notify customer
+      if (populated.user?._id) {
+        await sendPushToUser(
+          populated.user._id,
+          'Warranty Information Added',
+          `Warranty details have been added to your battery/tire service #${orderId}: ${name} with ${warrantyMonths} months warranty.`,
+          { type: 'warranty_added', bookingId: populated._id.toString() },
+          'order'
+        );
+      }
+
+    } catch (notifyErr) {
+      console.error('Notification error (addWarranty):', notifyErr);
+    }
+
+    res.json(populated);
+  } catch (error) {
+    console.error('Add warranty error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

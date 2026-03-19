@@ -588,7 +588,7 @@ const TrackServicePage: React.FC = () => {
   const showTwoColumnPaymentRow = hasRightColumnContent;
 
   return (
-    <div className="px-4 lg:px-6 py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24 max-w-6xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 sm:gap-4">
         <Link
@@ -914,6 +914,55 @@ const TrackServicePage: React.FC = () => {
               </div>
             </motion.div>
           ) : null}
+
+          {/* Warranty Information - Only for battery/tire services */}
+          {isBatteryOrTire && order.batteryTire?.warranty && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Warranty Information
+              </h2>
+              
+              <div className="flex flex-col md:flex-row gap-6">
+                {order.batteryTire.warranty.image && (
+                  <div className="w-full md:w-1/3 aspect-square rounded-lg overflow-hidden border border-border">
+                    <img 
+                      src={order.batteryTire.warranty.image} 
+                      alt="Warranty Product" 
+                      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(order.batteryTire.warranty.image, '_blank')}
+                    />
+                  </div>
+                )}
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Product Name</p>
+                    <p className="text-lg font-semibold text-foreground">{order.batteryTire.warranty.name}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Price</p>
+                      <p className="text-lg font-bold text-primary">₹{order.batteryTire.warranty.price}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Warranty Period</p>
+                      <p className="text-lg font-semibold text-foreground">{order.batteryTire.warranty.warrantyMonths} months</p>
+                    </div>
+                  </div>
+                  {order.batteryTire.warranty.addedAt && (
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Warranty Added On</p>
+                      <p className="text-sm text-foreground">{new Date(order.batteryTire.warranty.addedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           <div className={showTwoColumnPaymentRow ? 'grid gap-4 md:grid-cols-2 items-start' : ''}>
             <motion.div

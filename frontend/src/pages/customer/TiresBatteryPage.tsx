@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Battery, Circle, Clock, ChevronRight, AlertTriangle, Package } from 'lucide-react';
+import { Battery, Circle, Clock, ChevronRight, AlertTriangle, Package, Shield } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import { getAllProducts, Product } from '@/services/productService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
+import { bookingService, Booking } from '@/services/bookingService';
 
 const TiresBatteryPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'tires' | 'batteries'>('tires');
+  const [activeTab, setActiveTab] = useState<'tires' | 'batteries' | 'warranties'>('tires');
   const [selectedTireSize, setSelectedTireSize] = useState('225/45R17');
   const [products, setProducts] = useState<Product[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const tireSizes = ['205/55R16', '225/45R17', '235/40R18', '245/35R19'];
@@ -22,12 +24,14 @@ const TiresBatteryPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [productsData, vehiclesData] = await Promise.all([
+      const [productsData, vehiclesData, bookingsData] = await Promise.all([
         getAllProducts(),
-        vehicleService.getVehicles()
+        vehicleService.getVehicles(),
+        bookingService.getMyBookings()
       ]);
       setProducts(productsData);
       setVehicles(vehiclesData);
+      setBookings(bookingsData);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load products');
@@ -38,6 +42,15 @@ const TiresBatteryPage: React.FC = () => {
 
   const tires = products.filter(p => p.category?.toLowerCase() === 'tire' || p.category?.toLowerCase() === 'tires');
   const batteries = products.filter(p => p.category?.toLowerCase() === 'battery' || p.category?.toLowerCase() === 'batteries');
+
+  // Get bookings with warranties for battery/tire services
+  const warrantyBookings = bookings.filter(booking => {
+    const isBatteryOrTireService = Array.isArray(booking.services) && 
+      booking.services.some((service: any) => 
+        ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
+      );
+    return isBatteryOrTireService && booking.batteryTire?.warranty;
+  });
 
   const handleOrder = (item: string) => {
     // In a real app, this would add to cart or initiate checkout
@@ -63,7 +76,7 @@ const TiresBatteryPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="text-center sm:text-left">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tires & Battery</h1>
@@ -98,6 +111,21 @@ const TiresBatteryPage: React.FC = () => {
             <span className="text-sm sm:text-base">Batteries</span>
           </div>
         </button>
+        {warrantyBookings.length > 0 && (
+          <button
+            onClick={() => setActiveTab('warranties')}
+            className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+              activeTab === 'warranties'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-sm sm:text-base">Warranties</span>
+            </div>
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -275,6 +303,106 @@ const TiresBatteryPage: React.FC = () => {
               </div>
               <h3 className="text-base sm:text-lg font-medium text-foreground">No batteries available</h3>
               <p className="text-sm text-muted-foreground">Check back later for new stock.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'warranties' && (
+        <div className="space-y-4 sm:space-y-6">
+          <div className="text-center sm:text-left">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Your Warranties</h2>
+            <p className="text-sm text-muted-foreground">Active warranties for your tire and battery services</p>
+          </div>
+
+          {warrantyBookings.length > 0 ? (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            >
+              {warrantyBookings.map((booking) => {
+                const warranty = booking.batteryTire?.warranty;
+                if (!warranty) return null;
+
+                const warrantyEndDate = new Date();
+                warrantyEndDate.setMonth(warrantyEndDate.getMonth() + warranty.warrantyMonths);
+                const daysRemaining = Math.ceil((warrantyEndDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const isExpiringSoon = daysRemaining <= 30;
+
+                return (
+                  <motion.div
+                    key={booking._id}
+                    variants={staggerItem}
+                    className="bg-card rounded-2xl border border-border p-4 sm:p-6 card-hover"
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      {warranty.image && (
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-border flex-shrink-0">
+                          <img
+                            src={warranty.image}
+                            alt={warranty.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{warranty.name}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Service Date: {new Date(booking.date).toLocaleDateString()}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Shield className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            {warranty.warrantyMonths} months warranty
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Warranty Value</span>
+                        <span className="text-sm font-semibold">₹{warranty.price}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Valid Until</span>
+                        <span className="text-sm font-semibold">
+                          {warrantyEndDate.toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Days Remaining</span>
+                        <span className={`text-sm font-semibold ${isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
+                          {daysRemaining > 0 ? `${daysRemaining} days` : 'Expired'}
+                        </span>
+                      </div>
+
+                      {isExpiringSoon && daysRemaining > 0 && (
+                        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mt-3">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-600" />
+                            <span className="text-xs text-orange-700 dark:text-orange-400">
+                              Warranty expires soon! Consider renewal.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          ) : (
+            <div className="text-center py-8 sm:py-12">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-base sm:text-lg font-medium text-foreground">No warranties found</h3>
+              <p className="text-sm text-muted-foreground">Your tire and battery service warranties will appear here.</p>
             </div>
           )}
         </div>

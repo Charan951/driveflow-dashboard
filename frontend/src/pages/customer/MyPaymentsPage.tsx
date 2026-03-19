@@ -44,7 +44,7 @@ const MyPaymentsPage = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">My Payments</h1>
       
       <Card>

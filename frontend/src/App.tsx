@@ -90,6 +90,7 @@ const StaffDashboardPage = lazyRetry(() => import("./pages/staff/StaffDashboardP
 const StaffOrderPage = lazyRetry(() => import("./pages/staff/StaffOrderPage"));
 const StaffOrdersPage = lazyRetry(() => import("./pages/staff/StaffOrdersPage"));
 const StaffCarWashPage = lazyRetry(() => import("./pages/staff/CarWashPage"));
+const StaffProfilePage = lazyRetry(() => import("./pages/staff/StaffProfilePage"));
 
 // Admin Pages
 const AdminDashboard = lazyRetry(() => import("./pages/admin/Dashboard"));
@@ -198,6 +199,7 @@ const App = () => (
               <Route path="/staff/order/:id" element={<StaffOrderPage />} />
               <Route path="/staff/orders" element={<StaffOrdersPage />} />
               <Route path="/staff/car-wash" element={<StaffCarWashPage />} />
+              <Route path="/staff/profile" element={<StaffProfilePage />} />
             </Route>
           </Route>
 

@@ -31,6 +31,15 @@ export interface UserNotification {
   type: 'info' | 'success' | 'warning' | 'error';
   isRead: boolean;
   createdAt: string;
+  data?: {
+    type?: string;
+    bookingId?: string;
+    ticketId?: string;
+    orderId?: string;
+    status?: string;
+    distance?: number;
+    [key: string]: any;
+  };
 }
 
 export const notificationService = {
@@ -52,6 +61,10 @@ export const notificationService = {
   },
   deleteNotification: async (id: string) => {
     const response = await api.delete(`/notifications/${id}`);
+    return response.data;
+  },
+  clearMyNotifications: async () => {
+    const response = await api.delete('/notifications/my');
     return response.data;
   },
 };

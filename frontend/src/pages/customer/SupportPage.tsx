@@ -124,7 +124,7 @@ const SupportPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold text-foreground">Support</h1>
 
       {/* Create Ticket */}

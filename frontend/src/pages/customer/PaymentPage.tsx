@@ -78,7 +78,7 @@ const PaymentPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-2xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}

@@ -15,7 +15,8 @@ import {
   XCircle, 
   Truck, 
   Wrench,
-  Eye
+  Eye,
+  Shield
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { STATUS_LABELS } from '@/lib/statusFlow';
@@ -248,7 +249,27 @@ const AdminBookingsPage: React.FC = () => {
                       {getStatusBadge(booking.status)}
                     </td>
                     <td className="p-3 font-medium text-right">
-                      <span className="text-sm">₹{booking.totalAmount}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-sm">₹{booking.totalAmount}</span>
+                        {(() => {
+                          // Check if this is a battery/tire service with warranty
+                          const isBatteryOrTireService = Array.isArray(booking.services) && 
+                            booking.services.some((service: any) => 
+                              ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
+                            );
+                          const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
+                          
+                          if (hasWarranty) {
+                            return (
+                              <span className="text-xs text-green-600 inline-flex items-center gap-1">
+                                <Shield className="w-3 h-3" />
+                                {booking.batteryTire.warranty.warrantyMonths}m warranty
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </td>
                   </tr>
                 ))}

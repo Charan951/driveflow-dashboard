@@ -7,9 +7,9 @@
  * @returns Appropriate greeting based on current IST time
  */
 export const getTimeBasedGreeting = (): string => {
+  // Get current time in IST using proper timezone handling
   const now = new Date();
-  // Convert to IST (UTC+5:30)
-  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  const istTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
   const hour = istTime.getHours();
   
   if (hour >= 5 && hour < 12) {
@@ -29,7 +29,7 @@ export const getTimeBasedGreeting = (): string => {
  */
 export const getCurrentISTTime = (): Date => {
   const now = new Date();
-  return new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  return new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
 };
 
 /**

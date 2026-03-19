@@ -58,6 +58,14 @@ export interface Booking {
       approvedAt?: string;
       rejectedAt?: string;
     };
+    warranty?: {
+      name: string;
+      price: number;
+      warrantyMonths: number;
+      image?: string;
+      addedAt?: string;
+      addedBy?: { _id: string; name: string; email: string };
+    };
   };
   inspection?: {
     photos?: string[];
@@ -222,6 +230,11 @@ export const bookingService = {
   // Battery/Tire specific
   batteryTireApproval: async (id: string, data: { status: 'APPROVED' | 'REJECTED'; price?: number; image?: string; notes?: string }) => {
     const response = await api.put(`/bookings/${id}/battery-tire-approval`, data);
+    return response.data;
+  },
+
+  addWarranty: async (id: string, data: { name: string; price: number; warrantyMonths: number; image?: string }) => {
+    const response = await api.put(`/bookings/${id}/warranty`, data);
     return response.data;
   },
 };

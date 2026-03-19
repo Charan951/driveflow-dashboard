@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle, Wrench } from 'lucide-react';
+import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle, Wrench, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MyBookingsPage = () => {
@@ -192,6 +192,13 @@ const MyBookingsPage = () => {
                     0
                   );
 
+                  // Check if this is a battery/tire service with warranty
+                  const isBatteryOrTireService = Array.isArray(booking.services) && 
+                    booking.services.some((service: any) => 
+                      ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
+                    );
+                  const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
+
                   return (
                   <TableRow key={booking._id}>
                     <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
@@ -219,6 +226,12 @@ const MyBookingsPage = () => {
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <Wrench className="w-3 h-3" />
                             {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
+                          </span>
+                        )}
+                        {hasWarranty && (
+                          <span className="text-xs text-green-600 inline-flex items-center gap-1">
+                            <Shield className="w-3 h-3" />
+                            {booking.batteryTire.warranty.warrantyMonths} months warranty
                           </span>
                         )}
                       </div>
@@ -268,6 +281,13 @@ const MyBookingsPage = () => {
                 0
               );
 
+              // Check if this is a battery/tire service with warranty
+              const isBatteryOrTireService = Array.isArray(booking.services) && 
+                booking.services.some((service: any) => 
+                  ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
+                );
+              const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
+
               return (
                 <Card key={booking._id} className="p-4">
                   <div className="flex justify-between items-start mb-3">
@@ -307,6 +327,12 @@ const MyBookingsPage = () => {
                             <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                               <Wrench className="w-3 h-3" />
                               {approvedPartsCount} extra part{approvedPartsCount > 1 ? 's' : ''} · ₹{approvedPartsTotal}
+                            </span>
+                          )}
+                          {hasWarranty && (
+                            <span className="text-xs text-green-600 inline-flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              {booking.batteryTire.warranty.warrantyMonths} months warranty
                             </span>
                           )}
                         </div>
@@ -357,7 +383,7 @@ const MyBookingsPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8 max-w-full">
+    <div className="w-full h-full py-6 sm:py-8 overflow-hidden">
       
       {/* Pending Approvals Section */}
       {approvals.length > 0 && (

@@ -119,7 +119,7 @@ const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 sm:space-y-8 max-w-4xl mx-auto">
+    <div className="w-full h-full py-4 lg:py-6 space-y-6 sm:space-y-8">
       <h1 className="text-xl sm:text-2xl font-bold text-foreground">Profile</h1>
 
       {/* Avatar */}

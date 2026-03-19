@@ -234,6 +234,14 @@ const bookingSchema = mongoose.Schema(
         notes: { type: String },
         approvedAt: { type: Date },
         rejectedAt: { type: Date }
+      },
+      warranty: {
+        name: { type: String },
+        price: { type: Number },
+        warrantyMonths: { type: Number },
+        image: { type: String },
+        addedAt: { type: Date },
+        addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
       }
     },
   },

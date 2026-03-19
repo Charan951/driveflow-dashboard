@@ -756,6 +756,70 @@ const BookingDetailPage: React.FC = () => {
             </div>
           )}
 
+          {/* Warranty Information (Battery/Tire Service) */}
+          {isBatteryOrTireService && booking.batteryTire?.warranty && (
+            <div className="bg-card rounded-2xl border-2 border-green-100 p-6 space-y-4 shadow-sm">
+              <h3 className="font-bold text-xl flex items-center gap-2 text-green-700">
+                <Shield className="w-6 h-6" />
+                Warranty Information
+              </h3>
+              
+              <div className="flex flex-col md:flex-row gap-8">
+                {booking.batteryTire.warranty.image && (
+                  <div className="w-full md:w-64 aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted group relative shadow-md">
+                    <img 
+                      src={booking.batteryTire.warranty.image} 
+                      alt="Warranty Product" 
+                      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(booking.batteryTire!.warranty!.image, '_blank')}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex-1 space-y-6">
+                  <div>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Product Name</p>
+                    <p className="text-2xl font-black text-green-700">{booking.batteryTire.warranty.name}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Price</p>
+                      <span className="text-2xl font-black text-primary flex items-center gap-1">
+                        <IndianRupee className="w-6 h-6" />
+                        {booking.batteryTire.warranty.price}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Warranty Period</p>
+                      <span className="text-2xl font-black text-green-700">
+                        {booking.batteryTire.warranty.warrantyMonths} months
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2">
+                    {booking.batteryTire.warranty.addedAt && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Added: {new Date(booking.batteryTire.warranty.addedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {booking.batteryTire.warranty.addedBy && (
+                      <div className="flex items-center gap-1.5">
+                        <UserIcon className="w-3.5 h-3.5" />
+                        <span>By: {booking.batteryTire.warranty.addedBy.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Service Details */}
           <div className="bg-card rounded-2xl border border-border p-6">
             <h3 className="font-semibold text-lg mb-4">Service Details</h3>

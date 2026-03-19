@@ -148,7 +148,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-full overflow-hidden">
+    <div className="w-full h-full min-h-screen py-4 lg:py-6 space-y-6 overflow-hidden">
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -268,7 +268,7 @@ const DashboardPage: React.FC = () => {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4"
         >
           {services.slice(0, 4).map((service) => (
             <motion.div key={service._id} variants={staggerItem}>
@@ -293,8 +293,8 @@ const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Recent Services</h2>
         </div>
-        <div className="space-y-3">
-          {pastServices.slice(0, 3).map((booking, index) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+          {pastServices.slice(0, 6).map((booking, index) => (
             <motion.div
               key={booking._id}
               initial={{ opacity: 0, y: 10 }}
@@ -320,7 +320,7 @@ const DashboardPage: React.FC = () => {
             </motion.div>
           ))}
           {bookings.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="col-span-full text-center py-8 text-muted-foreground">
               No recent services found
             </div>
           )}

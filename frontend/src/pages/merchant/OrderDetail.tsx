@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StatusControlPanel from '../../components/merchant/StatusControlPanel';
 import InspectionPanel from '../../components/merchant/InspectionPanel';
 import BatteryTireApprovalPanel from '../../components/merchant/BatteryTireApprovalPanel';
+import WarrantyPanel from '../../components/merchant/WarrantyPanel';
 import QCPanel from '../../components/merchant/QCPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
 import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
@@ -212,10 +213,13 @@ const OrderDetail: React.FC = () => {
           onValueChange={setActiveTab}
           className="w-full"
         >
-            <TabsList className={`grid w-full ${booking.batteryTire?.isBatteryTireService ? 'grid-cols-2' : 'grid-cols-5'} lg:w-[600px]`}>
+            <TabsList className={`grid w-full ${booking.batteryTire?.isBatteryTireService ? 'grid-cols-3' : 'grid-cols-5'} lg:w-[800px]`}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 {booking.batteryTire?.isBatteryTireService ? (
-                    <TabsTrigger value="battery-tire-approved">Battery/Tire Service Approved</TabsTrigger>
+                    <>
+                        <TabsTrigger value="battery-tire-approved">Battery/Tire Service Approved</TabsTrigger>
+                        <TabsTrigger value="warranty">Warranty</TabsTrigger>
+                    </>
                 ) : (
                     <>
                         <TabsTrigger 
@@ -505,6 +509,13 @@ const OrderDetail: React.FC = () => {
                             )}
                         </div>
                     </div>
+                </TabsContent>
+            )}
+
+            {/* Warranty Tab - Only for battery/tire services */}
+            {booking.batteryTire?.isBatteryTireService && (
+                <TabsContent value="warranty" className="space-y-6 mt-6">
+                    <WarrantyPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 

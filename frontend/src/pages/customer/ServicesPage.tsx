@@ -90,7 +90,7 @@ const ServicesPage: React.FC = () => {
   }, [services, activeCategory, searchQuery]);
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-full overflow-hidden">
+    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 overflow-hidden">
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Services</h1>

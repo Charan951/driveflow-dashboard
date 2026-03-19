@@ -20,6 +20,7 @@ import {
   testGenerateOtp,
   getCarWashBookings,
   batteryTireApproval,
+  addWarranty,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -44,6 +45,7 @@ router.route('/:bookingId/test-generate-otp').put(protect, testGenerateOtp);
 
 // Battery/Tire specific routes
 router.route('/:id/battery-tire-approval').put(protect, batteryTireApproval);
+router.route('/:id/warranty').put(protect, addWarranty);
 
 router.route('/:id')
   .get(protect, getBookingById);
