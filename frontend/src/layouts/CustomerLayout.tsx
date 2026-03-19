@@ -16,7 +16,8 @@ import {
   Wrench,
   Droplets,
   Shield,
-  UserCircle
+  UserCircle,
+  Battery
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -29,8 +30,9 @@ const customerMenuItems = [
   { icon: Calendar, label: 'My Bookings', path: '/bookings' },
   { icon: CreditCard, label: 'Payments', path: '/payments' },
   { icon: Car, label: 'Add Vehicle', path: '/add-vehicle' },
-  { icon: Wrench, label: 'Services', path: '/dashboard/services' },
-  { icon: Droplets, label: 'Car Wash', path: '/car-wash' },
+  { icon: Wrench, label: 'Services', path: '/book-service?category=Periodic' },
+  { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
+  { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
   { icon: Shield, label: 'Insurance', path: '/insurance' },
   { icon: FileText, label: 'Documents', path: '/documents' },
   { icon: User, label: 'Profile', path: '/profile' },

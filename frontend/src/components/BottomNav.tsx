@@ -9,7 +9,7 @@ const navItems = [
   { icon: Shield, label: 'Insurance', path: '/insurance' },
   { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
   { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
-  { icon: Battery, label: 'Tires', path: '/book-service?category=Tyres' },
+  { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
 ];
 
 export const BottomNav: React.FC = () => {
