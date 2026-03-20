@@ -21,8 +21,6 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   String? _error;
   List<Vehicle> _vehicles = const [];
 
-  Color get _backgroundStart => const Color(0xFF020617);
-  Color get _backgroundEnd => const Color(0xFF020617);
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
@@ -64,226 +62,9 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   }
 
   Future<void> _openAddVehicleSheet() async {
-    final licensePlateController = TextEditingController();
-    final makeController = TextEditingController();
-    final modelController = TextEditingController();
-    final yearController = TextEditingController();
-    var type = 'Car';
-
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (sheetContext) {
-          var saving = false;
-          var fetching = false;
-          return StatefulBuilder(
-            builder: (sheetContext, setModalState) {
-              Future<void> fetchDetails() async {
-                final plate = licensePlateController.text.trim();
-                if (plate.isEmpty) return;
-
-                setModalState(() => fetching = true);
-                try {
-                  final details = await _service.fetchDetails(plate);
-                  if (details != null) {
-                    setModalState(() {
-                      makeController.text = details['make']?.toString() ?? '';
-                      modelController.text = details['model']?.toString() ?? '';
-                      yearController.text = details['year']?.toString() ?? '';
-                      if (details['type'] != null) {
-                        type = details['type'].toString();
-                      }
-                    });
-                    if (sheetContext.mounted) {
-                      ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        const SnackBar(content: Text('Details fetched!')),
-                      );
-                    }
-                  } else {
-                    if (sheetContext.mounted) {
-                      ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('Could not find vehicle details'),
-                        ),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  if (sheetContext.mounted) {
-                    ScaffoldMessenger.of(
-                      sheetContext,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                } finally {
-                  setModalState(() => fetching = false);
-                }
-              }
-
-              Future<void> submit() async {
-                final licensePlate = licensePlateController.text.trim();
-                final make = makeController.text.trim();
-                final model = modelController.text.trim();
-                final yearRaw = yearController.text.trim();
-                final year = int.tryParse(yearRaw);
-
-                if (licensePlate.isEmpty ||
-                    make.isEmpty ||
-                    model.isEmpty ||
-                    year == null) {
-                  ScaffoldMessenger.of(sheetContext).showSnackBar(
-                    const SnackBar(content: Text('Please fill all fields')),
-                  );
-                  return;
-                }
-
-                setModalState(() => saving = true);
-                try {
-                  await _service.addVehicle(
-                    licensePlate: licensePlate,
-                    make: make,
-                    model: model,
-                    year: year,
-                    type: type,
-                  );
-                  if (!sheetContext.mounted) return;
-                  Navigator.pop(sheetContext);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vehicle added')),
-                  );
-                  await _load();
-                } catch (e) {
-                  if (!sheetContext.mounted) return;
-                  ScaffoldMessenger.of(
-                    sheetContext,
-                  ).showSnackBar(SnackBar(content: Text(e.toString())));
-                  setModalState(() => saving = false);
-                }
-              }
-
-              Widget field({
-                required TextEditingController controller,
-                required String label,
-                TextInputType? keyboardType,
-              }) {
-                return TextField(
-                  controller: controller,
-                  keyboardType: keyboardType,
-                  decoration: InputDecoration(
-                    labelText: label,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                );
-              }
-
-              final bottomInset = MediaQuery.of(sheetContext).viewInsets.bottom;
-              return Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Add Vehicle',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: saving
-                                ? null
-                                : () => Navigator.pop(sheetContext),
-                            icon: const Icon(Icons.close),
-                            tooltip: 'Close',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: field(
-                              controller: licensePlateController,
-                              label: 'License Plate',
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton.filledTonal(
-                            onPressed: fetching ? null : fetchDetails,
-                            icon: fetching
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.search),
-                            tooltip: 'Fetch Details',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      field(controller: makeController, label: 'Make'),
-                      const SizedBox(height: 10),
-                      field(controller: modelController, label: 'Model'),
-                      const SizedBox(height: 10),
-                      field(
-                        controller: yearController,
-                        label: 'Year',
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownMenu<String>(
-                        initialSelection: 'Car',
-                        enabled: false,
-                        dropdownMenuEntries: const [
-                          DropdownMenuEntry(value: 'Car', label: 'Car'),
-                        ],
-                        label: const Text('Type'),
-                      ),
-                      const SizedBox(height: 14),
-                      FilledButton(
-                        onPressed: saving ? null : submit,
-                        child: saving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      licensePlateController.dispose();
-      makeController.dispose();
-      modelController.dispose();
-      yearController.dispose();
+    final result = await Navigator.pushNamed(context, '/add-vehicle');
+    if (result == true) {
+      _load();
     }
   }
 
@@ -348,31 +129,9 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
       body: Stack(
         children: [
           if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1.2),
-                  radius: 1.4,
-                  colors: [
-                    _accentPurple.withValues(alpha: 0.14),
-                    _accentBlue.withValues(alpha: 0.06),
-                    _backgroundStart,
-                  ],
-                ),
-              ),
-            )
+            Container(color: Colors.black)
           else
             Container(color: Colors.white),
-          if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
-                ),
-              ),
-            ),
           RefreshIndicator(
             onRefresh: _load,
             child: _loading
@@ -512,12 +271,10 @@ class _VehicleCardState extends State<_VehicleCard> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+        color: isDark ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFE5E7EB),
+          color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
           BoxShadow(

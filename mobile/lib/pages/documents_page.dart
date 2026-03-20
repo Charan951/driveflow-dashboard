@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/customer_drawer.dart';
+import '../services/document_service.dart';
+import '../services/vehicle_service.dart';
+import '../models/vehicle.dart';
 
 class DocumentsPage extends StatefulWidget {
   const DocumentsPage({super.key});
@@ -10,25 +14,80 @@ class DocumentsPage extends StatefulWidget {
 }
 
 class _DocumentsPageState extends State<DocumentsPage> {
-  Color get _backgroundStart => const Color(0xFF020617);
-  Color get _backgroundEnd => const Color(0xFF020617);
+  final _documentService = DocumentService();
+  final _vehicleService = VehicleService();
+
+  bool _loading = true;
+  String? _error;
+  List<DocumentData> _documents = [];
+  List<Vehicle> _vehicles = [];
+  String? _selectedVehicleId;
+  String _selectedType = 'all';
+
+  final List<Map<String, String>> _documentTypes = [
+    {'id': 'all', 'label': 'All'},
+    {'id': 'rc', 'label': 'Registration'},
+    {'id': 'insurance', 'label': 'Insurance'},
+    {'id': 'puc', 'label': 'PUC'},
+    {'id': 'invoice', 'label': 'Invoices'},
+    {'id': 'warranty', 'label': 'Warranty'},
+  ];
+
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
   void initState() {
     super.initState();
+    _fetchData();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  Future<void> _fetchData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        _documentService.getAllDocuments(),
+        _vehicleService.listMyVehicles(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _documents = results[0] as List<DocumentData>;
+          _vehicles = results[1] as List<Vehicle>;
+          if (_vehicles.isNotEmpty) {
+            _selectedVehicleId = _vehicles[0].id;
+          }
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
+
+    final filteredDocs = _documents.where((doc) {
+      final matchesVehicle = _selectedVehicleId != null
+          ? doc.vehicleId == _selectedVehicleId
+          : true;
+      final matchesType =
+          _selectedType == 'all' ||
+          doc.type.toLowerCase().contains(_selectedType.toLowerCase());
+      return matchesVehicle && matchesType;
+    }).toList();
+
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       drawer: CustomerDrawer(currentRouteName: routeName),
@@ -42,6 +101,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
           children: [
             Builder(
               builder: (context) => Container(
+                margin: const EdgeInsets.only(left: 16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
@@ -73,225 +133,180 @@ class _DocumentsPageState extends State<DocumentsPage> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Upload feature coming soon!')),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Stack(
         children: [
           if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1.2),
-                  radius: 1.4,
-                  colors: [
-                    _accentPurple.withValues(alpha: 0.14),
-                    _accentBlue.withValues(alpha: 0.06),
-                    _backgroundStart,
-                  ],
-                ),
-              ),
-            )
+            Container(color: Colors.black)
           else
             Container(color: Colors.white),
-          if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
-                ),
-              ),
-            ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : const Color(0xFFE5E7EB),
+          SafeArea(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Error: $_error'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _fetchData,
+                          child: const Text('Retry'),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.black.withValues(alpha: 0.35)
-                                : Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 16,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  gradient: RadialGradient(
-                                    center: const Alignment(0, -0.2),
-                                    colors: [
-                                      _accentBlue.withValues(alpha: 0.85),
-                                      _accentBlue.withValues(alpha: 0.25),
-                                    ],
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.folder_zip_outlined,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Your documents',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w900,
-                                        color: isDark
-                                            ? Colors.white
-                                            : const Color(0xFF0F172A),
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Upload and manage service-related documents here.',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : Colors.black54,
-                                ),
-                          ),
-                          const SizedBox(height: 14),
-                          const _DocTile(
-                            icon: Icons.receipt_long_outlined,
-                            title: 'Invoices',
-                            subtitle: 'Coming soon',
-                          ),
-                          const SizedBox(height: 10),
-                          const _DocTile(
-                            icon: Icons.description_outlined,
-                            title: 'Service Reports',
-                            subtitle: 'Coming soon',
-                          ),
-                          const SizedBox(height: 10),
-                          const _DocTile(
-                            icon: Icons.assignment_outlined,
-                            title: 'Job Cards',
-                            subtitle: 'Coming soon',
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : Column(
+                    children: [
+                      if (_vehicles.isNotEmpty)
+                        Container(
+                          height: 60,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _vehicles.length,
+                            itemBuilder: (context, index) {
+                              final v = _vehicles[index];
+                              final selected = _selectedVehicleId == v.id;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text('${v.make} ${v.model}'),
+                                  selected: selected,
+                                  onSelected: (val) {
+                                    if (val) {
+                                      setState(() => _selectedVehicleId = v.id);
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _documentTypes.length,
+                          itemBuilder: (context, index) {
+                            final type = _documentTypes[index];
+                            final selected = _selectedType == type['id'];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(type['label']!),
+                                selected: selected,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setState(() => _selectedType = type['id']!);
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: filteredDocs.isEmpty
+                            ? _buildEmptyState(isDark)
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: filteredDocs.length,
+                                itemBuilder: (context, index) {
+                                  final doc = filteredDocs[index];
+                                  return _buildDocumentCard(doc, isDark);
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
     );
   }
-}
 
-class _DocTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _DocTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFE5E7EB),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.35)
-                : Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.folder_open,
+            size: 64,
+            color: isDark ? Colors.white24 : Colors.black12,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No documents found',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black54),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                colors: [
-                  scheme.primary.withValues(alpha: 0.96),
-                  scheme.primary.withValues(alpha: 0.76),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(icon, color: scheme.onPrimary, size: 20),
+    );
+  }
+
+  Widget _buildDocumentCard(DocumentData doc, bool isDark) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: isDark ? Colors.grey.shade900 : Colors.white,
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: _accentPurple.withAlpha(40),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : Colors.black54,
-                  ),
-                ),
-              ],
-            ),
+          child: Icon(Icons.description, color: _accentPurple),
+        ),
+        title: Text(
+          doc.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        subtitle: Text(
+          '${doc.type.toUpperCase()} • ${doc.date.split('T')[0]}',
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white : Colors.black54,
           ),
-        ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.download, size: 20),
+              onPressed: () async {
+                final url = Uri.parse(doc.url);
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Could not open document URL'),
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

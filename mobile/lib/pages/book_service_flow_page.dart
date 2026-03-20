@@ -15,7 +15,6 @@ import '../models/booking.dart';
 import '../services/catalog_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/booking_service.dart';
-import '../services/review_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
@@ -32,10 +31,10 @@ class BookServiceFlowPage extends StatefulWidget {
 class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   int _currentStep = 0;
   bool _loading = false;
+  String? _error;
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
-  final _reviewService = ReviewService();
 
   List<Vehicle> _vehicles = [];
   List<ServiceItem> _allServices = [];
@@ -43,6 +42,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   String? _selectedVehicleId;
   List<String> _selectedServiceIds = [];
+  String _activeSubCategory = 'All';
+  final Map<String, String> _tireSizes = {};
+  final Map<String, bool> _isManualSize = {};
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   String? _selectedAddress;
@@ -53,10 +55,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   bool _resolvingAddress = false;
   final MapController _mapController = MapController();
 
+  static const List<String> commonTireSizes = [
+    '145/70 R12',
+    '155/80 R13',
+    '165/80 R14',
+    '175/65 R14',
+    '185/65 R15',
+    '195/55 R16',
+    '205/55 R16',
+    '215/60 R16',
+    '225/45 R17',
+    '235/45 R18',
+  ];
+
   @override
   void initState() {
     super.initState();
     _fetchInitialData();
+
+    if (widget.initialCategory == 'Tyres') {
+      _activeSubCategory = 'Tyres';
+    }
 
     // Check for arguments from NavigationProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -78,79 +97,76 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Future<void> _fetchInitialData() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final results = await Future.wait([
         _vehicleService.listMyVehicles(),
-        _catalogService.listServices(),
-        _reviewService.checkPendingFeedback(),
+        _catalogService.listServices(category: widget.initialCategory),
       ]);
 
-      final vehicles = results[0] as List<Vehicle>;
-      final services = results[1] as List<ServiceItem>;
-      final pendingFeedback = results[2] as Map<String, dynamic>;
+      final List<Vehicle> vehicles = results[0] as List<Vehicle>;
+      final List<ServiceItem> services = results[1] as List<ServiceItem>;
 
-      if (pendingFeedback['hasPending'] == true && mounted) {
-        _showFeedbackRequiredDialog(pendingFeedback);
+      if (mounted) {
+        setState(() {
+          _vehicles = List<Vehicle>.from(vehicles);
+          _allServices = services;
+          if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
+            _selectedVehicleId = _vehicles.first.id;
+          }
+
+          // Pre-populate location from default saved address
+          final user = context.read<AuthProvider>().user;
+          if (user != null &&
+              user.addresses.isNotEmpty &&
+              _selectedAddress == null) {
+            final defaultAddr = user.addresses.firstWhere(
+              (a) => a.isDefault,
+              orElse: () => user.addresses.first,
+            );
+            _selectedAddress = defaultAddr.address;
+            _selectedLatLng = LatLng(defaultAddr.lat, defaultAddr.lng);
+          }
+
+          _loading = false;
+        });
       }
-
-      setState(() {
-        _vehicles = vehicles;
-        _allServices = services;
-        if (vehicles.isNotEmpty) {
-          _selectedVehicleId = vehicles.first.id;
-        }
-
-        // Pre-populate location from default saved address
-        final user = context.read<AuthProvider>().user;
-        if (user != null && user.addresses.isNotEmpty) {
-          final defaultAddr = user.addresses.firstWhere(
-            (a) => a.isDefault,
-            orElse: () => user.addresses.first,
-          );
-          _selectedAddress = defaultAddr.address;
-          _selectedLatLng = LatLng(defaultAddr.lat, defaultAddr.lng);
-        }
-
-        _loading = false;
-      });
     } catch (e) {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
-  }
-
-  void _showFeedbackRequiredDialog(Map<String, dynamic> pendingFeedback) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Feedback Required'),
-        content: Text(
-          'Please provide feedback for your previous booking (#${pendingFeedback['orderNumber']}) before booking a new service.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(
-                context,
-                '/track',
-                arguments: pendingFeedback['bookingId'],
-              );
-            },
-            child: const Text('Give Feedback'),
-          ),
-        ],
-      ),
-    );
   }
 
   final List<String> _steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
 
   @override
   Widget build(BuildContext context) {
+    final nav = context.watch<NavigationProvider>();
+    final currentIdx = nav.selectedIndex;
+
+    // Check if this page's tab is active and if we should refresh
+    final Map<String, int> tabMapping = {
+      'Periodic': 0,
+      'Insurance': 1,
+      'Wash': 3,
+      'Tyres': 4,
+    };
+
+    if (tabMapping[widget.initialCategory] == currentIdx) {
+      // If we are on the active tab, and the vehicle list is empty but we haven't checked in a while
+      if (_vehicles.isEmpty && !_loading && _error == null) {
+        Future.microtask(() => _fetchInitialData());
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -194,10 +210,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.white,
+        color: isDark ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.grey.shade700 : Colors.grey.shade100,
+          color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
         ),
       ),
       child: Row(
@@ -222,7 +238,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           color: (isActive || isCompleted)
                               ? const Color(0xFF2563EB)
                               : isDark
-                              ? Colors.grey.shade700
+                              ? Colors.black
                               : Colors.grey.shade50,
                           border: Border.all(
                             color: (isActive || isCompleted)
@@ -246,7 +262,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     color: (isActive || isCompleted)
                                         ? Colors.white
                                         : isDark
-                                        ? Colors.grey.shade400
+                                        ? Colors.white
                                         : Colors.grey.shade500,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 10,
@@ -264,7 +280,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     ? Colors.white
                                     : Colors.black
                               : isDark
-                              ? Colors.grey.shade500
+                              ? Colors.white
                               : Colors.grey.shade400,
                           fontWeight: (isActive || isCompleted)
                               ? FontWeight.w600
@@ -298,7 +314,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade900 : Colors.white,
+        color: isDark ? Colors.black : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(12),
@@ -315,7 +331,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 onPressed: _handleBack,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isDark
-                      ? Colors.grey.shade800
+                      ? Colors.grey.shade900
                       : const Color(0xFFE5E7EB),
                   foregroundColor: isDark ? Colors.white : Colors.black,
                   elevation: 0,
@@ -578,156 +594,319 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               ],
             ),
           ),
-        const SizedBox(height: 16),
-        ...categoriesToDisplay.map((category) {
-          var services = _allServices
-              .where((s) => s.category == category)
-              .toList();
 
-          if (_initialServiceId != null) {
-            services = services
-                .where((s) => s.id == _initialServiceId)
-                .toList();
-          }
-
-          if (services.isEmpty) return const SizedBox.shrink();
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (categoriesToDisplay.length > 1)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    category,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563EB),
+        // Category-specific tabs for Tyres & Battery
+        if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Tyre & Battery')
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        setState(() => _activeSubCategory = 'Tyres'),
+                    icon: const Icon(Icons.circle_outlined),
+                    label: const Text('Tires'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _activeSubCategory == 'Tyres'
+                          ? const Color(0xFF2563EB)
+                          : (isDark
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade200),
+                      foregroundColor: _activeSubCategory == 'Tyres'
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black87),
                     ),
                   ),
                 ),
-              ...services.map((service) {
-                final selected = _selectedServiceIds.contains(service.id);
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (selected) {
-                        _selectedServiceIds.remove(service.id);
-                      } else {
-                        _selectedServiceIds.add(service.id);
-                      }
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey.shade800 : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: selected
-                            ? const Color(0xFF2563EB)
-                            : isDark
-                            ? Colors.grey.shade700
-                            : Colors.grey.shade200,
-                        width: selected ? 2 : 1,
-                      ),
-                      boxShadow: [
-                        if (selected)
-                          BoxShadow(
-                            color: const Color(0xFF2563EB).withAlpha(25),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.grey.shade700
-                                : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            image:
-                                (service.image != null &&
-                                    service.image!.isNotEmpty)
-                                ? DecorationImage(
-                                    image: NetworkImage(service.image!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child:
-                              (service.image == null || service.image!.isEmpty)
-                              ? const Icon(
-                                  Icons.build_circle,
-                                  color: Color(0xFF2563EB),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                service.name,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    'Price: ₹${service.price}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '• Time: ${service.estimatedMinutes} mins',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (selected)
-                          const Icon(
-                            Icons.check_circle,
-                            color: Color(0xFF2563EB),
-                          )
-                        else
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: isDark
-                                ? Colors.grey.shade600
-                                : Colors.grey.shade300,
-                          ),
-                      ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        setState(() => _activeSubCategory = 'Battery'),
+                    icon: const Icon(Icons.battery_charging_full),
+                    label: const Text('Battery'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _activeSubCategory == 'Battery'
+                          ? const Color(0xFF2563EB)
+                          : (isDark
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade200),
+                      foregroundColor: _activeSubCategory == 'Battery'
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black87),
                     ),
                   ),
-                );
-              }),
-            ],
-          );
-        }),
+                ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: 16),
+        ...categoriesToDisplay
+            .where((c) {
+              if (widget.initialCategory == 'Tyres' ||
+                  widget.initialCategory == 'Tyre & Battery') {
+                if (_activeSubCategory == 'Tyres') {
+                  return c == 'Tyres' || c == 'Tyre & Battery';
+                }
+                if (_activeSubCategory == 'Battery') {
+                  return c == 'Battery';
+                }
+              }
+              return true;
+            })
+            .map((category) {
+              var services = _allServices
+                  .where((s) => s.category == category)
+                  .toList();
+
+              if (_initialServiceId != null) {
+                services = services
+                    .where((s) => s.id == _initialServiceId)
+                    .toList();
+              }
+
+              if (services.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (categoriesToDisplay.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ),
+                  ...services.map((service) {
+                    final selected = _selectedServiceIds.contains(service.id);
+                    final showSizeSelection =
+                        selected &&
+                        (service.name.toLowerCase().contains('change') ||
+                            service.name.toLowerCase().contains('size'));
+
+                    return Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (selected) {
+                                _selectedServiceIds.remove(service.id);
+                              } else {
+                                _selectedServiceIds.add(service.id);
+                              }
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: selected
+                                    ? const Color(0xFF2563EB)
+                                    : isDark
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade200,
+                                width: selected ? 2 : 1,
+                              ),
+                              boxShadow: [
+                                if (selected)
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF2563EB,
+                                    ).withAlpha(25),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    image:
+                                        (service.image != null &&
+                                            service.image!.isNotEmpty)
+                                        ? DecorationImage(
+                                            image: NetworkImage(service.image!),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                  ),
+                                  child:
+                                      (service.image == null ||
+                                          service.image!.isEmpty)
+                                      ? const Icon(
+                                          Icons.build_circle,
+                                          color: Color(0xFF2563EB),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        service.name,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Price: ₹${service.price}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.grey.shade400
+                                                  : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '• Time: ${service.estimatedMinutes} mins',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.grey.shade400
+                                                  : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (selected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF2563EB),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    color: isDark
+                                        ? Colors.grey.shade600
+                                        : Colors.grey.shade300,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (showSizeSelection)
+                          Container(
+                            margin: const EdgeInsets.only(left: 16, bottom: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.grey.shade900
+                                  : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF2563EB).withAlpha(100),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Select Size',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _isManualSize[service.id] =
+                                              !(_isManualSize[service.id] ??
+                                                  false);
+                                          _tireSizes[service.id] = '';
+                                        });
+                                      },
+                                      child: Text(
+                                        _isManualSize[service.id] == true
+                                            ? 'Common Sizes'
+                                            : 'Manual Entry',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_isManualSize[service.id] == true)
+                                  TextField(
+                                    onChanged: (val) => setState(
+                                      () => _tireSizes[service.id] = val,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter size (e.g. 185/65 R15)',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: commonTireSizes.map((size) {
+                                      final isSelected =
+                                          _tireSizes[service.id] == size;
+                                      return ChoiceChip(
+                                        label: Text(
+                                          size,
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                        selected: isSelected,
+                                        onSelected: (val) {
+                                          if (val) {
+                                            setState(
+                                              () =>
+                                                  _tireSizes[service.id] = size,
+                                            );
+                                          }
+                                        },
+                                        selectedColor: const Color(
+                                          0xFF2563EB,
+                                        ).withAlpha(50),
+                                      );
+                                    }).toList(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  }),
+                ],
+              );
+            }),
       ],
     );
   }
@@ -778,13 +957,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           data: Theme.of(context).copyWith(
                             timePickerTheme: TimePickerThemeData(
                               backgroundColor: isDark
-                                  ? Colors.grey.shade800
+                                  ? Colors.black
                                   : Colors.white,
                               hourMinuteTextColor: const Color(0xFF2563EB),
                               dayPeriodTextColor: const Color(0xFF2563EB),
                               dialHandColor: const Color(0xFF2563EB),
                               dialBackgroundColor: isDark
-                                  ? Colors.grey.shade700
+                                  ? Colors.grey.shade900
                                   : Colors.grey.shade100,
                               entryModeIconColor: const Color(0xFF2563EB),
                             ),
@@ -1152,7 +1331,24 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     setState(() => _loading = true);
     try {
-      final booking = await _bookingService.createBooking(
+      final selectedServices = _allServices
+          .where((s) => _selectedServiceIds.contains(s.id))
+          .toList();
+
+      final notesWithSizes = selectedServices
+          .map((service) {
+            final size = _tireSizes[service.id];
+            String note = service.name;
+            if (size != null && size.isNotEmpty) note += ' - Size: $size';
+            return note;
+          })
+          .join(', ');
+
+      final fullNotes = _notesController.text.isNotEmpty
+          ? '${_notesController.text}\nServices: $notesWithSizes'
+          : notesWithSizes;
+
+      final res = await _bookingService.createBooking(
         vehicleId: _selectedVehicleId!,
         serviceIds: _selectedServiceIds,
         date: DateTime(
@@ -1167,25 +1363,42 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           lat: _selectedLatLng!.latitude,
           lng: _selectedLatLng!.longitude,
         ),
-        notes: _notesController.text,
+        notes: fullNotes,
       );
-      if (mounted) {
-        // Send a socket event to trigger a refresh on the dashboard
-        context.read<SocketService>().sendEvent('booking_created');
 
+      if (!mounted) return;
+
+      if (res is Map<String, dynamic> && res['requiresPayment'] == true) {
+        // Special handling for payment-required services (Car Wash, Battery, Tyres)
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking confirmed! We have scheduled your service.'),
+          SnackBar(
+            content: Text(
+              res['message'] ?? 'Please complete payment to create booking',
+            ),
           ),
         );
-
-        // Navigate to track page (using Replacement to prevent back button coming here)
-        Navigator.pushReplacementNamed(
-          context,
-          '/track',
-          arguments: booking.id,
-        );
+        // Redirect to a payment page or show a payment dialog
+        // For now, we'll use a dummy payment logic if possible
+        final tempBookingId = res['tempBookingId'];
+        if (tempBookingId != null) {
+          _processPayment(tempBookingId, tempBookingData: res);
+        }
+        return;
       }
+
+      final booking = res as Booking;
+
+      // Send a socket event to trigger a refresh on the dashboard
+      context.read<SocketService>().sendEvent('booking_created');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking confirmed! We have scheduled your service.'),
+        ),
+      );
+
+      // Navigate to track page (using Replacement to prevent back button coming here)
+      Navigator.pushReplacementNamed(context, '/track', arguments: booking.id);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1195,6 +1408,58 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     } finally {
       if (mounted) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _processPayment(
+    String tempBookingId, {
+    Map<String, dynamic>? tempBookingData,
+  }) async {
+    // Show a loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // In a real app, you'd integrate Razorpay/Stripe here.
+      // For now, we'll simulate a dummy payment like the frontend does.
+      final result = await _bookingService.processDummyPayment(
+        tempBookingId,
+        tempBookingData: tempBookingData,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (result['success'] == true || result['bookingId'] != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment successful! Booking created.'),
+            ),
+          );
+
+          context.read<SocketService>().sendEvent('booking_created');
+
+          Navigator.pushReplacementNamed(
+            context,
+            '/track',
+            arguments: result['bookingId'],
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Payment failed: ${result['message']}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Payment processing error: $e')));
       }
     }
   }

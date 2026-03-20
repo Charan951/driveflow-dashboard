@@ -315,14 +315,14 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                     final primary = scheme.primary;
                     final secondary = scheme.secondary;
                     final topColor = isDark
-                        ? primary.withValues(alpha: 0.22)
+                        ? Colors.black
                         : Color.lerp(
                             primary.withValues(alpha: 0.26),
                             secondary.withValues(alpha: 0.22),
                             0.5,
                           )!;
                     final bottomColor = isDark
-                        ? primary.withValues(alpha: 0.05)
+                        ? Colors.black
                         : secondary.withValues(alpha: 0.12);
 
                     return Container(

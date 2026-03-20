@@ -40,10 +40,8 @@ class _SpeshwayVehicleCareDashboardState
   Booking? _upcomingBookingCached;
   List<Booking> _recentBookings = [];
 
-  Color get _backgroundStart => const Color(0xFF020617);
-  Color get _backgroundEnd => const Color(0xFF020617);
   Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
+  Color get _accentBlue => const Color.fromARGB(255, 34, 51, 238);
   Color get _neonBlue => const Color(0xFF38BDF8);
 
   @override
@@ -410,31 +408,9 @@ class _SpeshwayVehicleCareDashboardState
       body: Stack(
         children: [
           if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1.2),
-                  radius: 1.4,
-                  colors: [
-                    _accentPurple.withValues(alpha: 0.1),
-                    _accentBlue.withValues(alpha: 0.05),
-                    _backgroundStart,
-                  ],
-                ),
-              ),
-            )
+            Container(color: Colors.black)
           else
             Container(color: Colors.white),
-          if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.7), _backgroundEnd],
-                ),
-              ),
-            ),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -591,9 +567,7 @@ class _SpeshwayVehicleCareDashboardState
             Text(
               'Book a service to keep your vehicle in top condition.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.8)
-                    : const Color(0xFF64748B),
+                color: isDark ? Colors.white : const Color(0xFF64748B),
               ),
             ),
             const SizedBox(height: 20),
@@ -668,9 +642,7 @@ class _SpeshwayVehicleCareDashboardState
           Text(
             primaryService,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.9)
-                  : const Color(0xFF0F172A),
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -678,9 +650,7 @@ class _SpeshwayVehicleCareDashboardState
           Text(
             vehicleLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.6)
-                  : const Color(0xFF64748B),
+              color: isDark ? Colors.white : const Color(0xFF64748B),
             ),
           ),
           const SizedBox(height: 16),
@@ -695,9 +665,7 @@ class _SpeshwayVehicleCareDashboardState
               Text(
                 '$dateLabel • $timeLabel',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.8)
-                      : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                 ),
               ),
             ],
@@ -711,9 +679,7 @@ class _SpeshwayVehicleCareDashboardState
                 child: Text(
                   locationLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : const Color(0xFF64748B),
+                    color: isDark ? Colors.white : const Color(0xFF64748B),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -883,7 +849,7 @@ class _SpeshwayVehicleCareDashboardState
                           item.label,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.95)
+                                ? Colors.white
                                 : const Color(0xFF0F172A),
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
@@ -901,7 +867,7 @@ class _SpeshwayVehicleCareDashboardState
                         _formatPrice(item.price!),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.8)
+                              ? Colors.white
                               : const Color(0xFF0F172A),
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -953,9 +919,7 @@ class _SpeshwayVehicleCareDashboardState
                     child: Text(
                       'No recent services yet. Your history will appear here.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : const Color(0xFF64748B),
+                        color: isDark ? Colors.white : const Color(0xFF64748B),
                       ),
                     ),
                   ),
@@ -1014,9 +978,7 @@ class _SpeshwayVehicleCareDashboardState
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: isDark
-                                            ? Colors.white.withValues(
-                                                alpha: 0.7,
-                                              )
+                                            ? Colors.white
                                             : const Color(0xFF64748B),
                                       ),
                                 ),
@@ -1037,9 +999,7 @@ class _SpeshwayVehicleCareDashboardState
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: isDark
-                                              ? Colors.white.withValues(
-                                                  alpha: 0.8,
-                                                )
+                                              ? Colors.white
                                               : const Color(0xFF0F172A),
                                         ),
                                   ),
@@ -1067,7 +1027,7 @@ class _SpeshwayVehicleCareDashboardState
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.6)
+                                        ? Colors.white
                                         : const Color(0xFF64748B),
                                   ),
                             ),
@@ -1120,13 +1080,11 @@ class _FrostedCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.9),
+        color: isDark ? Colors.black : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.1)
+              ? Colors.grey.shade900
               : const Color(0xFFE2E8F0).withValues(alpha: 0.6),
           width: 1,
         ),
@@ -1169,10 +1127,7 @@ class _NeonBorderCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isDark
-                ? [
-                    Colors.white.withValues(alpha: 0.08),
-                    Colors.white.withValues(alpha: 0.04),
-                  ]
+                ? [Colors.black, Colors.black]
                 : [
                     Colors.white.withValues(alpha: 0.9),
                     Colors.white.withValues(alpha: 0.6),

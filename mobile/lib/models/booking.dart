@@ -58,6 +58,151 @@ class DeliveryOtp {
   }
 }
 
+class CarWashDetails {
+  final bool isCarWashService;
+  final List<String> beforeWashPhotos;
+  final List<String> afterWashPhotos;
+  final String? washStartedAt;
+  final String? washCompletedAt;
+  final String? staffName;
+  final String? staffPhone;
+
+  const CarWashDetails({
+    this.isCarWashService = false,
+    this.beforeWashPhotos = const [],
+    this.afterWashPhotos = const [],
+    this.washStartedAt,
+    this.washCompletedAt,
+    this.staffName,
+    this.staffPhone,
+  });
+
+  factory CarWashDetails.fromJson(Map<String, dynamic> json) {
+    final staff = json['staffAssigned'];
+    return CarWashDetails(
+      isCarWashService: json['isCarWashService'] == true,
+      beforeWashPhotos: (json['beforeWashPhotos'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      afterWashPhotos: (json['afterWashPhotos'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      washStartedAt: json['washStartedAt']?.toString(),
+      washCompletedAt: json['washCompletedAt']?.toString(),
+      staffName: staff is Map ? staff['name']?.toString() : null,
+      staffPhone: staff is Map ? staff['phone']?.toString() : null,
+    );
+  }
+}
+
+class BatteryTireDetails {
+  final bool isBatteryTireService;
+  final String? merchantApprovalStatus;
+  final num? merchantPrice;
+  final String? merchantImage;
+  final String? merchantNotes;
+  final String? warrantyName;
+  final num? warrantyPrice;
+  final int? warrantyMonths;
+  final String? warrantyImage;
+
+  const BatteryTireDetails({
+    this.isBatteryTireService = false,
+    this.merchantApprovalStatus,
+    this.merchantPrice,
+    this.merchantImage,
+    this.merchantNotes,
+    this.warrantyName,
+    this.warrantyPrice,
+    this.warrantyMonths,
+    this.warrantyImage,
+  });
+
+  factory BatteryTireDetails.fromJson(Map<String, dynamic> json) {
+    final approval = json['merchantApproval'];
+    final warranty = json['warranty'];
+    return BatteryTireDetails(
+      isBatteryTireService: json['isBatteryTireService'] == true,
+      merchantApprovalStatus: approval is Map
+          ? approval['status']?.toString()
+          : null,
+      merchantPrice: approval is Map ? approval['price'] as num? : null,
+      merchantImage: approval is Map ? approval['image']?.toString() : null,
+      merchantNotes: approval is Map ? approval['notes']?.toString() : null,
+      warrantyName: warranty is Map ? warranty['name']?.toString() : null,
+      warrantyPrice: warranty is Map ? warranty['price'] as num? : null,
+      warrantyMonths: warranty is Map
+          ? warranty['warrantyMonths'] as int?
+          : null,
+      warrantyImage: warranty is Map ? warranty['image']?.toString() : null,
+    );
+  }
+}
+
+class ServicePart {
+  final String name;
+  final num price;
+  final int quantity;
+  final String? approvalStatus;
+  final bool approved;
+  final String? image;
+  final String? oldImage;
+  final bool fromInspection;
+
+  ServicePart({
+    required this.name,
+    required this.price,
+    required this.quantity,
+    this.approvalStatus,
+    this.approved = false,
+    this.image,
+    this.oldImage,
+    this.fromInspection = false,
+  });
+
+  factory ServicePart.fromJson(Map<String, dynamic> json) {
+    return ServicePart(
+      name: (json['name'] ?? '').toString(),
+      price: json['price'] is num ? (json['price'] as num) : 0,
+      quantity: json['quantity'] is num ? (json['quantity'] as num).toInt() : 1,
+      approvalStatus: json['approvalStatus']?.toString(),
+      approved: json['approved'] == true,
+      image: json['image']?.toString(),
+      oldImage: json['oldImage']?.toString(),
+      fromInspection: json['fromInspection'] == true,
+    );
+  }
+}
+
+class InspectionDetails {
+  final String? frontPhoto;
+  final String? backPhoto;
+  final String? leftPhoto;
+  final String? rightPhoto;
+  final String? damageReport;
+  final List<String> photos;
+
+  InspectionDetails({
+    this.frontPhoto,
+    this.backPhoto,
+    this.leftPhoto,
+    this.rightPhoto,
+    this.damageReport,
+    this.photos = const [],
+  });
+
+  factory InspectionDetails.fromJson(Map<String, dynamic> json) {
+    return InspectionDetails(
+      frontPhoto: json['frontPhoto']?.toString(),
+      backPhoto: json['backPhoto']?.toString(),
+      leftPhoto: json['leftPhoto']?.toString(),
+      rightPhoto: json['rightPhoto']?.toString(),
+      damageReport: json['damageReport']?.toString(),
+      photos: (json['photos'] as List? ?? []).map((e) => e.toString()).toList(),
+    );
+  }
+}
+
 class Booking {
   final String id;
   final int? orderNumber;
@@ -78,12 +223,17 @@ class Booking {
   final List<String> beforeServicePhotos;
   final List<String> duringServicePhotos;
   final List<String> postServicePhotos;
+  final List<ServicePart> serviceParts;
   final String? invoiceUrl;
   final String? driverName;
   final String? driverPhone;
   final bool pickupRequired;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
+  final CarWashDetails? carWash;
+  final BatteryTireDetails? batteryTire;
+  final InspectionDetails? inspection;
+  final List<Map<String, String>> statusHistory;
 
   Booking({
     required this.id,
@@ -105,12 +255,17 @@ class Booking {
     this.beforeServicePhotos = const [],
     this.duringServicePhotos = const [],
     this.postServicePhotos = const [],
+    this.serviceParts = const [],
     this.invoiceUrl,
     this.driverName,
     this.driverPhone,
     this.pickupRequired = true,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
+    this.carWash,
+    this.batteryTire,
+    this.inspection,
+    this.statusHistory = const [],
   });
 
   static const statusLabels = {
@@ -127,6 +282,14 @@ class Booking {
     'DELIVERED': 'Delivered',
     'CANCELLED': 'Cancelled',
     'COMPLETED': 'Completed',
+    // Car wash specific statuses
+    'CAR_WASH_STARTED': 'Car Wash Started',
+    'CAR_WASH_COMPLETED': 'Car Wash Completed',
+    // Battery and Tire specific statuses
+    'STAFF_REACHED_MERCHANT': 'Staff Reached Merchant',
+    'PICKUP_BATTERY_TIRE': 'Battery/Tire Picked Up',
+    'INSTALLATION': 'Installation in Progress',
+    'DELIVERY': 'Out for Delivery',
   };
 
   static String getStatusLabel(String status) {
@@ -208,10 +371,15 @@ class Booking {
     final beforeServicePhotos = <String>[];
     final duringServicePhotos = <String>[];
     final postServicePhotos = <String>[];
+    final serviceParts = <ServicePart>[];
 
-    final inspection = map['inspection'];
-    if (inspection is Map) {
-      final inspPhotos = inspection['photos'];
+    final inspectionMap = map['inspection'];
+    InspectionDetails? inspection;
+    if (inspectionMap is Map) {
+      inspection = InspectionDetails.fromJson(
+        Map<String, dynamic>.from(inspectionMap),
+      );
+      final inspPhotos = inspectionMap['photos'];
       if (inspPhotos is List) {
         for (final p in inspPhotos) {
           if (p != null) prePickupPhotos.add(p.toString());
@@ -239,6 +407,16 @@ class Booking {
           if (p != null) postServicePhotos.add(p.toString());
         }
       }
+      final parts = execution['serviceParts'];
+      if (parts is List) {
+        for (final p in parts) {
+          if (p is Map) {
+            serviceParts.add(
+              ServicePart.fromJson(Map<String, dynamic>.from(p)),
+            );
+          }
+        }
+      }
     }
 
     final billing = map['billing'];
@@ -262,6 +440,19 @@ class Booking {
       driverPhone = driver['phone']?.toString();
     }
 
+    final carWash = map['carWash'] is Map
+        ? CarWashDetails.fromJson(Map<String, dynamic>.from(map['carWash']))
+        : null;
+    final batteryTire = map['batteryTire'] is Map
+        ? BatteryTireDetails.fromJson(
+            Map<String, dynamic>.from(map['batteryTire']),
+          )
+        : null;
+
+    final statusHistory = (map['statusHistory'] as List? ?? [])
+        .map((e) => Map<String, String>.from(e as Map))
+        .toList();
+
     return Booking(
       id: (map['_id'] ?? '').toString(),
       orderNumber: map['orderNumber'] is num
@@ -284,12 +475,17 @@ class Booking {
       beforeServicePhotos: beforeServicePhotos,
       duringServicePhotos: duringServicePhotos,
       postServicePhotos: postServicePhotos,
+      serviceParts: serviceParts,
       invoiceUrl: invoiceUrl,
       driverName: driverName,
       driverPhone: driverPhone,
       pickupRequired: map['pickupRequired'] != false,
       inspectionCompletedAt: inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt,
+      carWash: carWash,
+      batteryTire: batteryTire,
+      inspection: inspection,
+      statusHistory: statusHistory,
     );
   }
 

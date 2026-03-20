@@ -16,8 +16,8 @@ class PillBottomBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final gradient = isDark
-        ? LinearGradient(
-            colors: [const Color(0xFF1E293B), const Color(0xFF0F172A)],
+        ? const LinearGradient(
+            colors: [Colors.black, Colors.black],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
@@ -184,33 +184,28 @@ class GlassNavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
+      child: Container(
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: const BoxDecoration(color: Colors.transparent),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedScale(
-              scale: isActive ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutBack,
+            SizedBox(
               child: isActive
                   ? ShaderMask(
                       shaderCallback: (bounds) => gradient.createShader(bounds),
                       child: Icon(icon, color: Colors.white, size: 24),
                     )
-                  : Icon(icon, color: inactiveColor, size: 24),
+                  : Icon(icon, color: inactiveColor, size: 22),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
+                color: isActive ? const Color(0xFF22D3EE) : inactiveColor,
                 fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? const Color(0xFF2563EB) : inactiveColor,
+                fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
               ),
             ),
           ],

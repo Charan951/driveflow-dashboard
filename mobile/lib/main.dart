@@ -15,6 +15,7 @@ import 'pages/my_vehicles_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/my_bookings_page.dart';
 import 'pages/speshway_vehiclecare_dashboard_page.dart';
+import 'pages/add_vehicle_page.dart';
 import 'pages/book_service_flow_page.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
@@ -59,6 +60,35 @@ void main() async {
   );
 }
 
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // Keep animations for splash, register, and login
+    final name = route.settings.name;
+    if (name == '/splash' ||
+        name == '/login' ||
+        name == '/register' ||
+        name == '/') {
+      return FadeUpwardsPageTransitionsBuilder().buildTransitions(
+        route,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    return child;
+  }
+}
+
 class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
   final ThemeProvider themeProvider;
@@ -95,7 +125,7 @@ class MyApp extends StatelessWidget {
             title: 'Speshway VehicleCare',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
-            themeAnimationDuration: const Duration(milliseconds: 150),
+            themeAnimationDuration: Duration.zero,
             builder: (context, child) {
               return child ?? const SizedBox.shrink();
             },
@@ -112,35 +142,57 @@ class MyApp extends StatelessWidget {
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
                 },
               ),
             ),
             darkTheme: ThemeData(
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.dark,
+              colorScheme: const ColorScheme.dark(
+                primary: Colors.blue,
                 surface: Colors.black,
+                onSurface: Colors.white,
               ),
               scaffoldBackgroundColor: Colors.black,
+              textTheme: const TextTheme(
+                displayLarge: TextStyle(color: Colors.white),
+                displayMedium: TextStyle(color: Colors.white),
+                displaySmall: TextStyle(color: Colors.white),
+                headlineLarge: TextStyle(color: Colors.white),
+                headlineMedium: TextStyle(color: Colors.white),
+                headlineSmall: TextStyle(color: Colors.white),
+                titleLarge: TextStyle(color: Colors.white),
+                titleMedium: TextStyle(color: Colors.white),
+                titleSmall: TextStyle(color: Colors.white),
+                bodyLarge: TextStyle(color: Colors.white),
+                bodyMedium: TextStyle(color: Colors.white),
+                bodySmall: TextStyle(color: Colors.white),
+                labelLarge: TextStyle(color: Colors.white),
+                labelMedium: TextStyle(color: Colors.white),
+                labelSmall: TextStyle(color: Colors.white),
+              ),
               appBarTheme: const AppBarTheme(
                 backgroundColor: Colors.black,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
+                titleTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
                 iconTheme: IconThemeData(color: Colors.white),
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
                 },
               ),
             ),
@@ -155,6 +207,7 @@ class MyApp extends StatelessWidget {
               '/bookings': (_) => const MyBookingsPage(),
               '/payments': (_) => const MyPaymentsPage(),
               '/vehicles': (_) => const MyVehiclesPage(),
+              '/add-vehicle': (_) => const AddVehiclePage(),
               '/notifications': (_) => const NotificationsPage(),
               '/insurance': (_) => const _TabRedirect(index: 1),
               '/documents': (_) => const DocumentsPage(),
@@ -212,7 +265,7 @@ class _TabRedirect extends StatelessWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final nav = context.read<NavigationProvider>();
       final args = ModalRoute.of(context)?.settings.arguments;
-      nav.setTab(index, arguments: args as Map<String, dynamic>?);
+      nav.setTab(index, arguments: args);
     });
     return const MainNavigationPage();
   }

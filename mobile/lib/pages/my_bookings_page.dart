@@ -22,8 +22,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   String? _error;
   List<Booking> _bookings = const [];
 
-  Color get _backgroundStart => const Color(0xFF020617);
-  Color get _backgroundEnd => const Color(0xFF020617);
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
@@ -239,31 +237,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       body: Stack(
         children: [
           if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1.2),
-                  radius: 1.4,
-                  colors: [
-                    _accentPurple.withValues(alpha: 0.14),
-                    _accentBlue.withValues(alpha: 0.06),
-                    _backgroundStart,
-                  ],
-                ),
-              ),
-            )
+            Container(color: Colors.black)
           else
             Container(color: Colors.white),
-          if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
-                ),
-              ),
-            ),
           RefreshIndicator(
             onRefresh: _load,
             child: _loading
@@ -295,7 +271,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                               _error!,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.white70),
+                                  ?.copyWith(color: Colors.white),
                             ),
                             const SizedBox(height: 12),
                             OutlinedButton(
@@ -432,12 +408,10 @@ class _BookingCardState extends State<_BookingCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          color: isDark ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFE5E7EB),
+            color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
           ),
           boxShadow: [
             BoxShadow(
@@ -577,13 +551,13 @@ class _BookingCardState extends State<_BookingCard> {
                     Icon(
                       Icons.schedule,
                       size: 16,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isDark ? Colors.white : Colors.black54,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       widget.dateTimeLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white70 : Colors.black54,
+                        color: isDark ? Colors.white : Colors.black54,
                       ),
                     ),
                   ],
@@ -604,7 +578,7 @@ class _BookingCardState extends State<_BookingCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isDark ? Colors.white : Colors.black54,
                     ),
                   ),
                 ],
@@ -613,7 +587,7 @@ class _BookingCardState extends State<_BookingCard> {
                   Text(
                     widget.extra!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white60 : Colors.black45,
+                      color: isDark ? Colors.white : Colors.black45,
                     ),
                   ),
                 ],

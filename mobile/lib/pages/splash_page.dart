@@ -246,15 +246,7 @@ class _SplashBackground extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xCC0B1220), Color(0xE60B1220)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
+        Container(decoration: const BoxDecoration(color: Colors.black)),
         CustomPaint(
           painter: _SplashParticlePainter(t: t),
           isComplex: true,

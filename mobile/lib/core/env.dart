@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -28,8 +28,9 @@ class Env {
   static String get razorpayKey {
     const key = String.fromEnvironment('RAZORPAY_KEY');
     if (key.isNotEmpty) return key;
+    // TEST KEY: Matches backend and frontend (rzp_test_RQ739na1YxOpy5)
     // RED: Replace with LIVE KEY (rzp_live_...) for production
-    return useProduction ? 'REPLACE_WITH_LIVE_KEY' : 'rzp_test_RAcgtscfNdp1cg';
+    return useProduction ? 'REPLACE_WITH_LIVE_KEY' : 'rzp_test_RQ739na1YxOpy5';
   }
 }
 

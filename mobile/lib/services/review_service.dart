@@ -3,13 +3,6 @@ import '../core/api_client.dart';
 class ReviewService {
   final ApiClient _api = ApiClient();
 
-  Future<Map<String, dynamic>> checkPendingFeedback() async {
-    final res = await _api.getAny('/reviews/check-pending-feedback');
-    if (res is Map<String, dynamic>) return res;
-    if (res is Map) return Map<String, dynamic>.from(res);
-    return {'hasPending': false};
-  }
-
   Future<List<Map<String, dynamic>>> getBookingReviews(String bookingId) async {
     final res = await _api.getAny('/reviews/all');
     if (res is List) {

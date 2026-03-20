@@ -121,6 +121,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
       body: RefreshIndicator(
@@ -157,14 +158,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     onTap: () => _handleMarkAsRead(item),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: item.isRead
-                            ? Theme.of(context).cardColor.withValues(alpha: 0.9)
-                            : color.withValues(alpha: 0.06),
+                        color: isDark
+                            ? Colors.black
+                            : (item.isRead
+                                  ? Theme.of(
+                                      context,
+                                    ).cardColor.withValues(alpha: 0.9)
+                                  : color.withValues(alpha: 0.06)),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: item.isRead
-                              ? Colors.grey.withValues(alpha: 0.2)
-                              : color.withValues(alpha: 0.4),
+                          color: isDark
+                              ? Colors.grey.shade900
+                              : (item.isRead
+                                    ? Colors.grey.withValues(alpha: 0.2)
+                                    : color.withValues(alpha: 0.4)),
                         ),
                       ),
                       padding: const EdgeInsets.all(12),

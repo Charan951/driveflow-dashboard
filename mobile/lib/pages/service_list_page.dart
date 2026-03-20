@@ -110,7 +110,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final textColor = isDark ? Colors.white : Colors.black87;
-        final subTextColor = isDark ? Colors.white70 : Colors.black54;
+        final subTextColor = isDark ? Colors.white : Colors.black54;
         final imageUrl = _resolveImageUrl(service.image);
 
         return DraggableScrollableSheet(
@@ -119,10 +119,11 @@ class _ServiceListPageState extends State<ServiceListPage> {
           maxChildSize: 0.9,
           builder: (context, scrollController) => Container(
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? Colors.black : Colors.white,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
+              border: isDark ? Border.all(color: Colors.grey.shade900) : null,
             ),
             padding: const EdgeInsets.all(24),
             child: ListView(
@@ -332,58 +333,58 @@ class _ServiceListPageState extends State<ServiceListPage> {
       extendBody: true,
       drawer: const CustomerDrawer(currentRouteName: '/services'),
       body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              _buildAppBar(context, textColor, subTextColor),
-              Expanded(
-                child: FutureBuilder<List<ServiceItem>>(
-                  future: _future,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          'Error: ${snapshot.error}',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      );
-                    }
-
-                    final allServices = snapshot.data ?? [];
-                    final services = _applyFilter(allServices);
-
-                    if (services.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No services found.',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                      itemCount: services.length,
-                      itemBuilder: (context, index) {
-                        final s = services[index];
-                        return _ServiceCard(
-                          service: s,
-                          onTap: () => _showServiceDetails(s, allServices),
-                        );
-                      },
+        bottom: false,
+        child: Column(
+          children: [
+            _buildAppBar(context, textColor, subTextColor),
+            Expanded(
+              child: FutureBuilder<List<ServiceItem>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
                     );
-                  },
-                ),
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  final allServices = snapshot.data ?? [];
+                  final services = _applyFilter(allServices);
+
+                  if (services.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No services found.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    itemCount: services.length,
+                    itemBuilder: (context, index) {
+                      final s = services[index];
+                      return _ServiceCard(
+                        service: s,
+                        onTap: () => _showServiceDetails(s, allServices),
+                      );
+                    },
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildAppBar(
@@ -401,7 +402,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
             children: [
               Builder(
                 builder: (context) => IconButton(
-                  icon: Icon(Icons.menu, color: isDark ? Colors.white : Colors.black),
+                  icon: Icon(
+                    Icons.menu,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -420,7 +424,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
                     Text(
                       'Quality care for your vehicle',
                       style: TextStyle(
-                        color: isDark ? Colors.white.withAlpha(153) : Colors.black.withAlpha(153),
+                        color: isDark
+                            ? Colors.white.withAlpha(153)
+                            : Colors.black.withAlpha(153),
                         fontSize: 14,
                       ),
                     ),
@@ -433,19 +439,28 @@ class _ServiceListPageState extends State<ServiceListPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(20),
+              color: isDark ? Colors.black : Colors.black.withAlpha(20),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isDark ? Colors.white.withAlpha(25) : Colors.black.withAlpha(25)),
+              border: Border.all(
+                color: isDark
+                    ? Colors.grey.shade900
+                    : Colors.black.withAlpha(25),
+              ),
             ),
             child: TextField(
               onChanged: (v) => setState(() => _filterKey = v),
               decoration: InputDecoration(
                 hintText: 'Search services...',
                 hintStyle: TextStyle(
-                  color: isDark ? Colors.white.withAlpha(102) : Colors.black.withAlpha(102),
+                  color: isDark
+                      ? Colors.white.withAlpha(102)
+                      : Colors.black.withAlpha(102),
                 ),
                 border: InputBorder.none,
-                icon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.black54),
+                icon: Icon(
+                  Icons.search,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                ),
               ),
             ),
           ),
@@ -469,9 +484,11 @@ class _ServiceCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(12),
+        color: isDark ? Colors.black : Colors.black.withAlpha(12),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(20)),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade900 : Colors.black.withAlpha(20),
+        ),
       ),
       child: InkWell(
         onTap: onTap,
@@ -485,7 +502,9 @@ class _ServiceCard extends StatelessWidget {
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: isDark ? Colors.white.withAlpha(25) : Colors.black.withAlpha(25),
+                  color: isDark
+                      ? Colors.white.withAlpha(25)
+                      : Colors.black.withAlpha(25),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -502,7 +521,10 @@ class _ServiceCard extends StatelessWidget {
                             color: Colors.white24,
                           ),
                         )
-                      : Icon(Icons.build, color: isDark ? Colors.white38 : Colors.black38),
+                      : Icon(
+                          Icons.build,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -523,7 +545,9 @@ class _ServiceCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: isDark ? Colors.white.withAlpha(127) : Colors.black.withAlpha(127),
+                        color: isDark
+                            ? Colors.white.withAlpha(127)
+                            : Colors.black.withAlpha(127),
                         fontSize: 12,
                       ),
                     ),

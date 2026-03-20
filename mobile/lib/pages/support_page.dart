@@ -22,8 +22,6 @@ class _SupportPageState extends State<SupportPage> {
   bool _isReplying = false;
   String? _currentUserId;
 
-  Color get _backgroundStart => const Color(0xFF020617);
-  Color get _backgroundEnd => const Color(0xFF020617);
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
 
@@ -328,31 +326,9 @@ class _SupportPageState extends State<SupportPage> {
       body: Stack(
         children: [
           if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1.2),
-                  radius: 1.4,
-                  colors: [
-                    _accentPurple.withValues(alpha: 0.14),
-                    _accentBlue.withValues(alpha: 0.06),
-                    _backgroundStart,
-                  ],
-                ),
-              ),
-            )
+            Container(color: Colors.black)
           else
             Container(color: Colors.white),
-          if (isDark)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.9), _backgroundEnd],
-                ),
-              ),
-            ),
           _selectedTicket != null
               ? _buildTicketConversation(isDark)
               : RefreshIndicator(
@@ -371,12 +347,12 @@ class _SupportPageState extends State<SupportPage> {
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: isDark
-                                      ? Colors.white.withValues(alpha: 0.06)
+                                      ? Colors.black
                                       : const Color(0xFFF9FAFB),
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.08)
+                                        ? Colors.grey.shade900
                                         : const Color(0xFFE5E7EB),
                                   ),
                                   boxShadow: [

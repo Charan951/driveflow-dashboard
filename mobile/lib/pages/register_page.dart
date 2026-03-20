@@ -81,7 +81,7 @@ class _RegisterPageState extends State<RegisterPage>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: Colors.black,
                     elevation: 12,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
@@ -547,8 +547,8 @@ class _GlassField extends StatelessWidget {
       onChanged: (_) => onChanged?.call(),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: Colors.white60),
-        prefixIcon: Icon(prefixIcon, color: Colors.white70),
+        hintStyle: const TextStyle(color: Colors.white),
+        prefixIcon: Icon(prefixIcon, color: Colors.white),
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.10),

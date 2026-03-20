@@ -9,7 +9,7 @@ class BookingService {
   static DateTime? _lastMyBookingsFetchAt;
   static const Duration _cacheDuration = Duration(minutes: 2);
 
-  Future<Booking> createBooking({
+  Future<dynamic> createBooking({
     required String vehicleId,
     required List<String> serviceIds,
     required DateTime date,
@@ -26,6 +26,12 @@ class BookingService {
         if (location != null) 'location': location.toJson(),
       },
     );
+
+    // Handle special "requiresPayment" response for Car Wash, Battery, Tires
+    if (res is Map<String, dynamic> && res['requiresPayment'] == true) {
+      return res; // Return the full response for special handling
+    }
+
     if (res is Map<String, dynamic>) return Booking.fromJson(res);
     if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
@@ -77,10 +83,81 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
-  Future<Map<String, dynamic>> processDummyPayment(String bookingId) async {
+  Future<Map<String, dynamic>> generateDeliveryOtp(String id) async {
+    return await _api.postJson(
+      '${ApiEndpoints.bookings}/$id/generate-otp',
+      body: {},
+    );
+  }
+
+  Future<Map<String, dynamic>> verifyDeliveryOtp(String id, String otp) async {
+    return await _api.postJson(
+      '${ApiEndpoints.bookings}/$id/verify-otp',
+      body: {'otp': otp},
+    );
+  }
+
+  Future<Booking> updateBookingDetails(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _api.putAny(
+      '${ApiEndpoints.bookings}/$id/details',
+      body: data,
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Booking> batteryTireApproval(
+    String id, {
+    required String status,
+    num? price,
+    String? image,
+    String? notes,
+  }) async {
+    final res = await _api.putAny(
+      '${ApiEndpoints.bookings}/$id/battery-tire-approval',
+      body: {'status': status, 'price': price, 'image': image, 'notes': notes}
+        ..removeWhere((k, v) => v == null),
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Booking> addWarranty(
+    String id, {
+    required String name,
+    required num price,
+    required int warrantyMonths,
+    String? image,
+  }) async {
+    final res = await _api.putAny(
+      '${ApiEndpoints.bookings}/$id/warranty',
+      body: {
+        'name': name,
+        'price': price,
+        'warrantyMonths': warrantyMonths,
+        'image': image,
+      }..removeWhere((k, v) => v == null),
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Map<String, dynamic>> processDummyPayment(
+    String bookingId, {
+    Map<String, dynamic>? tempBookingData,
+  }) async {
     return await _api.postJson(
       ApiEndpoints.paymentsDummyPay,
-      body: {'bookingId': bookingId},
+      body: {
+        'bookingId': tempBookingData == null ? bookingId : null,
+        'tempBookingData': tempBookingData,
+      }..removeWhere((k, v) => v == null),
     );
   }
 }
