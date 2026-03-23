@@ -450,18 +450,20 @@ class _PaymentCardState extends State<_PaymentCard> {
                       ),
                     ),
                     const Spacer(),
-                    if (b.paymentStatus != 'paid')
-                      TextButton(
+                    if (b.paymentStatus != 'paid' && b.totalAmount > 0)
+                      ElevatedButton(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Payment gateway integration coming soon',
-                              ),
-                            ),
-                          );
+                          Navigator.pushNamed(context, '/track', arguments: b.id);
                         },
-                        child: const Text('Pay Now'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Pay Now', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),

@@ -46,30 +46,41 @@ class PaymentData {
 class PaymentService {
   final ApiClient _api = ApiClient();
 
-  // Dummy payment (replaces Razorpay)
-  Future<Map<String, dynamic>> processDummyPayment(
-    String bookingId, {
+  // Create Razorpay order
+  Future<Map<String, dynamic>> createOrder({
+    String? bookingId,
+    num? amount,
+    String currency = 'INR',
     Map<String, dynamic>? tempBookingData,
   }) async {
-    return await _api.postJson(
-      ApiEndpoints.paymentsDummyPay,
-      body: {
-        'bookingId': tempBookingData != null ? null : bookingId,
-        'tempBookingData': ?tempBookingData,
-      },
-    );
-  }
+    final Map<String, dynamic> body = {
+      'currency': currency,
+    };
 
-  // Legacy Razorpay endpoints
-  Future<Map<String, dynamic>> createOrder(String bookingId) async {
-    return await _api.postJson(
-      ApiEndpoints.paymentsCreateOrder,
-      body: {'bookingId': bookingId},
-    );
+    if (bookingId != null && bookingId.isNotEmpty && bookingId != 'undefined' && bookingId != 'null') {
+      body['bookingId'] = bookingId;
+    }
+
+    if (amount != null) {
+      body['amount'] = amount;
+    }
+
+    if (tempBookingData != null) {
+      body['tempBookingData'] = tempBookingData;
+    }
+
+    final res = await _api.postAny(ApiEndpoints.paymentsCreateOrder, body: body);
+    if (res is Map<String, dynamic> && res['success'] == true) {
+      return res['data'] ?? res;
+    }
+    if (res is Map<String, dynamic>) return res;
+    throw Exception('Failed to create payment order');
   }
 
   Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) async {
-    return await _api.postJson(ApiEndpoints.paymentsVerifyPayment, body: data);
+    final res = await _api.postAny(ApiEndpoints.paymentsVerifyPayment, body: data);
+    if (res is Map<String, dynamic>) return res;
+    throw Exception('Failed to verify payment');
   }
 
   Future<List<PaymentData>> getAllPayments() async {

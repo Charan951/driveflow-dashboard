@@ -57,6 +57,35 @@
 		<string>whatsapp</string>
 		<string>https</string>
 		<string>http</string>
+		<string>googlegmail</string>
+		<string>comgooglemaps</string>
+		<string>citymapper</string>
+		<string>uber</string>
+		<string>lyft</string>
+		<string>transit</string>
+		<string>waze</string>
+		<string>yandexnavi</string>
+		<string>moovit</string>
+		<string>yandextaxi</string>
+		<string>yandexmaps</string>
+		<string>kakaomap</string>
+		<string>szn-mapy</string>
+		<string>mapsme</string>
+		<string>osmandmaps</string>
+		<string>gett</string>
+		<string>nmap</string>
+		<string>dgis</string>
+		<string>lftgpas0</string>
+		<string>itms-apps</string>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>tez</string>
+		<string>upi</string>
+		<string>whatsapp</string>
+		<string>mobikwik</string>
+		<string>freecharge</string>
+		<string>airtelpay</string>
 	</array>
 </dict>
 </plist>

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/product_service.dart';
 import '../services/booking_service.dart';
 import '../services/vehicle_service.dart';
 import '../models/booking.dart';
+import '../models/service.dart';
+import '../models/vehicle.dart';
+import '../state/navigation_provider.dart';
 
 class TiresBatteryPage extends StatefulWidget {
   const TiresBatteryPage({super.key});
@@ -22,6 +26,7 @@ class _TiresBatteryPageState extends State<TiresBatteryPage>
   String? _error;
   List<Product> _products = [];
   List<Booking> _bookings = [];
+  List<Vehicle> _vehicles = [];
 
   @override
   void initState() {
@@ -45,6 +50,7 @@ class _TiresBatteryPageState extends State<TiresBatteryPage>
       if (mounted) {
         setState(() {
           _products = results[0] as List<Product>;
+          _vehicles = results[1] as List<Vehicle>;
           _bookings = results[2] as List<Booking>;
           _loading = false;
         });
@@ -57,6 +63,32 @@ class _TiresBatteryPageState extends State<TiresBatteryPage>
         });
       }
     }
+  }
+
+  void _handleOrderNow(Product product) {
+    if (_vehicles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add a vehicle first')),
+      );
+      return;
+    }
+
+    // Map Product to a temporary ServiceItem for the booking flow
+    final serviceItem = ServiceItem(
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category.toLowerCase().contains('tire')
+          ? 'Tyres'
+          : 'Battery',
+      description: product.description,
+      image: product.image,
+    );
+
+    // Redirect to the booking flow with this specific item pre-selected
+    final nav = context.read<NavigationProvider>();
+    nav.setArguments(serviceItem);
+    Navigator.pushNamed(context, '/book', arguments: serviceItem.category);
   }
 
   @override
@@ -192,13 +224,7 @@ class _TiresBatteryPageState extends State<TiresBatteryPage>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${product.name} added to cart!'),
-                        ),
-                      );
-                    },
+                    onPressed: () => _handleOrderNow(product),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,

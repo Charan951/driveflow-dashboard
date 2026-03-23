@@ -25,6 +25,7 @@ import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
 import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/store/authStore';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import L from 'leaflet';
@@ -58,6 +59,7 @@ import { useTracking } from '@/hooks/use-tracking';
 const TrackServicePage: React.FC = () => {
   const { id } = useParams();
   const { setActiveBookingId } = useTracking();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     if (id) {
@@ -82,6 +84,17 @@ const TrackServicePage: React.FC = () => {
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
 
+  const isCarWashService = order?.carWash?.isCarWashService || false;
+
+  const isBatteryOrTire = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof (service as any) !== 'object' || !(service as any).category) return false;
+      const cat = (service as any).category.toLowerCase();
+      return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+    });
+  
+  const activeStatusFlow: readonly BookingStatus[] = getFlowForService(order?.services || []);
+
   // Live Tracking State
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [eta, setEta] = useState<ETAResponse | null>(null);
@@ -93,6 +106,29 @@ const TrackServicePage: React.FC = () => {
   useEffect(() => {
     orderRef.current = order;
   }, [order]);
+
+  useEffect(() => {
+    // Load Razorpay script
+    const loadRazorpayScript = () => {
+      // Check if Razorpay is already loaded
+      if ((window as any).Razorpay) {
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => {
+        console.log('Razorpay script loaded successfully');
+      };
+      script.onerror = () => {
+        console.error('Failed to load Razorpay script');
+      };
+      document.body.appendChild(script);
+    };
+
+    loadRazorpayScript();
+  }, []);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -484,26 +520,82 @@ const TrackServicePage: React.FC = () => {
   };
 
   const handlePayment = async () => {
-    if (!order) return;
+    if (!order || !user) return;
+    
+    // Check if Razorpay is loaded
+    if (!(window as any).Razorpay) {
+      toast.error('Payment gateway not loaded. Please refresh the page.');
+      return;
+    }
     
     setIsPaymentLoading(true);
 
     try {
-      await paymentService.processDummyPayment(order._id);
+      // Use Razorpay for payment
+      const orderData = await paymentService.createOrder(order._id, order.totalAmount);
       
-      if (isCarWashService) {
-        toast.success('Payment Successful! Your car wash booking is now confirmed. Admin will assign staff shortly.');
-      } else {
-        toast.success('Payment Successful!');
-      }
+      console.log('Order created for existing booking:', orderData);
       
-      const updatedOrder = await bookingService.getBookingById(order._id);
-      setOrder(updatedOrder);
-    } catch (error) {
-        console.error("Payment Error", error);
-        toast.error("Payment failed to initialize");
-    } finally {
-        setIsPaymentLoading(false);
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'DriveFlow',
+        description: 'Service Payment',
+        order_id: orderData.orderId,
+        handler: async (response: any) => {
+          try {
+            console.log('Payment response:', response);
+            
+            // Verify payment
+            const verificationData = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              bookingId: order._id
+            };
+
+            await paymentService.verifyPayment(verificationData);
+            
+            if (isCarWashService) {
+              toast.success('Payment Successful! Your car wash booking is now confirmed. Admin will assign staff shortly.');
+            } else {
+              toast.success('Payment Successful!');
+            }
+            
+            const updatedOrder = await bookingService.getBookingById(order._id);
+            setOrder(updatedOrder);
+          } catch (verificationError: any) {
+            console.error('Payment verification failed:', verificationError);
+            toast.error('Payment verification failed. Please contact support.');
+          } finally {
+            setIsPaymentLoading(false);
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone || ''
+        },
+        theme: {
+          color: '#3B82F6'
+        },
+        modal: {
+          ondismiss: () => {
+            console.log('Payment modal dismissed');
+            setIsPaymentLoading(false);
+          }
+        }
+      };
+
+      console.log('Opening Razorpay with options:', options);
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+      
+    } catch (error: any) {
+      console.error("Payment Error", error);
+      toast.error(error.response?.data?.message || "Failed to initiate payment");
+      setIsPaymentLoading(false);
     }
   };
 
@@ -543,17 +635,6 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  // Check if this is a car wash service
-  const isCarWashService = order.carWash?.isCarWashService || false;
-
-  const isBatteryOrTire = Array.isArray(order?.services) && 
-    order.services.some(service => {
-      if (typeof service !== 'object' || !service.category) return false;
-      const cat = service.category.toLowerCase();
-      return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
-    });
-  
-  const activeStatusFlow: readonly BookingStatus[] = getFlowForService(order.services || []);
   const currentStatusIndex = Math.max(0, activeStatusFlow.indexOf(order.status as BookingStatus));
 
   const timelineSteps = activeStatusFlow.map((s) => {
@@ -1001,13 +1082,15 @@ const TrackServicePage: React.FC = () => {
               </div>
 
               {order.paymentStatus !== 'paid' && (
-                <button
-                  className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                  onClick={handlePayment}
-                  disabled={isPaymentLoading}
-                >
-                  {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                    onClick={handlePayment}
+                    disabled={isPaymentLoading}
+                  >
+                    {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
+                  </button>
+                </div>
               )}
             </motion.div>
 

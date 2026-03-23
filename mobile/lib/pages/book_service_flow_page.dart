@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../models/service.dart';
 import '../core/env.dart';
@@ -15,6 +16,7 @@ import '../models/booking.dart';
 import '../services/catalog_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/booking_service.dart';
+import '../services/payment_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
@@ -35,6 +37,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
+  final _paymentService = PaymentService();
+  late Razorpay _razorpay;
+  Map<String, dynamic>? _currentTempBookingData;
 
   List<Vehicle> _vehicles = [];
   List<ServiceItem> _allServices = [];
@@ -73,6 +78,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     super.initState();
     _fetchInitialData();
 
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
     if (widget.initialCategory == 'Tyres') {
       _activeSubCategory = 'Tyres';
     }
@@ -89,6 +99,84 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    // Show a loading dialog while verifying
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final verifyData = {
+        'razorpay_order_id': response.orderId,
+        'razorpay_payment_id': response.paymentId,
+        'razorpay_signature': response.signature,
+        'tempBookingData': _currentTempBookingData,
+      };
+
+      final result = await _paymentService.verifyPayment(verifyData);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (result['success'] == true || result['bookingId'] != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment successful! Booking created.'),
+            ),
+          );
+
+          context.read<SocketService>().sendEvent('booking_created');
+
+          Navigator.pushReplacementNamed(
+            context,
+            '/track',
+            arguments:
+                result['bookingId'] ?? result['data']?['booking']?['_id'],
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Payment verification failed: ${result['message']}',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Verification error: $e')));
+      }
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment failed: ${response.message ?? "Unknown error"}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet: ${response.walletName}')),
+    );
   }
 
   @override
@@ -1424,42 +1512,39 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
 
     try {
-      // In a real app, you'd integrate Razorpay/Stripe here.
-      // For now, we'll simulate a dummy payment like the frontend does.
-      final result = await _bookingService.processDummyPayment(
-        tempBookingId,
+      // Create Razorpay order
+      final orderData = await _paymentService.createOrder(
         tempBookingData: tempBookingData,
       );
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
-        if (result['success'] == true || result['bookingId'] != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment successful! Booking created.'),
-            ),
-          );
+        final user = context.read<AuthProvider>().user;
+        _currentTempBookingData = tempBookingData;
 
-          context.read<SocketService>().sendEvent('booking_created');
+        final options = {
+          'key': orderData['key'] ?? Env.razorpayKey,
+          'amount': orderData['amount'],
+          'name': 'DriveFlow',
+          'order_id': orderData['orderId'],
+          'description': 'Service Payment',
+          'prefill': {'contact': user?.phone ?? '', 'email': user?.email ?? ''},
+          'external': {
+            'wallets': ['paytm', 'phonepe', 'tez', 'mobikwik', 'freecharge'],
+          },
+          'upi_link': true,
+          'retry': {'enabled': true, 'max_count': 1},
+        };
 
-          Navigator.pushReplacementNamed(
-            context,
-            '/track',
-            arguments: result['bookingId'],
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Payment failed: ${result['message']}')),
-          );
-        }
+        _razorpay.open(options);
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Payment processing error: $e')));
+        ).showSnackBar(SnackBar(content: Text('Payment initiation error: $e')));
       }
     }
   }

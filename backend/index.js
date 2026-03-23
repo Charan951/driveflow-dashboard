@@ -4,7 +4,9 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import http from 'http';
 import compression from 'compression';
+import helmet from 'helmet';
 import { initSocket } from './socket.js';
+import { errorHandler, logger } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import serviceRoutes from './routes/serviceRoutes.js';
@@ -27,6 +29,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 dotenv.config();
 
 const app = express();
+// Force nodemon restart for payment validation changes
 const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);
@@ -90,11 +93,20 @@ const corsOptions = {
 };
 
 // Middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for API
+  crossOriginEmbedderPolicy: false
+}));
 app.use(compression());
 app.use(cors(corsOptions));
 // Handle preflight for all routes
 app.options(/(.*)/, cors(corsOptions));
-app.use(express.json());
+
+// Raw body parser for webhooks (before express.json())
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -127,4 +139,23 @@ app.get('/', (_, res) => {
   res.send('DriveFlow API is running');
 });
 
-server.listen(PORT);
+// Error handling middleware (must be last)
+app.use(errorHandler);
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+  logger.error('Unhandled Promise Rejection:', err);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+server.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
+});

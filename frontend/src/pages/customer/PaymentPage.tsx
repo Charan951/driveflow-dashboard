@@ -3,11 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/store/authStore';
+import RazorpayPayment from '@/components/RazorpayPayment';
+import RazorpayTest from '@/components/RazorpayTest';
 import { paymentService } from '@/services/paymentService';
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [tempBookingData, setTempBookingData] = useState<any>(null);
   const [tempBookingId, setTempBookingId] = useState<string>('');
@@ -21,7 +25,36 @@ const PaymentPage: React.FC = () => {
       // If no temp data, redirect back
       toast.error('No booking data found');
       navigate('/book-service');
+      return;
     }
+
+    // Load Razorpay script
+    const loadRazorpayScript = () => {
+      return new Promise((resolve, reject) => {
+        // Check if Razorpay is already loaded
+        if (window.Razorpay) {
+          resolve(true);
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => {
+          console.log('Razorpay script loaded successfully');
+          resolve(true);
+        };
+        script.onerror = () => {
+          console.error('Failed to load Razorpay script');
+          reject(new Error('Failed to load Razorpay script'));
+        };
+        document.body.appendChild(script);
+      });
+    };
+
+    loadRazorpayScript().catch((error) => {
+      console.error('Razorpay script loading error:', error);
+      toast.error('Failed to load payment gateway. Please refresh the page.');
+    });
   }, [location.state, navigate]);
 
   // Determine service type for display
@@ -50,23 +83,16 @@ const PaymentPage: React.FC = () => {
 
   const serviceInfo = getServiceInfo();
 
-  const handlePayment = async () => {
-    if (!tempBookingData) return;
+  const handlePaymentSuccess = (paymentData: any) => {
+    setIsLoading(false);
+    toast.success('Payment successful! Your service booking has been created.');
+    navigate(`/track/${paymentData.bookingId || paymentData.booking?._id}`, { replace: true });
+  };
 
-    setIsLoading(true);
-    try {
-      const result = await paymentService.processDummyPayment('', tempBookingData);
-      
-      toast.success('Payment successful! Your service booking has been created.');
-      
-      // Navigate to the newly created booking's tracking page
-      navigate(`/track/${result.bookingId}`);
-    } catch (error: any) {
-      console.error('Payment Error:', error);
-      toast.error(error.response?.data?.message || 'Payment failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handlePaymentFailure = (error: any) => {
+    setIsLoading(false);
+    console.error('Payment Error:', error);
+    // Error is already toasted in RazorpayPayment component
   };
 
   if (!tempBookingData) {
@@ -209,23 +235,25 @@ const PaymentPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="pt-4"
+        className="pt-4 space-y-4"
       >
-        <button
-          onClick={handlePayment}
-          disabled={isLoading}
-          className="w-full py-3 sm:py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-        >
-          {isLoading ? (
-            <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          ) : (
-            <>
-              <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Pay ₹{tempBookingData.totalAmount} & Create Booking</span>
-              <span className="sm:hidden">Pay ₹{tempBookingData.totalAmount}</span>
-            </>
-          )}
-        </button>
+        {/* Razorpay Payment Component */}
+        {user && (
+          <RazorpayPayment
+            bookingId={tempBookingId || undefined}
+            amount={tempBookingData.totalAmount}
+            tempBookingData={tempBookingData}
+            userDetails={{
+              name: user.name,
+              email: user.email,
+              phone: user.phone || ''
+            }}
+            onSuccess={handlePaymentSuccess}
+            onFailure={handlePaymentFailure}
+            disabled={isLoading}
+            className="text-sm sm:text-base"
+          />
+        )}
       </motion.div>
 
       {/* Security Notice */}
@@ -233,10 +261,14 @@ const PaymentPage: React.FC = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="text-center text-xs text-muted-foreground"
+        className="text-center text-xs text-muted-foreground space-y-1"
       >
-        <p>🔒 This is a demo payment. No actual payment will be processed.</p>
+        <p>🔒 Your payment information is secure and encrypted</p>
+        <p>Powered by Razorpay - India's most trusted payment gateway</p>
       </motion.div>
+      
+      {/* Development Test Component */}
+      <RazorpayTest />
     </div>
   );
 };
