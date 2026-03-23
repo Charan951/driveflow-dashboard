@@ -21,30 +21,4 @@ const AdminPaymentsPage = () => {
     </div>
   );
 };
-    const csvContent = [
-      headers.join(','),
-      ...filteredPayments.map(p => [
-        p.bookingId,
-        p.user?.name || 'Unknown',
-        new Date(p.date).toLocaleDateString(),
-        p.amount,
-        p.platformFee,
-        p.merchantEarnings,
-        p.status,
-        p.paymentId || 'N/A'
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payments_export_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
-
-  const handleDownloadInvoice = (payment: PaymentData) => {
-    // If merchant has uploaded a bill, prioritize it
-    if (payment.billing?.fileUrl) {
-      window.open(payment.billing.fileUrl, '_blank');
 export default AdminPaymentsPage;
