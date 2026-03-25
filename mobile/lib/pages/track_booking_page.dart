@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -30,7 +31,7 @@ class TrackBookingPage extends StatefulWidget {
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _paymentService = PaymentService();
-  late Razorpay _razorpay;
+  Razorpay? _razorpay;
   final _reviewService = ReviewService();
   final _mapController = MapController();
   final _api = ApiClient();
@@ -68,10 +69,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.addListener(_onSocketUpdate);
     _setupSocketListeners();
 
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    if (!kIsWeb) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    }
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
@@ -226,7 +229,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   @override
   void dispose() {
-    _razorpay.clear();
+    _razorpay?.clear();
     _socketService.removeListener(_onSocketUpdate);
     _socketService.off('liveLocation');
     _socketService.off('bookingUpdated');
@@ -265,6 +268,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final booking = _booking;
     if (booking == null) return;
 
+    debugPrint('Starting payment for booking: ${booking.id}');
     setState(() => _isPaymentLoading = true);
     try {
       // Create Razorpay order
@@ -273,26 +277,57 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         amount: booking.totalAmount,
       );
 
+      debugPrint('Order data received: $orderData');
+
       if (mounted) {
         final user = context.read<AuthProvider>().user;
+        final razorpayKey =
+            (orderData['key'] ?? orderData['razorpay_key'] ?? Env.razorpayKey)
+                .toString();
+        final orderId =
+            (orderData['orderId'] ??
+                    orderData['order_id'] ??
+                    orderData['id'] ??
+                    '')
+                .toString();
+        final amount = (orderData['amount'] as num).toInt();
 
         final options = {
-          'key': orderData['key'] ?? Env.razorpayKey,
-          'amount': orderData['amount'],
-          'name': 'DriveFlow',
-          'order_id': orderData['orderId'],
+          'key': razorpayKey,
+          'amount': amount,
+          'name': 'Speshway',
+          if (orderId.isNotEmpty) 'order_id': orderId,
           'description': 'Service Payment',
-          'prefill': {'contact': user?.phone ?? '', 'email': user?.email ?? ''},
-          'external': {
-            'wallets': ['paytm', 'phonepe', 'tez', 'mobikwik', 'freecharge'],
+          'prefill': {
+            'contact': (user?.phone ?? '').toString(),
+            'email': (user?.email ?? '').toString(),
           },
+          'external': {
+            'wallets': ['paytm', 'phonepe', 'mobikwik', 'freecharge'],
+          },
+          'timeout': 300, // 5 minutes
           'upi_link': true,
           'retry': {'enabled': true, 'max_count': 1},
+          'theme': {'color': '#2563EB'},
         };
 
-        _razorpay.open(options);
+        debugPrint('Opening Razorpay with options: $options');
+        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
+          debugPrint('WARNING: Using placeholder Razorpay key in production!');
+        }
+
+        if (kIsWeb) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payments are only available on mobile'),
+            ),
+          );
+        } else {
+          _razorpay?.open(options);
+        }
       }
     } catch (e) {
+      debugPrint('Payment error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -971,16 +1006,18 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   final booking = _booking!;
                   final isCarWash =
                       booking.services.any((s) {
-                        final cat = s.category?.toLowerCase() ?? '';
-                        return cat.contains('car wash') || cat.contains('wash');
+                        final cat = s.category;
+                        return cat == 'Car Wash' ||
+                            cat == 'Wash' ||
+                            cat == 'Detailing';
                       }) ||
                       booking.carWash?.isCarWashService == true;
                   final isBatteryTire =
                       booking.services.any((s) {
-                        final cat = s.category?.toLowerCase() ?? '';
-                        return cat.contains('battery') ||
-                            cat.contains('tire') ||
-                            cat.contains('tyre');
+                        final cat = s.category;
+                        return cat == 'Battery' ||
+                            cat == 'Tyres' ||
+                            cat == 'Tyre & Battery';
                       }) ||
                       booking.batteryTire?.isBatteryTireService == true;
 
@@ -1248,43 +1285,39 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       const SizedBox(height: 16),
 
                       // Driver/Staff Details Section
-                      _buildInfoCard(
-                        context,
-                        title: isCarWash ? 'Staff Details' : 'Driver Details',
-                        icon: isCarWash ? Icons.person : Icons.two_wheeler,
-                        name: isCarWash
-                            ? booking.carWash?.staffName
-                            : booking.driverName,
-                        phone: isCarWash
-                            ? booking.carWash?.staffPhone
-                            : booking.driverPhone,
-                        subtitle:
-                            (isCarWash
-                                    ? booking.carWash?.staffName
-                                    : booking.driverName) ==
-                                null
-                            ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
-                            : null,
-                        isDark: isDark,
-                        actions:
-                            (isCarWash
-                                    ? booking.carWash?.staffPhone
-                                    : booking.driverPhone) !=
-                                null
-                            ? [
-                                _buildCircleActionButton(
-                                  icon: Icons.phone,
-                                  color: const Color(0xFF22C55E),
-                                  bgColor: const Color(0xFFDCFCE7),
-                                  onTap: () => launchUrl(
-                                    Uri.parse(
-                                      'tel:${isCarWash ? booking.carWash?.staffPhone : booking.driverPhone}',
-                                    ),
+                      (() {
+                        final name =
+                            booking.carWash?.staffName ??
+                            booking.driverName ??
+                            booking.technicianName;
+                        final phone =
+                            booking.carWash?.staffPhone ??
+                            booking.driverPhone ??
+                            booking.technicianPhone;
+
+                        return _buildInfoCard(
+                          context,
+                          title: isCarWash ? 'Staff Details' : 'Driver Details',
+                          icon: isCarWash ? Icons.person : Icons.two_wheeler,
+                          name: name,
+                          phone: phone,
+                          subtitle: name == null
+                              ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
+                              : null,
+                          isDark: isDark,
+                          actions: phone != null
+                              ? [
+                                  _buildCircleActionButton(
+                                    icon: Icons.phone,
+                                    color: const Color(0xFF22C55E),
+                                    bgColor: const Color(0xFFDCFCE7),
+                                    onTap: () =>
+                                        launchUrl(Uri.parse('tel:$phone')),
                                   ),
-                                ),
-                              ]
-                            : [],
-                      ),
+                                ]
+                              : [],
+                        );
+                      })(),
                       const SizedBox(height: 12),
                       // Service Center Section - only for non-car wash
                       if (!isCarWash) ...[
@@ -1493,7 +1526,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ),
                               ],
                             ),
-                            if (isCarWash && booking.paymentStatus == 'pending')
+                            if ((isCarWash || isBatteryTire) &&
+                                booking.paymentStatus == 'pending')
                               Container(
                                 margin: const EdgeInsets.only(top: 12),
                                 padding: const EdgeInsets.all(10),
@@ -1504,18 +1538,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     color: const Color(0xFFFFEDD5),
                                   ),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.warning_amber_rounded,
                                       size: 16,
                                       color: Color(0xFFC2410C),
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Payment required to confirm your car wash booking',
-                                        style: TextStyle(
+                                        isCarWash
+                                            ? 'Payment required to confirm your car wash booking'
+                                            : 'Payment required to confirm your battery/tire booking',
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                           color: Color(0xFFC2410C),
@@ -1525,7 +1561,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   ],
                                 ),
                               ),
-                            if (isCarWash && booking.paymentStatus == 'paid')
+                            if ((isCarWash || isBatteryTire) &&
+                                booking.paymentStatus == 'paid')
                               Container(
                                 margin: const EdgeInsets.only(top: 12),
                                 padding: const EdgeInsets.all(10),
@@ -1546,7 +1583,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Payment completed during booking',
+                                        'Payment completed',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
@@ -1557,8 +1594,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   ],
                                 ),
                               ),
-                            if (booking.status == 'SERVICE_COMPLETED' &&
-                                booking.paymentStatus != 'paid') ...[
+                            if (booking.paymentStatus != 'paid') ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
@@ -1587,8 +1623,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                           ),
                                         )
                                       : Text(
-                                          isCarWash
-                                              ? 'Pay Now to Confirm Car Wash'
+                                          (isCarWash || isBatteryTire)
+                                              ? 'Pay Now to Confirm'
                                               : 'Pay Now',
                                           style: const TextStyle(
                                             fontSize: 16,
@@ -2748,9 +2784,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               if (url == null) return const SizedBox.shrink();
                               String photoLabel = '';
                               if (isBatteryTire) {
-                                if (index == 0) photoLabel = 'Merchant Pickup';
-                                if (index == 1) photoLabel = 'New Part';
-                                if (index == 2) photoLabel = 'Old Part';
+                                if (index == 0) photoLabel = 'New Part';
+                                if (index == 1) photoLabel = 'Old Part';
+                              } else {
+                                photoLabel = 'Photo ${index + 1}';
                               }
 
                               return Column(

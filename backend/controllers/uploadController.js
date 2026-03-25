@@ -15,13 +15,17 @@ cloudinary.config({
 // Configure Storage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'driveflow_uploads',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf', 'heic', 'heif', 'webp'],
-    resource_type: 'auto',
-    transformation: [
-      { width: 1200, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
-    ]
+  params: async (req, file) => {
+    const isPDF = file.mimetype === 'application/pdf';
+    return {
+      folder: 'driveflow_uploads',
+      format: isPDF ? 'pdf' : undefined,
+      resource_type: 'auto',
+      // Only apply transformations to images
+      transformation: !isPDF ? [
+        { width: 1200, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
+      ] : undefined
+    };
   }
 });
 

@@ -169,9 +169,15 @@ class PaymentService {
         status: 'CREATED',
         paymentId: paymentId,
         carWash: {
-          isCarWashService: !!tempData.isCarWashService || !!tempData.requiresPaymentService,
+          isCarWashService: !!tempData.isCarWashService,
           beforeWashPhotos: [],
           afterWashPhotos: [],
+        },
+        batteryTire: {
+          isBatteryTireService: !!tempData.isBatteryTireService,
+          merchantApproval: {
+            status: !!tempData.isBatteryTireService ? 'PENDING' : undefined
+          }
         }
       });
 

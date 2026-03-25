@@ -5,7 +5,6 @@ import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc } f
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import RazorpayPayment from '@/components/RazorpayPayment';
-import RazorpayTest from '@/components/RazorpayTest';
 import { paymentService } from '@/services/paymentService';
 
 const PaymentPage: React.FC = () => {
@@ -120,25 +119,6 @@ const PaymentPage: React.FC = () => {
         <div className="min-w-0 flex-1">
           <h1 className="text-lg sm:text-2xl font-bold text-foreground">Complete Payment</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">Complete payment to create your service booking</p>
-        </div>
-      </motion.div>
-
-      {/* Service Notice */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-blue-50 border border-blue-200 rounded-xl p-4"
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <serviceInfo.icon className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-blue-900 text-sm sm:text-base">{serviceInfo.type} Service</h3>
-            <p className="text-xs sm:text-sm text-blue-700 mt-1">
-              Your booking will be created after successful payment. Admin will then assign staff to reach your location.
-            </p>
-          </div>
         </div>
       </motion.div>
 
@@ -266,9 +246,6 @@ const PaymentPage: React.FC = () => {
         <p>🔒 Your payment information is secure and encrypted</p>
         <p>Powered by Razorpay - India's most trusted payment gateway</p>
       </motion.div>
-      
-      {/* Development Test Component */}
-      <RazorpayTest />
     </div>
   );
 };

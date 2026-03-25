@@ -43,7 +43,7 @@ const BookServicePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
-  const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All'>('All');
+    const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All' | null>('All');
   const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -114,10 +114,18 @@ const BookServicePage: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
+    // When returning to the service step for Tyres, reset the sub-category and services
+    if (currentStep === 1 && searchParams.get('category') === 'Tyres') {
+      setActiveSubCategory(null);
+      setSelectedServices([]);
+    }
+  }, [currentStep, searchParams]);
+
+  useEffect(() => {
     const category = searchParams.get('category');
     
-    if (category === 'Tyres') {
-      setActiveSubCategory('Tyres'); // Default to Tyres instead of All
+        if (category === 'Tyres') {
+      setActiveSubCategory(null); // No default selection
     } else {
       setActiveSubCategory('All');
     }
@@ -150,13 +158,17 @@ const BookServicePage: React.FC = () => {
       bookingDate.setHours(hours, minutes, 0, 0);
 
       // Check if this is a service that requires payment first (Car Wash, Battery, or Tires)
-      const requiresPaymentService = selectedServicesData.some(service => 
-        service.category === 'Car Wash' || 
-        service.category === 'Wash' ||
-        service.category === 'Battery' ||
+      const isCarWash = selectedServicesData.some(service => 
+        service.category === 'Car Wash' || service.category === 'Wash'
+      );
+      
+      const isBatteryTire = selectedServicesData.some(service => 
+        service.category === 'Battery' || 
         service.category === 'Tyres' ||
         service.category === 'Tyre & Battery'
       );
+
+      const requiresPaymentService = isCarWash || isBatteryTire;
 
       const bookingData = {
         vehicleId: selectedVehicle,
@@ -179,7 +191,9 @@ const BookServicePage: React.FC = () => {
         const tempBookingData = {
           ...bookingData,
           totalAmount: totalPrice,
-          requiresPaymentService: true
+          requiresPaymentService: true,
+          isCarWashService: isCarWash,
+          isBatteryTireService: isBatteryTire
         };
         
         const serviceType = selectedServicesData.some(service => 
@@ -275,13 +289,14 @@ const BookServicePage: React.FC = () => {
     }
     
     // Add sub-category filtering for Tyres
-    if (categoryParam === 'Tyres' && activeSubCategory !== 'All') {
+        if (categoryParam === 'Tyres') {
       if (activeSubCategory === 'Tyres') {
-        // Show services that are either 'Tyres' or specifically 'Tyre & Battery'
         matchesCategory = matchesCategory && (service.category === 'Tyres' || service.category === 'Tyre & Battery');
       } else if (activeSubCategory === 'Battery') {
-        // Show services that are either 'Battery' or specifically 'Tyre & Battery'
         matchesCategory = matchesCategory && (service.category === 'Battery' || service.category === 'Tyre & Battery');
+      } else {
+        // If no sub-category is selected, show no services
+        matchesCategory = false;
       }
     }
     
@@ -420,7 +435,7 @@ const BookServicePage: React.FC = () => {
                   
                   {/* Sub-category Tabs for Tyres & Battery */}
                   {searchParams.get('category') === 'Tyres' && (
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
+                    <div className="flex gap-3 w-full">
                       <button
                         onClick={() => setActiveSubCategory('Tyres')}
                         className={`flex-1 py-3 sm:py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
@@ -447,9 +462,14 @@ const BookServicePage: React.FC = () => {
                   )}
                 </div>
                 
-                {filteredServices.length === 0 ? (
+                                {filteredServices.length === 0 ? (
                   <div className="text-center py-12 bg-card rounded-2xl border-2 border-dashed border-border">
-                    <p className="text-muted-foreground">No services found for your selection.</p>
+                    <p className="text-muted-foreground">
+                      {searchParams.get('category') === 'Tyres' && activeSubCategory === null
+                        ? 'Please select a category (Tires or Battery) to see available services.'
+                        : 'No services found for your selection.'
+                      }
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">

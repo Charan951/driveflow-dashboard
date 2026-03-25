@@ -65,6 +65,9 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
 
   // Initialize service parts from existing data
   useEffect(() => {
+    if (booking?.serviceExecution?.afterPhotos) {
+      setExistingAfter(booking.serviceExecution.afterPhotos);
+    }
     if (booking?.serviceExecution?.serviceParts) {
       setExistingServiceParts(booking.serviceExecution.serviceParts);
       // Update sent inspection parts

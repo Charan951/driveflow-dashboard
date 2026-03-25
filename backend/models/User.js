@@ -100,7 +100,7 @@ const userSchema = new mongoose.Schema({
   },
   fcmTokens: [
     {
-      token: { type: String, required: true },
+      token: { type: String, required: false },
       deviceType: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
       lastUpdated: { type: Date, default: Date.now }
     }
@@ -114,11 +114,24 @@ const userSchema = new mongoose.Schema({
 // Create 2dsphere index on the geo field for geospatial queries
 userSchema.index({ geo: '2dsphere' });
 
-// Encrypt password before saving
+// Pre-save hook to clean fcmTokens and handle password encryption
 userSchema.pre('save', async function () {
+  // Clean up fcmTokens: remove any that don't have a token or are empty
+  if (this.isModified('fcmTokens') || (this.fcmTokens && Array.isArray(this.fcmTokens))) {
+    const originalLength = this.fcmTokens?.length || 0;
+    this.fcmTokens = (this.fcmTokens || []).filter(t => t && typeof t.token === 'string' && t.token.trim() !== '');
+    
+    // If we changed the array, mark it as modified to ensure Mongoose saves the change
+    if (this.fcmTokens.length !== originalLength) {
+      this.markModified('fcmTokens');
+    }
+  }
+
+  // Encrypt password if modified
   if (!this.isModified('password')) {
     return;
   }
+  
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });

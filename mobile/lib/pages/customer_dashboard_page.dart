@@ -769,7 +769,7 @@ class _QuickServicesSection extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () => context.read<NavigationProvider>().setTab(1),
+              onPressed: () => context.read<NavigationProvider>().setTab(0),
               child: const Text('View all'),
             ),
           ],
@@ -785,8 +785,29 @@ class _QuickServicesSection extends StatelessWidget {
               final s = items[index];
               return _QuickServiceTile(
                 title: s.name,
-                onTap: () =>
-                    context.read<NavigationProvider>().setTab(1, arguments: s),
+                onTap: () {
+                  final nav = context.read<NavigationProvider>();
+                  final cat = (s.category ?? '').trim();
+                  String route = '/services';
+
+                  if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
+                    route = '/car-wash';
+                  } else if (['Insurance'].contains(cat)) {
+                    route = '/insurance';
+                  } else if ([
+                    'Tyre & Battery',
+                    'Tyres',
+                    'Battery',
+                    'Batteries',
+                    'Tyre Service',
+                    'Battery Service',
+                    'Tires',
+                  ].contains(cat)) {
+                    route = '/tires';
+                  }
+
+                  nav.navigateTo(route, arguments: s);
+                },
               );
             },
           ),

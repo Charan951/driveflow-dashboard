@@ -1,21 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Package, CheckCircle, Upload, Search, Filter, MapPin, Navigation } from 'lucide-react';
+import { Package, CheckCircle, Search, MapPin, Navigation } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
-import { uploadService } from '@/services/uploadService';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -23,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTracking } from '@/hooks/use-tracking';
 import { getETA, ETAResponse } from '@/services/trackingService';
@@ -40,11 +30,6 @@ const StaffOrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedOrderForUpload, setSelectedOrderForUpload] = useState<string | null>(null);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Booking | null>(null);
-  const [newStatus, setNewStatus] = useState<string>('');
   const [etaByBooking, setEtaByBooking] = useState<Record<string, ETAResponse>>({});
   const etaTimeoutRef = useRef<number | null>(null);
 
@@ -176,11 +161,6 @@ const StaffOrdersPage: React.FC = () => {
     };
   }, [trackingLocation, filteredBookings]);
 
-  const handleUploadClick = (orderId: string) => {
-    setSelectedOrderForUpload(orderId);
-    fileInputRef.current?.click();
-  };
-
   const handleGetDirections = (order: Booking) => {
     const destLat = order.location?.lat;
     const destLng = order.location?.lng;
@@ -232,83 +212,6 @@ const StaffOrdersPage: React.FC = () => {
     } else {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
         window.open(url, '_blank');
-    }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && selectedOrderForUpload) {
-      try {
-        const file = e.target.files[0];
-        const loadingToast = toast.loading('Uploading photo...');
-        
-        const uploadRes = await uploadService.uploadFile(file);
-        
-        const order = bookings.find(b => b._id === selectedOrderForUpload);
-        if (!order) {
-            toast.dismiss(loadingToast);
-            return;
-        }
-        
-        const currentMedia = order.media || [];
-        const newMedia = [...currentMedia, uploadRes.url];
-        
-        await bookingService.updateBookingDetails(selectedOrderForUpload, { media: newMedia });
-        
-        toast.dismiss(loadingToast);
-        toast.success('Photo uploaded successfully');
-        fetchData();
-      } catch (error) {
-        console.error(error);
-        toast.error('Failed to upload photo');
-      } finally {
-        setSelectedOrderForUpload(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const openStatusDialog = (order: Booking) => {
-    setSelectedOrderForStatus(order);
-    setNewStatus(order.status);
-    setStatusDialogOpen(true);
-  };
-
-  const handleStatusUpdate = async () => {
-    if (!selectedOrderForStatus || !newStatus) return;
-    try {
-      const loadingToast = toast.loading('Updating status...');
-      if (newStatus === 'VEHICLE_PICKED') {
-        const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
-        if (photos.length < 4) {
-          toast.dismiss(loadingToast);
-          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
-          return;
-        }
-      }
-      if (newStatus === 'DELIVERED') {
-        const otp = window.prompt('Enter delivery OTP');
-        if (!otp) {
-          toast.dismiss(loadingToast);
-          return;
-        }
-        await bookingService.verifyDeliveryOtp(selectedOrderForStatus._id, otp);
-      }
-      const updated = await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
-      if (['ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','OUT_FOR_DELIVERY'].includes(newStatus)) {
-        setActiveBookingId(selectedOrderForStatus._id);
-      }
-      if (newStatus === 'OUT_FOR_DELIVERY') {
-        toast.success('Status updated successfully. Delivery OTP sent to customer');
-      } else {
-        toast.success('Status updated successfully');
-      }
-      toast.dismiss(loadingToast);
-      setStatusDialogOpen(false);
-      fetchData();
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      console.error(err);
-      toast.error(err.response?.data?.message || 'Failed to update status');
     }
   };
 
@@ -416,126 +319,22 @@ const StaffOrdersPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-border">
-                  {(() => {
-                    // Check if this is a car wash service
-                    const isCarWashService = Array.isArray(order.services) && 
-                      order.services.some(service => 
-                        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-                      );
-
-                    if (order.status === 'ASSIGNED') {
-                      // All services auto-accepted when assigned by admin - show direct action buttons
-                      return (
-                        <>
-                          {(['ASSIGNED', 'ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
-                              className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                              <Navigation className="w-4 h-4" /> 
-                              <span className="hidden sm:inline">Get Directions</span>
-                              <span className="sm:hidden">Directions</span>
-                            </button>
-                          )}
-
-                          <div className="flex gap-2 sm:gap-3">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
-                              className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                              <Upload className="w-3.5 h-3.5" /> 
-                              <span className="hidden sm:inline">Upload</span>
-                              <span className="sm:hidden">Upload</span>
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
-                              className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                              <span className="hidden sm:inline">Update</span>
-                              <span className="sm:hidden">Update</span>
-                            </button>
-                          </div>
-                        </>
-                      );
-                    } else {
-                      // For all other statuses, show regular action buttons
-                      return (
-                        <>
-                          {(['ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
-                              className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                              <Navigation className="w-4 h-4" /> 
-                              <span className="hidden sm:inline">Get Directions</span>
-                              <span className="sm:hidden">Directions</span>
-                            </button>
-                          )}
-
-                          <div className="flex gap-2 sm:gap-3">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleUploadClick(order._id); }}
-                              className="flex-1 py-2 bg-muted rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors">
-                              <Upload className="w-3.5 h-3.5" /> 
-                              <span className="hidden sm:inline">Upload</span>
-                              <span className="sm:hidden">Upload</span>
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); openStatusDialog(order); }}
-                              className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                              <span className="hidden sm:inline">Update</span>
-                              <span className="sm:hidden">Update</span>
-                            </button>
-                          </div>
-                        </>
-                      );
-                    }
-                  })()}
-                </div>
+                {(['ASSIGNED', 'ACCEPTED', 'VEHICLE_PICKED'].includes(order.status)) && (
+                  <div className="mt-auto pt-4 border-t border-border">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleGetDirections(order); }}
+                      className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                      <Navigation className="w-4 h-4" /> 
+                      <span className="hidden sm:inline">Get Directions</span>
+                      <span className="sm:hidden">Directions</span>
+                    </button>
+                  </div>
+                )}
               </motion.div>
             ))}
           </motion.div>
         )}
       </motion.div>
-
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className="hidden" 
-        accept="image/*"
-        onChange={handleFileChange}
-      />
-
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Order Status</DialogTitle>
-            <DialogDescription>
-              Update the status for Order #{selectedOrderForStatus?.orderNumber ?? selectedOrderForStatus?._id.slice(-6).toUpperCase()}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIVE_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.replace('_', ' ')}
-                  </SelectItem>
-                ))}
-                <SelectItem value="Ready">Ready</SelectItem>
-                <SelectItem value="Delivered">Delivered</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleStatusUpdate}>Update Status</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 };

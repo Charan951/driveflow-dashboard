@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { paymentService, PaymentOrder } from '@/services/paymentService';
 
@@ -148,12 +148,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Security Badge */}
-      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Shield className="w-4 h-4" />
-        <span>Secured by Razorpay</span>
-      </div>
-
       {/* Payment Button */}
       <motion.button
         onClick={handlePayment}
@@ -174,22 +168,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
       {/* Payment Methods Info */}
       <div className="text-center text-xs text-muted-foreground">
         <p>Supports UPI, Cards, Net Banking, and Wallets</p>
-      </div>
-
-      {/* Amount Breakdown */}
-      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span>Service Amount:</span>
-          <span>₹{amount}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Platform Fee:</span>
-          <span>₹0</span>
-        </div>
-        <div className="border-t pt-2 flex justify-between font-medium">
-          <span>Total Amount:</span>
-          <span>₹{amount}</span>
-        </div>
       </div>
     </div>
   );

@@ -60,7 +60,8 @@ class PillBottomBar extends StatelessWidget {
               children: [
                 Expanded(
                   child: GlassNavItem(
-                    icon: Icons.settings_outlined,
+                    activeIcon: Icons.settings,
+                    inactiveIcon: Icons.settings_outlined,
                     label: 'Services',
                     isActive: selectedIndex == 0,
                     inactiveColor: inactive,
@@ -69,7 +70,8 @@ class PillBottomBar extends StatelessWidget {
                 ),
                 Expanded(
                   child: GlassNavItem(
-                    icon: Icons.shield_outlined,
+                    activeIcon: Icons.shield,
+                    inactiveIcon: Icons.shield_outlined,
                     label: 'Insurance',
                     isActive: selectedIndex == 1,
                     inactiveColor: inactive,
@@ -79,7 +81,8 @@ class PillBottomBar extends StatelessWidget {
                 const SizedBox(width: 72),
                 Expanded(
                   child: GlassNavItem(
-                    icon: Icons.water_drop_outlined,
+                    activeIcon: Icons.water_drop,
+                    inactiveIcon: Icons.water_drop_outlined,
                     label: 'Car Wash',
                     isActive: selectedIndex == 3,
                     inactiveColor: inactive,
@@ -88,8 +91,9 @@ class PillBottomBar extends StatelessWidget {
                 ),
                 Expanded(
                   child: GlassNavItem(
-                    icon: Icons.battery_full_outlined,
-                    label: 'Battery/Tire',
+                    activeIcon: Icons.battery_full,
+                    inactiveIcon: Icons.battery_full_outlined,
+                    label: 'Battery/Tyres',
                     isActive: selectedIndex == 4,
                     inactiveColor: inactive,
                     onTap: () => onTap(4),
@@ -158,7 +162,8 @@ class CenterNavAction extends StatelessWidget {
 }
 
 class GlassNavItem extends StatelessWidget {
-  final IconData icon;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
   final String label;
   final bool isActive;
   final Color inactiveColor;
@@ -166,7 +171,8 @@ class GlassNavItem extends StatelessWidget {
 
   const GlassNavItem({
     super.key,
-    required this.icon,
+    required this.activeIcon,
+    required this.inactiveIcon,
     required this.label,
     required this.isActive,
     required this.inactiveColor,
@@ -195,9 +201,17 @@ class GlassNavItem extends StatelessWidget {
               child: isActive
                   ? ShaderMask(
                       shaderCallback: (bounds) => gradient.createShader(bounds),
-                      child: Icon(icon, color: Colors.white, size: 24),
+                      child: Icon(
+                        isActive ? activeIcon : inactiveIcon,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     )
-                  : Icon(icon, color: inactiveColor, size: 22),
+                  : Icon(
+                      isActive ? activeIcon : inactiveIcon,
+                      color: inactiveColor,
+                      size: 22,
+                    ),
             ),
             const SizedBox(height: 2),
             Text(

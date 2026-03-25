@@ -227,6 +227,8 @@ class Booking {
   final String? invoiceUrl;
   final String? driverName;
   final String? driverPhone;
+  final String? technicianName;
+  final String? technicianPhone;
   final bool pickupRequired;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
@@ -259,6 +261,8 @@ class Booking {
     this.invoiceUrl,
     this.driverName,
     this.driverPhone,
+    this.technicianName,
+    this.technicianPhone,
     this.pickupRequired = true,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
@@ -440,6 +444,14 @@ class Booking {
       driverPhone = driver['phone']?.toString();
     }
 
+    String? technicianName;
+    String? technicianPhone;
+    final tech = map['technician'];
+    if (tech is Map) {
+      technicianName = tech['name']?.toString();
+      technicianPhone = tech['phone']?.toString();
+    }
+
     final carWash = map['carWash'] is Map
         ? CarWashDetails.fromJson(Map<String, dynamic>.from(map['carWash']))
         : null;
@@ -479,6 +491,8 @@ class Booking {
       invoiceUrl: invoiceUrl,
       driverName: driverName,
       driverPhone: driverPhone,
+      technicianName: technicianName,
+      technicianPhone: technicianPhone,
       pickupRequired: map['pickupRequired'] != false,
       inspectionCompletedAt: inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt,

@@ -58,7 +58,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _socketService.addListener(_onSocketUpdate);
   }
 
@@ -247,13 +247,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             Tab(
               child: Opacity(
                 opacity: _booking?.inspectionCompletedAt != null ? 1.0 : 0.5,
-                child: const Text('Service'),
-              ),
-            ),
-            Tab(
-              child: Opacity(
-                opacity: _booking?.inspectionCompletedAt != null ? 1.0 : 0.5,
-                child: const Text('QC'),
+                child: const Text('QC & Service'),
               ),
             ),
             Tab(
@@ -264,7 +258,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             ),
           ],
           onTap: (index) {
-            if (index == 2 || index == 3) {
+            if (index == 2) {
               if (_booking?.inspectionCompletedAt == null) {
                 _tabController.index = _tabController.previousIndex;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -273,7 +267,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   ),
                 );
               }
-            } else if (index == 4) {
+            } else if (index == 3) {
               if (_booking?.qcCompletedAt == null) {
                 _tabController.index = _tabController.previousIndex;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -291,8 +285,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         children: [
           _buildOverview(),
           _buildInspection(),
-          _buildService(),
-          _buildQC(),
+          _buildQCAndService(),
           _buildBilling(),
         ],
       ),
@@ -884,104 +877,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     }
   }
 
-  Widget _buildService() {
-    final execution = _booking!.serviceExecution;
-    final canAddPhotos =
-        _booking!.status == 'SERVICE_STARTED' ||
-        _booking!.status == 'SERVICE_COMPLETED';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (canAddPhotos)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Service Photos',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildPhotoSection(
-                        'Before Service',
-                        execution?.beforePhotos ?? [],
-                        'before',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildPhotoSection(
-                        'During Service',
-                        execution?.duringPhotos ?? [],
-                        'during',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildPhotoSection(
-                        'After Service',
-                        execution?.afterPhotos ?? [],
-                        'after',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          const Text(
-            'Request Extra Cost',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _extraCostReasonController,
-                  decoration: const InputDecoration(
-                    hintText: 'Reason',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _extraCostAmountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: 'Amount',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _requestExtraCost,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Request Approval'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPhotoSection(String title, List<String> photos, String type) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1117,15 +1012,108 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     }
   }
 
-  Widget _buildQC() {
+  Widget _buildQCAndService() {
+    final execution = _booking!.serviceExecution;
+    final status = _booking!.status;
+    final canAddPhotos =
+        status == 'SERVICE_STARTED' ||
+        status == 'SERVICE_COMPLETED' ||
+        status == 'INSTALLATION' ||
+        status == 'DELIVERY' ||
+        status == 'PICKUP_BATTERY_TIRE' ||
+        status == 'STAFF_REACHED_MERCHANT';
+
     final qc = _booking!.qc;
-    final isCompleted = qc?.completedAt != null;
+    final isQCCompleted = qc?.completedAt != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (canAddPhotos)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Service Photos',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'Before Service',
+                        execution?.beforePhotos ?? [],
+                        'before',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'During Service',
+                        execution?.duringPhotos ?? [],
+                        'during',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildPhotoSection(
+                        'After Service',
+                        execution?.afterPhotos ?? [],
+                        'after',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          const Text(
+            'Request Extra Cost',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _extraCostReasonController,
+                  decoration: const InputDecoration(
+                    hintText: 'Reason',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _extraCostAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _requestExtraCost,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Request Approval'),
+            ),
+          ),
+          const Divider(height: 48),
           const Text(
             'Quality Check (QC)',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -1152,7 +1140,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             (v) => setState(() => _noErrorLightsChecked = v),
           ),
           const SizedBox(height: 16),
-          if (isCompleted)
+          if (isQCCompleted)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(

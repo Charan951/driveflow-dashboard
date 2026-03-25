@@ -890,7 +890,10 @@ const TrackServicePage: React.FC = () => {
           {/* Service Photos Section */}
           {(order.serviceExecution?.afterPhotos?.length || 
             order.serviceExecution?.serviceParts?.length || 
-            (Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0)) ? (
+            (Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0) ||
+            order.status === 'SERVICE_COMPLETED' ||
+            order.status === 'COMPLETED' ||
+            order.status === 'DELIVERED') ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -917,7 +920,7 @@ const TrackServicePage: React.FC = () => {
                             <img src={url} alt={`Step ${i + 1}`} className="w-full h-full object-cover" />
                           </button>
                           <p className="text-[10px] font-bold text-center uppercase text-muted-foreground">
-                            {i === 0 ? 'Merchant Pickup' : i === 1 ? 'New Part' : i === 2 ? 'Old Part' : `Photo ${i + 1}`}
+                            {i === 0 ? 'New Part' : i === 1 ? 'Old Part' : `Photo ${i + 1}`}
                           </p>
                         </div>
                       ))}
@@ -1180,34 +1183,40 @@ const TrackServicePage: React.FC = () => {
               {isCarWashService ? 'Staff Details' : 'Driver Details'}
             </h2>
             <div className="flex items-center justify-between">
-              {(isCarWashService ? order.carWash?.staffAssigned : order.pickupDriver) ? (
-                <>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {isCarWashService ? order.carWash?.staffAssigned?.name : order.pickupDriver?.name}
-                    </p>
-                    {(isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone) && (
-                      <p className="text-sm text-muted-foreground">
-                        {isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {(isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone) && (
-                      <a
-                        href={`tel:${isCarWashService ? order.carWash?.staffAssigned?.phone : order.pickupDriver?.phone}`}
-                        className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                      >
-                        <Phone className="w-5 h-5 text-foreground" />
-                      </a>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  Your {isCarWashService ? 'staff' : 'driver'} details provided shortly
-                </p>
-              )}
+              {(() => {
+                const staff = order.carWash?.staffAssigned || order.pickupDriver || order.technician;
+                if (staff) {
+                  return (
+                    <>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {staff.name}
+                        </p>
+                        {staff.phone && (
+                          <p className="text-sm text-muted-foreground">
+                            {staff.phone}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {staff.phone && (
+                          <a
+                            href={`tel:${staff.phone}`}
+                            className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                          >
+                            <Phone className="w-5 h-5 text-foreground" />
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <p className="text-sm text-muted-foreground italic">
+                    Your {isCarWashService ? 'staff' : 'driver'} details provided shortly
+                  </p>
+                );
+              })()}
             </div>
           </motion.div>
 

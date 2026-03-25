@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../core/api_client.dart';
 import '../core/env.dart';
 
@@ -27,9 +28,15 @@ class SupportTicket {
       status: (json['status'] ?? 'Open').toString(),
       category: (json['category'] ?? 'General').toString(),
       priority: (json['priority'] ?? 'Medium').toString(),
-      messages: (json['messages'] as List? ?? [])
-          .map((e) => TicketMessage.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
+      messages: (json['messages'] as List? ?? []).map((e) {
+        if (e is Map<String, dynamic>) return TicketMessage.fromJson(e);
+        try {
+          final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+          return TicketMessage.fromJson(map);
+        } catch (_) {
+          return TicketMessage.fromJson({});
+        }
+      }).toList(),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'].toString())
           : DateTime.now(),
@@ -85,9 +92,15 @@ class TicketService {
   Future<List<SupportTicket>> listMyTickets() async {
     final res = await _api.getAny(ApiEndpoints.tickets);
     if (res is List) {
-      return res
-          .map((e) => SupportTicket.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      return res.map((e) {
+        if (e is Map<String, dynamic>) return SupportTicket.fromJson(e);
+        try {
+          final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+          return SupportTicket.fromJson(map);
+        } catch (_) {
+          return SupportTicket.fromJson({});
+        }
+      }).toList();
     }
     return [];
   }

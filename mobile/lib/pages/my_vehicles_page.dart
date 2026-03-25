@@ -211,7 +211,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
                         vehicle: v,
                         onBookService: () => context
                             .read<NavigationProvider>()
-                            .setTab(1, arguments: {'openBookHint': true}),
+                            .setTab(0, arguments: {'openBookHint': true}),
                       );
                     },
                   ),

@@ -80,10 +80,13 @@ class _SpeshwayVehicleCareDashboardState
   void _onExternalUpdate(dynamic payload) {
     if (!mounted) return;
     Booking? updated;
-    if (payload is Map<String, dynamic>) {
-      updated = Booking.fromJson(payload);
-    } else if (payload is Map) {
-      updated = Booking.fromJson(Map<String, dynamic>.from(payload));
+    if (payload != null && payload is Map) {
+      try {
+        final mapData = jsonDecode(jsonEncode(payload)) as Map<String, dynamic>;
+        updated = Booking.fromJson(mapData);
+      } catch (e) {
+        debugPrint('Error parsing socket payload: $e');
+      }
     }
     if (updated == null) {
       _load(isInitial: true);
@@ -774,7 +777,28 @@ class _SpeshwayVehicleCareDashboardState
                   ? null
                   : () {
                       final nav = context.read<NavigationProvider>();
-                      nav.navigateTo('/services', arguments: item.source!);
+                      final source = item.source!;
+                      final cat = (source.category ?? '').trim();
+
+                      String route = '/services'; // Default
+
+                      if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
+                        route = '/car-wash';
+                      } else if (['Insurance'].contains(cat)) {
+                        route = '/insurance';
+                      } else if ([
+                        'Tyre & Battery',
+                        'Tyres',
+                        'Battery',
+                        'Batteries',
+                        'Tyre Service',
+                        'Battery Service',
+                        'Tires',
+                      ].contains(cat)) {
+                        route = '/tires';
+                      }
+
+                      nav.navigateTo(route, arguments: source);
                     },
               child: _FrostedCard(
                 borderRadius: 18,

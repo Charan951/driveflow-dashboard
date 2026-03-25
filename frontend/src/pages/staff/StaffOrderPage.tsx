@@ -186,9 +186,22 @@ const StaffOrderPage: React.FC = () => {
       if (isCarWashNow) {
         // Handle car wash specific status updates
         if (newStatus === 'CAR_WASH_STARTED') {
-          // For car wash start, we might need to call a specific endpoint
+          // For car wash start, check for before photos
+          const beforePhotos = Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
+          if (beforePhotos.length < 2) {
+            toast.error('Please upload at least 2 before wash photos first');
+            setIsUpdating(false);
+            return;
+          }
           await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'CAR_WASH_COMPLETED') {
+          // For car wash completion, check for after photos
+          const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
+          if (afterPhotos.length < 2) {
+            toast.error('Please upload at least 2 after wash photos first');
+            setIsUpdating(false);
+            return;
+          }
           // For car wash completion, just update status (no OTP generation yet)
           console.log('Completing car wash without OTP generation');
           try {
@@ -236,29 +249,17 @@ const StaffOrderPage: React.FC = () => {
       } else if (isBatteryOrTireNow) {
         // Handle battery/tire specific status updates
         if (newStatus === 'PICKUP_BATTERY_TIRE') {
-          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-          if (photos.length < 1) {
-            toast.error('Please upload at least 1 photo of the battery/tire before picking up');
-            setIsUpdating(false);
-            return;
-          }
           await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'INSTALLATION') {
           const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
           if (photos.length < 2) {
-            toast.error('Please upload the New Part photo before starting installation');
+            toast.error('Please upload at least 2 photos (Old Part and New Part) before starting installation');
             setIsUpdating(false);
             return;
           }
           await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERY') {
-          // For battery/tire delivery, generate OTP first and ensure all 3 photos are uploaded
-          const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-          if (photos.length < 3) {
-            toast.error('Please upload the Old Part photo before completing installation');
-            setIsUpdating(false);
-            return;
-          }
+          // For battery/tire delivery, generate OTP first
           try {
             // Check if OTP already exists
             if (!order.deliveryOtp?.code) {
@@ -480,7 +481,7 @@ const StaffOrderPage: React.FC = () => {
         const isMerchantApproved = order.batteryTire?.merchantApproval?.status === 'APPROVED';
 
         const isHeadingToMerchant = (order.status === 'VEHICLE_PICKED') || 
-                                   (isBatteryOrTireService && order.status === 'ASSIGNED' && isMerchantApproved);
+                                   (isBatteryOrTireService && order.status === 'ASSIGNED');
 
         if (isHeadingToMerchant) {
           const targetLat = order.merchant.location.lat;
@@ -614,24 +615,25 @@ const StaffOrderPage: React.FC = () => {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && order) {
+    if (e.target.files && e.target.files.length > 0 && order) {
       try {
-        const file = e.target.files[0];
-        const loadingToast = toast.loading('Uploading photo...');
+        const files = Array.from(e.target.files);
+        const loadingToast = toast.loading(`Uploading ${files.length} photo(s)...`);
         
-        const uploadRes = await uploadService.uploadFile(file);
+        const uploadRes = await uploadService.uploadFiles(files);
+        const newUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
         
         const currentMedia = order.media || [];
-        const newMedia = [...currentMedia, uploadRes.url];
+        const newMedia = [...currentMedia, ...newUrls];
         
         await bookingService.updateBookingDetails(order._id, { media: newMedia });
         setOrder({ ...order, media: newMedia });
         
         toast.dismiss(loadingToast);
-        toast.success('Photo uploaded successfully');
+        toast.success(`${newUrls.length} photo(s) uploaded successfully`);
       } catch (error) {
         console.error(error);
-        toast.error('Failed to upload photo');
+        toast.error('Failed to upload photo(s)');
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -820,13 +822,12 @@ const StaffOrderPage: React.FC = () => {
     !isAssignedStaff ||
     (nextAction?.nextStatus === 'VEHICLE_PICKED' &&
       (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4)) ||
-    (isBatteryOrTire && order.status === 'ASSIGNED' && !isMerchantApproved) ||
-    (isBatteryOrTire && nextAction?.nextStatus === 'PICKUP_BATTERY_TIRE' && 
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 1)) ||
-    (isBatteryOrTire && nextAction?.nextStatus === 'INSTALLATION' && 
+    (isBatteryOrTire && (nextAction?.nextStatus === 'INSTALLATION' || nextAction?.nextStatus === 'DELIVERY') && 
       (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 2)) ||
-    (isBatteryOrTire && nextAction?.nextStatus === 'DELIVERY' && 
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 3));
+    (isCarWash && nextAction?.nextStatus === 'CAR_WASH_STARTED' && 
+      (!Array.isArray(order.carWash?.beforeWashPhotos) || order.carWash.beforeWashPhotos.length < 2)) ||
+    (isCarWash && nextAction?.nextStatus === 'CAR_WASH_COMPLETED' && 
+      (!Array.isArray(order.carWash?.afterWashPhotos) || order.carWash.afterWashPhotos.length < 2));
 
   // Determine display location and labels
   const isHeadingToMerchant = !isCarWash && (
@@ -863,26 +864,29 @@ const StaffOrderPage: React.FC = () => {
           </span>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
-          {isBatteryOrTire ? (
-            Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 3 ? (
-              <>
-                <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
-                <span className="text-green-700 hidden sm:inline">All photos ready</span>
-                <span className="text-green-700 sm:hidden">3/3</span>
-              </>
-            ) : Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 1 ? (
-              <>
-                <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
-                <span className="text-green-700">({order.prePickupPhotos.length}/3)</span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
-                <span className="text-amber-600">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/3` : '0/3'}
-                </span>
-              </>
-            )
+          {isBatteryOrTire || isCarWash ? (
+            (() => {
+              const photos = isCarWash 
+                ? (order.status === 'CAR_WASH_STARTED' ? order.carWash?.afterWashPhotos : order.carWash?.beforeWashPhotos)
+                : order.prePickupPhotos;
+              const count = Array.isArray(photos) ? photos.length : 0;
+              const required = 2;
+              
+              if (count >= required) {
+                return (
+                  <>
+                    <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                    <span className="text-green-700">Photos ready ({count}/{required})</span>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
+                  <span className="text-amber-600">Photos ({count}/{required})</span>
+                </>
+              );
+            })()
           ) : (
             Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
               <>
@@ -911,12 +915,6 @@ const StaffOrderPage: React.FC = () => {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>Waiting for Customer Payment (₹{order.totalAmount}). Staff cannot pick up the vehicle until payment is completed.</span>
-              </div>
-            )}
-            {isBatteryOrTire && order.status === 'ASSIGNED' && !isMerchantApproved && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>Waiting for Merchant Approval. You can only proceed once the merchant approves the service.</span>
               </div>
             )}
             {nextAction && (
@@ -969,35 +967,25 @@ const StaffOrderPage: React.FC = () => {
                   }
                   return 'Upload Photos';
                 } else if (isBatteryOrTire) {
-                  if (order.status === 'STAFF_REACHED_MERCHANT') {
+                  if (order.status === 'REACHED_CUSTOMER') {
                     return isUploadingPrePickup ? 'Uploading...' : (
                       <>
-                        <span className="hidden sm:inline">Upload Merchant Pickup Photo</span>
-                        <span className="sm:hidden">Pickup Photo</span>
-                      </>
-                    );
-                  } else if (order.status === 'REACHED_CUSTOMER') {
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">Upload New Part Photo</span>
-                        <span className="sm:hidden">New Part</span>
-                      </>
-                    );
-                  } else if (order.status === 'INSTALLATION') {
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">Upload Old Part Photo</span>
-                        <span className="sm:hidden">Old Part</span>
+                        <span className="hidden sm:inline">Upload Old & New Part Photos</span>
+                        <span className="sm:hidden">Old & New</span>
                       </>
                     );
                   }
                   return 'Upload Photos';
                 } else {
-                  return isPrePickupPhase
-                    ? isUploadingPrePickup
-                      ? 'Uploading...'
-                      : 'Upload Photos'
-                    : 'Upload Photo';
+                  if (isPrePickupPhase) {
+                    return isUploadingPrePickup ? 'Uploading...' : (
+                      <>
+                        <span className="hidden sm:inline">Upload Vehicle Photos</span>
+                        <span className="sm:hidden">Upload</span>
+                      </>
+                    );
+                  }
+                  return 'Upload Photos';
                 }
               })()}
             </Button>
@@ -1008,6 +996,7 @@ const StaffOrderPage: React.FC = () => {
             ref={fileInputRef}
             className="hidden"
             accept="image/*"
+            multiple
             onChange={handleFileChange}
           />
 
@@ -1025,12 +1014,12 @@ const StaffOrderPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Pre-pickup photos</span>
                 <span className="text-[11px] text-muted-foreground">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/${isBatteryOrTire ? '3' : '4'}` : `0/${isBatteryOrTire ? '3' : '4'}`}
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/${isBatteryOrTire ? '2' : '4'}` : `0/${isBatteryOrTire ? '2' : '4'}`}
                 </span>
               </div>
               {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {order.prePickupPhotos.slice(0, isBatteryOrTire ? 3 : 4).map((url, index) => (
+                  {order.prePickupPhotos.slice(0, isBatteryOrTire ? 2 : 4).map((url, index) => (
                     <div
                       key={index}
                       className="relative rounded-lg overflow-hidden border border-border bg-muted"
@@ -1045,7 +1034,7 @@ const StaffOrderPage: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-[11px] text-muted-foreground">
-                  No photos uploaded yet. Upload {isBatteryOrTire ? '3' : '4'} clear photos {isBatteryOrTire ? 'for the service' : 'of the vehicle before pickup'}.
+                  No photos uploaded yet. Upload {isBatteryOrTire ? '2' : '4'} clear photos {isBatteryOrTire ? 'for the service' : 'of the vehicle before pickup'}.
                 </p>
               )}
             </div>
@@ -1169,16 +1158,16 @@ const StaffOrderPage: React.FC = () => {
                       <div className="space-y-1">
                         <h3 className="font-medium">Before Wash Photos</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length >= 4 ? (
+                          {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length >= 2 ? (
                             <>
                               <CheckCircle className="w-3 h-3 text-green-600" />
-                              <span className="text-green-700">4/4 photos captured</span>
+                              <span className="text-green-700">2/2 photos captured</span>
                             </>
                           ) : (
                             <>
                               <AlertTriangle className="w-3 h-3 text-amber-500" />
                               <span className="text-amber-600">
-                                {order.carWash?.beforeWashPhotos?.length || 0}/4 photos
+                                {order.carWash?.beforeWashPhotos?.length || 0}/2 photos
                               </span>
                             </>
                           )}
@@ -1206,16 +1195,16 @@ const StaffOrderPage: React.FC = () => {
                       <div className="space-y-1">
                         <h3 className="font-medium">After Wash Photos</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length >= 4 ? (
+                          {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length >= 2 ? (
                             <>
                               <CheckCircle className="w-3 h-3 text-green-600" />
-                              <span className="text-green-700">4/4 photos captured</span>
+                              <span className="text-green-700">2/2 photos captured</span>
                             </>
                           ) : (
                             <>
                               <AlertTriangle className="w-3 h-3 text-amber-500" />
                               <span className="text-amber-600">
-                                {order.carWash?.afterWashPhotos?.length || 0}/4 photos
+                                {order.carWash?.afterWashPhotos?.length || 0}/2 photos
                               </span>
                             </>
                           )}
@@ -1250,16 +1239,16 @@ const StaffOrderPage: React.FC = () => {
                         </h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
                           {isBatteryOrTire ? (
-                            order.prePickupPhotos && order.prePickupPhotos.length >= 3 ? (
+                            order.prePickupPhotos && order.prePickupPhotos.length >= 2 ? (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600" />
-                                <span className="text-green-700">3/3 photos captured</span>
+                                <span className="text-green-700">2/2 photos captured</span>
                               </>
                             ) : (
                               <>
                                 <AlertTriangle className="w-3 h-3 text-amber-500" />
                                 <span className="text-amber-600">
-                                  {order.prePickupPhotos?.length || 0}/3 photos
+                                  {order.prePickupPhotos?.length || 0}/2 photos
                                 </span>
                               </>
                             )
@@ -1288,7 +1277,7 @@ const StaffOrderPage: React.FC = () => {
                             <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                             {isBatteryOrTire && (
                               <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
-                                {index === 0 ? 'Pickup' : index === 1 ? 'New Part' : index === 2 ? 'Old Part' : `Photo ${index + 1}`}
+                                {index === 0 ? 'New Part' : index === 1 ? 'Old Part' : `Photo ${index + 1}`}
                               </div>
                             )}
                           </div>

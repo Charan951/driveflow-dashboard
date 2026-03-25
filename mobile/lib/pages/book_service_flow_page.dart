@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -38,7 +39,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   final _paymentService = PaymentService();
-  late Razorpay _razorpay;
+  Razorpay? _razorpay;
   Map<String, dynamic>? _currentTempBookingData;
 
   List<Vehicle> _vehicles = [];
@@ -78,10 +79,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     super.initState();
     _fetchInitialData();
 
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    if (!kIsWeb) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    }
 
     if (widget.initialCategory == 'Tyres') {
       _activeSubCategory = 'Tyres';
@@ -103,7 +106,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   @override
   void dispose() {
-    _razorpay.clear();
+    _razorpay?.clear();
     _notesController.dispose();
     super.dispose();
   }
@@ -193,7 +196,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     try {
       final results = await Future.wait([
         _vehicleService.listMyVehicles(),
-        _catalogService.listServices(category: widget.initialCategory),
+        _catalogService.listServices(),
       ]);
 
       final List<Vehicle> vehicles = results[0] as List<Vehicle>;
@@ -642,7 +645,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final Map<String, List<String>> categoryMap = {
       'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
       'Wash': ['Car Wash', 'Wash', 'Detailing'],
-      'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
+      'Tyres': [
+        'Tyre & Battery',
+        'Tyres',
+        'Battery',
+        'Batteries',
+        'Tyre Service',
+        'Battery Service',
+        'Tires',
+      ],
       'Insurance': ['Insurance'],
       'Other': ['Other', 'Painting', 'Denting', 'Accessories'],
     };
@@ -737,10 +748,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               if (widget.initialCategory == 'Tyres' ||
                   widget.initialCategory == 'Tyre & Battery') {
                 if (_activeSubCategory == 'Tyres') {
-                  return c == 'Tyres' || c == 'Tyre & Battery';
+                  return c.contains('Tyre') ||
+                      c.contains('Tire') ||
+                      c.contains('Tyre & Battery');
                 }
                 if (_activeSubCategory == 'Battery') {
-                  return c == 'Battery';
+                  return c.contains('Battery') ||
+                      c.contains('Batteries') ||
+                      c.contains('Tyre & Battery');
                 }
               }
               return true;
@@ -1257,6 +1272,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       (sum, item) => sum + (item.estimatedMinutes ?? 0),
     );
 
+    final isCarWash = selectedServices.any((s) {
+      final cat = s.category;
+      return cat == 'Car Wash' || cat == 'Wash' || cat == 'Detailing';
+    });
+    final isBatteryTire = selectedServices.any((s) {
+      final cat = s.category;
+      return cat == 'Battery' || cat == 'Tyres' || cat == 'Tyre & Battery';
+    });
+
     final summaryItems = <Widget>[
       if (selectedVehicle != null)
         _buildSummaryItem(
@@ -1289,6 +1313,62 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
+        if (isCarWash || isBatteryTire)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDBEAFE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isCarWash
+                        ? Icons.wash
+                        : (isBatteryTire
+                              ? Icons.battery_charging_full
+                              : Icons.build),
+                    size: 20,
+                    color: const Color(0xFF2563EB),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isCarWash
+                            ? 'Car Wash Service - Payment Required'
+                            : (isBatteryTire
+                                  ? 'Battery/Tire Service - Payment Required'
+                                  : 'Service - Payment Required'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E40AF),
+                        ),
+                      ),
+                      const Text(
+                        'You will need to complete payment to confirm your booking. After payment, admin will assign staff to reach your location.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E40AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1466,10 +1546,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ),
         );
         // Redirect to a payment page or show a payment dialog
-        // For now, we'll use a dummy payment logic if possible
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
-          _processPayment(tempBookingId, tempBookingData: res);
+          await _processPayment(tempBookingId, tempBookingData: res);
+        } else {
+          debugPrint('Error: tempBookingId is null in response: $res');
         }
         return;
       }
@@ -1504,6 +1585,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     String tempBookingId, {
     Map<String, dynamic>? tempBookingData,
   }) async {
+    debugPrint('Starting payment process for tempBookingId: $tempBookingId');
     // Show a loading dialog
     showDialog(
       context: context,
@@ -1517,29 +1599,61 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         tempBookingData: tempBookingData,
       );
 
+      debugPrint('Order data received: $orderData');
+
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
         final user = context.read<AuthProvider>().user;
         _currentTempBookingData = tempBookingData;
 
+        final razorpayKey =
+            (orderData['key'] ?? orderData['razorpay_key'] ?? Env.razorpayKey)
+                .toString();
+        final orderId =
+            (orderData['orderId'] ??
+                    orderData['order_id'] ??
+                    orderData['id'] ??
+                    '')
+                .toString();
+        final amount = (orderData['amount'] as num).toInt();
+
         final options = {
-          'key': orderData['key'] ?? Env.razorpayKey,
-          'amount': orderData['amount'],
-          'name': 'DriveFlow',
-          'order_id': orderData['orderId'],
+          'key': razorpayKey,
+          'amount': amount,
+          'name': 'Speshway',
+          if (orderId.isNotEmpty) 'order_id': orderId,
           'description': 'Service Payment',
-          'prefill': {'contact': user?.phone ?? '', 'email': user?.email ?? ''},
-          'external': {
-            'wallets': ['paytm', 'phonepe', 'tez', 'mobikwik', 'freecharge'],
+          'prefill': {
+            'contact': (user?.phone ?? '').toString(),
+            'email': (user?.email ?? '').toString(),
           },
+          'external': {
+            'wallets': ['paytm', 'phonepe', 'mobikwik', 'freecharge'],
+          },
+          'timeout': 300, // 5 minutes
           'upi_link': true,
           'retry': {'enabled': true, 'max_count': 1},
+          'theme': {'color': '#2563EB'},
         };
 
-        _razorpay.open(options);
+        debugPrint('Opening Razorpay with options: $options');
+        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
+          debugPrint('WARNING: Using placeholder Razorpay key in production!');
+        }
+
+        if (kIsWeb) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payments are only available on mobile'),
+            ),
+          );
+        } else {
+          _razorpay?.open(options);
+        }
       }
     } catch (e) {
+      debugPrint('Payment processing error: $e');
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(

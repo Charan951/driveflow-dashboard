@@ -1,31 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Clock, DollarSign, CheckCircle, Upload } from 'lucide-react';
+import { Package, Clock, DollarSign, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
-import { uploadService } from '@/services/uploadService';
 import CounterCard from '@/components/CounterCard';
-import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { STATUS_LABELS } from '@/lib/statusFlow';
 
 const StaffDashboardPage: React.FC = () => {
@@ -37,91 +19,6 @@ const StaffDashboardPage: React.FC = () => {
     completed: 0,
     earnings: 0
   });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedOrderForUpload, setSelectedOrderForUpload] = useState<string | null>(null);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Booking | null>(null);
-  const [newStatus, setNewStatus] = useState<string>('');
-  const { setActiveBookingId } = useTracking();
-
-  const handleUploadClick = (orderId: string) => {
-    setSelectedOrderForUpload(orderId);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && selectedOrderForUpload) {
-      try {
-        const file = e.target.files[0];
-        const loadingToast = toast.loading('Uploading photo...');
-        
-        const uploadRes = await uploadService.uploadFile(file);
-        
-        const order = bookings.find(b => b._id === selectedOrderForUpload);
-        if (!order) {
-            toast.dismiss(loadingToast);
-            return;
-        }
-        
-        const currentMedia = order.media || [];
-        const newMedia = [...currentMedia, uploadRes.url];
-        
-        await bookingService.updateBookingDetails(selectedOrderForUpload, { media: newMedia });
-        
-        toast.dismiss(loadingToast);
-        toast.success('Photo uploaded successfully');
-        fetchData();
-      } catch (error) {
-        console.error(error);
-        toast.error('Failed to upload photo');
-      } finally {
-        setSelectedOrderForUpload(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const openStatusDialog = (order: Booking) => {
-    setSelectedOrderForStatus(order);
-    setNewStatus(order.status);
-    setStatusDialogOpen(true);
-  };
-
-  const handleStatusUpdate = async () => {
-    if (!selectedOrderForStatus || !newStatus) return;
-    try {
-      const loadingToast = toast.loading('Updating status...');
-      if (newStatus === 'VEHICLE_PICKED') {
-        const photos = Array.isArray(selectedOrderForStatus.prePickupPhotos) ? selectedOrderForStatus.prePickupPhotos : [];
-        if (photos.length < 4) {
-          toast.dismiss(loadingToast);
-          toast.error('Please upload 4 vehicle photos before picking up the vehicle');
-          return;
-        }
-      }
-      if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
-        const otp = window.prompt('Enter delivery OTP');
-        if (!otp) {
-          toast.dismiss(loadingToast);
-          return;
-        }
-        await bookingService.verifyDeliveryOtp(selectedOrderForStatus._id, otp);
-      }
-      await bookingService.updateBookingStatus(selectedOrderForStatus._id, newStatus);
-      if (['ACCEPTED','REACHED_CUSTOMER','VEHICLE_PICKED','OUT_FOR_DELIVERY'].includes(newStatus)) {
-        setActiveBookingId(selectedOrderForStatus._id);
-      }
-      toast.dismiss(loadingToast);
-      toast.success('Status updated successfully');
-      setStatusDialogOpen(false);
-      fetchData();
-    } catch (error: unknown) {
-      console.error(error);
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to update status');
-    }
-  };
 
   useEffect(() => {
     fetchData();
@@ -244,50 +141,36 @@ const StaffDashboardPage: React.FC = () => {
               <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
                 {activeOrders.map((order) => (
                   <motion.div key={order._id} variants={staggerItem} className="bg-card rounded-2xl border border-border p-4">
-                    <div className="flex items-start justify-between mb-3 gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
-                        <h3 className="font-semibold text-sm sm:text-base line-clamp-2">
-                          {order.services && order.services.length > 0
-                            ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
-                            : 'Service'}
-                          {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
-                        </h3>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
-                        </p>
+                    <Link to={`/staff/order/${order._id}`}>
+                      <div className="flex items-start justify-between mb-3 gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-muted-foreground">Order #{order.orderNumber ?? order._id.slice(-6).toUpperCase()}</p>
+                          <h3 className="font-semibold text-sm sm:text-base line-clamp-2">
+                            {order.services && order.services.length > 0
+                              ? (typeof order.services[0] === 'string' ? order.services[0] : order.services[0].name)
+                              : 'Service'}
+                            {order.services && order.services.length > 1 && ` +${order.services.length - 1} more`}
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
+                          </p>
+                        </div>
+                        <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{STATUS_LABELS[order.status] || order.status}</span>
                       </div>
-                      <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{STATUS_LABELS[order.status] || order.status}</span>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      {Array.isArray(order.services) &&
-                        order.services.slice(0, 2).map((service, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
-                            <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
-                          </div>
-                        ))}
-                      {Array.isArray(order.services) && order.services.length > 2 && (
-                        <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 2} more services</div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                      <button 
-                        onClick={() => handleUploadClick(order._id)}
-                        className="flex-1 py-2 sm:py-3 bg-muted rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-muted/80 transition-colors text-sm">
-                        <Upload className="w-4 h-4" /> 
-                        <span className="hidden sm:inline">Upload Photos</span>
-                        <span className="sm:hidden">Upload</span>
-                      </button>
-                      <button 
-                        onClick={() => openStatusDialog(order)}
-                        className="flex-1 py-2 sm:py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors text-sm">
-                        <span className="hidden sm:inline">Update Status</span>
-                        <span className="sm:hidden">Update</span>
-                      </button>
-                    </div>
+                      
+                      <div className="space-y-2 mb-4">
+                        {Array.isArray(order.services) &&
+                          order.services.slice(0, 2).map((service, i) => (
+                            <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <CheckCircle className="w-4 h-4 text-muted flex-shrink-0" />
+                              <span className="truncate">{typeof service === 'object' ? service.name : service}</span>
+                            </div>
+                          ))}
+                        {Array.isArray(order.services) && order.services.length > 2 && (
+                          <div className="text-xs text-muted-foreground pl-6">+{order.services.length - 2} more services</div>
+                        )}
+                      </div>
+                    </Link>
                   </motion.div>
                 ))}
               </motion.div>
@@ -295,46 +178,6 @@ const StaffDashboardPage: React.FC = () => {
           </div>
         </motion.div>
       </div>
-
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className="hidden" 
-        accept="image/*"
-        onChange={handleFileChange}
-      />
-
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Order Status</DialogTitle>
-            <DialogDescription>
-              Update the status for Order #{selectedOrderForStatus?.orderNumber ?? selectedOrderForStatus?._id.slice(-6).toUpperCase()}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeStatuses.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {STATUS_LABELS[status] || status}
-                  </SelectItem>
-                ))}
-                <SelectItem value="DELIVERED">Delivered</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleStatusUpdate}>Update Status</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 };

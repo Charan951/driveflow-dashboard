@@ -451,9 +451,6 @@ const MyBookingsPage = () => {
 
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Bookings</h1>
-        <Button onClick={() => navigate('/book-service')} className="w-full sm:w-auto">
-          Book New Service
-        </Button>
       </div>
       
       <Tabs defaultValue="live" className="w-full">

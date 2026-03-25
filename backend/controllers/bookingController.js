@@ -480,9 +480,10 @@ export const assignBooking = async (req, res) => {
     const isBatteryTire = await isBatteryOrTireBooking(booking);
     if (isBatteryTire) {
       updateData['batteryTire.isBatteryTireService'] = true;
-      if (!booking.batteryTire?.merchantApproval?.status) {
-        updateData['batteryTire.merchantApproval.status'] = 'PENDING';
-      }
+      // For battery/tire services, if an admin is assigning staff or merchant,
+      // it should be automatically approved so staff can proceed.
+      updateData['batteryTire.merchantApproval.status'] = 'APPROVED';
+      updateData['batteryTire.merchantApproval.approvedAt'] = new Date();
     }
 
     // CRITICAL: Status transition to ASSIGNED
@@ -639,8 +640,13 @@ export const updateBookingStatus = async (req, res) => {
       // Car wash specific photo requirements
       if (canonTo === 'CAR_WASH_STARTED') {
         const beforePhotos = Array.isArray(booking.carWash?.beforeWashPhotos) ? booking.carWash.beforeWashPhotos : [];
-        if (beforePhotos.length < 4) {
-          return res.status(400).json({ message: 'Please upload 4 before wash photos before starting car wash' });
+        if (beforePhotos.length < 2) {
+          return res.status(400).json({ message: 'Please upload at least 2 before wash photos before starting car wash' });
+        }
+        
+        // Set wash start time
+        if (booking.carWash) {
+          booking.carWash.washStartedAt = new Date();
         }
       }
 
@@ -648,13 +654,31 @@ export const updateBookingStatus = async (req, res) => {
         
         const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
         
-        if (afterPhotos.length < 4) {
-          return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
+        if (afterPhotos.length < 2) {
+          return res.status(400).json({ message: 'Please upload at least 2 after wash photos before completing car wash' });
         }
         
-        // Set wash completion time (but don't generate OTP yet)
+        // Set wash completion time and generate OTP for delivery
         if (booking.carWash) {
           booking.carWash.washCompletedAt = new Date();
+          
+          // Generate OTP for car wash delivery
+          const code = Math.floor(1000 + Math.random() * 9000).toString();
+          booking.deliveryOtp = {
+            code,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            attempts: 0,
+            verifiedAt: null
+          };
+          
+          if (booking.user?.email) {
+            await sendEmail(
+              booking.user.email,
+              'Car Wash Completion & Delivery OTP',
+              `Your OTP for car wash delivery is ${code}. It expires in 24 hours.`
+            ).catch(() => {});
+          }
+          await sendPushToUser(booking.user?._id, 'Car Wash Completed', `Your car wash is completed. Use OTP ${code} to confirm delivery.`, { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
         }
       }
 
@@ -664,8 +688,10 @@ export const updateBookingStatus = async (req, res) => {
       if (isBatteryTireService) {
         // Check merchant approval for battery/tire services
         if (canonTo === 'STAFF_REACHED_MERCHANT') {
-          if (booking.batteryTire?.merchantApproval?.status !== 'APPROVED') {
-            return res.status(400).json({ message: 'Merchant approval required before staff can proceed to merchant location' });
+          // If a merchant is assigned, we allow proceeding even if not explicitly approved by merchant
+          // because admin assignment implies approval for these services.
+          if (booking.batteryTire?.merchantApproval?.status !== 'APPROVED' && !booking.merchant) {
+            return res.status(400).json({ message: 'Merchant must be assigned before staff can proceed to merchant location' });
           }
         }
         
@@ -673,7 +699,7 @@ export const updateBookingStatus = async (req, res) => {
         if (canonTo === 'INSTALLATION') {
           const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
           if (photos.length < 2) {
-            return res.status(400).json({ message: 'Please upload at least 2 photos (pickup and new part) before starting installation' });
+            return res.status(400).json({ message: 'Please upload at least 2 photos (Old Part and New Part) before starting installation' });
           }
 
           const code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -695,8 +721,8 @@ export const updateBookingStatus = async (req, res) => {
 
         if (canonTo === 'DELIVERY') {
           const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
-          if (photos.length < 3) {
-            return res.status(400).json({ message: 'Please upload at least 3 photos (pickup, new part, and old part) before completing installation' });
+          if (photos.length < 2) {
+            return res.status(400).json({ message: 'Please upload at least 2 photos (New Part and Old Part) before starting delivery' });
           }
         }
 
@@ -963,23 +989,23 @@ export const updateBookingDetails = async (req, res) => {
       if (prePickupPhotos) booking.prePickupPhotos = prePickupPhotos;
       
       if (inspection) {
-        booking.inspection = { ...booking.inspection?._doc, ...inspection };
+        Object.assign(booking.inspection, inspection);
         booking.markModified('inspection');
       }
       if (delay) {
-        booking.delay = { ...booking.delay?._doc, ...delay };
+        Object.assign(booking.delay, delay);
         booking.markModified('delay');
       }
       if (serviceExecution) {
-        booking.serviceExecution = { ...booking.serviceExecution?._doc, ...serviceExecution };
+        Object.assign(booking.serviceExecution, serviceExecution);
         booking.markModified('serviceExecution');
       }
       if (qc) {
-        booking.qc = { ...booking.qc?._doc, ...qc };
+        Object.assign(booking.qc, qc);
         booking.markModified('qc');
       }
       if (billing) {
-        booking.billing = { ...booking.billing?._doc, ...billing };
+        Object.assign(booking.billing, billing);
         if (billing.total) {
           booking.totalAmount = billing.total;
         }
@@ -991,7 +1017,7 @@ export const updateBookingDetails = async (req, res) => {
         }
       }
       if (revisit) {
-        booking.revisit = { ...booking.revisit?._doc, ...revisit };
+        Object.assign(booking.revisit, revisit);
         booking.markModified('revisit');
       }
       

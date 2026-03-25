@@ -33,6 +33,7 @@ export interface Booking {
     };
   };
   pickupDriver?: { _id: string; name: string; email: string; phone?: string };
+  technician?: { _id: string; name: string; email: string; phone?: string };
   media?: string[];
   parts?: {
     product?: string | { _id: string; name: string; price: number };

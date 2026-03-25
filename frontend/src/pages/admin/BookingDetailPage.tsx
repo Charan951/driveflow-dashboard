@@ -431,16 +431,16 @@ const BookingDetailPage: React.FC = () => {
                   Captured by staff at customer location before vehicle pickup.
                 </p>
                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
-                  {booking.prePickupPhotos.length >= 4 ? (
+                  {booking.prePickupPhotos.length >= (isBatteryOrTireService ? 2 : 4) ? (
                     <>
                       <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                      <span className="text-green-700">4/4 photos</span>
+                      <span className="text-green-700">{(isBatteryOrTireService ? 2 : 4)}/{(isBatteryOrTireService ? 2 : 4)} photos</span>
                     </>
                   ) : (
                     <>
                       <Clock className="w-3.5 h-3.5 text-amber-500" />
                       <span className="text-amber-600">
-                        {booking.prePickupPhotos.length}/4 photos
+                        {booking.prePickupPhotos.length}/{(isBatteryOrTireService ? 2 : 4)} photos
                       </span>
                     </>
                   )}
@@ -465,8 +465,8 @@ const BookingDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Car Wash Photos */}
-          {isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
+          {/* Car Wash Photos - Hidden per request */}
+          {false && isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
             <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" /> Car Wash Photos
@@ -518,49 +518,49 @@ const BookingDetailPage: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" /> Vehicle Inspection Photos
-            </h3>
-            {!isCarWashService && !isBatteryOrTireService && booking.inspection && (booking.inspection.frontPhoto || booking.inspection.backPhoto || booking.inspection.leftPhoto || booking.inspection.rightPhoto) ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {['front', 'back', 'left', 'right'].map((side) => {
-                    const url = booking.inspection?.[`${side}Photo` as keyof typeof booking.inspection] as string;
-                    if (!url) return null;
-                    return (
-                      <div key={side} className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side}</span>
-                        <button
-                          type="button"
-                          className="relative w-full rounded-xl overflow-hidden border border-border bg-muted group aspect-square"
-                          onClick={() => window.open(url, '_blank')}
-                        >
-                          <img
-                            src={url}
-                            alt={`${side} inspection`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                {booking.inspection.damageReport && (
-                  <div className="pt-4 border-t border-border">
-                    <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Damage Report</h4>
-                    <p className="text-sm italic text-muted-foreground">"{booking.inspection.damageReport}"</p>
+          {!isCarWashService && !isBatteryOrTireService && (
+            <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" /> Vehicle Inspection Photos
+              </h3>
+              {booking.inspection && (booking.inspection.frontPhoto || booking.inspection.backPhoto || booking.inspection.leftPhoto || booking.inspection.rightPhoto) ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {['front', 'back', 'left', 'right'].map((side) => {
+                      const url = booking.inspection?.[`${side}Photo` as keyof typeof booking.inspection] as string;
+                      if (!url) return null;
+                      return (
+                        <div key={side} className="space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side}</span>
+                          <button
+                            type="button"
+                            className="relative w-full rounded-xl overflow-hidden border border-border bg-muted group aspect-square"
+                            onClick={() => window.open(url, '_blank')}
+                          >
+                            <img
+                              src={url}
+                              alt={`${side} inspection`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground italic text-center py-2">
-                {isCarWashService ? 'Vehicle inspection not required for car wash services.' : 
-                 isBatteryOrTireService ? 'Vehicle inspection not required for battery/tire services.' : 
-                 'No inspection photos yet.'}
-              </p>
-            )}
-          </div>
+                  {booking.inspection.damageReport && (
+                    <div className="pt-4 border-t border-border">
+                      <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Damage Report</h4>
+                      <p className="text-sm italic text-muted-foreground">"{booking.inspection.damageReport}"</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic text-center py-2">
+                   No inspection photos yet.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
@@ -646,7 +646,7 @@ const BookingDetailPage: React.FC = () => {
         {/* Center/Right Column - Booking Details & Actions */}
         <div className="lg:col-span-2 space-y-6">
           {/* Merchant Approval Details (Battery/Tire Service) */}
-          {isBatteryOrTireService && booking.batteryTire?.merchantApproval && (
+          {false && isBatteryOrTireService && booking.batteryTire?.merchantApproval && (
             <div className="bg-card rounded-2xl border-2 border-primary/20 p-6 space-y-4 shadow-sm">
               <h3 className="font-bold text-xl flex items-center gap-2 text-primary">
                 <Store className="w-6 h-6" />
@@ -738,9 +738,8 @@ const BookingDetailPage: React.FC = () => {
                             />
                             <div className="absolute bottom-1 right-1 p-1 bg-black/50 text-white rounded text-[8px] opacity-100 transition-opacity">
                               {isBatteryOrTireService ? (
-                                index === 0 ? 'Merchant Pickup' :
-                                index === 1 ? 'New Part' :
-                                index === 2 ? 'Old Part' :
+                                index === 0 ? 'New Part' :
+                                index === 1 ? 'Old Part' :
                                 `Photo ${index + 1}`
                               ) : (
                                 `Photo ${index + 1}`
@@ -1003,7 +1002,13 @@ const BookingDetailPage: React.FC = () => {
           )}
 
           {/* Service Media Section */}
-          {!isCarWashService && !isBatteryOrTireService && (booking.serviceExecution?.afterPhotos?.length || booking.serviceExecution?.serviceParts?.length) ? (
+          {!isCarWashService && !isBatteryOrTireService && (
+            booking.serviceExecution?.afterPhotos?.length || 
+            booking.serviceExecution?.serviceParts?.length || 
+            booking.status === 'SERVICE_COMPLETED' || 
+            booking.status === 'COMPLETED' || 
+            booking.status === 'DELIVERED'
+          ) ? (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" />

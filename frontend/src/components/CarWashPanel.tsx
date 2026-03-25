@@ -292,7 +292,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
             </div>
             <button 
               onClick={startWash}
-              disabled={loading}
+              disabled={loading || !booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0}
               className="px-4 sm:px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base self-start sm:self-auto"
             >
               {loading ? 'Starting...' : (

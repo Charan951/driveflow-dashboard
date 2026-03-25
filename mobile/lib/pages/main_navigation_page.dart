@@ -7,8 +7,6 @@ import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
 import 'book_service_flow_page.dart';
 import 'speshway_vehiclecare_dashboard_page.dart';
-import 'car_wash_page.dart';
-import 'tires_battery_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -26,8 +24,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       initialCategory: 'Insurance',
     ),
     SpeshwayVehicleCareDashboard(),
-    CarWashPage(key: ValueKey('car-wash')),
-    TiresBatteryPage(key: ValueKey('tires')),
+    BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
+    BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
   ];
 
   @override

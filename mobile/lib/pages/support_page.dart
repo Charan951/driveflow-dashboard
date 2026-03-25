@@ -51,9 +51,8 @@ class _SupportPageState extends State<SupportPage> {
   void _onTicketUpdated(dynamic data) {
     if (data == null) return;
     try {
-      final updatedTicket = SupportTicket.fromJson(
-        Map<String, dynamic>.from(data),
-      );
+      final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+      final updatedTicket = SupportTicket.fromJson(mapData);
 
       // Verification: Only update if this ticket belongs to the user or they are admin
       // (The server already restricts this by room, but extra safety doesn't hurt)

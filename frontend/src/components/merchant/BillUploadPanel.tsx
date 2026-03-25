@@ -86,7 +86,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             fileUrl = res.url;
         }
 
-        await bookingService.updateBookingDetails(booking._id, {
+        const updateData: any = {
             billing: {
                 invoiceNumber: formData.invoiceNumber,
                 invoiceDate: formData.invoiceDate,
@@ -96,25 +96,27 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
                 total: parseFloat(formData.totalAmount) || 0,
                 fileUrl: fileUrl
             }
-        });
+        };
 
-        // Automatically move status to SERVICE_COMPLETED
-        // We do this if the status is currently anywhere before SERVICE_COMPLETED
+        // Automatically move status to SERVICE_COMPLETED and set jobEndTime
         const activeFlow = getFlowForService(booking.services || []);
         const currentIndex = activeFlow.indexOf(booking.status as (typeof activeFlow)[number]);
         const completedIndex = activeFlow.indexOf('SERVICE_COMPLETED' as (typeof activeFlow)[number]);
 
         if (currentIndex < completedIndex && currentIndex !== -1) {
-            await bookingService.updateBookingStatus(booking._id, 'SERVICE_COMPLETED');
-            
             // Also set jobEndTime if not set
             if (!booking.serviceExecution?.jobEndTime) {
-                await bookingService.updateBookingDetails(booking._id, {
-                    serviceExecution: {
-                        jobEndTime: new Date().toISOString()
-                    }
-                });
+                updateData.serviceExecution = {
+                    jobEndTime: new Date().toISOString()
+                };
             }
+        }
+
+        await bookingService.updateBookingDetails(booking._id, updateData);
+
+        // If status update is still needed (backend updateBookingDetails handles SERVICE_STARTED -> SERVICE_COMPLETED)
+        if (currentIndex < completedIndex && currentIndex !== -1 && booking.status !== 'SERVICE_STARTED') {
+            await bookingService.updateBookingStatus(booking._id, 'SERVICE_COMPLETED');
         }
 
         setIsUploaded(true);
