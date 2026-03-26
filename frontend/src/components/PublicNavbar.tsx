@@ -36,9 +36,17 @@ const PublicNavbar: React.FC = () => {
     const fetchServices = async () => {
       try {
         const data = await serviceService.getServices();
-        setServices(data);
+        // Ensure data is an array before setting it
+        if (Array.isArray(data)) {
+          setServices(data);
+        } else {
+          // Handle cases where data is not an array (e.g., API error returns an object)
+          console.error('Received non-array data for services:', data);
+          setServices([]); // Set to empty array to prevent crash
+        }
       } catch (error) {
         console.error('Failed to fetch services for navbar:', error);
+        setServices([]); // Also set to empty array on fetch failure
       }
     };
     fetchServices();
