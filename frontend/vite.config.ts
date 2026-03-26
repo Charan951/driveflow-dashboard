@@ -33,21 +33,17 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('react')) return 'vendor-react';
-              if (id.includes('lucide') || id.includes('framer-motion') || id.includes('@radix-ui')) return 'vendor-ui';
-              if (id.includes('recharts')) return 'vendor-charts';
-              if (id.includes('leaflet')) return 'vendor-maps';
-              return 'vendor';
-            }
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['lucide-react', 'framer-motion', '@radix-ui/react-accordion', '@radix-ui/react-alert-dialog'],
+            'vendor-charts': ['recharts'],
+            'vendor-maps': ['leaflet', 'react-leaflet'],
           }
         },
       },
     },
     esbuild: {
       legalComments: 'none',
-      treeShaking: true,
       drop: mode === 'production' ? ['console', 'debugger'] : [],
     },
     resolve: {
