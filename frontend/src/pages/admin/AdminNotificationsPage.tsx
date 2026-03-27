@@ -39,6 +39,22 @@ const AdminNotificationsPage = () => {
     }
   };
 
+  const handleClearAll = async () => {
+    if (history.length === 0) return;
+    if (!window.confirm(`Are you sure you want to clear all ${history.length} notifications?`)) return;
+
+    try {
+      setLoading(true);
+      await notificationService.clearHistory();
+      setHistory([]);
+      toast.success('Notification history cleared');
+    } catch (error) {
+      toast.error('Failed to clear notification history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleNotificationClick = (notif: NotificationHistoryItem) => {
     const data = notif.data;
     if (!data) return;
@@ -51,12 +67,22 @@ const AdminNotificationsPage = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Notification History</h1>
-          <p className="text-gray-600">View and manage system notification alerts</p>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Notification History</h1>
+          <p className="text-gray-500 text-sm mt-1">View and manage system notification alerts</p>
         </div>
+        {history.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-all font-medium disabled:opacity-50 w-full sm:w-auto shadow-sm"
+          >
+            <Trash2 size={18} />
+            <span>Clear All</span>
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">

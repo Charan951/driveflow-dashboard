@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, Eye, AlertCircle, CheckCircle, XCircle, Wrench, Shield } from 'lucide-react';
+import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wrench, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MyBookingsPage = () => {
@@ -75,22 +75,30 @@ const MyBookingsPage = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Booked': 
-      case 'Accepted':
-      case 'Pickup Assigned':
+      case 'CREATED':
+      case 'ASSIGNED':
+      case 'ACCEPTED':
+      case 'STAFF_REACHED_MERCHANT':
         return 'secondary';
-      case 'In Garage': 
-      case 'Inspection Started':
-      case 'Awaiting Parts':
-      case 'Repair In Progress':
-      case 'Servicing':
-      case 'QC Pending':
+      case 'REACHED_CUSTOMER':
+      case 'VEHICLE_PICKED':
+      case 'REACHED_MERCHANT':
+      case 'PICKUP_BATTERY_TIRE':
         return 'warning';
-      case 'Completed':
-      case 'Ready': 
-      case 'Delivered': 
+      case 'SERVICE_STARTED':
+      case 'CAR_WASH_STARTED':
+      case 'INSTALLATION':
+        return 'warning';
+      case 'SERVICE_COMPLETED':
+      case 'CAR_WASH_COMPLETED':
+      case 'OUT_FOR_DELIVERY':
+      case 'READY':
         return 'success';
-      case 'Cancelled': 
+      case 'DELIVERED':
+      case 'COMPLETED':
+      case 'DELIVERY':
+        return 'success';
+      case 'CANCELLED':
         return 'destructive';
       default: return 'secondary';
     }
@@ -175,7 +183,6 @@ const MyBookingsPage = () => {
                   <TableHead>Status</TableHead>
                   <TableHead>Total Amount</TableHead>
                   <TableHead>Payment</TableHead>
-                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -195,12 +202,17 @@ const MyBookingsPage = () => {
                   // Check if this is a battery/tire service with warranty
                   const isBatteryOrTireService = Array.isArray(booking.services) && 
                     booking.services.some((service: any) => 
+                      typeof service === 'object' && service !== null && 
                       ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
                     );
                   const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
 
                   return (
-                  <TableRow key={booking._id}>
+                  <TableRow 
+                    key={booking._id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => navigate(`/track/${booking._id}`)}
+                  >
                     <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
                     <TableCell>
                       {typeof booking.vehicle === 'object' 
@@ -210,7 +222,7 @@ const MyBookingsPage = () => {
                     <TableCell>
                       {Array.isArray(booking.services) 
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        ? booking.services.map((s: any) => s.name).join(', ') 
+                        ? booking.services.map((s: any) => typeof s === 'string' ? s : s.name).join(', ') 
                         : 'N/A'}
                     </TableCell>
                     <TableCell>
@@ -231,34 +243,27 @@ const MyBookingsPage = () => {
                         {hasWarranty && (
                           <span className="text-xs text-green-600 inline-flex items-center gap-1">
                             <Shield className="w-3 h-3" />
-                            {booking.batteryTire.warranty.warrantyMonths} months warranty
+                            {booking.batteryTire?.warranty?.warrantyMonths} months warranty
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="capitalize">{booking.paymentStatus}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                          <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/track/${booking._id}`)}
-                              title="Track Booking"
-                          >
-                              <Eye className="w-4 h-4" />
-                          </Button>
-                          {booking.status === 'Delivered' && (
-                          <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleReviewClick(booking)}
-                              className="flex items-center gap-1"
-                          >
-                              <MessageSquarePlus className="w-4 h-4" />
-                              Review
-                          </Button>
-                          )}
-                      </div>
+                    <TableCell className="capitalize flex items-center justify-between">
+                      <span>{booking.paymentStatus}</span>
+                      {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReviewClick(booking);
+                            }}
+                            className="flex items-center gap-1"
+                        >
+                            <MessageSquarePlus className="w-4 h-4" />
+                            Review
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 )})}
@@ -284,12 +289,17 @@ const MyBookingsPage = () => {
               // Check if this is a battery/tire service with warranty
               const isBatteryOrTireService = Array.isArray(booking.services) && 
                 booking.services.some((service: any) => 
+                  typeof service === 'object' && service !== null && 
                   ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
                 );
               const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
 
               return (
-                <Card key={booking._id} className="p-4">
+                <Card 
+                  key={booking._id} 
+                  className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate(`/track/${booking._id}`)}
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">
@@ -313,7 +323,7 @@ const MyBookingsPage = () => {
                       <p className="text-sm font-medium">
                         {Array.isArray(booking.services) 
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          ? booking.services.map((s: any) => s.name).join(', ') 
+                          ? booking.services.map((s: any) => typeof s === 'string' ? s : s.name).join(', ') 
                           : 'N/A'}
                       </p>
                     </div>
@@ -332,7 +342,7 @@ const MyBookingsPage = () => {
                           {hasWarranty && (
                             <span className="text-xs text-green-600 inline-flex items-center gap-1">
                               <Shield className="w-3 h-3" />
-                              {booking.batteryTire.warranty.warrantyMonths} months warranty
+                              {booking.batteryTire?.warranty?.warrantyMonths} months warranty
                             </span>
                           )}
                         </div>
@@ -344,28 +354,22 @@ const MyBookingsPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/track/${booking._id}`)}
-                      className="flex-1"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Track
-                    </Button>
-                    {booking.status === 'Delivered' && (
+                  {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
+                    <div className="flex gap-2">
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => handleReviewClick(booking)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReviewClick(booking);
+                        }}
                         className="flex-1"
                       >
                         <MessageSquarePlus className="w-4 h-4 mr-2" />
                         Review
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </Card>
               );
             })}

@@ -198,6 +198,13 @@ export const bookingService = {
     return response.data;
   },
 
+  getBookingInvoice: async (id: string) => {
+    const response = await api.get(`/bookings/${id}/invoice`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
   getBookingById: async (id: string) => {
     const response = await api.get(`/bookings/${id}`);
     return response.data;

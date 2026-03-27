@@ -244,31 +244,31 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
 
       {/* Pagination */}
       {pagination.pages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border">
+          <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
             Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
             {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
             {pagination.total} payments
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 order-1 sm:order-2 w-full sm:w-auto justify-between sm:justify-end">
             <button
               onClick={() => handlePageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
-              className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
             >
               <ChevronLeft className="w-4 h-4" />
               Previous
             </button>
 
-            <span className="px-3 py-2 text-sm">
+            <span className="px-3 py-2 text-xs sm:text-sm font-medium">
               Page {pagination.page} of {pagination.pages}
             </span>
 
             <button
               onClick={() => handlePageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
-              className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
             >
               Next
               <ChevronRight className="w-4 h-4" />

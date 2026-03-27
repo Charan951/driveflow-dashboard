@@ -17,14 +17,24 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const isPDF = file.mimetype === 'application/pdf';
+    
+    // For PDFs, use 'raw' resource type to avoid image processing errors
+    // and ensure the original file is served as-is
+    if (isPDF) {
+      return {
+        folder: 'driveflow_uploads',
+        resource_type: 'raw',
+        public_id: `${file.fieldname}-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+      };
+    }
+
+    // For images, use 'image' resource type with transformations
     return {
       folder: 'driveflow_uploads',
-      format: isPDF ? 'pdf' : undefined,
-      resource_type: 'auto',
-      // Only apply transformations to images
-      transformation: !isPDF ? [
+      resource_type: 'image',
+      transformation: [
         { width: 1200, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
-      ] : undefined
+      ]
     };
   }
 });

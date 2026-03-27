@@ -125,3 +125,15 @@ export const clearMyNotifications = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Clear notification history
+// @route   DELETE /api/notifications/history
+// @access  Private/Admin
+export const clearHistory = async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.json({ message: 'Notification history cleared' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

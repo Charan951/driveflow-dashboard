@@ -1,41 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Users, 
-  Car, 
   Calendar, 
   DollarSign, 
   FileText, 
-  CheckCircle,
-  Truck,
-  Wrench,
-  Package,
-  ArrowRight,
-  Plus,
-  UserPlus,
-  Store,
-  Bell
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CounterCard from '@/components/CounterCard';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { reportService } from '@/services/reportService';
+import { bookingService, Booking } from '@/services/bookingService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
 
 const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalCustomers: 0,
-    activeVehicles: 0,
     todaysBookings: 0,
     revenueToday: 0,
-    pendingApprovals: 0,
-    pendingBills: 0,
-    vehiclesOnRoad: 0,
-    vehiclesInService: 0,
-    waitingPickup: 0,
-    waitingDelivery: 0
   });
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -46,16 +30,26 @@ const AdminDashboard: React.FC = () => {
     socketService.joinRoom('admin');
     
     const refreshHandler = () => fetchData();
+    const newBookingHandler = (data: any) => {
+      toast.success('New service booked!', {
+        description: `Order #${data.orderNumber || ''} by ${data.userName || 'a customer'}`,
+        action: {
+          label: 'View',
+          onClick: () => window.location.href = `/admin/bookings/${data.bookingId || data._id}`
+        }
+      });
+      fetchData();
+    };
 
     socketService.on('bookingUpdated', refreshHandler);
-    socketService.on('bookingCreated', refreshHandler);
+    socketService.on('bookingCreated', newBookingHandler);
     socketService.on('ticketUpdated', refreshHandler);
     socketService.on('ticketCreated', refreshHandler);
 
     return () => {
         socketService.leaveRoom('admin');
         socketService.off('bookingUpdated', refreshHandler);
-        socketService.off('bookingCreated', refreshHandler);
+        socketService.off('bookingCreated', newBookingHandler);
         socketService.off('ticketUpdated', refreshHandler);
         socketService.off('ticketCreated', refreshHandler);
     };
@@ -63,20 +57,23 @@ const AdminDashboard: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const dashboardStats = await reportService.getDashboardStats();
+      const [dashboardStats, bookings] = await Promise.all([
+        reportService.getDashboardStats(),
+        bookingService.getAllBookings()
+      ]);
       
       setStats({
-        totalCustomers: dashboardStats.totalCustomers || 0,
-        activeVehicles: dashboardStats.totalVehicles || 0, // Mapping totalVehicles to activeVehicles based on UI label
         todaysBookings: dashboardStats.todaysBookings || 0,
         revenueToday: dashboardStats.revenueToday || 0,
-        pendingApprovals: dashboardStats.pendingApprovals || 0,
-        pendingBills: dashboardStats.pendingBills || 0,
-        vehiclesOnRoad: dashboardStats.vehiclesOnRoad || 0,
-        vehiclesInService: dashboardStats.vehiclesInService || 0,
-        waitingPickup: dashboardStats.waitingPickup || 0,
-        waitingDelivery: dashboardStats.waitingDelivery || 0
       });
+
+      // Get latest 5 bookings
+      if (Array.isArray(bookings)) {
+        const sorted = [...bookings].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setRecentBookings(sorted.slice(0, 5));
+      }
 
     } catch (error) {
       console.error('Failed to fetch admin dashboard data', error);
@@ -95,15 +92,15 @@ const AdminDashboard: React.FC = () => {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="p-6 space-y-8 max-w-[1600px] mx-auto"
+      className="p-4 md:p-6 space-y-8 max-w-[1600px] mx-auto"
     >
-      <motion.div variants={staggerItem} className="flex items-center justify-between">
+      <motion.div variants={staggerItem} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Main Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Overview of system performance and daily operations</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Main Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Overview of system performance and daily operations</p>
         </div>
-        <div className="flex gap-2">
-           <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+        <div className="flex items-center self-start md:self-auto">
+           <span className="text-xs md:text-sm text-muted-foreground bg-muted px-4 py-1.5 rounded-full border border-border shadow-sm">
              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
            </span>
         </div>
@@ -112,149 +109,86 @@ const AdminDashboard: React.FC = () => {
       {/* KPI Cards */}
       <motion.div variants={staggerItem}>
         <h2 className="text-lg font-semibold mb-4">Key Performance Indicators</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <CounterCard 
-            label="Total Customers" 
-            value={stats.totalCustomers} 
-            icon={<Users className="w-4 h-4 text-blue-600" />} 
-            delay={0} 
-          />
-          <CounterCard 
-            label="Active Vehicles" 
-            value={stats.activeVehicles} 
-            icon={<Car className="w-4 h-4 text-indigo-600" />} 
-            delay={0.1} 
-          />
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-4">
           <CounterCard 
             label="Today's Bookings" 
             value={stats.todaysBookings} 
             icon={<Calendar className="w-4 h-4 text-green-600" />} 
-            delay={0.2} 
+            delay={0.1} 
+            onClick={() => navigate('/admin/bookings?date=today')}
           />
           <CounterCard 
             label="Revenue Today" 
             value={`₹${stats.revenueToday}`} 
             icon={<DollarSign className="w-4 h-4 text-emerald-600" />} 
-            delay={0.3} 
-          />
-          <CounterCard 
-            label="Pending Approvals" 
-            value={stats.pendingApprovals} 
-            icon={<CheckCircle className="w-4 h-4 text-orange-600" />} 
-            delay={0.4} 
-          />
-          <CounterCard 
-            label="Pending Bills" 
-            value={stats.pendingBills} 
-            icon={<FileText className="w-4 h-4 text-red-600" />} 
-            delay={0.5} 
+            delay={0.2} 
           />
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Live Operations Panel */}
-        <motion.div variants={staggerItem} className="lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-semibold">Live Operations Panel</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <Truck className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Vehicles on Road</p>
-                  <p className="text-2xl font-bold">{stats.vehiclesOnRoad}</p>
-                </div>
-              </div>
+      {/* Recent Bookings Section */}
+      <motion.div variants={staggerItem} className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Recent Service Bookings</h2>
+          <Link to="/admin/bookings" className="text-sm text-primary hover:underline font-medium">
+            View All Bookings
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-4">
+          {recentBookings.length === 0 ? (
+            <div className="bg-card p-8 rounded-xl border border-dashed border-border text-center">
+              <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+              <p className="text-muted-foreground">No recent bookings found.</p>
             </div>
-            
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                  <Wrench className="w-6 h-6 text-amber-600" />
+          ) : (
+            recentBookings.map((booking) => (
+              <motion.div 
+                key={booking._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card p-4 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Calendar className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-semibold flex items-center gap-2">
+                      <span>Order #{booking.orderNumber || 'N/A'}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        booking.status === 'CREATED' ? 'bg-blue-100 text-blue-700' :
+                        booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {booking.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {typeof booking.user === 'object' ? booking.user.name : 'Unknown Customer'} • {new Date(booking.createdAt).toLocaleString()}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Vehicles in Service</p>
-                  <p className="text-2xl font-bold">{stats.vehiclesInService}</p>
+                
+                <div className="flex items-center gap-4">
+                  <div className="text-right hidden md:block">
+                    <div className="font-medium">₹{booking.totalAmount}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {Array.isArray(booking.services) ? booking.services.length : 0} Services
+                    </div>
+                  </div>
+                  <Link 
+                    to={`/admin/bookings/${booking._id}`}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <FileText className="w-5 h-5 text-muted-foreground" />
+                  </Link>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <Package className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Waiting for Pickup</p>
-                  <p className="text-2xl font-bold">{stats.waitingPickup}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Waiting Delivery</p>
-                  <p className="text-2xl font-bold">{stats.waitingDelivery}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div variants={staggerItem} className="space-y-4">
-          <h2 className="text-lg font-semibold">Quick Actions</h2>
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="p-2 space-y-1">
-              <Link to="/admin/bookings/new" className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg transition-colors group">
-                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                  <Plus className="w-5 h-5 text-primary" />
-                </div>
-                <span className="font-medium">Create Booking</span>
-                <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-foreground" />
-              </Link>
-              
-              <Link to="/admin/staff" className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg transition-colors group">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 transition-colors">
-                  <UserPlus className="w-5 h-5 text-indigo-600" />
-                </div>
-                <span className="font-medium">Assign Staff</span>
-                <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-foreground" />
-              </Link>
-
-              <Link to="/admin/merchants" className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg transition-colors group">
-                <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg group-hover:bg-orange-100 dark:group-hover:bg-orange-900/40 transition-colors">
-                  <Store className="w-5 h-5 text-orange-600" />
-                </div>
-                <span className="font-medium">Assign Merchant</span>
-                <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-foreground" />
-              </Link>
-
-              <Link to="/admin/vehicles/new" className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg transition-colors group">
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
-                  <Car className="w-5 h-5 text-blue-600" />
-                </div>
-                <span className="font-medium">Add Vehicle</span>
-                <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-foreground" />
-              </Link>
-
-              <Link to="/admin/notifications" className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg transition-colors group">
-                <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg group-hover:bg-red-100 dark:group-hover:bg-red-900/40 transition-colors">
-                  <Bell className="w-5 h-5 text-red-600" />
-                </div>
-                <span className="font-medium">View Alerts</span>
-                <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-foreground" />
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </motion.div>
     </motion.div>
   );
 };

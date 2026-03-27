@@ -97,21 +97,22 @@ const AdminServicesPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               className="bg-card p-4 rounded-lg shadow-sm border border-border"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div className="flex items-center gap-4">
-                  <img src={service.image} alt={service.name} className="w-16 h-16 rounded-md object-cover" />
-                  <div>
-                    <h2 className="text-lg font-semibold">{service.name}</h2>
-                    <p className="text-sm text-muted-foreground">{service.category}</p>
+                  <img src={service.image} alt={service.name} className="w-12 h-12 sm:w-16 sm:h-16 rounded-md object-cover shrink-0" />
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-semibold truncate">{service.name}</h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{service.category}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor={`quick-${service._id}`} className="text-xs text-muted-foreground whitespace-nowrap">Quick Service</Label>
+                    <Label htmlFor={`quick-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Quick Service</Label>
                     <Switch
                       id={`quick-${service._id}`}
                       checked={service.isQuickService}
                       onCheckedChange={() => handleToggleQuickService(service)}
+                      className="scale-75 sm:scale-100"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -120,13 +121,15 @@ const AdminServicesPage: React.FC = () => {
                         setSelectedService(service);
                         setShowModal(true);
                       }}
-                      className="text-sm bg-muted text-muted-foreground px-3 py-1 rounded-md transition-colors hover:bg-muted/80"
+                      className="p-2 sm:px-3 sm:py-1 text-sm bg-muted text-muted-foreground rounded-md transition-colors hover:bg-muted/80"
+                      title="Edit Service"
                     >
                       <Edit size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(service._id)}
-                      className="text-sm bg-destructive text-destructive-foreground px-3 py-1 rounded-md transition-colors hover:bg-destructive/80"
+                      className="p-2 sm:px-3 sm:py-1 text-sm bg-destructive text-destructive-foreground rounded-md transition-colors hover:bg-destructive/80"
+                      title="Delete Service"
                     >
                       <Trash size={14} />
                     </button>

@@ -66,8 +66,24 @@ const DocumentsPage: React.FC = () => {
   };
 
   const handleDownload = (docName: string, url: string) => {
-    // In a real app, this would trigger a download
-    // window.open(url, '_blank');
+    // Check if it's a Cloudinary URL and a PDF
+    let downloadUrl = url;
+    if (url.includes('cloudinary.com') && url.toLowerCase().endsWith('.pdf')) {
+      // Add fl_attachment flag if it doesn't already have it
+      if (!url.includes('fl_attachment')) {
+        downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+      }
+    }
+    
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
     toast.success(`Downloading ${docName}...`);
   };
 

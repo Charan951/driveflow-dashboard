@@ -166,93 +166,168 @@ const AdminUsersPage: React.FC = () => {
         {isLoading ? (
           <div>Loading...</div>
         ) : (
-          <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left min-w-[800px]">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="p-4 font-medium">User</th>
-                    <th className="p-4 font-medium">Role</th>
-                    <th className="p-4 font-medium">Contact</th>
-                    <th className="p-4 font-medium">Status</th>
-                    <th className="p-4 font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No users found matching "{searchQuery}"</td></tr>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <motion.tr 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        key={user._id} 
-                        onClick={() => handleViewDetails(user)}
-                        className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
-                      >
-                      <td className="p-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{user.name}</span>
-                          <span className="text-xs text-muted-foreground">{user.email}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 capitalize">
-                          {getRoleIcon(user.role)}
-                          {user.role}
-                        </div>
-                      </td>
-                      <td className="p-4 text-muted-foreground">
-                        {user.phone || '-'}
-                      </td>
-                      <td className="p-4">
-                        {getStatusBadge(user)}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleViewDetails(user); }}
-                            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          
-                          {!user.isApproved && !user.rejectionReason && (
-                            <>
-                              <button
-                                onClick={(e) => handleApprove(user._id, e)}
-                                className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                                title="Approve"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => handleRejectClick(user, e)}
-                                className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                title="Reject"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
+          <div className="space-y-4">
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <th className="p-4 font-medium">User</th>
+                      <th className="p-4 font-medium">Role</th>
+                      <th className="p-4 font-medium">Contact</th>
+                      <th className="p-4 font-medium">Status</th>
+                      <th className="p-4 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length === 0 ? (
+                      <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No users found matching "{searchQuery}"</td></tr>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <motion.tr 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          key={user._id} 
+                          onClick={() => handleViewDetails(user)}
+                          className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                        >
+                        <td className="p-4">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">{user.name}</span>
+                            <span className="text-xs text-muted-foreground">{user.email}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2 capitalize">
+                            {getRoleIcon(user.role)}
+                            {user.role}
+                          </div>
+                        </td>
+                        <td className="p-4 text-muted-foreground">
+                          {user.phone || '-'}
+                        </td>
+                        <td className="p-4">
+                          {getStatusBadge(user)}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewDetails(user); }}
+                              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            
+                            {!user.isApproved && !user.rejectionReason && (
+                              <>
+                                <button
+                                  onClick={(e) => handleApprove(user._id, e)}
+                                  className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                  title="Approve"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => handleRejectClick(user, e)}
+                                  className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                  title="Reject"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
 
-                          {user.rejectionReason && (
-                             <button
-                             onClick={(e) => handleApprove(user._id, e)}
-                             className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                             title="Re-Approve"
-                           >
-                             <Check className="w-4 h-4" />
-                           </button>
-                          )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                            {user.rejectionReason && (
+                               <button
+                               onClick={(e) => handleApprove(user._id, e)}
+                               className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                               title="Re-Approve"
+                             >
+                               <Check className="w-4 h-4" />
+                             </button>
+                            )}
+                          </div>
+                        </td>
+                      </motion.tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {filteredUsers.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground bg-card rounded-2xl border border-dashed border-border">
+                  No users found matching "{searchQuery}"
+                </div>
+              ) : (
+                filteredUsers.map((user) => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    key={user._id}
+                    onClick={() => handleViewDetails(user)}
+                    className="bg-card p-4 rounded-2xl border border-border shadow-sm space-y-3 active:scale-[0.98] transition-all"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-foreground">{user.name}</span>
+                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                      </div>
+                      {getStatusBadge(user)}
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm py-2 border-y border-border/50">
+                      <div className="flex items-center gap-2 capitalize">
+                        {getRoleIcon(user.role)}
+                        <span className="text-muted-foreground">{user.role}</span>
+                      </div>
+                      <span className="text-muted-foreground">{user.phone || 'No phone'}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleViewDetails(user); }}
+                        className="text-xs font-medium text-primary flex items-center gap-1"
+                      >
+                        View Profile <Eye className="w-3 h-3" />
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        {!user.isApproved && !user.rejectionReason && (
+                          <>
+                            <button
+                              onClick={(e) => handleApprove(user._id, e)}
+                              className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                            >
+                              <Check className="w-3 h-3" /> Approve
+                            </button>
+                            <button
+                              onClick={(e) => handleRejectClick(user, e)}
+                              className="px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                            >
+                              <X className="w-3 h-3" /> Reject
+                            </button>
+                          </>
+                        )}
+
+                        {user.rejectionReason && (
+                          <button
+                            onClick={(e) => handleApprove(user._id, e)}
+                            className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" /> Re-Approve
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
             </div>
           </div>
         )}

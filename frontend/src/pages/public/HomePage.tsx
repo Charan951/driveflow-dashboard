@@ -65,30 +65,6 @@ const howItWorks = [
   { step: 4, title: 'Track & Relax', description: 'Real-time updates on your service status' },
 ];
 
-const testimonials = [
-  {
-    name: 'John Smith',
-    role: 'Tesla Owner',
-    content: 'VehicleCare made servicing my car so easy. The pickup and delivery service is a game-changer!',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    rating: 5,
-  },
-  {
-    name: 'Sarah Johnson',
-    role: 'BMW Owner',
-    content: 'Professional service, transparent pricing, and excellent communication throughout.',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-    rating: 5,
-  },
-  {
-    name: 'Mike Chen',
-    role: 'Mercedes Owner',
-    content: 'The real-time tracking feature gives me peace of mind. Highly recommend!',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-    rating: 5,
-  },
-];
-
 const heroSlides = [
   {
     id: 1,
@@ -376,53 +352,6 @@ const HomePage: React.FC = () => {
                 className="relative rounded-3xl shadow-2xl border border-white/10"
               />
             </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Trusted by Car Owners
-            </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="p-8 bg-muted/20 rounded-2xl border border-border/50 hover:border-primary/50 transition-colors"
-              >
-                <div className="flex gap-1 mb-6">
-                  {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-lg mb-6 italic">"{testimonial.content}"</p>
-                <div className="flex items-center gap-4">
-                  <img
-                    src={testimonial.avatar}
-                    alt={testimonial.name}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20"
-                  />
-                  <div>
-                    <p className="font-bold">{testimonial.name}</p>
-                    <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
           </div>
         </div>
       </section>

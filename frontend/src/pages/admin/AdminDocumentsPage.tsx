@@ -36,11 +36,17 @@ const AdminDocumentsPage = () => {
 
   const handleViewDocument = (url: string) => {
     if (url.startsWith('http') || url.startsWith('/')) {
-        // If it's a relative path like /api/..., prepend backend URL if needed, 
-        // but typically /api is proxied or absolute in dev.
-        // Assuming relative paths work with proxy or absolute URL needed
         const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL}${url}`;
-        window.open(fullUrl, '_blank');
+        
+        // Check if it's a Cloudinary URL and a PDF
+        let finalUrl = fullUrl;
+        if (fullUrl.includes('cloudinary.com') && fullUrl.toLowerCase().endsWith('.pdf')) {
+          // Add fl_attachment flag to ensure it's downloadable if viewing fails
+          if (!fullUrl.includes('fl_attachment')) {
+            finalUrl = fullUrl.replace('/upload/', '/upload/fl_attachment/');
+          }
+        }
+        window.open(finalUrl, '_blank');
     } else {
         toast.error('Invalid document URL');
     }

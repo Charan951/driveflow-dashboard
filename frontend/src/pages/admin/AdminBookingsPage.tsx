@@ -18,16 +18,27 @@ import {
   Eye,
   Shield
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { STATUS_LABELS } from '@/lib/statusFlow';
 
 const AdminBookingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  useEffect(() => {
+    // Check for query parameters whenever the location changes
+    const params = new URLSearchParams(location.search);
+    const dateParam = params.get('date');
+    if (dateParam === 'today') {
+      const todayStr = new Date().toLocaleDateString('en-GB');
+      setSearchQuery(todayStr);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     fetchBookings();
@@ -81,12 +92,18 @@ const AdminBookingsPage: React.FC = () => {
     // Search Filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(b => 
-        (b._id?.toLowerCase() || '').includes(query) ||
-        (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
-        (typeof b.user === 'object' && b.user?.name?.toLowerCase().includes(query)) ||
-        (typeof b.vehicle === 'object' && b.vehicle?.licensePlate?.toLowerCase().includes(query))
-      );
+      result = result.filter(b => {
+        const matchesSearch = 
+          (b._id?.toLowerCase() || '').includes(query) ||
+          (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
+          (typeof b.user === 'object' && b.user?.name?.toLowerCase().includes(query)) ||
+          (typeof b.vehicle === 'object' && b.vehicle?.licensePlate?.toLowerCase().includes(query));
+          
+        const dateStr = new Date(b.date).toLocaleDateString('en-GB').toLowerCase();
+        const matchesDate = dateStr.includes(query);
+        
+        return matchesSearch || matchesDate;
+      });
     }
 
     setFilteredBookings(result);
@@ -176,113 +193,194 @@ const AdminBookingsPage: React.FC = () => {
       {isLoading ? (
         <div className="text-center py-12">Loading bookings...</div>
       ) : (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="p-3 font-medium w-20">Order #</th>
-                  <th className="p-3 font-medium w-48">Customer & Vehicle</th>
-                  <th className="p-3 font-medium w-40">Service Info</th>
-                  <th className="p-3 font-medium w-32">Date & Slot</th>
-                  <th className="p-3 font-medium w-28">Assigned To</th>
-                  <th className="p-3 font-medium w-24">Status</th>
-                  <th className="p-3 font-medium w-20 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredBookings.map((booking) => (
-                  <tr 
-                    key={booking._id} 
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/admin/bookings/${booking._id}`)}
-                  >
-                    <td className="p-3">
-                      <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-sm truncate max-w-[180px]">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                          <Car className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="max-w-[150px] truncate text-sm" title={Array.isArray(booking.services) ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') : ''}>
-                         {Array.isArray(booking.services) 
-                            ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
-                            : 'Service'}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-col">
-                        <span className="flex items-center gap-1 text-xs">
-                           <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                           <span className="truncate">{new Date(booking.date).toLocaleDateString('en-GB')}</span>
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                           <Clock className="w-3 h-3 shrink-0" /> 
-                           <span>10:00 AM</span>
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-3 text-sm">
-                      <div className="max-w-[100px] truncate">
-                        {(() => {
-                          // Check if this is a car wash service
-                          const isCarWashService = Array.isArray(booking.services) && 
-                            booking.services.some(service => 
-                              typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
-                            );
-                          
-                          if (isCarWashService) {
-                            return booking.carWash?.staffAssigned?.name || <span className="text-muted-foreground italic">Unassigned</span>;
-                          } else {
-                            return booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>;
-                          }
-                        })()}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      {getStatusBadge(booking.status)}
-                    </td>
-                    <td className="p-3 font-medium text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-sm">₹{booking.totalAmount}</span>
-                        {(() => {
-                          // Check if this is a battery/tire service with warranty
-                          const isBatteryOrTireService = Array.isArray(booking.services) && 
-                            booking.services.some((service: any) => 
-                              ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
-                            );
-                          const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
-                          
-                          if (hasWarranty) {
-                            return (
-                              <span className="text-xs text-green-600 inline-flex items-center gap-1">
-                                <Shield className="w-3 h-3" />
-                                {booking.batteryTire.warranty.warrantyMonths}m warranty
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    </td>
+        <div className="space-y-4">
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-card rounded-2xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="p-3 font-medium w-20">Order #</th>
+                    <th className="p-3 font-medium w-48">Customer & Vehicle</th>
+                    <th className="p-3 font-medium w-40">Service Info</th>
+                    <th className="p-3 font-medium w-32">Date & Slot</th>
+                    <th className="p-3 font-medium w-28">Assigned To</th>
+                    <th className="p-3 font-medium w-24">Status</th>
+                    <th className="p-3 font-medium w-20 text-right">Amount</th>
                   </tr>
-                ))}
-                
-                {filteredBookings.length === 0 && (
-                   <tr>
-                     <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                        No bookings found matching your filters.
-                     </td>
-                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredBookings.map((booking) => (
+                    <tr 
+                      key={booking._id} 
+                      className="hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/admin/bookings/${booking._id}`)}
+                    >
+                      <td className="p-3">
+                        <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm truncate max-w-[180px]">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                            <Car className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="max-w-[150px] truncate text-sm" title={Array.isArray(booking.services) ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') : ''}>
+                           {Array.isArray(booking.services) 
+                              ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
+                              : 'Service'}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-1 text-xs">
+                             <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                             <span className="truncate">{new Date(booking.date).toLocaleDateString('en-GB')}</span>
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                             <Clock className="w-3 h-3 shrink-0" /> 
+                             <span>10:00 AM</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-sm">
+                        <div className="max-w-[100px] truncate">
+                          {(() => {
+                            // Check if this is a car wash service
+                            const isCarWashService = Array.isArray(booking.services) && 
+                              booking.services.some(service => 
+                                typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                              );
+                            
+                            if (isCarWashService) {
+                              return booking.carWash?.staffAssigned?.name || <span className="text-muted-foreground italic">Unassigned</span>;
+                            } else {
+                              return booking.pickupDriver?.name || <span className="text-muted-foreground italic">Unassigned</span>;
+                            }
+                          })()}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        {getStatusBadge(booking.status)}
+                      </td>
+                      <td className="p-3 font-medium text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-sm">₹{booking.totalAmount}</span>
+                          {(() => {
+                            // Check if this is a battery/tire service with warranty
+                            const isBatteryOrTireService = Array.isArray(booking.services) && 
+                              booking.services.some((service: any) => 
+                                ['Battery', 'Tyres', 'Tyre & Battery'].includes(service.category)
+                              );
+                            const hasWarranty = isBatteryOrTireService && booking.batteryTire?.warranty;
+                            
+                            if (hasWarranty) {
+                              return (
+                                <span className="text-xs text-green-600 inline-flex items-center gap-1">
+                                  <Shield className="w-3 h-3" />
+                                  {booking.batteryTire.warranty.warrantyMonths}m warranty
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {filteredBookings.length === 0 && (
+                     <tr>
+                       <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          No bookings found matching your filters.
+                       </td>
+                     </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {filteredBookings.map((booking) => (
+              <div 
+                key={booking._id} 
+                className="bg-card p-4 rounded-xl border border-border shadow-sm active:scale-[0.98] transition-all"
+                onClick={() => navigate(`/admin/bookings/${booking._id}`)}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex flex-col">
+                    <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
+                    <span className="font-bold text-sm mt-0.5">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
+                  </div>
+                  {getStatusBadge(booking.status)}
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Car className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Wrench className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {Array.isArray(booking.services) 
+                        ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
+                        : 'Service'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 text-xs">
+                        <Calendar className="w-3 h-3 text-muted-foreground" />
+                        <span>{new Date(booking.date).toLocaleDateString('en-GB')}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span>10:00 AM</span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-primary">₹{booking.totalAmount}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                      <User className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {(() => {
+                        const isCarWashService = Array.isArray(booking.services) && 
+                          booking.services.some(service => 
+                            typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                          );
+                        
+                        if (isCarWashService) {
+                          return booking.carWash?.staffAssigned?.name || 'Unassigned';
+                        } else {
+                          return booking.pickupDriver?.name || 'Unassigned';
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <button className="text-xs font-medium text-primary flex items-center gap-1">
+                    View Details <Eye className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {filteredBookings.length === 0 && (
+               <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">
+                  No bookings found matching your filters.
+               </div>
+            )}
           </div>
         </div>
       )}

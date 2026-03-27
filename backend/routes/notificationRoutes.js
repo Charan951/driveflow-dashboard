@@ -6,6 +6,7 @@ import {
   markAsRead,
   deleteNotification,
   clearMyNotifications,
+  clearHistory,
 } from '../controllers/notificationController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -21,6 +22,7 @@ router.route('/my')
   .delete(protect, clearMyNotifications);
 
 router.get('/history', protect, admin, getNotificationHistory);
+router.delete('/history', protect, admin, clearHistory);
 router.put('/:id/read', protect, markAsRead);
 
 // Generic routes last (to avoid conflicts)

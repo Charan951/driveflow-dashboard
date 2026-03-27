@@ -9,6 +9,7 @@ interface CounterCardProps {
   trend?: { value: number; isPositive: boolean };
   className?: string;
   delay?: number;
+  onClick?: () => void;
 }
 
 export const CounterCard: React.FC<CounterCardProps> = ({
@@ -18,14 +19,17 @@ export const CounterCard: React.FC<CounterCardProps> = ({
   trend,
   className,
   delay = 0,
+  onClick,
 }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, delay: delay * 0.1 }}
+      onClick={onClick}
       className={cn(
-        'p-3 sm:p-4 bg-card rounded-2xl border border-border shadow-card',
+        'p-3 sm:p-4 bg-card rounded-2xl border border-border shadow-card transition-all duration-200',
+        onClick && 'cursor-pointer hover:shadow-md hover:border-primary/30 active:scale-[0.98]',
         className
       )}
     >

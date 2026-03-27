@@ -507,6 +507,27 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
+  const handleDownloadSystemInvoice = async () => {
+    if (!order?._id) return;
+    try {
+      toast.info('Generating invoice...');
+      const response = await bookingService.getBookingInvoice(order._id);
+      
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice-${order.orderNumber || order._id.slice(-6).toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoice downloaded successfully');
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      toast.error('Failed to download invoice. Please try again later.');
+    }
+  };
+
   const handleChatMerchant = () => {
     const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
     if (phone) {
@@ -1060,14 +1081,51 @@ const TrackServicePage: React.FC = () => {
               </h2>
               
               <div className="space-y-3 mb-6">
-                <div className="flex justify-between font-bold text-foreground text-lg">
-                  <span>Total Amount</span>
-                  <span>₹{order.totalAmount}</span>
-                </div>
+                {order.billing ? (
+                  <>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Base Service Amount</span>
+                      <span>₹{order.totalAmount}</span>
+                    </div>
+                    {order.billing.partsTotal > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Parts Total</span>
+                        <span>₹{order.billing.partsTotal}</span>
+                      </div>
+                    )}
+                    {order.billing.labourCost > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Labour Cost</span>
+                        <span>₹{order.billing.labourCost}</span>
+                      </div>
+                    )}
+                    {order.billing.gst > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>GST</span>
+                        <span>₹{order.billing.gst}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border">
+                      <span>Total Billed Amount</span>
+                      <span>₹{order.billing.total}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between font-bold text-foreground text-lg">
+                    <span>Total Amount</span>
+                    <span>₹{order.totalAmount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-muted-foreground">
                   <span>Status</span>
                   <span className="capitalize">{order.paymentStatus}</span>
                 </div>
+                {order.billing?.invoiceNumber && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Invoice #</span>
+                    <span>{order.billing.invoiceNumber}</span>
+                  </div>
+                )}
                 {isCarWashService && order.paymentStatus === 'pending' && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
                     <p className="text-sm text-orange-700 font-medium">
@@ -1084,8 +1142,33 @@ const TrackServicePage: React.FC = () => {
                 )}
               </div>
 
-              {order.paymentStatus !== 'paid' && (
-                <div className="space-y-3">
+              <div className="space-y-3">
+                {order.billing?.fileUrl && (
+                  <a
+                    href={order.billing.fileUrl.includes('cloudinary.com') && order.billing.fileUrl.endsWith('.pdf') 
+                      ? order.billing.fileUrl.replace('/upload/', '/upload/fl_attachment/') 
+                      : order.billing.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ImageIcon className="w-5 h-5" />
+                    Download Merchant Invoice
+                  </a>
+                )}
+                
+                {/* Always provide system generated invoice for non-car wash services when completed */}
+                {!isCarWashService && (order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'SERVICE_COMPLETED') && (
+                  <button
+                    onClick={handleDownloadSystemInvoice}
+                    className="w-full py-3 bg-muted text-foreground rounded-xl font-semibold hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-5 h-5" />
+                    Download System Invoice
+                  </button>
+                )}
+
+                {order.paymentStatus !== 'paid' && (
                   <button
                     className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                     onClick={handlePayment}
@@ -1093,8 +1176,8 @@ const TrackServicePage: React.FC = () => {
                   >
                     {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
 
             {hasRightColumnContent && (

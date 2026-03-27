@@ -67,4 +67,8 @@ export const notificationService = {
     const response = await api.delete('/notifications/my');
     return response.data;
   },
+  clearHistory: async () => {
+    const response = await api.delete('/notifications/history');
+    return response.data;
+  },
 };
