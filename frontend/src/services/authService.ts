@@ -1,5 +1,7 @@
 import api from './api';
 import { UserRole } from '@/store/authStore';
+import { auth, googleProvider } from '../config/firebase';
+import { signInWithPopup } from 'firebase/auth';
 
 export interface RegisterData {
     name: string;
@@ -34,6 +36,22 @@ export const authService = {
             sessionStorage.setItem('token', response.data.token);
         }
         return response.data;
+    },
+    googleLogin: async () => {
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const idToken = await result.user.getIdToken();
+            
+            const response = await api.post('/auth/google', { idToken });
+            
+            if (response.data.token) {
+                sessionStorage.setItem('token', response.data.token);
+            }
+            return response.data;
+        } catch (error) {
+            console.error('Google login error:', error);
+            throw error;
+        }
     },
     forgotPassword: async (email: string) => {
         const response = await api.post('/auth/forgot-password', { email });

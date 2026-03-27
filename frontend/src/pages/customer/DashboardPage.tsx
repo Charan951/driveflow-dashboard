@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -39,6 +40,7 @@ const DashboardPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
+  const [showNoVehicleModal, setShowNoVehicleModal] = useState(false);
   const navigate = useNavigate();
 
   // Update greeting every minute
@@ -67,6 +69,12 @@ const DashboardPage: React.FC = () => {
         setVehicles(vehiclesData);
         setBookings(bookingsData);
         setServices(servicesData);
+
+        // Check if user has no vehicles and hasn't dismissed the modal this session
+        const hasSeenModal = sessionStorage.getItem('hasSeenNoVehicleModal');
+        if (vehiclesData.length === 0 && !hasSeenModal) {
+          setShowNoVehicleModal(true);
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data', error);
         toast.error('Failed to load dashboard data');
@@ -76,6 +84,11 @@ const DashboardPage: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  const handleCloseNoVehicleModal = () => {
+    setShowNoVehicleModal(false);
+    sessionStorage.setItem('hasSeenNoVehicleModal', 'true');
+  };
 
   useEffect(() => {
     if (user?._id) {
@@ -381,6 +394,46 @@ const DashboardPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* No Vehicle Modal */}
+      <Dialog open={showNoVehicleModal} onOpenChange={handleCloseNoVehicleModal}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl [&>button]:hidden">
+          <div className="absolute right-4 top-4">
+            <button
+              onClick={handleCloseNoVehicleModal}
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              Skip
+            </button>
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Add Your First Vehicle</DialogTitle>
+            <DialogDescription className="text-center">
+              Please add a vehicle to start booking services and track maintenance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6 py-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <Car className="w-10 h-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-foreground">No vehicles found</p>
+            </div>
+            <div className="flex flex-col w-full gap-3">
+              <button
+                onClick={() => {
+                  handleCloseNoVehicleModal();
+                  navigate('/add-vehicle');
+                }}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+              >
+                <Plus className="w-5 h-5" />
+                Add Vehicle
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

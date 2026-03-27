@@ -32,6 +32,29 @@ const RegisterPage: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Basic validations
+    if (!formData.name.trim()) {
+      toast.error('Please enter your full name');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -71,32 +94,26 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  const passwordRequirements = [
-    { label: 'At least 8 characters', met: formData.password.length >= 8 },
-    { label: 'Contains a number', met: /\d/.test(formData.password) },
-    { label: 'Contains uppercase', met: /[A-Z]/.test(formData.password) },
-  ];
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md mx-auto"
+      className="w-full"
     >
-      <div className="glass-panel-strong p-8 rounded-3xl">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">
+      <div className="glass-panel-strong p-4 md:p-5 rounded-3xl shadow-xl">
+        <div className="text-center mb-2.5 md:mb-3">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">
             Create Account
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-[10px] md:text-[11px] text-muted-foreground mt-0.5">
             Start managing your vehicles today
           </p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-4">
+        <form onSubmit={handleRegister} className="space-y-1.5 md:space-y-2">
             {/* Name Field */}
             <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="text"
                 name="name"
@@ -104,13 +121,13 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Full name"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
 
             {/* Email Field */}
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="email"
                 name="email"
@@ -118,13 +135,13 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Email address"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
 
             {/* Phone Field */}
             <div className="relative">
-              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="tel"
                 name="phone"
@@ -132,13 +149,13 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Phone number"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
 
             {/* Password Field */}
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
@@ -146,44 +163,28 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Password"
                 required
-                className="w-full pl-12 pr-12 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                className="w-full pl-10 pr-10 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
 
-            {/* Password Requirements */}
-            {formData.password && (
-              <div className="space-y-2 p-3 bg-muted/30 rounded-xl">
-                {passwordRequirements.map((req, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${req.met ? 'bg-success' : 'bg-muted'}`}>
-                      {req.met && <Check className="w-3 h-3 text-success-foreground" />}
-                    </div>
-                    <span className={req.met ? 'text-foreground' : 'text-muted-foreground'}>
-                      {req.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* Confirm Password Field */}
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                placeholder="Confirm password"
+                placeholder="Confirm"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
 
@@ -192,32 +193,26 @@ const RegisterPage: React.FC = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold text-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : (
                 <>
                   Create Account
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </motion.button>
 
-            <p className="mt-4 text-xs text-center text-muted-foreground">
+            <p className="mt-2 text-[9px] text-center text-muted-foreground">
               By continuing, you agree to our{' '}
-              <Link to="/terms" className="underline hover:text-primary">
-                Terms & Conditions
-              </Link>{' '}
-              &{' '}
-              <Link to="/privacy" className="underline hover:text-primary">
-                Privacy Policy
-              </Link>
+              <Link to="/terms" className="underline hover:text-primary">Terms</Link> & <Link to="/privacy" className="underline hover:text-primary">Privacy</Link>
             </p>
           </form>
 
         {/* Sign In Link */}
-        <p className="mt-8 text-center text-muted-foreground">
+        <p className="mt-1 text-center text-xs text-muted-foreground">
           Already have an account?{' '}
           <Link to="/login" state={locationState} className="text-primary font-medium hover:underline">
             Sign in

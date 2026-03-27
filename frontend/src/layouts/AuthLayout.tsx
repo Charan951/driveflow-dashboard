@@ -5,7 +5,7 @@ import PageTransition from '@/components/PageTransition';
 
 export const AuthLayout: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-hero">
+    <div className="h-screen flex flex-col bg-gradient-hero relative overflow-hidden">
       <PublicNavbar />
       {/* Background Pattern */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -14,16 +14,20 @@ export const AuthLayout: React.FC = () => {
       </div>
 
       {/* Content */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-6 pt-24">
-        <PageTransition>
-          <Outlet />
-        </PageTransition>
-      </main>
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 pt-12 md:pt-14">
+        <div className="w-full max-w-[340px] md:max-w-[360px]">
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
+        </div>
 
-      {/* Footer */}
-      <footer className="relative z-10 p-6 text-center text-primary-foreground/60 text-sm">
-        © 2024 Speshway Solutions. All rights reserved.
-      </footer>
+        {/* Footer inside main to ensure visibility */}
+        <footer className="mt-2 text-center">
+          <p className="text-[9px] md:text-[10px] text-primary-foreground/50">
+            © 2024 Speshway Solutions. All rights reserved.
+          </p>
+        </footer>
+      </main>
     </div>
   );
 };

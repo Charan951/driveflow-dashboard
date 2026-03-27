@@ -52,6 +52,7 @@ export const useAuthStore = create<AuthState>()(
       login: (user) => set({ user, isAuthenticated: true, role: user.role }),
       logout: () => {
         sessionStorage.removeItem('token');
+        sessionStorage.removeItem('hasSeenNoVehicleModal');
         set({ user: null, isAuthenticated: false, role: null });
       },
       updateUser: (data) =>

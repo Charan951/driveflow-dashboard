@@ -13,7 +13,7 @@ const PrivacyPage = () => {
         >
           {/* Header */}
           <div className="text-center space-y-4">
-            <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-primary tracking-tight">
               Privacy Policy
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">

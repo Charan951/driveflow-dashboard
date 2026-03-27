@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      },
       proxy: {
         '/uploads': env.VITE_API_URL || 'http://localhost:5000',
         '/api': env.VITE_API_URL || 'http://localhost:5000'

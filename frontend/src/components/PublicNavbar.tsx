@@ -107,9 +107,13 @@ const PublicNavbar: React.FC = () => {
     { name: 'Contact', path: '/contact' },
   ];
 
+  const transparentPaths = ['/', '/about-us', '/careers', '/contact', '/faqs', '/reviews'];
+  const isTransparentPage = transparentPaths.includes(location.pathname);
+  const shouldBeScrolled = isScrolled || !isTransparentPage;
+
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled 
+      shouldBeScrolled 
         ? 'bg-card/80 backdrop-blur-xl border-b border-border shadow-sm' 
         : 'bg-transparent'
     }`}>
@@ -121,7 +125,7 @@ const PublicNavbar: React.FC = () => {
             src="/speshway-logo.png"
             alt="Speshway Solutions"
             className="w-10 h-10 rounded-xl object-cover"/>
-          <span className={`font-semibold text-lg ${isScrolled ? 'text-foreground' : 'text-white'}`}>Speshway Solutions</span>
+          <span className={`font-semibold text-lg ${shouldBeScrolled ? 'text-foreground' : 'text-white'}`}>Speshway Solutions</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -135,7 +139,7 @@ const PublicNavbar: React.FC = () => {
                       <NavigationMenuTrigger className={`flex items-center gap-1 text-sm font-medium transition-colors outline-none bg-transparent hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent p-0 h-auto ${
                         location.pathname.startsWith('/services')
                           ? 'text-primary'
-                          : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
+                          : (shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
                       }`}>
                         {link.name}
                       </NavigationMenuTrigger>
@@ -180,7 +184,7 @@ const PublicNavbar: React.FC = () => {
                         className={`text-sm font-medium transition-colors ${
                           location.pathname === link.path
                             ? 'text-primary'
-                            : (isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
+                            : (shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
                         }`}>
                         {link.name}
                       </Link>
@@ -196,13 +200,13 @@ const PublicNavbar: React.FC = () => {
           <Link 
             to="/login" 
             className={`px-4 py-2 text-sm font-medium transition-colors ${
-              isScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white'
+              shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white'
             }`}>
             Login
           </Link>
           <Link 
             to="/register" 
-            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
+            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:bg-primary/90 transition-all shadow-md hover:shadow-lg active:scale-95">
             Get Started
           </Link>
         </div>

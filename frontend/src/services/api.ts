@@ -15,6 +15,7 @@ api.interceptors.request.use((config) => {
     const publicEndpoints = [
       '/auth/login',
       '/auth/register',
+      '/auth/google',
       '/auth/forgot-password',
       '/auth/reset-password',
       '/services',

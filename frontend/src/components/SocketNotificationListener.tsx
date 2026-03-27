@@ -26,13 +26,17 @@ const SocketNotificationListener = () => {
       socketService.joinRoom(`user_${user._id}`);
     });
 
-    // Join rooms immediately if already connected
-    if (userRole === 'admin') {
-      console.log('Joining admin room as user role is admin');
-      socketService.joinRoom('admin');
+    // Only join immediately if already connected to avoid duplicate join messages
+    // but the 'connect' listener above handles the re-connection logic
+    const isConnected = socketService.isConnected();
+    if (isConnected) {
+      if (userRole === 'admin') {
+        console.log('Joining admin room as user role is admin');
+        socketService.joinRoom('admin');
+      }
+      console.log(`Joining personal room user_${user._id}`);
+      socketService.joinRoom(`user_${user._id}`);
     }
-    console.log(`Joining personal room user_${user._id}`);
-    socketService.joinRoom(`user_${user._id}`);
 
     const handleNotification = (data: any) => {
       console.log('Notification received:', data);

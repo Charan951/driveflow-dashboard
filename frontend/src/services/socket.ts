@@ -35,6 +35,10 @@ class SocketService {
     }
   }
 
+  isConnected() {
+    return this.socket?.connected || false;
+  }
+
   emit(event: string, data: unknown) {
     if (!this.socket) this.connect();
     this.socket?.emit(event, data);

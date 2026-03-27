@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendEmail } from '../utils/emailService.js';
+import admin from '../config/firebase.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -75,6 +76,53 @@ export const loginUser = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const googleLogin = async (req, res) => {
+  const { idToken } = req.body;
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { email, name, picture } = decodedToken;
+    const normalizedEmail = email.toLowerCase();
+
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      // Create new user if they don't exist
+      user = await User.create({
+        name,
+        email: normalizedEmail,
+        password: crypto.randomBytes(16).toString('hex'), // Random password for social login
+        role: 'customer',
+        isApproved: true,
+        avatar: picture,
+      });
+    }
+
+    if (!user.isApproved) {
+      return res.status(401).json({ 
+        message: 'Account pending approval. Please wait for admin approval.',
+        code: 'PENDING_APPROVAL' 
+      });
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      subRole: user.subRole,
+      phone: user.phone,
+      isShopOpen: user.isShopOpen,
+      location: user.location,
+      isOnline: user.isOnline,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error('Google login verification error:', error);
+    res.status(401).json({ message: 'Invalid Google token' });
   }
 };
 
