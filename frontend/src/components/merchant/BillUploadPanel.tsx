@@ -18,7 +18,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
     partsCost: booking.billing?.partsTotal || '',
     labourCost: booking.billing?.labourCost || '',
     gst: booking.billing?.gst || '',
-    totalAmount: booking.billing?.total || '',
+    totalAmount: (parseFloat(booking.billing?.total?.toString() || (booking.totalAmount + (booking.billing?.partsTotal || 0) + (booking.billing?.labourCost || 0) + (booking.billing?.gst || 0)).toString())).toString(),
   });
   const [file, setFile] = useState<File | null>(null);
   const [isUploaded, setIsUploaded] = useState(!!booking.billing?.fileUrl);
@@ -26,15 +26,19 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
   // Sync form data with booking prop changes (e.g. when parts are added in Inspection)
   React.useEffect(() => {
-    setFormData(prev => ({
-        ...prev,
-        partsCost: booking.billing?.partsTotal || prev.partsCost, // Update parts cost if backend updated it
-        // Only update total if we are taking the new parts cost
-        totalAmount: (parseFloat(booking.billing?.partsTotal || prev.partsCost || 0) + 
-                      parseFloat(prev.labourCost || 0) + 
-                      parseFloat(prev.gst || 0)).toString()
-    }));
-  }, [booking.billing?.partsTotal]);
+    setFormData(prev => {
+        const partsCost = booking.billing?.partsTotal || prev.partsCost || 0;
+        const labourCost = parseFloat(prev.labourCost || 0);
+        const gst = parseFloat(prev.gst || 0);
+        const baseAmount = booking.totalAmount || 0;
+        
+        return {
+            ...prev,
+            partsCost: partsCost.toString(),
+            totalAmount: (baseAmount + parseFloat(partsCost.toString()) + labourCost + gst).toString()
+        };
+    });
+  }, [booking.billing?.partsTotal, booking.totalAmount]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -45,7 +49,8 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             const parts = parseFloat(newData.partsCost) || 0;
             const labour = parseFloat(newData.labourCost) || 0;
             const gst = parseFloat(newData.gst) || 0;
-            newData.totalAmount = (parts + labour + gst).toString();
+            const baseAmount = booking.totalAmount || 0;
+            newData.totalAmount = (baseAmount + parts + labour + gst).toString();
         }
         return newData;
     });

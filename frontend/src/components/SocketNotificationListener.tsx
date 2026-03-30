@@ -19,7 +19,6 @@ const SocketNotificationListener = () => {
     socketService.connect();
 
     socketService.on('connect', () => {
-      console.log('Socket connected in listener, joining rooms...');
       if (userRole === 'admin') {
         socketService.joinRoom('admin');
       }
@@ -31,16 +30,12 @@ const SocketNotificationListener = () => {
     const isConnected = socketService.isConnected();
     if (isConnected) {
       if (userRole === 'admin') {
-        console.log('Joining admin room as user role is admin');
         socketService.joinRoom('admin');
       }
-      console.log(`Joining personal room user_${user._id}`);
       socketService.joinRoom(`user_${user._id}`);
     }
 
     const handleNotification = (data: any) => {
-      console.log('Notification received:', data);
-      
       // Add to local store
       addNotification({
         title: data.title,
@@ -60,8 +55,6 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingUpdate = (data: any) => {
-      console.log('Booking update received:', data);
-      
       // Refresh relevant queries
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['booking', data._id] });
@@ -91,7 +84,6 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingCreated = (data: any) => {
-      console.log('New booking created:', data);
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
@@ -114,7 +106,6 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingCancelled = (data: any) => {
-      console.log('Booking cancelled:', data);
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       

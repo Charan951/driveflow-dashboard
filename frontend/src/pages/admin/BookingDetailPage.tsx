@@ -465,8 +465,8 @@ const BookingDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Car Wash Photos - Hidden per request */}
-          {false && isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
+          {/* Car Wash Photos */}
+          {isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
             <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" /> Car Wash Photos

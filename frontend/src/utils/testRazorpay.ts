@@ -1,3 +1,4 @@
+/*
 // Test utility to verify Razorpay integration
 export const testRazorpayIntegration = () => {
   console.log('🧪 Testing Razorpay Integration...');
@@ -31,3 +32,4 @@ if (import.meta.env.DEV) {
   // Run test after a short delay to ensure everything is loaded
   setTimeout(testRazorpayIntegration, 1000);
 }
+*/

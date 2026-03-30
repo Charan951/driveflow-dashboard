@@ -15,7 +15,6 @@ const RazorpayTest: React.FC = () => {
       name: 'DriveFlow Test',
       description: 'Test Payment',
       handler: (response: any) => {
-        console.log('Test payment response:', response);
         toast.success('Test payment successful!');
       },
       prefill: {

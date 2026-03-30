@@ -203,7 +203,6 @@ const StaffOrderPage: React.FC = () => {
             return;
           }
           // For car wash completion, just update status (no OTP generation yet)
-          console.log('Completing car wash without OTP generation');
           try {
             await bookingService.updateBookingStatus(order._id, newStatus);
           } catch (error) {
@@ -217,14 +216,11 @@ const StaffOrderPage: React.FC = () => {
           try {
             // Check if OTP already exists
             if (!order.deliveryOtp?.code) {
-              console.log('Generating OTP for car wash delivery completion');
               await bookingService.generateDeliveryOtp(order._id);
               
               // Refresh order to get the OTP
               const refreshedOrder = await bookingService.getBookingById(order._id);
               setOrder(refreshedOrder);
-            } else {
-              console.log('OTP already exists, not generating new one');
             }
             
             // Ask for customer's OTP (no alert needed)
@@ -243,7 +239,6 @@ const StaffOrderPage: React.FC = () => {
             return;
           }
         } else {
-          console.log('Car wash service using generic updateBookingStatus for status:', newStatus);
           await bookingService.updateBookingStatus(order._id, newStatus);
         }
       } else if (isBatteryOrTireNow) {
@@ -263,7 +258,6 @@ const StaffOrderPage: React.FC = () => {
           try {
             // Check if OTP already exists
             if (!order.deliveryOtp?.code) {
-              console.log('Generating OTP for battery/tire delivery');
               await bookingService.generateDeliveryOtp(order._id);
             }
             
@@ -641,9 +635,6 @@ const StaffOrderPage: React.FC = () => {
   };
 
   const handlePrePickupUploadClick = () => {
-    console.log('Upload button clicked, triggering file input');
-    console.log('File input element:', prePickupInputRef.current);
-    console.log('File input multiple attribute:', prePickupInputRef.current?.multiple);
     prePickupInputRef.current?.click();
   };
 
@@ -652,38 +643,29 @@ const StaffOrderPage: React.FC = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
     
-    console.log('Files selected:', files.length, files.map(f => f.name));
-    
     // Check if this is a car wash service
     const isCarWashService = Array.isArray(order.services) && 
       order.services.some(service => 
         typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
       );
     
-    console.log('Is car wash service:', isCarWashService, 'Order status:', order.status);
-    
     try {
       setIsUploadingPrePickup(true);
       const loadingToast = toast.loading(`Uploading ${files.length} photos...`);
       
-      console.log('Calling uploadService.uploadFiles with', files.length, 'files');
       const res = await uploadService.uploadFiles(files);
-      console.log('Upload response:', res);
       
       const newUrls = (res.files || []).map((f: { url: string }) => f.url);
-      console.log('New URLs:', newUrls);
       
       if (isCarWashService) {
         // Handle car wash photo uploads based on status
         if (order.status === 'REACHED_CUSTOMER') {
           // Upload before wash photos - replace existing photos
           const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
-          console.log('Uploading before wash photos:', updatedPhotos);
           
           // Use car wash service to upload before photos
           const { carWashService } = await import('@/services/carWashService');
           const result = await carWashService.uploadBeforePhotos(order._id, updatedPhotos);
-          console.log('Before photos upload result:', result);
           
           // Update local state with the result from backend
           if (result.booking) {
@@ -701,12 +683,10 @@ const StaffOrderPage: React.FC = () => {
         } else if (order.status === 'CAR_WASH_STARTED') {
           // Upload after wash photos - replace existing photos
           const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
-          console.log('Uploading after wash photos:', updatedPhotos);
           
           // Use car wash service to upload after photos
           const { carWashService } = await import('@/services/carWashService');
           const result = await carWashService.uploadAfterPhotos(order._id, updatedPhotos);
-          console.log('After photos upload result:', result);
           
           // Update local state with the result from backend
           if (result.booking) {

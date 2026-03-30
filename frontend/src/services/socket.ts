@@ -20,11 +20,11 @@ class SocketService {
     });
 
     this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket?.id);
+      // Socket connected
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      // Socket disconnected
     });
   }
 

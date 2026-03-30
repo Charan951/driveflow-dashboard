@@ -1036,7 +1036,7 @@ export const updateBookingDetails = async (req, res) => {
         // Update billing partsTotal if billing exists
         if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
-            booking.billing.total = (booking.billing.labourCost || 0) + partsTotal + (booking.billing.gst || 0);
+            booking.billing.total = servicesTotal + partsTotal + (booking.billing.labourCost || 0) + (booking.billing.gst || 0);
         }
       }
 

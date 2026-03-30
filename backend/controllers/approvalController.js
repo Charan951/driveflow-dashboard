@@ -238,7 +238,7 @@ export const updateApprovalStatus = async (req, res) => {
           // Update billing if exists
           if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
-            booking.billing.total = (Number(booking.billing.labourCost) || 0) + partsTotal + (Number(booking.billing.gst) || 0);
+            booking.billing.total = servicesTotal + partsTotal + (Number(booking.billing.labourCost) || 0) + (Number(booking.billing.gst) || 0);
           }
 
           booking.markModified('inspection');
@@ -274,11 +274,15 @@ export const updateApprovalStatus = async (req, res) => {
           booking.billing.labourCost = (booking.billing.labourCost || 0) + Number(amount);
           
           // Recalculate billing total
+          const Service = (await import('../models/Service.js')).default;
+          const services = await Service.find({ _id: { $in: booking.services } });
+          const servicesTotal = services.reduce((acc, service) => acc + service.price, 0);
+
           const partsTotal = booking.billing.partsTotal || 0;
           const labourCost = booking.billing.labourCost;
           const gst = booking.billing.gst || 0;
           
-          booking.billing.total = partsTotal + labourCost + gst;
+          booking.billing.total = servicesTotal + partsTotal + labourCost + gst;
           
           // Update main totalAmount
           booking.totalAmount = (booking.totalAmount || 0) + Number(amount);

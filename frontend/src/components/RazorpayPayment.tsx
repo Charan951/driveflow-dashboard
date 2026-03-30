@@ -52,8 +52,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
         tempBookingData
       );
 
-      console.log('Order created:', order);
-
       // Open Razorpay checkout
       const options = {
         key: order.key,
@@ -64,8 +62,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
         order_id: order.orderId,
         handler: async (response: any) => {
           try {
-            console.log('Payment response:', response);
-            
             // Verify payment
             const verificationData = {
               razorpay_order_id: response.razorpay_order_id,
@@ -99,7 +95,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
         },
         modal: {
           ondismiss: () => {
-            console.log('Payment modal dismissed');
             setIsLoading(false);
             setPaymentStatus('failed');
             onFailure({ error: 'Payment cancelled by user' });
@@ -107,7 +102,6 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
         }
       };
 
-      console.log('Opening Razorpay with options:', options);
       const razorpay = new window.Razorpay(options);
       razorpay.open();
       

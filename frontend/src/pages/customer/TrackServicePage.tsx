@@ -119,7 +119,7 @@ const TrackServicePage: React.FC = () => {
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
       script.onload = () => {
-        console.log('Razorpay script loaded successfully');
+        // Razorpay script loaded successfully
       };
       script.onerror = () => {
         console.error('Failed to load Razorpay script');
@@ -184,7 +184,6 @@ const TrackServicePage: React.FC = () => {
       socketService.joinRoom(`booking_${id}`);
 
       socketService.on('liveLocation', (data: { lat?: number | string; lng?: number | string; role?: string; updatedAt?: string; timestamp?: string }) => {
-        console.log('liveLocation', data);
         const currentOrder = orderRef.current;
         if (!currentOrder) return;
         // if (data.role && data.role !== 'staff') return;
@@ -507,7 +506,21 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const handleDownloadSystemInvoice = async () => {
+
+
+  const handleChatMerchant = () => {
+    const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
+    if (phone) {
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?.orderNumber ?? order?._id}`)}`;
+      window.open(url, '_blank');
+      return;
+    }
+    if (order?._id) {
+      navigate(`/chat/${order._id}`);
+    }
+  };
+
+  const handleDownloadMerchantInvoice = async () => {
     if (!order?._id) return;
     try {
       toast.info('Generating invoice...');
@@ -528,18 +541,6 @@ const TrackServicePage: React.FC = () => {
     }
   };
 
-  const handleChatMerchant = () => {
-    const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
-    if (phone) {
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?.orderNumber ?? order?._id}`)}`;
-      window.open(url, '_blank');
-      return;
-    }
-    if (order?._id) {
-      navigate(`/chat/${order._id}`);
-    }
-  };
-
   const handlePayment = async () => {
     if (!order || !user) return;
     
@@ -555,8 +556,6 @@ const TrackServicePage: React.FC = () => {
       // Use Razorpay for payment
       const orderData = await paymentService.createOrder(order._id, order.totalAmount);
       
-      console.log('Order created for existing booking:', orderData);
-      
       const options = {
         key: orderData.key,
         amount: orderData.amount,
@@ -566,8 +565,6 @@ const TrackServicePage: React.FC = () => {
         order_id: orderData.orderId,
         handler: async (response: any) => {
           try {
-            console.log('Payment response:', response);
-            
             // Verify payment
             const verificationData = {
               razorpay_order_id: response.razorpay_order_id,
@@ -603,13 +600,11 @@ const TrackServicePage: React.FC = () => {
         },
         modal: {
           ondismiss: () => {
-            console.log('Payment modal dismissed');
             setIsPaymentLoading(false);
           }
         }
       };
 
-      console.log('Opening Razorpay with options:', options);
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
       
@@ -1081,11 +1076,11 @@ const TrackServicePage: React.FC = () => {
               </h2>
               
               <div className="space-y-3 mb-6">
-                {order.billing ? (
+                {order.billing && (order.billing.total > 0 || order.billing.invoiceNumber || order.billing.fileUrl) ? (
                   <>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Base Service Amount</span>
-                      <span>₹{order.totalAmount}</span>
+                      <span>₹{order.totalAmount - (order.billing.partsTotal || 0) - (order.billing.labourCost || 0) - (order.billing.gst || 0)}</span>
                     </div>
                     {order.billing.partsTotal > 0 && (
                       <div className="flex justify-between text-sm text-muted-foreground">
@@ -1144,38 +1139,32 @@ const TrackServicePage: React.FC = () => {
 
               <div className="space-y-3">
                 {order.billing?.fileUrl && (
-                  <a
-                    href={order.billing.fileUrl.includes('cloudinary.com') && order.billing.fileUrl.endsWith('.pdf') 
-                      ? order.billing.fileUrl.replace('/upload/', '/upload/fl_attachment/') 
-                      : order.billing.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={handleDownloadMerchantInvoice}
                     className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                   >
                     <ImageIcon className="w-5 h-5" />
                     Download Merchant Invoice
-                  </a>
+                  </button>
                 )}
                 
-                {/* Always provide system generated invoice for non-car wash services when completed */}
-                {!isCarWashService && (order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'SERVICE_COMPLETED') && (
-                  <button
-                    onClick={handleDownloadSystemInvoice}
-                    className="w-full py-3 bg-muted text-foreground rounded-xl font-semibold hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Shield className="w-5 h-5" />
-                    Download System Invoice
-                  </button>
-                )}
+
 
                 {order.paymentStatus !== 'paid' && (
-                  <button
-                    className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                    onClick={handlePayment}
-                    disabled={isPaymentLoading}
-                  >
-                    {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handlePayment}
+                      disabled={isPaymentLoading || (!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status))}
+                    >
+                      {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
+                    </button>
+                    {!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+                      <p className="text-[11px] text-center text-muted-foreground">
+                        Payment will be enabled once the service is completed
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>
