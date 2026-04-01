@@ -67,7 +67,8 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
               type="time"
               value={selectedTime ? (() => {
                 const [time, modifier] = selectedTime.split(' ');
-                let [hours, minutes] = time.split(':');
+                const [rawHours, minutes] = time.split(':');
+                let hours = rawHours;
                 if (modifier === 'PM' && hours !== '12') hours = (parseInt(hours) + 12).toString();
                 if (modifier === 'AM' && hours === '12') hours = '00';
                 return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;

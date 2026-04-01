@@ -28,6 +28,7 @@ class TrackedStaff {
   final String name;
   final String? role;
   final String? subRole;
+  final String? category;
   final String? phone;
   final String email;
   final bool isOnline;
@@ -40,6 +41,7 @@ class TrackedStaff {
     required this.name,
     this.role,
     this.subRole,
+    this.category,
     this.phone,
     required this.email,
     this.isOnline = false,
@@ -54,6 +56,7 @@ class TrackedStaff {
       name: (json['name'] ?? '').toString(),
       role: json['role']?.toString(),
       subRole: json['subRole']?.toString(),
+      category: json['category']?.toString(),
       phone: json['phone']?.toString(),
       email: (json['email'] ?? '').toString(),
       isOnline: json['isOnline'] == true,

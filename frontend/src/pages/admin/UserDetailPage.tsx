@@ -31,6 +31,7 @@ const AdminUserDetailPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('vehicles');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,7 +160,7 @@ const AdminUserDetailPage: React.FC = () => {
 
         {/* Main Content - Tabs */}
         <div className="lg:col-span-2">
-          <Tabs defaultValue="vehicles" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full justify-start border-b border-border bg-transparent p-0 h-auto rounded-none mb-6">
               <TabsTrigger 
                 value="vehicles"
@@ -209,7 +210,7 @@ const AdminUserDetailPage: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {vehicles.map(vehicle => (
-                    <VehicleCard key={vehicle._id} {...vehicle} onClick={() => {}} />
+                    <VehicleCard key={vehicle._id} {...vehicle} onClick={() => navigate(`/admin/vehicles/${vehicle._id}`)} />
                   ))}
                 </div>
               )}
@@ -236,7 +237,11 @@ const AdminUserDetailPage: React.FC = () => {
                       </thead>
                       <tbody>
                         {bookings.map(booking => (
-                          <tr key={booking._id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                          <tr 
+                            key={booking._id} 
+                            className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => navigate(`/admin/bookings/${booking._id}`)}
+                          >
                             <td className="p-4">
                               <div className="font-medium">
                                   {Array.isArray(booking.services) 

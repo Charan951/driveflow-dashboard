@@ -56,6 +56,27 @@ const MapController = ({ onMapReady }: { onMapReady: (map: L.Map) => void }) => 
   const map = useMap();
   useEffect(() => {
     onMapReady(map);
+    // Force map to fill its container after initial render and whenever it might be resized
+    const timer1 = setTimeout(() => map.invalidateSize(), 100);
+    const timer2 = setTimeout(() => map.invalidateSize(), 500);
+    const timer3 = setTimeout(() => map.invalidateSize(), 1000);
+
+    // Also use ResizeObserver for more robust sizing
+    const observer = new ResizeObserver(() => {
+        map.invalidateSize();
+    });
+    
+    const container = map.getContainer();
+    if (container) {
+        observer.observe(container);
+    }
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      observer.disconnect();
+    };
   }, [map, onMapReady]);
   return null;
 };
@@ -483,21 +504,21 @@ const AdminTrackingPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] gap-4">
+    <div className="flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-100px)] gap-4 overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 px-1">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Navigation className="w-6 h-6 text-blue-600" />
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Navigation className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
             Live Operations Panel
           </h1>
-          <p className="text-gray-500 dark:text-gray-400">Real-time tracking of staff and vehicles</p>
+          <p className="hidden sm:block text-xs md:text-sm text-gray-500 dark:text-gray-400">Real-time tracking of staff and vehicles</p>
         </div>
         
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-sm">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
               filter === 'all' ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
             }`}
           >
@@ -505,7 +526,7 @@ const AdminTrackingPage: React.FC = () => {
           </button>
           <button
             onClick={() => setFilter('vehicles')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
               filter === 'vehicles' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
             }`}
           >
@@ -513,7 +534,7 @@ const AdminTrackingPage: React.FC = () => {
           </button>
           <button
             onClick={() => setFilter('staff')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
               filter === 'staff' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
             }`}
           >
@@ -521,17 +542,17 @@ const AdminTrackingPage: React.FC = () => {
           </button>
           <button
             onClick={() => setFilter('merchants')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
               filter === 'merchants' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
             }`}
           >
             Merchants
           </button>
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0"></div>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+            className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors shrink-0"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -539,107 +560,13 @@ const AdminTrackingPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 gap-4 min-h-0">
-        {/* Sidebar List */}
-        <div className="w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center justify-between">
-              Active Assets
-              <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                {filteredItems().length}
-              </span>
-            </h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {isLoading && !liveData ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              </div>
-            ) : filteredItems().length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-                No active assets found
-              </div>
-            ) : (
-              filteredItems().map((item) => (
-                <div
-                  key={item._id}
-                  onClick={() => handleAssetClick(item)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedItem?._id === item._id
-                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
-                      : 'border-gray-100 hover:border-gray-200 dark:border-gray-700 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${getColor(item)} bg-opacity-10 dark:bg-opacity-20 relative`}>
-                      {React.cloneElement(getIcon(item), { className: `w-4 h-4 ${getColor(item).replace('bg-', 'text-')}` })}
-                      {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
-                        <span className={`absolute -top-1 -right-1 w-3 h-3 border-2 border-white dark:border-gray-800 rounded-full ${
-                            ('role' in item && item.role === 'merchant')
-                                ? (item.isShopOpen !== false ? 'bg-green-500' : 'bg-red-500') // Treat undefined as Open
-                                : (item.isOnline ? 'bg-green-500' : 'bg-gray-300')
-                        }`} title={
-                            ('role' in item && item.role === 'merchant')
-                                ? (item.isShopOpen ? 'Shop Open' : 'Shop Closed')
-                                : (item.isOnline ? 'Online' : 'Offline')
-                        } />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {'name' in item ? item.name : `${item.make} ${item.model}`}
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          {etaByAsset[item._id] !== undefined && (
-                            <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
-                              ETA {etaByAsset[item._id]}m
-                            </span>
-                          )}
-                          {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                  ('role' in item && item.role === 'merchant') 
-                                      ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
-                                      : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
-                              }`}>
-                                  {('role' in item && item.role === 'merchant') 
-                                      ? (item.isShopOpen !== false ? 'Open' : 'Closed') 
-                                      : (item.isOnline ? 'Online' : 'Offline')}
-                              </span>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate max-w-[120px]" title={item.location?.address || (item.location?.lat ? `${item.location.lat}, ${item.location.lng}` : 'No location')}>
-                          {item.location?.address || (item.location?.lat ? `${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}` : 'No location')}
-                        </span>
-                        <span className="mx-1">•</span>
-                        <Clock className="w-3 h-3 flex-shrink-0" />
-                        <span className="whitespace-nowrap">
-                          {item.location?.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
-                            ? formatDistanceToNow(new Date(item.location.updatedAt), { addSuffix: true })
-                            : 'Unknown time'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Map Area */}
-        <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden shadow-inner z-0">
+      <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0 relative h-full">
+        {/* Map Area - Top on Mobile, Right on Desktop */}
+        <div className="flex-1 min-h-[50vh] lg:min-h-0 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden shadow-inner z-0 order-1 lg:order-2">
            <MapContainer 
-            center={MAP_CENTER} 
+             center={MAP_CENTER} 
              zoom={MAP_ZOOM} 
-             style={{ height: '100%', width: '100%' }}
+             style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}
            >
              <MapClickHandler onMapClick={handleMapClick} />
              <MapController onMapReady={setMapInstance} />
@@ -701,31 +628,121 @@ const AdminTrackingPage: React.FC = () => {
              ))}
            </MapContainer>
            
-           <div className="absolute top-4 right-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-500">
-              Live Data {isFetching && '• Updating...'}
+           <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-2 md:px-3 py-1 md:py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-[10px] md:text-xs font-mono text-gray-500">
+              Live {isFetching && '• Updating...'}
            </div>
            
            {routeInfo && (
-             <div className="absolute bottom-4 left-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-w-sm">
-               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Route Details</h3>
-               <div className="flex gap-4">
-                 <div>
-                    <p className="text-xs text-gray-500">Road Dist.</p>
-                    <p className="font-mono font-medium">{(routeInfo.distance / 1000).toFixed(1)} km</p>
+             <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 z-[400] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-3 md:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-w-[180px] md:max-w-sm">
+               <h3 className="font-semibold text-[10px] md:text-sm text-gray-900 dark:text-white mb-1 md:mb-2">Route Details</h3>
+               <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar">
+                 <div className="shrink-0">
+                    <p className="text-[9px] md:text-xs text-gray-500">Dist.</p>
+                    <p className="text-[10px] md:text-sm font-mono font-medium">{(routeInfo.distance / 1000).toFixed(1)} km</p>
                  </div>
                  {routeInfo.airDistance && (
-                   <div>
-                      <p className="text-xs text-gray-500">Air Dist.</p>
-                      <p className="font-mono font-medium">{routeInfo.airDistance.toFixed(1)} km</p>
+                   <div className="shrink-0">
+                      <p className="text-[9px] md:text-xs text-gray-500">Air</p>
+                      <p className="text-[10px] md:text-sm font-mono font-medium">{routeInfo.airDistance.toFixed(1)} km</p>
                    </div>
                  )}
-                 <div>
-                    <p className="text-xs text-gray-500">Est. Time</p>
-                    <p className="font-mono font-medium">{Math.round(routeInfo.duration / 60)} min</p>
+                 <div className="shrink-0">
+                    <p className="text-[9px] md:text-xs text-gray-500">Time</p>
+                    <p className="text-[10px] md:text-sm font-mono font-medium">{Math.round(routeInfo.duration / 60)} min</p>
                  </div>
                </div>
              </div>
            )}
+        </div>
+
+        {/* Sidebar List - Bottom on Mobile, Left on Desktop */}
+        <div className="w-full lg:w-80 h-[30vh] lg:h-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden shadow-sm order-2 lg:order-1">
+          <div className="p-3 md:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <h2 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white flex items-center justify-between">
+              Active Assets
+              <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                {filteredItems().length}
+              </span>
+            </h2>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {isLoading && !liveData ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : filteredItems().length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                No active assets found
+              </div>
+            ) : (
+              filteredItems().map((item) => (
+                <div
+                  key={item._id}
+                  onClick={() => handleAssetClick(item)}
+                  className={`p-2.5 md:p-3 rounded-lg border cursor-pointer transition-all ${
+                    selectedItem?._id === item._id
+                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                      : 'border-gray-100 hover:border-gray-200 dark:border-gray-700 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 md:gap-3">
+                    <div className={`p-2 rounded-lg ${getColor(item)} bg-opacity-10 dark:bg-opacity-20 relative shrink-0`}>
+                      {React.cloneElement(getIcon(item), { className: `w-3.5 h-3.5 md:w-4 md:h-4 ${getColor(item).replace('bg-', 'text-')}` })}
+                      {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
+                        <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 border-2 border-white dark:border-gray-800 rounded-full ${
+                            ('role' in item && item.role === 'merchant')
+                                ? (item.isShopOpen !== false ? 'bg-green-500' : 'bg-red-500') // Treat undefined as Open
+                                : (item.isOnline ? 'bg-green-500' : 'bg-gray-300')
+                        }`} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-1">
+                        <h3 className="text-xs md:text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {'name' in item ? item.name : `${item.make} ${item.model}`}
+                        </h3>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {etaByAsset[item._id] !== undefined && (
+                            <span className="px-1 py-0.5 rounded text-[9px] md:text-[10px] bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                              {etaByAsset[item._id]}m
+                            </span>
+                          )}
+                          {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
+                              <span className={`text-[9px] md:text-[10px] px-1 py-0.5 rounded-full ${
+                                  ('role' in item && item.role === 'merchant') 
+                                      ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
+                                      : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
+                              }`}>
+                                  {('role' in item && item.role === 'merchant') 
+                                      ? (item.isShopOpen !== false ? 'Open' : 'Closed') 
+                                      : (item.isOnline ? 'On' : 'Off')}
+                              </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1 text-[10px] md:text-xs text-gray-400">
+                        <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[100px]" title={item.location?.address || (item.location?.lat ? `${item.location.lat}, ${item.location.lng}` : 'No location')}>
+                          {item.location?.address || (item.location?.lat ? `${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}` : 'No location')}
+                        </span>
+                        <span className="mx-0.5 md:mx-1">•</span>
+                        <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" />
+                        <span className="whitespace-nowrap">
+                          {item.location?.updatedAt && !isNaN(new Date(item.location.updatedAt).getTime())
+                            ? formatDistanceToNow(new Date(item.location.updatedAt), { addSuffix: true }).replace('about ', '').replace('minutes', 'min')
+                            : 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

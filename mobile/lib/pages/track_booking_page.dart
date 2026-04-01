@@ -884,36 +884,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       return 'Waiting for payment';
     }
 
-    switch (status) {
-      case 'CREATED':
-        return 'Booked';
-      case 'ASSIGNED':
-        return 'Assigned';
-      case 'ACCEPTED':
-        return 'Accepted';
-      case 'REACHED_CUSTOMER':
-        return 'Reached Customer';
-      case 'VEHICLE_PICKED':
-        return 'Vehicle Picked';
-      case 'REACHED_MERCHANT':
-        return 'Reached Merchant';
-      case 'VEHICLE_AT_MERCHANT':
-        return 'At Garage';
-      case 'SERVICE_STARTED':
-        return 'Servicing';
-      case 'SERVICE_COMPLETED':
-        return 'Ready';
-      case 'OUT_FOR_DELIVERY':
-        return 'Out for Delivery';
-      case 'DELIVERED':
-        return 'Delivered';
-      case 'COMPLETED':
-        return 'Delivered';
-      case 'CANCELLED':
-        return 'Cancelled';
-      default:
-        return status;
-    }
+    return Booking.getStatusLabel(status);
   }
 
   @override
@@ -1081,6 +1052,101 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                      ],
+                      if (booking.delay?.isDelayed == true) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Color(0xFFDC2626),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Service Delayed',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF991B1B),
+                                          ),
+                                    ),
+                                    Text(
+                                      '${booking.delay?.reason ?? 'Other'}: ${booking.delay?.note ?? 'No additional details'}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF991B1B),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (booking.revisit?.isRevisit == true) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.refresh,
+                                color: Color(0xFF2563EB),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Revisit Service',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF1E40AF),
+                                          ),
+                                    ),
+                                    Text(
+                                      booking.revisit?.reason ??
+                                          'This is a revisit for a previous service.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF1E40AF),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1396,6 +1462,81 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                         ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ),
+                                if (booking.status == 'CREATED' ||
+                                    booking.status == 'ASSIGNED')
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: TextButton(
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Cancel Booking'),
+                                            content: const Text(
+                                              'Are you sure you want to cancel this booking?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
+                                                child: const Text('No'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                                child: const Text(
+                                                  'Yes, Cancel',
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          try {
+                                            await _service.cancelBooking(
+                                              booking.id,
+                                            );
+                                            _load();
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Booking cancelled successfully',
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Failed to cancel booking: $e',
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        }
+                                      },
+                                      child: const Text(
+                                        'Cancel',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
@@ -2292,169 +2433,29 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             ],
                             Builder(
                               builder: (context) {
-                                final services = booking.services;
-                                final isCarWash =
-                                    services.any((s) {
-                                      final cat =
-                                          s.category?.toLowerCase() ?? '';
-                                      return cat.contains('car wash') ||
-                                          cat.contains('wash');
-                                    }) ||
-                                    booking.carWash?.isCarWashService == true;
-
-                                final isBatteryTire =
-                                    services.any((s) {
-                                      final cat =
-                                          s.category?.toLowerCase() ?? '';
-                                      return cat.contains('battery') ||
-                                          cat.contains('tire') ||
-                                          cat.contains('tyre');
-                                    }) ||
-                                    booking.batteryTire?.isBatteryTireService ==
-                                        true;
-
-                                List<String> labels;
-                                List<String> statusFlow;
-                                Map<String, String> labelToStatus;
-
-                                if (isCarWash) {
-                                  statusFlow = [
-                                    'CREATED',
-                                    'ASSIGNED',
-                                    'REACHED_CUSTOMER',
-                                    'CAR_WASH_STARTED',
-                                    'CAR_WASH_COMPLETED',
-                                    'DELIVERED',
-                                  ];
-                                  labels = [
-                                    'Booking Confirmed',
-                                    'Staff Assigned',
-                                    'Reached Location',
-                                    'Wash Started',
-                                    'Wash Completed',
-                                    'Delivered',
-                                  ];
-                                  labelToStatus = {
-                                    'Booking Confirmed': 'CREATED',
-                                    'Staff Assigned': 'ASSIGNED',
-                                    'Reached Location': 'REACHED_CUSTOMER',
-                                    'Wash Started': 'CAR_WASH_STARTED',
-                                    'Wash Completed': 'CAR_WASH_COMPLETED',
-                                    'Delivered': 'DELIVERED',
-                                  };
-                                } else if (isBatteryTire) {
-                                  statusFlow = [
-                                    'CREATED',
-                                    'ASSIGNED',
-                                    'STAFF_REACHED_MERCHANT',
-                                    'PICKUP_BATTERY_TIRE',
-                                    'REACHED_CUSTOMER',
-                                    'INSTALLATION',
-                                    'DELIVERY',
-                                    'COMPLETED',
-                                  ];
-                                  labels = [
-                                    'Booking Confirmed',
-                                    'Staff Assigned',
-                                    'Reached Merchant',
-                                    'Picked Part',
-                                    'Reached Location',
-                                    'Installation',
-                                    'Delivery',
-                                    'Completed',
-                                  ];
-                                  labelToStatus = {
-                                    'Booking Confirmed': 'CREATED',
-                                    'Staff Assigned': 'ASSIGNED',
-                                    'Reached Merchant':
-                                        'STAFF_REACHED_MERCHANT',
-                                    'Picked Part': 'PICKUP_BATTERY_TIRE',
-                                    'Reached Location': 'REACHED_CUSTOMER',
-                                    'Installation': 'INSTALLATION',
-                                    'Delivery': 'DELIVERY',
-                                    'Completed': 'COMPLETED',
-                                  };
-                                } else if (booking.pickupRequired) {
-                                  // Pickup flow
-                                  statusFlow = [
-                                    'CREATED',
-                                    'ASSIGNED',
-                                    'REACHED_CUSTOMER',
-                                    'VEHICLE_PICKED',
-                                    'REACHED_MERCHANT',
-                                    'SERVICE_STARTED',
-                                    'SERVICE_COMPLETED',
-                                    'OUT_FOR_DELIVERY',
-                                    'DELIVERED',
-                                  ];
-                                  labels = [
-                                    'Booking Confirmed',
-                                    'Staff Assigned',
-                                    'Reached Customer',
-                                    'Vehicle Picked',
-                                    'Reached Merchant',
-                                    'Service Started',
-                                    'Service Completed',
-                                    'Out for Delivery',
-                                    'Delivered',
-                                  ];
-                                  labelToStatus = {
-                                    'Booking Confirmed': 'CREATED',
-                                    'Staff Assigned': 'ASSIGNED',
-                                    'Reached Customer': 'REACHED_CUSTOMER',
-                                    'Vehicle Picked': 'VEHICLE_PICKED',
-                                    'Reached Merchant': 'REACHED_MERCHANT',
-                                    'Service Started': 'SERVICE_STARTED',
-                                    'Service Completed': 'SERVICE_COMPLETED',
-                                    'Out for Delivery': 'OUT_FOR_DELIVERY',
-                                    'Delivered': 'DELIVERED',
-                                  };
-                                } else {
-                                  // No Pickup flow (Merchant location)
-                                  statusFlow = [
-                                    'CREATED',
-                                    'ASSIGNED',
-                                    'ACCEPTED',
-                                    'SERVICE_STARTED',
-                                    'SERVICE_COMPLETED',
-                                    'DELIVERED',
-                                  ];
-                                  labels = [
-                                    'Booking Confirmed',
-                                    'Assigned',
-                                    'Accepted',
-                                    'Service Started',
-                                    'Service Completed',
-                                    'Delivered',
-                                  ];
-                                  labelToStatus = {
-                                    'Booking Confirmed': 'CREATED',
-                                    'Assigned': 'ASSIGNED',
-                                    'Accepted': 'ACCEPTED',
-                                    'Service Started': 'SERVICE_STARTED',
-                                    'Service Completed': 'SERVICE_COMPLETED',
-                                    'Delivered': 'DELIVERED',
-                                  };
-                                }
+                                final flow = Booking.getFlowForBooking(booking);
+                                final labels = flow
+                                    .map((s) => Booking.getStatusLabel(s))
+                                    .toList();
+                                final labelToStatus = Map.fromIterables(
+                                  labels,
+                                  flow,
+                                );
 
                                 // Determine active index based on status flow
-                                int activeIndex = statusFlow.indexOf(
+                                int activeIndex = flow.indexOf(
                                   booking.status.toUpperCase(),
                                 );
                                 if (activeIndex == -1) {
                                   // Handle some aliases or special cases
                                   if (booking.status.toUpperCase() ==
                                           'COMPLETED' &&
-                                      statusFlow.contains('DELIVERED')) {
-                                    activeIndex = statusFlow.indexOf(
-                                      'DELIVERED',
-                                    );
+                                      flow.contains('DELIVERED')) {
+                                    activeIndex = flow.indexOf('DELIVERED');
                                   } else if (booking.status.toUpperCase() ==
                                           'DELIVERED' &&
-                                      statusFlow.contains('COMPLETED')) {
-                                    activeIndex = statusFlow.indexOf(
-                                      'COMPLETED',
-                                    );
+                                      flow.contains('COMPLETED')) {
+                                    activeIndex = flow.indexOf('COMPLETED');
                                   } else {
                                     activeIndex = 0;
                                   }

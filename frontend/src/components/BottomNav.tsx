@@ -1,10 +1,17 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Settings, Droplets, Battery, Shield } from 'lucide-react';
+import { Home, Settings, Droplets, Battery, Shield, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+export interface NavItem {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  isMain?: boolean;
+}
+
+const defaultNavItems: NavItem[] = [
   { icon: Settings, label: 'Services', path: '/book-service?category=Periodic' },
   { icon: Shield, label: 'Insurance', path: '/insurance' },
   { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
@@ -12,14 +19,25 @@ const navItems = [
   { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
 ];
 
-export const BottomNav: React.FC = () => {
+interface BottomNavProps {
+  items?: NavItem[];
+}
+
+export const BottomNav: React.FC<BottomNavProps> = ({ items = defaultNavItems }) => {
   const location = useLocation();
 
+  const isItemActive = (path: string) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border pb-safe lg:hidden z-40">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border pb-safe lg:hidden z-50">
       <div className="flex items-center justify-around h-16 px-2">
-        {navItems.map((item, index) => {
-          const isActive = location.pathname + location.search === item.path;
+        {items.map((item, index) => {
+          const isActive = isItemActive(item.path);
           const isMain = item.isMain;
 
           return (

@@ -4,6 +4,7 @@ class StaffUser {
   final String email;
   final String role;
   final String? subRole;
+  final String? category;
   final String? phone;
   final bool? isShopOpen;
   final UserLocation? location;
@@ -14,6 +15,7 @@ class StaffUser {
     required this.email,
     required this.role,
     this.subRole,
+    this.category,
     this.phone,
     this.isShopOpen,
     this.location,
@@ -26,6 +28,7 @@ class StaffUser {
       email: json['email']?.toString() ?? '',
       role: json['role']?.toString() ?? '',
       subRole: json['subRole']?.toString(),
+      category: json['category']?.toString(),
       phone: json['phone']?.toString(),
       isShopOpen: json['isShopOpen'] as bool?,
       location: json['location'] != null
@@ -41,6 +44,7 @@ class StaffUser {
       'email': email,
       'role': role,
       'subRole': subRole,
+      'category': category,
       'phone': phone,
       'isShopOpen': isShopOpen,
       if (location != null) 'location': location!.toJson(),

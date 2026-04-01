@@ -1,4 +1,5 @@
 import api from './api';
+import { Booking } from './bookingService';
 
 // Payment interfaces
 export interface PaymentOrder {
@@ -7,7 +8,7 @@ export interface PaymentOrder {
   currency: string;
   paymentId: string;
   key: string;
-  tempBookingData?: any;
+  tempBookingData?: Record<string, unknown>;
   isTemporaryBooking?: boolean;
 }
 
@@ -16,7 +17,7 @@ export interface PaymentVerification {
   razorpay_payment_id: string;
   razorpay_signature: string;
   bookingId?: string;
-  tempBookingData?: any;
+  tempBookingData?: Record<string, unknown>;
 }
 
 export interface PaymentData {
@@ -41,7 +42,7 @@ export interface PaymentData {
     email: string;
     phone: string;
   };
-  booking?: any;
+  booking?: Booking;
   // Legacy fields for backward compatibility
   platformFee?: number;
   merchantEarnings?: number;
@@ -68,8 +69,8 @@ export const paymentService = {
   /**
    * Create Razorpay order
    */
-  createOrder: async (bookingId?: string, amount?: number, currency = 'INR', tempBookingData?: any): Promise<PaymentOrder> => {
-    const requestData: any = { 
+  createOrder: async (bookingId?: string, amount?: number, currency = 'INR', tempBookingData?: Record<string, unknown>): Promise<PaymentOrder> => {
+    const requestData: Record<string, unknown> = { 
       amount,
       currency
     };
@@ -91,7 +92,7 @@ export const paymentService = {
    * Verify payment with Razorpay
    */
   verifyPayment: async (data: PaymentVerification) => {
-    const requestData: any = { ...data };
+    const requestData: Record<string, unknown> = { ...data };
     
     // Ensure bookingId is removed if it's empty
     if (!requestData.bookingId || requestData.bookingId.trim() === '') {

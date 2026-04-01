@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
+import ChatWidget from '@/components/ChatWidget';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getETA, ETAResponse } from '@/services/trackingService';
@@ -103,6 +104,53 @@ const TrackServicePage: React.FC = () => {
   const nearAlertedRef = useRef<boolean>(false);
   const orderRef = useRef<Booking | null>(null);
 
+  const fetchOrder = useCallback(async () => {
+      if (!id) return;
+      try {
+          const data = await bookingService.getBookingById(id);
+          setOrder(data);
+          
+          // Check if feedback has already been submitted for this booking
+          if (data.status === 'DELIVERED' && !hasSubmittedFeedback) {
+            // First check localStorage for quick feedback state
+            const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${data._id}`) === 'true';
+            
+            if (localFeedbackSubmitted) {
+              setHasSubmittedFeedback(true);
+            } else {
+              try {
+                // Check if reviews already exist for this booking
+                const existingReviews = await reviewService.getBookingReviews(data._id);
+                const hasExistingReviews = existingReviews && existingReviews.length > 0;
+                
+                if (!hasExistingReviews) {
+                  setDeliveryConfirmed(true);
+                  // Show rating modal only if no reviews exist
+                  setShowRatingModal(true);
+                } else {
+                  // Reviews already exist, mark as submitted and store in localStorage
+                  setHasSubmittedFeedback(true);
+                  localStorage.setItem(`feedback_submitted_${data._id}`, 'true');
+                }
+              } catch (reviewError) {
+                console.error("Failed to check existing reviews", reviewError);
+                // If we can't check reviews, don't show the modal to avoid spam
+                setHasSubmittedFeedback(true);
+              }
+            }
+          }
+          
+          // Restore near-alert state from session to avoid duplicate pop on reloads
+          const key = `nearAlert_${id}`;
+          nearAlertedRef.current = sessionStorage.getItem(key) === '1';
+      } catch (error) {
+          console.error("Failed to fetch booking", error);
+          toast.error("Failed to load booking details");
+      } finally {
+          setIsLoading(false);
+      }
+  }, [id, hasSubmittedFeedback]);
+
   useEffect(() => {
     orderRef.current = order;
   }, [order]);
@@ -131,52 +179,6 @@ const TrackServicePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchOrder = async () => {
-        if (!id) return;
-        try {
-            const data = await bookingService.getBookingById(id);
-            setOrder(data);
-            
-            // Check if feedback has already been submitted for this booking
-            if (data.status === 'DELIVERED' && !hasSubmittedFeedback) {
-              // First check localStorage for quick feedback state
-              const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${data._id}`) === 'true';
-              
-              if (localFeedbackSubmitted) {
-                setHasSubmittedFeedback(true);
-              } else {
-                try {
-                  // Check if reviews already exist for this booking
-                  const existingReviews = await reviewService.getBookingReviews(data._id);
-                  const hasExistingReviews = existingReviews && existingReviews.length > 0;
-                  
-                  if (!hasExistingReviews) {
-                    setDeliveryConfirmed(true);
-                    // Show rating modal only if no reviews exist
-                    setShowRatingModal(true);
-                  } else {
-                    // Reviews already exist, mark as submitted and store in localStorage
-                    setHasSubmittedFeedback(true);
-                    localStorage.setItem(`feedback_submitted_${data._id}`, 'true');
-                  }
-                } catch (reviewError) {
-                  console.error("Failed to check existing reviews", reviewError);
-                  // If we can't check reviews, don't show the modal to avoid spam
-                  setHasSubmittedFeedback(true);
-                }
-              }
-            }
-            
-            // Restore near-alert state from session to avoid duplicate pop on reloads
-            const key = `nearAlert_${id}`;
-            nearAlertedRef.current = sessionStorage.getItem(key) === '1';
-        } catch (error) {
-            console.error("Failed to fetch booking", error);
-            toast.error("Failed to load booking details");
-        } finally {
-            setIsLoading(false);
-        }
-    };
     fetchOrder();
 
     if (id) {
@@ -680,9 +682,6 @@ const TrackServicePage: React.FC = () => {
   const merchantPhone = order.merchant?.phone;
   const merchantLat = order.merchant?.location?.lat;
   const merchantLng = order.merchant?.location?.lng;
-  const hasApprovalsChat = pendingApprovals.length > 0;
-  const hasRightColumnContent = hasApprovalsChat;
-  const showTwoColumnPaymentRow = hasRightColumnContent;
 
   return (
     <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24">
@@ -1064,7 +1063,7 @@ const TrackServicePage: React.FC = () => {
             </motion.div>
           )}
 
-          <div className={showTwoColumnPaymentRow ? 'grid gap-4 md:grid-cols-2 items-start' : ''}>
+          <div className="">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1168,80 +1167,6 @@ const TrackServicePage: React.FC = () => {
                 )}
               </div>
             </motion.div>
-
-            {hasRightColumnContent && (
-              <div className="space-y-4">
-                {hasApprovalsChat && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-amber-50 border border-amber-300 rounded-2xl p-4 shadow-sm"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600" />
-                      <h2 className="text-sm font-semibold text-amber-900">Approval Required</h2>
-                    </div>
-                    
-                    <div className={`space-y-2 ${pendingApprovals.length > 2 ? 'max-h-64 overflow-y-auto pr-1' : ''}`}>
-                      {pendingApprovals.map((approval) => (
-                        <div key={approval._id} className="flex items-start gap-2">
-                          <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-semibold">
-                            SC
-                          </div>
-                          <div className="flex-1">
-                            <div className="inline-block max-w-full bg-white border border-amber-200 rounded-2xl px-3 py-2">
-                              <div className="flex justify-between items-start gap-3">
-                                <div>
-                                  <div className="text-xs font-semibold text-foreground">{approval.data.name || 'Unnamed Additional Part'}</div>
-                                  <div className="text-[11px] text-muted-foreground">
-                                    Qty: {approval.data.quantity} • Price: ₹{approval.data.price}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-xs font-bold text-foreground">
-                                    ₹{approval.data.price * approval.data.quantity}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-2 grid grid-cols-1 gap-2">
-                                <div>
-                                  <div className="text-[11px] font-medium text-muted-foreground mb-1">Old Part</div>
-                                  {approval.data.oldImage ? (
-                                    <div className="aspect-square rounded-lg overflow-hidden bg-background border border-border">
-                                      <img src={approval.data.oldImage} alt="Old Part" className="w-full h-full object-cover" />
-                                    </div>
-                                  ) : (
-                                    <div className="aspect-square rounded-lg bg-background border border-border flex items-center justify-center text-[11px] text-muted-foreground">
-                                      No image
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 mt-2 justify-end">
-                              <button
-                                onClick={() => handleApprovalAction(approval._id, 'Rejected')}
-                                className="px-3 py-1.5 bg-destructive/10 text-destructive rounded-full text-[11px] font-medium hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
-                              >
-                                <X className="w-3 h-3" />
-                                Reject
-                              </button>
-                              <button
-                                onClick={() => handleApprovalAction(approval._id, 'Approved')}
-                                className="px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full text-[11px] font-medium hover:bg-green-500/20 transition-colors flex items-center gap-1.5"
-                              >
-                                <Check className="w-3 h-3" />
-                                Approve
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            )}
           </div>
 
           <motion.div
@@ -1515,6 +1440,9 @@ const TrackServicePage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Chat Widget */}
+      {order?._id && <ChatWidget bookingId={order._id} status={order.status} onUpdate={fetchOrder} />}
     </div>
   );
 };

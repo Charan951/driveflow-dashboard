@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Users, 
-  Car, 
   Calendar, 
   UserCog, 
   Store, 
@@ -21,16 +20,17 @@ import {
   LogOut,
   X,
   Menu,
-  Bell
+  Bell,
+  Home
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Customers', path: '/admin/customers' },
-  { icon: Car, label: 'Vehicles', path: '/admin/vehicles' },
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
   { icon: UserCog, label: 'Staff', path: '/admin/staff' },
   { icon: Store, label: 'Merchants', path: '/admin/merchants' },
@@ -46,6 +46,14 @@ const adminMenuItems = [
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
+];
+
+const adminBottomNavItems: NavItem[] = [
+  { icon: Users, label: 'Customers', path: '/admin/customers' },
+  { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
+  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
+  { icon: Store, label: 'Merchants', path: '/admin/merchants' },
+  { icon: UserCog, label: 'Staff', path: '/admin/staff' },
 ];
 
 interface AdminLayoutProps {
@@ -64,7 +72,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex w-full max-w-full bg-background overflow-hidden">
+    <div className="min-h-screen flex w-full max-w-full bg-background">
       {/* Overlay */}
       {sidebarOpen && (
         <motion.div
@@ -147,7 +155,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full">
         <header className="h-16 border-b border-border bg-card flex items-center justify-between px-3 lg:px-4 shrink-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
@@ -170,11 +178,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-muted/20 p-3 lg:p-4 max-w-full">
-          <div className="max-w-full overflow-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 p-3 lg:p-4 pb-24 lg:pb-8 max-w-full">
+          <div className="max-w-full h-full">
             {children || <Outlet />}
           </div>
         </main>
+        <BottomNav items={adminBottomNavItems} />
       </div>
     </div>
   );};

@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  category: {
+    type: [String],
+    enum: ['general', 'battery', 'tires'],
+    default: ['general'],
+    index: true,
+  },
   addresses: [
     {
       label: { type: String, default: 'Home' },

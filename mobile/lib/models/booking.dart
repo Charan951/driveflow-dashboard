@@ -203,6 +203,49 @@ class InspectionDetails {
   }
 }
 
+class DelayDetails {
+  final bool isDelayed;
+  final String? reason;
+  final String? note;
+  final String? startTime;
+
+  const DelayDetails({
+    this.isDelayed = false,
+    this.reason,
+    this.note,
+    this.startTime,
+  });
+
+  factory DelayDetails.fromJson(Map<String, dynamic> json) {
+    return DelayDetails(
+      isDelayed: json['isDelayed'] == true,
+      reason: json['reason']?.toString(),
+      note: json['note']?.toString(),
+      startTime: json['startTime']?.toString(),
+    );
+  }
+}
+
+class RevisitDetails {
+  final bool isRevisit;
+  final String? originalBookingId;
+  final String? reason;
+
+  const RevisitDetails({
+    this.isRevisit = false,
+    this.originalBookingId,
+    this.reason,
+  });
+
+  factory RevisitDetails.fromJson(Map<String, dynamic> json) {
+    return RevisitDetails(
+      isRevisit: json['isRevisit'] == true,
+      originalBookingId: json['originalBookingId']?.toString(),
+      reason: json['reason']?.toString(),
+    );
+  }
+}
+
 class Booking {
   final String id;
   final int? orderNumber;
@@ -235,6 +278,8 @@ class Booking {
   final CarWashDetails? carWash;
   final BatteryTireDetails? batteryTire;
   final InspectionDetails? inspection;
+  final DelayDetails? delay;
+  final RevisitDetails? revisit;
   final List<Map<String, String>> statusHistory;
 
   Booking({
@@ -269,35 +314,135 @@ class Booking {
     this.carWash,
     this.batteryTire,
     this.inspection,
+    this.delay,
+    this.revisit,
     this.statusHistory = const [],
   });
 
   static const statusLabels = {
-    'CREATED': 'Created',
+    'CREATED': 'Booked',
     'ASSIGNED': 'Assigned',
     'ACCEPTED': 'Accepted',
     'REACHED_CUSTOMER': 'Reached Customer',
     'VEHICLE_PICKED': 'Vehicle Picked',
     'REACHED_MERCHANT': 'Reached Merchant',
-    'VEHICLE_AT_MERCHANT': 'At Merchant',
-    'SERVICE_STARTED': 'Service Started',
-    'SERVICE_COMPLETED': 'Service Completed',
+    'VEHICLE_AT_MERCHANT': 'At Garage',
+    'SERVICE_STARTED': 'Servicing',
+    'SERVICE_COMPLETED': 'Ready',
     'OUT_FOR_DELIVERY': 'Out for Delivery',
     'DELIVERED': 'Delivered',
+    'COMPLETED': 'Delivered',
     'CANCELLED': 'Cancelled',
-    'COMPLETED': 'Completed',
+    'MERCHANT_INSPECTION': 'Inspecting',
+    'PENDING_APPROVAL': 'Waiting for Approval',
     // Car wash specific statuses
     'CAR_WASH_STARTED': 'Car Wash Started',
     'CAR_WASH_COMPLETED': 'Car Wash Completed',
     // Battery and Tire specific statuses
     'STAFF_REACHED_MERCHANT': 'Staff Reached Merchant',
-    'PICKUP_BATTERY_TIRE': 'Battery/Tire Picked Up',
-    'INSTALLATION': 'Installation in Progress',
-    'DELIVERY': 'Out for Delivery',
+    'PICKUP_BATTERY_TIRE': 'Pickup Battery/Tire',
+    'INSTALLATION': 'Installation',
+    'DELIVERY': 'Delivery',
   };
+
+  static const PICKUP_FLOW_ORDER = [
+    'CREATED',
+    'ASSIGNED',
+    'REACHED_CUSTOMER',
+    'VEHICLE_PICKED',
+    'REACHED_MERCHANT',
+    'SERVICE_STARTED',
+    'SERVICE_COMPLETED',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+  ];
+
+  static const CAR_WASH_FLOW_ORDER = [
+    'CREATED',
+    'ASSIGNED',
+    'REACHED_CUSTOMER',
+    'CAR_WASH_STARTED',
+    'CAR_WASH_COMPLETED',
+    'DELIVERED',
+  ];
+
+  static const BATTERY_TIRE_FLOW_ORDER = [
+    'CREATED',
+    'ASSIGNED',
+    'STAFF_REACHED_MERCHANT',
+    'PICKUP_BATTERY_TIRE',
+    'REACHED_CUSTOMER',
+    'INSTALLATION',
+    'DELIVERY',
+    'COMPLETED',
+  ];
+
+  static const NO_PICKUP_FLOW_ORDER = [
+    'CREATED',
+    'ASSIGNED',
+    'ACCEPTED',
+    'MERCHANT_INSPECTION',
+    'PENDING_APPROVAL',
+    'SERVICE_STARTED',
+    'SERVICE_COMPLETED',
+    'DELIVERED',
+  ];
 
   static String getStatusLabel(String status) {
     return statusLabels[status.toUpperCase()] ?? status;
+  }
+
+  static List<String> getFlowForBooking(Booking? booking) {
+    if (booking == null || booking.services.isEmpty) {
+      return PICKUP_FLOW_ORDER;
+    }
+
+    final services = booking.services;
+
+    // Check if it's a car wash service
+    final isCarWash = services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('car wash') || cat.contains('wash');
+    });
+
+    // Check if it's a battery or tire service
+    final isBatteryOrTire = services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('battery') ||
+          cat.contains('tire') ||
+          cat.contains('tyre');
+    });
+
+    if (isCarWash) {
+      return CAR_WASH_FLOW_ORDER;
+    } else if (isBatteryOrTire) {
+      return BATTERY_TIRE_FLOW_ORDER;
+    } else {
+      // Determine if it's a pickup service based on category
+      const pickupCategories = [
+        'Services',
+        'Periodic',
+        'Repair',
+        'Painting',
+        'Denting',
+        'AC',
+        'Detailing',
+      ];
+      const noPickupCategories = ['Insurance', 'Accessories', 'Other'];
+
+      final hasPickupService = services.any(
+        (s) => pickupCategories.contains(s.category),
+      );
+      final hasNoPickupService = services.any(
+        (s) => noPickupCategories.contains(s.category),
+      );
+
+      if (hasPickupService || (!hasPickupService && !hasNoPickupService)) {
+        return PICKUP_FLOW_ORDER;
+      } else {
+        return NO_PICKUP_FLOW_ORDER;
+      }
+    }
   }
 
   factory Booking.fromJson(Map<String, dynamic>? map) {
@@ -461,6 +606,13 @@ class Booking {
           )
         : null;
 
+    final delay = map['delay'] is Map
+        ? DelayDetails.fromJson(Map<String, dynamic>.from(map['delay']))
+        : null;
+    final revisit = map['revisit'] is Map
+        ? RevisitDetails.fromJson(Map<String, dynamic>.from(map['revisit']))
+        : null;
+
     final statusHistory = (map['statusHistory'] as List? ?? [])
         .map((e) => Map<String, String>.from(e as Map))
         .toList();
@@ -499,6 +651,8 @@ class Booking {
       carWash: carWash,
       batteryTire: batteryTire,
       inspection: inspection,
+      delay: delay,
+      revisit: revisit,
       statusHistory: statusHistory,
     );
   }

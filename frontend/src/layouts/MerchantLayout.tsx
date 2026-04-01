@@ -14,21 +14,25 @@ import {
   Layers,
   MessageSquare,
   Car,
-  User
+  User,
+  Home
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
+import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const merchantMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/merchant/orders' },
-  { icon: Layers, label: 'Stock', path: '/merchant/stock' },
   { icon: MessageSquare, label: 'Feedback', path: '/merchant/feedback' },
-  { icon: Store, label: 'Services', path: '/merchant/services' },
-  { icon: Car, label: 'Vehicles', path: '/merchant/vehicles' },
-  { icon: Users, label: 'Users', path: '/merchant/users' },
+  { icon: User, label: 'Profile', path: '/merchant/profile' },
+];
+
+const merchantBottomNavItems: NavItem[] = [
+  { icon: ClipboardList, label: 'Orders', path: '/merchant/orders' },
+  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
   { icon: User, label: 'Profile', path: '/merchant/profile' },
 ];
 
@@ -52,11 +56,6 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
       return { ...item, path: '/dashboard' };
     }
     return item;
-  }).filter(item => {
-    if (item.label === 'Users') {
-      return user?.role === 'admin';
-    }
-    return true;
   });
 
   return (
@@ -155,11 +154,12 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
           <PageTransition>
             {children || <Outlet />}
           </PageTransition>
         </main>
+        <BottomNav items={merchantBottomNavItems} />
       </div>
     </div>
   );

@@ -148,6 +148,10 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
+  Future<Booking> cancelBooking(String id) async {
+    return await updateBookingStatus(id, 'CANCELLED');
+  }
+
   Future<Map<String, dynamic>> processDummyPayment(
     String bookingId, {
     Map<String, dynamic>? tempBookingData,

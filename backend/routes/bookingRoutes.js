@@ -20,6 +20,7 @@ import {
   getCarWashBookings,
   batteryTireApproval,
   addWarranty,
+  updateMessageApprovalStatus,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -55,6 +56,8 @@ router.post('/:id/generate-otp', protect, generateDeliveryOtp);
 router.post('/:id/verify-otp', protect, verifyDeliveryOtp);
 
 router.route('/:id/details').put(protect, updateBookingDetails);
+
+router.route('/message/:messageId/approval').put(protect, updateMessageApprovalStatus);
 
 router.route('/:id/invoice').get(protect, getBookingInvoice);
 

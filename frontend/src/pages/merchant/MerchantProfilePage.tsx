@@ -169,6 +169,11 @@ const MerchantProfilePage: React.FC = () => {
             <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">
               Merchant Account
             </p>
+            {user?.category && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
+                Category: {user.category}
+              </p>
+            )}
             
             <div className="w-full mt-6 space-y-3">
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">

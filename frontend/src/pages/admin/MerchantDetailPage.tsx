@@ -96,6 +96,17 @@ const AdminMerchantDetailPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{merchant.name}</h1>
+                <div className="flex flex-wrap gap-2 mb-1">
+                  {Array.isArray(merchant.category) ? merchant.category.map((cat, idx) => (
+                    <span key={idx} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 uppercase">
+                      {cat}
+                    </span>
+                  )) : merchant.category && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 uppercase">
+                      {merchant.category}
+                    </span>
+                  )}
+                </div>
                 {merchant.isApproved ? (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                     <CheckCircle className="w-3 h-3 mr-1" />

@@ -34,6 +34,7 @@ import { Service } from '@/services/serviceService';
 import { Vehicle } from '@/services/vehicleService';
 import { User } from '@/services/userService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ChatWidget from '@/components/ChatWidget';
 
 // Panels
 import StatusControlPanel from '../../components/merchant/StatusControlPanel';
@@ -81,6 +82,7 @@ const OrderDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [isInitialTabSet, setIsInitialTabSet] = useState(false);
 
   const fetchBooking = useCallback(async () => {
     if (!id) return;
@@ -96,19 +98,20 @@ const OrderDetail: React.FC = () => {
         setActiveTab('billing');
       }
       
-      // Set initial tab based on booking state
-      if (!activeTab || activeTab === 'overview') {
+      // Set initial tab based on booking state ONLY ONCE on first load
+      if (!isInitialTabSet) {
         if (data.batteryTire?.isBatteryTireService) {
           setActiveTab('overview');
         } else if (data.qc?.completedAt) {
-          setActiveTab('billing'); // Go to billing after QC completion
+          setActiveTab('billing');
         } else if (data.inspection?.completedAt) {
-          setActiveTab('qc');
+          setActiveTab('service');
         } else if (data.status === 'SERVICE_STARTED') {
           setActiveTab('inspection');
         } else {
           setActiveTab('overview');
         }
+        setIsInitialTabSet(true);
       }
     } catch (error) {
       toast.error('Failed to load order details');
@@ -116,7 +119,7 @@ const OrderDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, booking?.qc?.completedAt, activeTab]);
+  }, [id, navigate, booking?.qc?.completedAt, isInitialTabSet]);
 
   const handleQCUpdate = useCallback(async () => {
     await fetchBooking();
@@ -173,22 +176,24 @@ const OrderDetail: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="max-w-7xl mx-auto space-y-6 pb-10"
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-10"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center gap-4">
-        <button 
-          onClick={() => navigate('/merchant/orders')}
-          className="p-2 hover:bg-muted rounded-full transition-colors"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order #{booking.orderNumber ?? booking._id?.slice(-6).toUpperCase()}</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{new Date(booking.date).toLocaleDateString()}</span>
-            <span>•</span>
-            <span className="font-medium text-primary">{booking.status}</span>
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/merchant/orders')}
+            className="p-2 hover:bg-muted rounded-full transition-colors shrink-0"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">Order #{booking.orderNumber ?? booking._id?.slice(-6).toUpperCase()}</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{new Date(booking.date).toLocaleDateString()}</span>
+              <span>•</span>
+              <span className="font-medium text-primary uppercase text-[10px] md:text-xs tracking-wider">{booking.status}</span>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -205,11 +210,27 @@ const OrderDetail: React.FC = () => {
           onValueChange={setActiveTab}
           className="w-full"
         >
-            <TabsList className={`grid w-full ${isCarWashService ? 'grid-cols-1' : (booking.batteryTire?.isBatteryTireService ? 'grid-cols-2' : 'grid-cols-4')} lg:w-[800px]`}>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsList className={`grid w-full gap-2 h-auto p-2 bg-muted/50 border border-border rounded-2xl lg:w-[800px] ${
+                isCarWashService 
+                ? 'grid-cols-1' 
+                : (booking.batteryTire?.isBatteryTireService 
+                    ? 'grid-cols-2' 
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5')
+            }`}>
+                <TabsTrigger 
+                    value="overview" 
+                    className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm"
+                >
+                    Overview
+                </TabsTrigger>
                 {booking.batteryTire?.isBatteryTireService ? (
                     <>
-                        <TabsTrigger value="warranty">Warranty</TabsTrigger>
+                        <TabsTrigger 
+                            value="warranty" 
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm"
+                        >
+                            Warranty
+                        </TabsTrigger>
                     </>
                 ) : !isCarWashService && (
                     <>
@@ -217,20 +238,31 @@ const OrderDetail: React.FC = () => {
                             value="inspection"
                             disabled={booking.status !== 'SERVICE_STARTED'}
                             title={booking.status !== 'SERVICE_STARTED' ? "Available only when service is started" : ""}
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             Inspection
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="service"
+                            disabled={!booking.inspection?.completedAt}
+                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
+                        >
+                            Service
                         </TabsTrigger>
                         <TabsTrigger 
                             value="qc"
                             disabled={!booking.inspection?.completedAt}
                             title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
-                            QC & Service
+                            QC Check
                         </TabsTrigger>
                         <TabsTrigger 
                             value="billing"
                             disabled={!booking.qc?.completedAt}
                             title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             Billing
                         </TabsTrigger>
@@ -239,13 +271,13 @@ const OrderDetail: React.FC = () => {
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6 mt-6">
+            <TabsContent value="overview" className="space-y-6 mt-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         {/* Order Info Card */}
-                        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                        <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
                             <h2 className="text-lg font-semibold mb-4">Order Information</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 bg-blue-50 rounded-lg">
                                         <Car className="w-5 h-5 text-blue-600" />
@@ -394,7 +426,7 @@ const OrderDetail: React.FC = () => {
 
                         {/* Staff Pickup & Installation Photos (Visible to Merchant) */}
                         {booking.batteryTire?.isBatteryTireService && Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length > 0 && (
-                          <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
+                          <div className="bg-card border border-border rounded-xl shadow-sm p-4 md:p-6 space-y-4">
                             <h3 className="font-semibold flex items-center gap-2">
                               <Camera className="w-5 h-5 text-primary" />
                               Staff Pickup & Installation Photos
@@ -421,7 +453,7 @@ const OrderDetail: React.FC = () => {
 
                         {/* After Service Photos for Battery/Tire Services */}
                         {booking.batteryTire?.isBatteryTireService && (
-                          <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
+                          <div className="bg-card border border-border rounded-xl shadow-sm p-4 md:p-6 space-y-4">
                             <MediaUploadPanel 
                               bookingId={booking._id} 
                               booking={booking} 
@@ -439,34 +471,43 @@ const OrderDetail: React.FC = () => {
 
             {/* Warranty Tab - Only for battery/tire services */}
             {booking.batteryTire?.isBatteryTireService && (
-                <TabsContent value="warranty" className="space-y-6 mt-6">
+                <TabsContent value="warranty" className="space-y-6 mt-8">
                     <WarrantyPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 
             {/* Inspection Tab */}
             {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
-                <TabsContent value="inspection" className="mt-6">
+                <TabsContent value="inspection" className="mt-8">
                     <InspectionPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 
-            {/* QC & Service Tab */}
+            {/* Service Tab */}
             {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
-                <TabsContent value="qc" className="space-y-6 mt-6">
+                <TabsContent value="service" className="space-y-6 mt-8">
                     <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
+                </TabsContent>
+            )}
+
+            {/* QC Tab */}
+            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+                <TabsContent value="qc" className="space-y-6 mt-8">
                     <QCPanel booking={booking} onUpdate={handleQCUpdate} />
                 </TabsContent>
             )}
 
             {/* Billing Tab */}
             {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
-                <TabsContent value="billing" className="mt-6">
+                <TabsContent value="billing" className="mt-8">
                     <BillUploadPanel booking={booking} onUploadComplete={fetchBooking} />
                 </TabsContent>
             )}
         </Tabs>
       </motion.div>
+      
+      {/* Floating Chat Widget */}
+      <ChatWidget bookingId={booking._id} status={booking.status} onUpdate={fetchBooking} />
     </motion.div>
   );
 };

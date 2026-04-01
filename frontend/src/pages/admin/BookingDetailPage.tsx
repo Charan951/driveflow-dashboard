@@ -42,28 +42,70 @@ const BookingDetailPage: React.FC = () => {
   const [selectedDriver, setSelectedDriver] = useState<string>('');
   const [selectedCarWashStaff, setSelectedCarWashStaff] = useState<string>('');
  
+  // Identify service types
+  const isCarWashService = React.useMemo(() => 
+    Array.isArray(booking?.services) && 
+    (booking!.services as Service[]).some(service => 
+      service.category === 'Car Wash' || service.category === 'Wash'
+    ), [booking?.services]);
+
+  const isBatteryOrTireService = React.useMemo(() => 
+    Array.isArray(booking?.services) && 
+    (booking!.services as Service[]).some(service => 
+      service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
+    ), [booking?.services]);
+
   // Memoized sorted lists
   const sortedMerchants = React.useMemo(() => {
-    const targetLat = typeof booking?.location === 'object' ? booking.location.lat : null;
-    const targetLng = typeof booking?.location === 'object' ? booking.location.lng : null;
+    const targetLat = typeof booking?.location === 'object' ? (booking.location as any).lat : null;
+    const targetLng = typeof booking?.location === 'object' ? (booking.location as any).lng : null;
 
-    return [...merchants].sort((a, b) => {
-      // 1. Open Shop Priority
+    let filtered = [...merchants];
+
+    // Identify specific categories needed for this booking
+    const requiredCategories = new Set<string>();
+    if (Array.isArray(booking?.services)) {
+      (booking!.services as Service[]).forEach(s => {
+        if (s.category === 'Battery') requiredCategories.add('battery');
+        if (s.category === 'Tyres') requiredCategories.add('tires');
+        if (s.category === 'Tyre & Battery') {
+          requiredCategories.add('battery');
+          requiredCategories.add('tires');
+        }
+      });
+    }
+
+    // Filter by specific category if needed
+    if (requiredCategories.size > 0) {
+      filtered = filtered.filter(m => 
+        m.category && Array.from(requiredCategories).some(reqCat => 
+          Array.isArray(m.category) 
+            ? m.category.includes(reqCat as any) 
+            : m.category === reqCat
+        )
+      );
+    }
+
+    return filtered.sort((a, b) => {
+      // 1. Proximity - Prioritize nearest as requested by user
+      if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
+        const from = turf.point([targetLng, targetLat]);
+        const toA = turf.point([a.location.lng, a.location.lat]);
+        const toB = turf.point([b.location.lng, b.location.lat]);
+        const distA = turf.distance(from, toA);
+        const distB = turf.distance(from, toB);
+        if (distA !== distB) return distA - distB;
+      }
+
+      // 2. Open Shop Priority
       const aOpen = a.isShopOpen !== false;
       const bOpen = b.isShopOpen !== false;
       if (aOpen && !bOpen) return -1;
       if (!aOpen && bOpen) return 1;
 
-      // 2. Proximity
-      if (targetLat && targetLng && a.location?.lat && a.location?.lng && b.location?.lat && b.location?.lng) {
-        const from = turf.point([targetLng, targetLat]);
-        const toA = turf.point([a.location.lng, a.location.lat]);
-        const toB = turf.point([b.location.lng, b.location.lat]);
-        return turf.distance(from, toA) - turf.distance(from, toB);
-      }
       return 0;
     });
-  }, [merchants, booking?.location]);
+  }, [merchants, booking?.location, booking?.services]);
 
   const sortedDrivers = React.useMemo(() => {
     const targetLat = typeof booking?.location === 'object' ? booking.location.lat : null;
@@ -245,18 +287,6 @@ const BookingDetailPage: React.FC = () => {
   const handleAssignment = async () => {
     if (!booking) return;
     try {
-      // Check if this is a car wash service
-      const isCarWashService = Array.isArray(booking.services) && 
-        (booking.services as Service[]).some(service => 
-          service.category === 'Car Wash' || service.category === 'Wash'
-        );
-
-      // Check if this is a battery or tire service
-      const isBatteryOrTireService = Array.isArray(booking.services) && 
-        (booking.services as Service[]).some(service => 
-          service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
-        );
-
       let assignmentData = {};
 
       if (isCarWashService) {
@@ -300,18 +330,6 @@ const BookingDetailPage: React.FC = () => {
   const customer = booking.user as unknown as User;
   const vehicle = booking.vehicle as unknown as Vehicle;
   
-  // Check if this is a car wash service
-  const isCarWashService = Array.isArray(booking.services) && 
-    (booking.services as Service[]).some(service => 
-      service.category === 'Car Wash' || service.category === 'Wash'
-    );
-
-  // Check if this is a battery or tire service
-  const isBatteryOrTireService = Array.isArray(booking.services) && 
-    (booking.services as Service[]).some(service => 
-      service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
-    );
-
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -646,7 +664,7 @@ const BookingDetailPage: React.FC = () => {
         {/* Center/Right Column - Booking Details & Actions */}
         <div className="lg:col-span-2 space-y-6">
           {/* Merchant Approval Details (Battery/Tire Service) */}
-          {false && isBatteryOrTireService && booking.batteryTire?.merchantApproval && (
+          {isBatteryOrTireService && booking?.batteryTire?.merchantApproval && (
             <div className="bg-card rounded-2xl border-2 border-primary/20 p-6 space-y-4 shadow-sm">
               <h3 className="font-bold text-xl flex items-center gap-2 text-primary">
                 <Store className="w-6 h-6" />
@@ -919,10 +937,15 @@ const BookingDetailPage: React.FC = () => {
                         </div>
                       </div>
                         <div className="w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
-                          {part.oldImage ? (
-                            <img src={part.oldImage} alt="Old Part" className="w-full h-full object-cover" />
+                          {(part.image || part.oldImage) ? (
+                            <img 
+                              src={part.image || part.oldImage} 
+                              alt="Part" 
+                              className="w-full h-full object-cover cursor-pointer" 
+                              onClick={() => window.open(part.image || part.oldImage, '_blank')}
+                            />
                           ) : (
-                            <span>No old image</span>
+                            <span>No image</span>
                           )}
                         </div>
                     </div>
@@ -975,7 +998,12 @@ const BookingDetailPage: React.FC = () => {
                         {part.oldImage && (
                           <div className="flex flex-col items-center gap-1">
                             <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
-                              <img src={part.oldImage} alt="Before" className="w-full h-full object-cover" />
+                              <img 
+                                src={part.oldImage} 
+                                alt="Before" 
+                                className="w-full h-full object-cover cursor-pointer" 
+                                onClick={() => window.open(part.oldImage, '_blank')}
+                              />
                             </div>
                             <span className="text-xs text-muted-foreground">Before</span>
                           </div>
@@ -983,7 +1011,12 @@ const BookingDetailPage: React.FC = () => {
                         {part.image && (
                           <div className="flex flex-col items-center gap-1">
                             <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
-                              <img src={part.image} alt="After" className="w-full h-full object-cover" />
+                              <img 
+                                src={part.image} 
+                                alt="After" 
+                                className="w-full h-full object-cover cursor-pointer" 
+                                onClick={() => window.open(part.image, '_blank')}
+                              />
                             </div>
                             <span className="text-xs text-muted-foreground">After</span>
                           </div>

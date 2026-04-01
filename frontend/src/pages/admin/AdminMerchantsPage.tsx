@@ -19,7 +19,8 @@ import {
   Trash2,
   MapPin,
   Eye,
-  EyeOff
+  EyeOff,
+  Pencil
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,15 +33,28 @@ const AdminMerchantsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [newMerchant, setNewMerchant] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
+    category: ['general'] as ('general' | 'battery' | 'tires')[],
     location: { address: '', lat: 0, lng: 0 },
   });
+
+  const [editingMerchant, setEditingMerchant] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    category: ('general' | 'battery' | 'tires')[];
+    location: { address: string; lat: number; lng: number };
+  } | null>(null);
+
   const [showMerchantPassword, setShowMerchantPassword] = useState(false);
 
   // Rejection Modal State
@@ -120,6 +134,11 @@ const AdminMerchantsPage: React.FC = () => {
       else if (statusFilter === 'rejected') result = result.filter(u => !u.isApproved && u.rejectionReason);
     }
 
+    // Category Filter
+    if (categoryFilter !== 'all') {
+      result = result.filter(u => u.category && u.category.includes(categoryFilter as any));
+    }
+
     // Search Filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -143,10 +162,48 @@ const AdminMerchantsPage: React.FC = () => {
       });
       toast.success('Merchant added successfully');
       setShowAddModal(false);
-      setNewMerchant({ name: '', email: '', password: '', phone: '', location: { address: '', lat: 0, lng: 0 } });
+      setNewMerchant({ name: '', email: '', password: '', phone: '', category: ['general'], location: { address: '', lat: 0, lng: 0 } });
       fetchUsers();
     } catch (error) {
       toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to add merchant');
+    }
+  };
+
+  const handleEditClick = (merchant: User, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingMerchant({
+      id: merchant._id,
+      name: merchant.name,
+      email: merchant.email,
+      phone: merchant.phone || '',
+      category: Array.isArray(merchant.category) ? merchant.category : (merchant.category ? [merchant.category as any] : ['general']),
+      location: {
+        address: merchant.location?.address || '',
+        lat: merchant.location?.lat || 0,
+        lng: merchant.location?.lng || 0
+      }
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateMerchant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMerchant) return;
+
+    try {
+      await userService.updateUser(editingMerchant.id, {
+        name: editingMerchant.name,
+        email: editingMerchant.email,
+        phone: editingMerchant.phone,
+        category: editingMerchant.category,
+        location: editingMerchant.location
+      });
+      toast.success('Merchant updated successfully');
+      setShowEditModal(false);
+      setEditingMerchant(null);
+      fetchUsers();
+    } catch (error) {
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update merchant');
     }
   };
 
@@ -237,6 +294,16 @@ const AdminMerchantsPage: React.FC = () => {
             <option value="pending">Pending</option>
             <option value="rejected">Rejected</option>
           </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Categories</option>
+            <option value="general">General</option>
+            <option value="battery">Battery</option>
+            <option value="tires">Tires</option>
+          </select>
         </div>
       </div>
 
@@ -277,6 +344,13 @@ const AdminMerchantsPage: React.FC = () => {
                   </span>
                 )}
                 <button
+                  onClick={(e) => handleEditClick(merchant, e)}
+                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                  title="Edit"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
                   onClick={(e) => handleDeleteMerchant(merchant._id, e)}
                   className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                   title="Delete"
@@ -291,10 +365,23 @@ const AdminMerchantsPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">{merchant.name}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                    <Mail className="w-3 h-3" />
-                    {merchant.email}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      {merchant.email}
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {Array.isArray(merchant.category) ? merchant.category.map((cat, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 uppercase">
+                          {cat}
+                        </span>
+                      )) : merchant.category && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 uppercase">
+                          {merchant.category}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -412,6 +499,38 @@ const AdminMerchantsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Categories
+                  </label>
+                  <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                    {(['general', 'battery', 'tires'] as const).map((cat) => (
+                      <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={newMerchant.category.includes(cat)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setNewMerchant(prev => ({
+                                ...prev,
+                                category: checked 
+                                  ? [...prev.category, cat]
+                                  : prev.category.length > 1 
+                                    ? prev.category.filter(c => c !== cat)
+                                    : prev.category
+                              }));
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
+                          {cat}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Location
                   </label>
                   <LocationPicker
@@ -454,6 +573,130 @@ const AdminMerchantsPage: React.FC = () => {
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     Add Merchant
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Merchant Modal */}
+      <AnimatePresence>
+        {showEditModal && editingMerchant && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => {
+              setShowEditModal(false);
+              setEditingMerchant(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold mb-4 dark:text-white">Edit Merchant</h2>
+              <form onSubmit={handleUpdateMerchant} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Merchant/Shop Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingMerchant.name}
+                    onChange={(e) => setEditingMerchant({ ...editingMerchant, name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editingMerchant.email}
+                    onChange={(e) => setEditingMerchant({ ...editingMerchant, email: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingMerchant.phone}
+                    onChange={(e) => setEditingMerchant({ ...editingMerchant, phone: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Categories
+                  </label>
+                  <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                    {(['general', 'battery', 'tires'] as const).map((cat) => (
+                      <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editingMerchant.category.includes(cat)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setEditingMerchant(prev => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  category: checked 
+                                    ? [...prev.category, cat]
+                                    : prev.category.length > 1 
+                                      ? prev.category.filter(c => c !== cat)
+                                      : prev.category
+                                };
+                              });
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
+                          {cat}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <LocationPicker
+                    value={editingMerchant.location}
+                    onChange={(value) => setEditingMerchant({ ...editingMerchant, location: value })}
+                    mapClassName="h-[250px]"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingMerchant(null);
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Update Merchant
                   </button>
                 </div>
               </form>

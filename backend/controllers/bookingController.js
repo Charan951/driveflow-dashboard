@@ -7,6 +7,7 @@ import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
 import crypto from 'crypto';
+import Message from '../models/Message.js';
 
 export const emitBookingUpdate = (booking) => {
   try {
@@ -894,6 +895,30 @@ export const generateDeliveryOtp = async (req, res) => {
     res.json({ message: 'OTP generated', code });
   } catch (e) {
     res.status(500).json({ message: e.message });
+  }
+};
+
+export const updateMessageApprovalStatus = async (req, res) => {
+  const { messageId } = req.params;
+  const { status } = req.body;
+
+  try {
+    const message = await Message.findById(messageId);
+
+    if (!message || message.type !== 'approval') {
+      return res.status(404).json({ message: 'Approval message not found' });
+    }
+
+    message.approval.status = status;
+    await message.save();
+
+    const populatedMessage = await message.populate('sender', '_id name role');
+
+    getIO().to(`booking_${message.bookingId}`).emit('receiveMessage', populatedMessage);
+
+    res.json(populatedMessage);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 };
 

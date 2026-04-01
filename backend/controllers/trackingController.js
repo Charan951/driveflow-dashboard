@@ -62,7 +62,7 @@ export const getLiveLocations = async (req, res) => {
     // 3. Fetch merchants (Fetch all, regardless of open status)
     const activeMerchants = await User.find({
       role: 'merchant'
-    }).select('name role location phone email isOnline lastSeen isShopOpen').lean();
+    }).select('name role location phone email isOnline lastSeen isShopOpen category').lean();
 
     res.json({
       staff: staffWithJobs,

@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  category?: ('general' | 'battery' | 'tires')[] | null;
   subRole?: 'Driver' | 'Support' | 'Manager' | null;
   status?: 'Active' | 'Inactive' | 'On Leave';
   isOnline?: boolean;
@@ -79,6 +80,11 @@ export const userService = {
 
   rejectUser: async (id: string, reason: string) => {
     const response = await api.put(`/users/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  updateUser: async (id: string, data: Partial<User>) => {
+    const response = await api.put(`/users/${id}`, data);
     return response.data;
   },
 

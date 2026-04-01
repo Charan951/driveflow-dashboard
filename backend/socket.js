@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import User from './models/User.js';
 import Booking from './models/Booking.js';
+import Message from './models/Message.js';
 
 let io;
 
@@ -295,6 +296,52 @@ export const initSocket = (server) => {
       userIds.forEach(uid => {
         io.to(`user_${String(uid)}`).emit('bookingUpdated', booking);
       });
+    });
+
+    // Handle chat messages
+    socket.on('sendMessage', async (data) => {
+      if (!socket.user || !data.bookingId || !data.text) return;
+
+      try {
+        const messageData = {
+          bookingId: data.bookingId,
+          sender: socket.user._id,
+          text: data.text,
+        };
+
+        if (data.type) messageData.type = data.type;
+        if (data.approval) {
+          messageData.approval = {
+            ...data.approval,
+            status: data.approval.status || 'pending'
+          };
+          if (data.approval.image) messageData.approval.image = data.approval.image;
+        }
+
+        const message = new Message(messageData);
+
+        await message.save();
+
+        const populatedMessage = await message.populate('sender', '_id name role');
+
+        socket.broadcast.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage);
+      } catch (e) {
+        console.error('Error sending message:', e);
+      }
+    });
+
+    socket.on('getMessages', async (data) => {
+      if (!data.bookingId) return;
+
+      try {
+        const messages = await Message.find({ bookingId: data.bookingId })
+          .populate('sender', 'name role')
+          .sort({ createdAt: 1 });
+
+        socket.emit('loadMessages', messages);
+      } catch (e) {
+        console.error('Error loading messages:', e);
+      }
     });
 
     socket.on('disconnect', () => {

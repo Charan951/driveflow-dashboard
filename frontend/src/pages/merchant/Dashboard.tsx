@@ -10,17 +10,17 @@ import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { user, updateUser } = useAuthStore();
   const [stats, setStats] = useState({
     activeOrders: 0,
     completedOrders: 0,
     pendingBills: 0,
-    lowStock: 2, // Mocked for now
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,7 +99,6 @@ const Dashboard: React.FC = () => {
         activeOrders: active,
         completedOrders: completed,
         pendingBills,
-        lowStock: 3,
       });
 
       setRecentBookings(bookingsData.slice(0, 5));
@@ -155,30 +154,27 @@ const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={staggerItem} className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div variants={staggerItem} className="grid grid-cols-2 lg:grid-cols-3 gap-6">
         <CounterCard 
           label="Active Orders" 
           value={stats.activeOrders} 
           icon={<Package className="w-5 h-5 text-blue-600" />} 
           delay={0} 
+          onClick={() => navigate('/merchant/orders?filter=active')}
         />
         <CounterCard 
           label="Completed Orders" 
           value={stats.completedOrders} 
           icon={<CheckCircle className="w-5 h-5 text-green-600" />} 
           delay={0.1} 
+          onClick={() => navigate('/merchant/orders?filter=completed')}
         />
         <CounterCard 
           label="Pending Bills" 
           value={stats.pendingBills} 
           icon={<FileText className="w-5 h-5 text-orange-600" />} 
           delay={0.2} 
-        />
-        <CounterCard 
-          label="Low Stock Alerts" 
-          value={stats.lowStock} 
-          icon={<AlertTriangle className="w-5 h-5 text-red-600" />} 
-          delay={0.3} 
+          onClick={() => navigate('/merchant/orders?filter=pending-bills')}
         />
       </motion.div>
 

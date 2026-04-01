@@ -7,7 +7,7 @@ import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 
 type FilterType = 'all' | 'active' | 'completed' | 'pending-bills';
@@ -27,10 +27,24 @@ const ACTIVE_STATUSES: Booking['status'][] = [
 const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED'];
 
 const Orders: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterType>('active');
+  const [filter, setFilter] = useState<FilterType>((searchParams.get('filter') as FilterType) || 'active');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Update filter state when searchParams change
+  useEffect(() => {
+    const f = searchParams.get('filter') as FilterType;
+    if (f) {
+      setFilter(f);
+    }
+  }, [searchParams]);
+
+  const handleFilterChange = (f: FilterType) => {
+    setFilter(f);
+    setSearchParams({ filter: f });
+  };
 
   useEffect(() => {
     fetchBookings();
@@ -126,7 +140,7 @@ const Orders: React.FC = () => {
           {(['active', 'completed', 'pending-bills', 'all'] as FilterType[]).map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => handleFilterChange(f)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 filter === f 
                   ? 'bg-primary text-primary-foreground' 

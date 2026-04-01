@@ -6,6 +6,7 @@ class User {
   final String? avatar;
   final String? role;
   final String? subRole;
+  final List<String> categories;
   final bool? isShopOpen;
   final List<SavedAddress> addresses;
   final List<PaymentMethod> paymentMethods;
@@ -19,6 +20,7 @@ class User {
     this.avatar,
     this.role,
     this.subRole,
+    this.categories = const [],
     this.isShopOpen,
     this.addresses = const [],
     this.paymentMethods = const [],
@@ -26,6 +28,15 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    List<String> parsedCategories = [];
+    if (json['category'] is List) {
+      parsedCategories = List<String>.from(
+        json['category'].map((e) => e.toString()),
+      );
+    } else if (json['category'] != null) {
+      parsedCategories = [json['category'].toString()];
+    }
+
     return User(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -34,6 +45,7 @@ class User {
       avatar: json['avatar']?.toString(),
       role: json['role']?.toString(),
       subRole: json['subRole']?.toString(),
+      categories: parsedCategories,
       isShopOpen: json['isShopOpen'] is bool
           ? json['isShopOpen'] as bool
           : null,
@@ -58,6 +70,7 @@ class User {
       if (avatar != null) 'avatar': avatar,
       if (role != null) 'role': role,
       if (subRole != null) 'subRole': subRole,
+      'category': categories,
       if (isShopOpen != null) 'isShopOpen': isShopOpen,
       'addresses': addresses.map((e) => e.toJson()).toList(),
       'paymentMethods': paymentMethods.map((e) => e.toJson()).toList(),
@@ -81,11 +94,7 @@ class UserLocation {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'address': address,
-    'lat': lat,
-    'lng': lng,
-  };
+  Map<String, dynamic> toJson() => {'address': address, 'lat': lat, 'lng': lng};
 }
 
 class SavedAddress {

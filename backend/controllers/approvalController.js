@@ -6,6 +6,8 @@ import { emitBookingUpdate } from './bookingController.js';
 
 import { sendPushToUser } from '../utils/pushService.js';
 
+import Message from '../models/Message.js';
+
 // @desc    Get all approval requests
 // @route   GET /api/approvals
 // @access  Private/Admin
@@ -60,6 +62,22 @@ export const createApproval = async (req, res) => {
   const { type, relatedId, relatedModel, data } = req.body;
 
   try {
+    // Check if a pending approval already exists for this part in the same booking
+    if (type === 'PartReplacement' && relatedModel === 'Booking') {
+      const existing = await ApprovalRequest.findOne({
+        type: 'PartReplacement',
+        relatedId,
+        relatedModel: 'Booking',
+        status: 'Pending',
+        'data.name': data.name,
+        'data.price': Number(data.price),
+        'data.quantity': Number(data.quantity || 1)
+      });
+      if (existing) {
+        return res.status(200).json(existing); // Return existing instead of creating new
+      }
+    }
+
     const approval = new ApprovalRequest({
       type,
       relatedId,
@@ -81,6 +99,24 @@ export const createApproval = async (req, res) => {
         io.to(`user_${userId}`).emit('newApproval', createdApproval);
         // Also emit to booking room if anyone is watching
         io.to(`booking_${relatedId}`).emit('newApproval', createdApproval);
+
+        // Create a chat message for this approval
+        const chatMessage = new Message({
+          bookingId: relatedId,
+          sender: req.user._id,
+          text: `Approval required for part: ${data.name || 'Unnamed Additional Part'} - Amount: ₹${Number(data.price) * Number(data.quantity || 1)}`,
+          type: 'approval',
+          approval: {
+            partName: data.name || 'Unnamed Additional Part',
+            amount: Number(data.price) * Number(data.quantity || 1),
+            status: 'pending',
+            approvalId: createdApproval._id,
+            image: data.image
+          }
+        });
+        await chatMessage.save();
+        const populatedChatMessage = await chatMessage.populate('sender', '_id name role');
+        io.to(`booking_${relatedId}`).emit('receiveMessage', populatedChatMessage);
 
         // Send push notification
         const orderNum = booking.orderNumber || relatedId.toString().slice(-6).toUpperCase();
@@ -155,6 +191,20 @@ export const updateApprovalStatus = async (req, res) => {
     approval.adminComment = adminComment;
     approval.resolvedAt = Date.now();
     approval.resolvedBy = req.user._id;
+
+    // Update corresponding chat message
+    try {
+        const chatMessage = await Message.findOne({ 'approval.approvalId': approval._id });
+        if (chatMessage) {
+            chatMessage.approval.status = status.toLowerCase();
+            await chatMessage.save();
+            const io = getIO();
+            const populated = await chatMessage.populate('sender', '_id name role');
+            io.to(`booking_${approval.relatedId}`).emit('receiveMessage', populated);
+        }
+    } catch (err) {
+        console.error('Error updating chat message for approval:', err);
+    }
 
     if (status === 'Approved') {
       // Execute the logic based on type

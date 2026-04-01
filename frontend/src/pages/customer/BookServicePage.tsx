@@ -90,10 +90,11 @@ const BookServicePage: React.FC = () => {
     switch (currentStep) {
       case 0: return selectedVehicle !== null;
       case 1: return selectedServices.length > 0;
-      case 2: 
+      case 2: {
         const isScheduleComplete = selectedDate !== null && selectedTime !== null;
         const isAddressComplete = pickupLocation.address.trim() !== '';
         return isScheduleComplete && isAddressComplete;
+      }
       case 3: return true;
       default: return false;
     }

@@ -9,17 +9,25 @@ import {
   X,
   User,
   UserCog,
-  Bell
+  Bell,
+  Home
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
 import { TrackingProvider } from '@/context/TrackingProvider';
+import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const staffMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
+  { icon: User, label: 'Profile', path: '/staff/profile' },
+];
+
+const staffBottomNavItems: NavItem[] = [
+  { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
+  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
   { icon: User, label: 'Profile', path: '/staff/profile' },
 ];
 
@@ -40,7 +48,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
 
   return (
     <TrackingProvider>
-      <div className="min-h-screen flex w-full max-w-full bg-background overflow-hidden">
+      <div className="min-h-screen flex w-full max-w-full bg-background">
         {/* Overlay */}
         {sidebarOpen && (
           <motion.div
@@ -131,7 +139,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 max-w-full">
           <header className="h-16 border-b border-border bg-card flex items-center justify-between px-3 lg:px-4 shrink-0">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <button
@@ -154,13 +162,14 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto bg-muted/20 p-3 lg:p-4 max-w-full">
+          <main className="flex-1 overflow-auto bg-muted/20 p-3 lg:p-4 pb-24 lg:pb-8 max-w-full">
             <div className="max-w-full overflow-hidden">
               <PageTransition>
                 {children || <Outlet />}
               </PageTransition>
             </div>
           </main>
+          <BottomNav items={staffBottomNavItems} />
         </div>
       </div>
     </TrackingProvider>
