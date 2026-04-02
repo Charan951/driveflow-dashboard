@@ -22,6 +22,10 @@ import {
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { serviceService, Service } from '@/services/serviceService';
 
+const getCloudinaryUrl = (publicId: string, width: number) => {
+  return `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},c_limit,q_auto,f_auto/${publicId}`;
+};
+
 // Fallback static services in case API fails or is empty
 const staticServices = [
   { 
@@ -64,10 +68,6 @@ const howItWorks = [
   { step: 3, title: 'Pickup & Service', description: 'Our driver picks up your vehicle for service' },
   { step: 4, title: 'Track & Relax', description: 'Real-time updates on your service status' },
 ];
-
-const getCloudinaryUrl = (publicId: string, width: number) => {
-  return `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},c_limit,q_auto,f_auto/${publicId}`;
-};
 
 const heroSlides = [
   {
