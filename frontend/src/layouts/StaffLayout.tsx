@@ -63,7 +63,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={cn(
-            'fixed left-0 top-0 h-screen w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
@@ -169,7 +169,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
               </PageTransition>
             </div>
           </main>
-          <BottomNav items={staffBottomNavItems} />
+          {!sidebarOpen && <BottomNav items={staffBottomNavItems} />}
         </div>
       </div>
     </TrackingProvider>

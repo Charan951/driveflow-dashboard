@@ -71,7 +71,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={cn(
-            'fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
@@ -148,9 +148,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               >
                 <Bell className="w-5 h-5" />
               </Link>
-              <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <UserCircle className="w-5 h-5 text-primary-foreground" />
-              </div>
+
             </div>
           </header>
 
@@ -161,7 +159,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               </PageTransition>
             </div>
           </main>
-          <BottomNav />
+          {!sidebarOpen && <BottomNav />}
         </div>
       </div>
     </TrackingProvider>

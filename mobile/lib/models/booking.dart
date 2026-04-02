@@ -319,6 +319,22 @@ class Booking {
     this.statusHistory = const [],
   });
 
+  num get calculatedTotal {
+    num total = 0;
+    for (final s in services) {
+      total += s.price;
+    }
+    for (final p in serviceParts) {
+      if (p.approved || p.fromInspection) {
+        total += (p.price * p.quantity);
+      }
+    }
+    if (batteryTire?.warrantyPrice != null) {
+      total += batteryTire!.warrantyPrice!;
+    }
+    return total > 0 ? total : totalAmount;
+  }
+
   static const statusLabels = {
     'CREATED': 'Booked',
     'ASSIGNED': 'Assigned',

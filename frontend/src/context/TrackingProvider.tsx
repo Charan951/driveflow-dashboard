@@ -183,7 +183,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const watcherId = await watcherPlugin.addWatcher(
           {
             backgroundMessage: 'Location service running',
-            backgroundTitle: 'VehicleCare',
+            backgroundTitle: 'Carzzi',
             requestPermissions: true,
             stale: false
           },

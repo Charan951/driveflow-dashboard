@@ -143,11 +143,12 @@ const AdminDashboard: React.FC = () => {
             </div>
           ) : (
             recentBookings.map((booking) => (
-              <motion.div 
+              <motion.div
                 key={booking._id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card p-4 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="bg-card p-4 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                onClick={() => navigate(`/admin/bookings/${booking._id}`)}
               >
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-lg">
@@ -177,12 +178,7 @@ const AdminDashboard: React.FC = () => {
                       {Array.isArray(booking.services) ? booking.services.length : 0} Services
                     </div>
                   </div>
-                  <Link 
-                    to={`/admin/bookings/${booking._id}`}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <FileText className="w-5 h-5 text-muted-foreground" />
-                  </Link>
+
                 </div>
               </motion.div>
             ))

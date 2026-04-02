@@ -48,7 +48,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   String? _selectedVehicleId;
   List<String> _selectedServiceIds = [];
-  String _activeSubCategory = 'All';
+  String? _activeSubCategory;
   final Map<String, String> _tireSizes = {};
   final Map<String, bool> _isManualSize = {};
   DateTime _selectedDate = DateTime.now();
@@ -87,7 +87,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     if (widget.initialCategory == 'Tyres') {
-      _activeSubCategory = 'Tyres';
+      _activeSubCategory = null; // No default selection for Tyres/Battery
+    } else {
+      _activeSubCategory = 'All';
     }
 
     // Check for arguments from NavigationProvider
@@ -479,7 +481,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   void _handleBack() {
     if (_currentStep > 0) {
-      setState(() => _currentStep--);
+      setState(() {
+        if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Tyre & Battery') {
+          _activeSubCategory = null;
+          _selectedServiceIds = [];
+        }
+        _currentStep--;
+      });
     }
   }
 
@@ -703,8 +712,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        setState(() => _activeSubCategory = 'Tyres'),
+                    onPressed: () {
+                      if (_activeSubCategory != 'Tyres') {
+                        setState(() {
+                          _activeSubCategory = 'Tyres';
+                          _selectedServiceIds =
+                              []; // Clear selection when switching
+                        });
+                      }
+                    },
                     icon: const Icon(Icons.circle_outlined),
                     label: const Text('Tires'),
                     style: ElevatedButton.styleFrom(
@@ -722,8 +738,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        setState(() => _activeSubCategory = 'Battery'),
+                    onPressed: () {
+                      if (_activeSubCategory != 'Battery') {
+                        setState(() {
+                          _activeSubCategory = 'Battery';
+                          _selectedServiceIds =
+                              []; // Clear selection when switching
+                        });
+                      }
+                    },
                     icon: const Icon(Icons.battery_charging_full),
                     label: const Text('Battery'),
                     style: ElevatedButton.styleFrom(
@@ -742,52 +765,88 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ),
           ),
 
+        if (_activeSubCategory == null &&
+            (widget.initialCategory == 'Tyres' ||
+                widget.initialCategory == 'Tyre & Battery'))
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.touch_app_outlined,
+                  size: 48,
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Please select a category',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose Tires or Battery to see available services',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         const SizedBox(height: 16),
-        ...categoriesToDisplay
-            .where((c) {
-              if (widget.initialCategory == 'Tyres' ||
-                  widget.initialCategory == 'Tyre & Battery') {
-                if (_activeSubCategory == 'Tyres') {
-                  return c.contains('Tyre') ||
-                      c.contains('Tire') ||
-                      c.contains('Tyre & Battery');
-                }
-                if (_activeSubCategory == 'Battery') {
-                  return c.contains('Battery') ||
-                      c.contains('Batteries') ||
-                      c.contains('Tyre & Battery');
-                }
+        ...(() {
+          // Group services by their logical category if initialCategory is provided
+          final filteredCategories = categoriesToDisplay.where((c) {
+            if (widget.initialCategory == 'Tyres' ||
+                widget.initialCategory == 'Tyre & Battery') {
+              if (_activeSubCategory == 'Tyres') {
+                return c.contains('Tyre') ||
+                    c.contains('Tire') ||
+                    c.contains('Tyre & Battery');
               }
-              return true;
-            })
-            .map((category) {
-              var services = _allServices
-                  .where((s) => s.category == category)
+              if (_activeSubCategory == 'Battery') {
+                return c.contains('Battery') ||
+                    c.contains('Batteries') ||
+                    c.contains('Tyre & Battery');
+              }
+              // If no sub-category is selected, don't show any services
+              return false;
+            }
+            return true;
+          }).toList();
+
+          if (widget.initialCategory != null) {
+            var services = _allServices
+                .where((s) => filteredCategories.contains(s.category))
+                .toList();
+
+            if (_initialServiceId != null) {
+              services = services
+                  .where((s) => s.id == _initialServiceId)
                   .toList();
+            }
 
-              if (_initialServiceId != null) {
-                services = services
-                    .where((s) => s.id == _initialServiceId)
-                    .toList();
-              }
+            if (services.isEmpty) return [const SizedBox.shrink()];
 
-              if (services.isEmpty) return const SizedBox.shrink();
-
-              return Column(
+            return [
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (categoriesToDisplay.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        category,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                    ),
                   ...services.map((service) {
                     final selected = _selectedServiceIds.contains(service.id);
                     final showSizeSelection =
@@ -1006,10 +1065,257 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           ),
                       ],
                     );
-                  }),
+                  }).toList(),
                 ],
-              );
-            }),
+              ),
+            ];
+          }
+
+          // Fallback for when no initialCategory is provided (show all with headers)
+          return filteredCategories.map((category) {
+            var services = _allServices
+                .where((s) => s.category == category)
+                .toList();
+
+            if (_initialServiceId != null) {
+              services = services
+                  .where((s) => s.id == _initialServiceId)
+                  .toList();
+            }
+
+            if (services.isEmpty) return const SizedBox.shrink();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+                ...services.map((service) {
+                  final selected = _selectedServiceIds.contains(service.id);
+                  final showSizeSelection =
+                      selected &&
+                      (service.name.toLowerCase().contains('change') ||
+                          service.name.toLowerCase().contains('size'));
+
+                  return Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (selected) {
+                              _selectedServiceIds.remove(service.id);
+                            } else {
+                              _selectedServiceIds.add(service.id);
+                            }
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey.shade800 : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFF2563EB)
+                                  : isDark
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade200,
+                              width: selected ? 2 : 1,
+                            ),
+                            boxShadow: [
+                              if (selected)
+                                BoxShadow(
+                                  color: const Color(0xFF2563EB).withAlpha(25),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  image:
+                                      (service.image != null &&
+                                          service.image!.isNotEmpty)
+                                      ? DecorationImage(
+                                          image: NetworkImage(service.image!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                ),
+                                child:
+                                    (service.image == null ||
+                                        service.image!.isEmpty)
+                                    ? const Icon(
+                                        Icons.build_circle,
+                                        color: Color(0xFF2563EB),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      service.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Price: ₹${service.price}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark
+                                                ? Colors.grey.shade400
+                                                : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '• Time: ${service.estimatedMinutes} mins',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark
+                                                ? Colors.grey.shade400
+                                                : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (selected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Color(0xFF2563EB),
+                                )
+                              else
+                                Icon(
+                                  Icons.add_circle_outline,
+                                  color: isDark
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade300,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (showSizeSelection)
+                        Container(
+                          margin: const EdgeInsets.only(left: 16, bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.grey.shade900
+                                : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF2563EB).withAlpha(100),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Select Size',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isManualSize[service.id] =
+                                            !(_isManualSize[service.id] ??
+                                                false);
+                                        _tireSizes[service.id] = '';
+                                      });
+                                    },
+                                    child: Text(
+                                      _isManualSize[service.id] == true
+                                          ? 'Common Sizes'
+                                          : 'Manual Entry',
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_isManualSize[service.id] == true)
+                                TextField(
+                                  onChanged: (val) => setState(
+                                    () => _tireSizes[service.id] = val,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter size (e.g. 185/65 R15)',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: commonTireSizes.map((size) {
+                                    final isSelected =
+                                        _tireSizes[service.id] == size;
+                                    return ChoiceChip(
+                                      label: Text(
+                                        size,
+                                        style: const TextStyle(fontSize: 10),
+                                      ),
+                                      selected: isSelected,
+                                      onSelected: (val) {
+                                        if (val) {
+                                          setState(
+                                            () => _tireSizes[service.id] = size,
+                                          );
+                                        }
+                                      },
+                                      selectedColor: const Color(
+                                        0xFF2563EB,
+                                      ).withAlpha(50),
+                                    );
+                                  }).toList(),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                }).toList(),
+              ],
+            );
+          }).toList();
+        })(),
       ],
     );
   }
@@ -1549,9 +1855,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
           await _processPayment(tempBookingId, tempBookingData: res);
-        } else {
-          debugPrint('Error: tempBookingId is null in response: $res');
-        }
+        } else {}
         return;
       }
 
@@ -1585,7 +1889,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     String tempBookingId, {
     Map<String, dynamic>? tempBookingData,
   }) async {
-    debugPrint('Starting payment process for tempBookingId: $tempBookingId');
     // Show a loading dialog
     showDialog(
       context: context,
@@ -1598,8 +1901,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final orderData = await _paymentService.createOrder(
         tempBookingData: tempBookingData,
       );
-
-      debugPrint('Order data received: $orderData');
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -1637,10 +1938,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           'theme': {'color': '#2563EB'},
         };
 
-        debugPrint('Opening Razorpay with options: $options');
-        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
-          debugPrint('WARNING: Using placeholder Razorpay key in production!');
-        }
+        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {}
 
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1653,7 +1951,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         }
       }
     } catch (e) {
-      debugPrint('Payment processing error: $e');
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(

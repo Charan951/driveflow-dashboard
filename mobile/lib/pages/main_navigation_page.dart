@@ -23,7 +23,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       key: ValueKey('insurance'),
       initialCategory: 'Insurance',
     ),
-    SpeshwayVehicleCareDashboard(),
+    CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
     BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
   ];

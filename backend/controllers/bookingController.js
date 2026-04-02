@@ -78,6 +78,21 @@ const isBatteryOrTireBooking = async (booking) => {
   }
 };
 
+// Helper function to check if booking is for general service
+const isGeneralServiceBooking = async (booking) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: booking.services } });
+    return services.some(service => 
+      service.category === 'Periodic' ||
+      service.category === 'Services' ||
+      service.name.toLowerCase().includes('general service')
+    );
+  } catch (error) {
+    return false;
+  }
+};
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private
@@ -620,12 +635,19 @@ export const updateBookingStatus = async (req, res) => {
         if (req.user.role === 'staff') {
           return res.status(401).json({ message: 'Only merchant can mark service as completed' });
         }
-        if (!booking.inspection?.completedAt) {
-          return res.status(400).json({ message: 'Please complete inspection before marking service as completed' });
+
+        const isGeneralService = await isGeneralServiceBooking(booking);
+        
+        // Skip detailed status requirements for general service
+        if (!isGeneralService) {
+          if (!booking.inspection?.completedAt) {
+            return res.status(400).json({ message: 'Please complete inspection before marking service as completed' });
+          }
+          if (!booking.qc?.completedAt) {
+            return res.status(400).json({ message: 'Please complete QC before marking service as completed' });
+          }
         }
-        if (!booking.qc?.completedAt) {
-          return res.status(400).json({ message: 'Please complete QC before marking service as completed' });
-        }
+
         if (!booking.billing?.fileUrl) {
           return res.status(400).json({ message: 'Please upload invoice before marking service as completed' });
         }

@@ -43,7 +43,7 @@ const BookServicePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
-    const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All' | null>('All');
+  const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All' | null>(null);
   const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -438,7 +438,12 @@ const BookServicePage: React.FC = () => {
                   {searchParams.get('category') === 'Tyres' && (
                     <div className="flex gap-3 w-full">
                       <button
-                        onClick={() => setActiveSubCategory('Tyres')}
+                        onClick={() => {
+                          if (activeSubCategory !== 'Tyres') {
+                            setActiveSubCategory('Tyres');
+                            setSelectedServices([]); // Clear selection when switching categories
+                          }
+                        }}
                         className={`flex-1 py-3 sm:py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Tyres'
                             ? 'bg-primary text-primary-foreground shadow-lg'
@@ -449,7 +454,12 @@ const BookServicePage: React.FC = () => {
                         <span className="text-sm sm:text-base">Tires</span>
                       </button>
                       <button
-                        onClick={() => setActiveSubCategory('Battery')}
+                        onClick={() => {
+                          if (activeSubCategory !== 'Battery') {
+                            setActiveSubCategory('Battery');
+                            setSelectedServices([]); // Clear selection when switching categories
+                          }
+                        }}
                         className={`flex-1 py-3 sm:py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
                           activeSubCategory === 'Battery'
                             ? 'bg-primary text-primary-foreground shadow-lg'
@@ -463,13 +473,22 @@ const BookServicePage: React.FC = () => {
                   )}
                 </div>
                 
-                                {filteredServices.length === 0 ? (
+                {searchParams.get('category') === 'Tyres' && activeSubCategory === null && (
+                  <div className="text-center py-12 bg-card rounded-2xl border-2 border-dashed border-border flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                      <Package className="w-8 h-8 text-muted-foreground opacity-50" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-foreground">Select a category</p>
+                      <p className="text-sm text-muted-foreground">Please choose Tires or Battery to see available services.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {filteredServices.length === 0 && (searchParams.get('category') !== 'Tyres' || activeSubCategory !== null) ? (
                   <div className="text-center py-12 bg-card rounded-2xl border-2 border-dashed border-border">
                     <p className="text-muted-foreground">
-                      {searchParams.get('category') === 'Tyres' && activeSubCategory === null
-                        ? 'Please select a category (Tires or Battery) to see available services.'
-                        : 'No services found for your selection.'
-                      }
+                      No services found for your selection.
                     </p>
                   </div>
                 ) : (
@@ -813,7 +832,13 @@ const BookServicePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-border">
             {currentStep > 0 && (
               <button
-                onClick={() => setCurrentStep(currentStep - 1)}
+                onClick={() => {
+                  if (searchParams.get('category') === 'Tyres') {
+                    setActiveSubCategory(null);
+                    setSelectedServices([]);
+                  }
+                  setCurrentStep(currentStep - 1);
+                }}
                 className="w-full sm:flex-1 py-3 sm:py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
               >
                 Back

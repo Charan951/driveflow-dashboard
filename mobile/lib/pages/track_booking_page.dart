@@ -20,6 +20,7 @@ import '../services/review_service.dart';
 import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
 import 'package:provider/provider.dart';
+import 'chat_page.dart';
 
 class TrackBookingPage extends StatefulWidget {
   const TrackBookingPage({super.key});
@@ -148,7 +149,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   void _setupSocketListeners() {
     _socketService.on('liveLocation', (data) {
       if (!mounted) return;
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final lat = mapData['lat'];
@@ -188,7 +189,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
     _socketService.on('bookingUpdated', (data) {
       if (!mounted) return;
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final updated = Booking.fromJson(mapData);
@@ -268,16 +269,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final booking = _booking;
     if (booking == null) return;
 
-    debugPrint('Starting payment for booking: ${booking.id}');
     setState(() => _isPaymentLoading = true);
     try {
       // Create Razorpay order
       final orderData = await _paymentService.createOrder(
         bookingId: booking.id,
-        amount: booking.totalAmount,
+        amount: booking.calculatedTotal,
       );
-
-      debugPrint('Order data received: $orderData');
 
       if (mounted) {
         final user = context.read<AuthProvider>().user;
@@ -311,10 +309,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           'theme': {'color': '#2563EB'},
         };
 
-        debugPrint('Opening Razorpay with options: $options');
-        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
-          debugPrint('WARNING: Using placeholder Razorpay key in production!');
-        }
+        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {}
 
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -327,7 +322,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         }
       }
     } catch (e) {
-      debugPrint('Payment error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -931,6 +925,25 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ),
         ),
       ),
+      floatingActionButton:
+          booking != null &&
+              [
+                'SERVICE_STARTED',
+                'CAR_WASH_STARTED',
+                'INSTALLATION',
+                'On Hold',
+              ].contains(booking.status.toUpperCase())
+          ? FloatingActionButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatPage(booking: booking),
+                ),
+              ),
+              backgroundColor: const Color(0xFF2563EB),
+              child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -991,6 +1004,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             cat == 'Tyre & Battery';
                       }) ||
                       booking.batteryTire?.isBatteryTireService == true;
+                  final isGeneralService = booking.services.any((s) {
+                    final cat = (s.category ?? '').toLowerCase();
+                    final name = (s.name ?? '').toLowerCase();
+                    return cat == 'periodic' ||
+                        cat == 'services' ||
+                        name.contains('general service');
+                  });
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1656,7 +1676,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                       ),
                                 ),
                                 Text(
-                                  '₹${booking.totalAmount}',
+                                  '₹${booking.calculatedTotal}',
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(
                                         color: isDark
@@ -1735,7 +1755,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   ],
                                 ),
                               ),
-                            if (booking.paymentStatus != 'paid') ...[
+                            if (booking.paymentStatus != 'paid' &&
+                                ((isCarWash || isBatteryTire) ||
+                                    booking.status == 'SERVICE_COMPLETED' ||
+                                    booking.status == 'COMPLETED' ||
+                                    booking.status == 'DELIVERED')) ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
@@ -2321,7 +2345,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                         ),
                       ],
-                      if (!isCarWash && !isBatteryTire) ...[
+                      if (!isCarWash &&
+                          !isBatteryTire &&
+                          !isGeneralService) ...[
                         const SizedBox(height: 24),
                         Text(
                           'Detailed Status',
@@ -2500,7 +2526,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ),
                       ],
                       const SizedBox(height: 24),
-                      if (booking.status == 'SERVICE_COMPLETED' &&
+                      if ((booking.status == 'SERVICE_COMPLETED' ||
+                              booking.status == 'COMPLETED' ||
+                              booking.status == 'DELIVERED') &&
                           booking.paymentStatus != 'paid') ...[
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -2533,7 +2561,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Service is completed. Please pay ₹${booking.totalAmount} to proceed with vehicle delivery.',
+                                'Service is completed. Please pay ₹${booking.calculatedTotal} to proceed with vehicle delivery.',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: const Color(0xFF4B5563)),
                               ),
@@ -2609,43 +2637,41 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               ),
                         ),
                         const SizedBox(height: 12),
-                        GridView.count(
-                          crossAxisCount: 2,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 1.2,
-                          children: [
-                            if (booking.inspection!.frontPhoto != null)
-                              _buildInspectionPhoto(
-                                context,
-                                'Front',
-                                booking.inspection!.frontPhoto!,
-                                isDark,
-                              ),
-                            if (booking.inspection!.backPhoto != null)
-                              _buildInspectionPhoto(
-                                context,
-                                'Back',
-                                booking.inspection!.backPhoto!,
-                                isDark,
-                              ),
-                            if (booking.inspection!.leftPhoto != null)
-                              _buildInspectionPhoto(
-                                context,
-                                'Left',
-                                booking.inspection!.leftPhoto!,
-                                isDark,
-                              ),
-                            if (booking.inspection!.rightPhoto != null)
-                              _buildInspectionPhoto(
-                                context,
-                                'Right',
-                                booking.inspection!.rightPhoto!,
-                                isDark,
-                              ),
-                          ],
+                        SizedBox(
+                          height: 200,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              if (booking.inspection!.frontPhoto != null)
+                                _buildInspectionPhotoMobile(
+                                  context,
+                                  'Front',
+                                  booking.inspection!.frontPhoto!,
+                                  isDark,
+                                ),
+                              if (booking.inspection!.backPhoto != null)
+                                _buildInspectionPhotoMobile(
+                                  context,
+                                  'Back',
+                                  booking.inspection!.backPhoto!,
+                                  isDark,
+                                ),
+                              if (booking.inspection!.leftPhoto != null)
+                                _buildInspectionPhotoMobile(
+                                  context,
+                                  'Left',
+                                  booking.inspection!.leftPhoto!,
+                                  isDark,
+                                ),
+                              if (booking.inspection!.rightPhoto != null)
+                                _buildInspectionPhotoMobile(
+                                  context,
+                                  'Right',
+                                  booking.inspection!.rightPhoto!,
+                                  isDark,
+                                ),
+                            ],
+                          ),
                         ),
                       ],
 
@@ -3034,10 +3060,30 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: () => launchUrl(
-                              Uri.parse(_resolveImageUrl(booking.invoiceUrl)!),
-                              mode: LaunchMode.externalApplication,
-                            ),
+                            onPressed: () async {
+                              final url = _resolveImageUrl(booking.invoiceUrl);
+                              if (url != null) {
+                                final uri = Uri.parse(url);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(
+                                    uri,
+                                    mode: kIsWeb
+                                        ? LaunchMode.platformDefault
+                                        : LaunchMode.externalApplication,
+                                  );
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not launch invoice URL',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
                             icon: const Icon(Icons.download),
                             label: const Text('Download Invoice'),
                             style: ElevatedButton.styleFrom(
@@ -3051,54 +3097,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 24),
-                      Text(
-                        'Services',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 12),
-                      if (booking.services.isEmpty)
-                        const Text('No services found')
-                      else
-                        ...booking.services.map((s) {
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.black : Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.grey.shade900
-                                    : const Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    s.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Text(
-                                  '₹${s.price}',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
                     ],
                   );
                 },
@@ -3174,7 +3172,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildInspectionPhoto(
+  Widget _buildInspectionPhotoMobile(
     BuildContext context,
     String label,
     String photoPath,
@@ -3183,46 +3181,50 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final url = _resolveImageUrl(photoPath);
     if (url == null) return const SizedBox.shrink();
 
-    return Column(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: () => _showImagePreview(url),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : const Color(0xFFE5E7EB),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
+    return Container(
+      width: 240,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showImagePreview(url),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : const Color(0xFFE5E7EB),
                   ),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.broken_image, size: 20),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.broken_image, size: 20),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.black87,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

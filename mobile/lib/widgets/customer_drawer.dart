@@ -197,20 +197,20 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'VehicleCare',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                              ),
+                              'Carzzi',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                  ),
                             ),
-                            const SizedBox(height: 2),
                             Text(
-                              'Customer',
+                              'The car care you deserve.',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,

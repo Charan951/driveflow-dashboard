@@ -12,10 +12,10 @@ import 'pages/support_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/main_navigation_page.dart';
 import 'pages/my_vehicles_page.dart';
-import 'pages/profile_page.dart';
-import 'pages/my_bookings_page.dart';
-import 'pages/speshway_vehiclecare_dashboard_page.dart';
 import 'pages/add_vehicle_page.dart';
+import 'pages/my_bookings_page.dart';
+import 'pages/profile_page.dart';
+import 'pages/speshway_vehiclecare_dashboard_page.dart';
 import 'pages/book_service_flow_page.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
@@ -122,7 +122,7 @@ class MyApp extends StatelessWidget {
 
           return MaterialApp(
             navigatorKey: rootNavigatorKey,
-            title: 'Speshway VehicleCare',
+            title: 'Carzzi',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
             themeAnimationDuration: Duration.zero,
@@ -223,8 +223,7 @@ class MyApp extends StatelessWidget {
                 }
                 return const BookServiceFlowPage();
               },
-              '/speshway-dashboard': (_) =>
-                  const SpeshwayVehicleCareDashboard(),
+              '/carzzi-dashboard': (_) => const CarzziDashboard(),
               '/merchant': (_) => const MerchantHomePage(),
               '/staff': (_) => const StaffHomePage(),
               '/admin': (_) => const AdminHomePage(),

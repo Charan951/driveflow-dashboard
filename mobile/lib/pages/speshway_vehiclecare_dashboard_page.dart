@@ -15,16 +15,14 @@ import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../widgets/customer_drawer.dart';
 
-class SpeshwayVehicleCareDashboard extends StatefulWidget {
-  const SpeshwayVehicleCareDashboard({super.key});
+class CarzziDashboard extends StatefulWidget {
+  const CarzziDashboard({super.key});
 
   @override
-  State<SpeshwayVehicleCareDashboard> createState() =>
-      _SpeshwayVehicleCareDashboardState();
+  State<CarzziDashboard> createState() => _CarzziDashboardState();
 }
 
-class _SpeshwayVehicleCareDashboardState
-    extends State<SpeshwayVehicleCareDashboard>
+class _CarzziDashboardState extends State<CarzziDashboard>
     with WidgetsBindingObserver {
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
@@ -80,13 +78,11 @@ class _SpeshwayVehicleCareDashboardState
   void _onExternalUpdate(dynamic payload) {
     if (!mounted) return;
     Booking? updated;
-    if (payload != null && payload is Map) {
+    if (payload != null) {
       try {
         final mapData = jsonDecode(jsonEncode(payload)) as Map<String, dynamic>;
         updated = Booking.fromJson(mapData);
-      } catch (e) {
-        debugPrint('Error parsing socket payload: $e');
-      }
+      } catch (e) {}
     }
     if (updated == null) {
       _load(isInitial: true);
@@ -365,10 +361,12 @@ class _SpeshwayVehicleCareDashboardState
     final filtered = source
         .where(
           (b) =>
-              b.status == 'CREATED' ||
-              b.status == 'DELIVERED' ||
-              b.status == 'CANCELLED' ||
-              b.status == 'COMPLETED',
+              b.id != ongoing?.id &&
+              (b.status == 'CREATED' ||
+                  b.status == 'DELIVERED' ||
+                  b.status == 'CANCELLED' ||
+                  b.status == 'COMPLETED' ||
+                  b.status == 'SERVICE_COMPLETED'),
         )
         .toList();
     final sorted = [...filtered];
@@ -388,8 +386,8 @@ class _SpeshwayVehicleCareDashboardState
       // Fallback: ID (descending)
       return b.id.compareTo(a.id);
     });
-    if (sorted.length <= 3) return sorted;
-    return sorted.take(3).toList();
+    if (sorted.length <= 5) return sorted;
+    return sorted.take(5).toList();
   }
 
   @override
@@ -910,7 +908,6 @@ class _SpeshwayVehicleCareDashboardState
 
   Widget _buildRecentServices() {
     final items = _recentBookings;
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -920,30 +917,34 @@ class _SpeshwayVehicleCareDashboardState
           'Recent Services',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: isDark ? Colors.white : const Color(0xFF0F172A),
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         if (items.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: _FrostedCard(
-              borderRadius: 18,
-              padding: const EdgeInsets.all(16),
+              borderRadius: 20,
+              padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
                   Icon(
                     Icons.info_rounded,
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.8)
+                        ? Colors.white.withValues(alpha: 0.7)
                         : const Color(0xFF0F172A),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       'No recent services yet. Your history will appear here.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white : const Color(0xFF64748B),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : const Color(0xFF64748B),
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -957,9 +958,12 @@ class _SpeshwayVehicleCareDashboardState
               final serviceName = b.services.isNotEmpty
                   ? b.services.first.name
                   : 'Service';
+
+              // Formatting vehicle label to match screenshot style: JUPITER 5G • TS08JY4741
               final vehicleLabel = b.vehicle != null
-                  ? '${b.vehicle!.make} ${b.vehicle!.model} • ${b.vehicle!.licensePlate}'
+                  ? '${b.vehicle!.make.toUpperCase()} ${b.vehicle!.model.toUpperCase()} • ${b.vehicle!.licensePlate.toUpperCase()}'
                   : '';
+
               final statusText = _statusLabel(b.status);
               final amount = b.totalAmount;
               final priceLabel =
@@ -967,17 +971,32 @@ class _SpeshwayVehicleCareDashboardState
                   ? '\u20B9 ${amount.round()}'
                   : '\u20B9 ${amount.toStringAsFixed(2)}';
 
+              final isDelivered =
+                  b.status == 'DELIVERED' || b.status == 'COMPLETED';
+              final statusColor = isDelivered
+                  ? const Color(0xFF4ADE80)
+                  : const Color(0xFF38BDF8);
+
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
                   onTap: () =>
                       Navigator.pushNamed(context, '/track', arguments: b.id),
-                  borderRadius: BorderRadius.circular(18),
-                  child: _FrostedCard(
-                    borderRadius: 18,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 18,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFF0A0A0A,
+                      ), // Solid dark background for the card
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -987,44 +1006,43 @@ class _SpeshwayVehicleCareDashboardState
                             children: [
                               Text(
                                 serviceName,
-                                style: Theme.of(context).textTheme.bodyMedium
+                                style: Theme.of(context).textTheme.bodyLarge
                                     ?.copyWith(
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF0F172A),
-                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
                                     ),
                               ),
                               if (vehicleLabel.isNotEmpty) ...[
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 4),
                                 Text(
                                   vehicleLabel,
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white
-                                            : const Color(0xFF64748B),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        fontSize: 11,
+                                        letterSpacing: 0.2,
                                       ),
                                 ),
                               ],
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 10),
                               Row(
                                 children: [
                                   Icon(
                                     Icons.check_circle_rounded,
-                                    size: 16,
-                                    color: b.status == 'DELIVERED'
-                                        ? Colors.greenAccent
-                                        : _neonBlue,
+                                    size: 14,
+                                    color: statusColor,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     statusText,
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
-                                          color: isDark
-                                              ? Colors.white
-                                              : const Color(0xFF0F172A),
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
                                         ),
                                   ),
                                 ],
@@ -1037,22 +1055,20 @@ class _SpeshwayVehicleCareDashboardState
                           children: [
                             Text(
                               priceLabel,
-                              style: Theme.of(context).textTheme.bodyMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
-                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
                                   ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               _formatDate(context, b.date),
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF64748B),
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    fontSize: 11,
                                   ),
                             ),
                           ],

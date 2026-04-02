@@ -12,7 +12,7 @@ class Env {
   }
 
   static String get productionBaseUrl {
-    return 'https://carb.speshwayhrms.com';
+    return 'https://api.carzzi.com';
   }
 
   static String get baseUrl {

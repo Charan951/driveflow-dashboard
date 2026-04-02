@@ -62,7 +62,7 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('liveLocation', (data) {
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final bookingId = (mapData['bookingId'] ?? '').toString();
@@ -79,7 +79,7 @@ class SocketService extends ValueNotifier<String?> {
     _socket!.on('bookingUpdated', (data) {
       value = 'booking_updated';
 
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final bookingId = (mapData['_id'] ?? '').toString();
@@ -117,7 +117,7 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('bookingCreated', (data) {
       value = 'booking_created';
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final bookingId = (mapData['_id'] ?? '').toString();
@@ -142,7 +142,7 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('bookingCancelled', (data) {
       value = 'booking_cancelled';
-      if (data != null && data is Map) {
+      if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final bookingId = (mapData['_id'] ?? '').toString();
@@ -167,7 +167,7 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('userStatusUpdate', (data) {
       value = 'user_status_update';
-      if (data != null && data is Map) {
+      if (data != null) {
         // Handle user status update if needed (e.g. show staff online/offline)
         notifyListeners();
       }
@@ -175,16 +175,21 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('notification', (data) {
       value = 'notification';
-      if (data != null && data is Map) {
-        NotificationService().showLocalNotification(
-          title: (data['title'] ?? 'Notification').toString(),
-          body: (data['message'] ?? data['body'] ?? '').toString(),
-          payload: data['payload'] != null
-              ? (data['payload'] is String
-                    ? data['payload'] as String
-                    : jsonEncode(data['payload']))
-              : null,
-        );
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          NotificationService().showLocalNotification(
+            title: (mapData['title'] ?? 'Notification').toString(),
+            body: (mapData['message'] ?? mapData['body'] ?? '').toString(),
+            payload: mapData['payload'] != null
+                ? (mapData['payload'] is String
+                    ? mapData['payload'] as String
+                    : jsonEncode(mapData['payload']))
+                : null,
+          );
+        } catch (e) {
+          // Ignore
+        }
       }
       notifyListeners();
     });

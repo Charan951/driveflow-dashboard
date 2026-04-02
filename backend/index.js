@@ -48,6 +48,13 @@ if (!allowedOrigins.includes('https://car.speshwayhrms.com')) {
 if (!allowedOrigins.includes('https://carb.speshwayhrms.com')) {
   allowedOrigins.push('https://carb.speshwayhrms.com');
 }
+if (!allowedOrigins.includes('https://api.carzzi.com')) {
+  allowedOrigins.push('https://api.carzzi.com');
+}
+if (!allowedOrigins.includes('https://carzzi.com/')) {
+  allowedOrigins.push('https://carzzi.com/');
+}
+
 
 const corsOptions = {
   origin: function (origin, callback) {

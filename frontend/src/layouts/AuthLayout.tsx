@@ -24,7 +24,7 @@ export const AuthLayout: React.FC = () => {
         {/* Footer inside main to ensure visibility */}
         <footer className="mt-2 text-center">
           <p className="text-[9px] md:text-[10px] text-primary-foreground/50">
-            © 2024 Speshway Solutions. All rights reserved.
+            © {new Date().getFullYear()} Carzzi. All rights reserved.
           </p>
         </footer>
       </main>

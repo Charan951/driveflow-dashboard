@@ -8,7 +8,7 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 
 const TiresBatteryPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'tires' | 'batteries' | 'warranties'>('tires');
+  const [activeTab, setActiveTab] = useState<'tires' | 'batteries' | 'warranties' | null>(null);
   const [selectedTireSize, setSelectedTireSize] = useState('225/45R17');
   const [products, setProducts] = useState<Product[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -129,6 +129,20 @@ const TiresBatteryPage: React.FC = () => {
       </div>
 
       {/* Content */}
+      {activeTab === null && (
+        <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center space-y-4 bg-muted/30 rounded-3xl border-2 border-dashed border-border">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-muted rounded-full flex items-center justify-center mb-2">
+            <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground opacity-50" />
+          </div>
+          <div className="space-y-2 max-w-xs sm:max-w-md px-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Select a Category</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Please choose Tires or Batteries from the tabs above to browse our quality products.
+            </p>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'tires' && (
         <div className="space-y-4 sm:space-y-6">
           {/* Size Selector */}

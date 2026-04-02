@@ -43,12 +43,12 @@ const TermsPage = () => {
               </h2>
               <div className="text-muted-foreground leading-relaxed space-y-4">
                 <p>
-                  Permission is allowed to temporarily download one duplicate of the materials (data or programming) on VehicleCare’s site for individual and non-business use only. This is the just a permit of license and not an exchange of title, and under this permit you may not:
+                  Permission is allowed to temporarily download one duplicate of the materials (data or programming) on Carzzi’s site for individual and non-business use only. This is the just a permit of license and not an exchange of title, and under this permit you may not:
                 </p>
                 <ul className="list-disc list-inside ml-4 space-y-2">
                   <li>modify or copy the materials;</li>
                   <li>use the materials for any commercial use , or for any public presentation (business or non-business);</li>
-                  <li>attempt to decompile or rebuild any product or material contained on VehicleCare’s site;</li>
+                  <li>attempt to decompile or rebuild any product or material contained on Carzzi’s site;</li>
                   <li>remove any copyright or other restrictive documentations from the materials; or</li>
                   <li>transfer the materials to someone else or even “mirror” the materials on other server.</li>
                 </ul>
@@ -101,7 +101,7 @@ const TermsPage = () => {
               </h2>
               <div className="text-muted-foreground leading-relaxed space-y-4">
                 <p>
-                  VehicleCare has not checked on the majority of the websites or links connected to its website and is not in charge of the substance of any such connected webpage. The incorporation of any connection does not infer support by VehicleCare of the site. Utilization of any such connected site is at the user’s own risk.
+                  Carzzi has not checked on the majority of the websites or links connected to its website and is not in charge of the substance of any such connected webpage. The incorporation of any connection does not infer support by Carzzi of the site. Utilization of any such connected site is at the user’s own risk.
                 </p>
               </div>
             </section>
@@ -113,7 +113,7 @@ const TermsPage = () => {
               </h2>
               <div className="text-muted-foreground leading-relaxed space-y-4">
                 <p>
-                  VehicleCare may update these terms of utilization for its website whenever without notification. By utilizing this site you are consenting to be bound by the then current form of these Terms and Conditions of Use.
+                  Carzzi may update these terms of utilization for its website whenever without notification. By utilizing this site you are consenting to be bound by the then current form of these Terms and Conditions of Use.
                 </p>
               </div>
             </section>
@@ -125,14 +125,14 @@ const TermsPage = () => {
               </h2>
               <div className="text-muted-foreground leading-relaxed space-y-4">
                 <p>
-                  Any case identifying with VehicleCare’s site should be administered by the laws of the country of india VehicleCare State without respect to its contention of law provisions.
+                  Any case identifying with Carzzi’s site should be administered by the laws of the country of india Carzzi State without respect to its contention of law provisions.
                 </p>
               </div>
             </section>
 
             <div className="pt-8 border-t border-border">
               <p className="text-sm text-center text-muted-foreground">
-                © {new Date().getFullYear()} VehicleCare. All Rights Reserved.
+                 © {new Date().getFullYear()} Carzzi. All rights reserved.
               </p>
             </div>
           </div>

@@ -74,7 +74,7 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+          'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -159,7 +159,7 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
             {children || <Outlet />}
           </PageTransition>
         </main>
-        <BottomNav items={merchantBottomNavItems} />
+        {!sidebarOpen && <BottomNav items={merchantBottomNavItems} />}
       </div>
     </div>
   );

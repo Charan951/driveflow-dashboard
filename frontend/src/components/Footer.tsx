@@ -12,7 +12,7 @@ const Footer: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
                 <Car className="w-6 h-6 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-lg">VehicleCare</span>
+              <span className="font-semibold text-lg">Carzzi</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Premium vehicle services at your doorstep. Your car deserves the best care.
@@ -41,21 +41,21 @@ const Footer: React.FC = () => {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                <span>123 Service Lane, Downtown</span>
+                <span>Hyderabad</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4" />
-                <span>+1 (555) 123-4567</span>
+                <span>+91 9595177744</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <span>support@vehiclecare.com</span>
+                <span>support@carzzi.com</span>
               </li>
             </ul>
           </div>
         </div>
         <div className="pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} VehicleCare. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Carzzi. All rights reserved.</p>
         </div>
       </div>
     </footer>

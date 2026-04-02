@@ -112,7 +112,7 @@ const PrivacyPage = () => {
 
             <div className="pt-8 border-t border-border">
               <p className="text-sm text-center text-muted-foreground">
-                © {new Date().getFullYear()} VehicleCare. All Rights Reserved.
+                © {new Date().getFullYear()} Carzzi. All Rights Reserved.
               </p>
             </div>
           </div>

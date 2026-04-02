@@ -21,7 +21,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  title = 'VehicleCare', 
+  title = 'Carzzi', 
   showBack = false,
   transparent = false 
 }) => {
