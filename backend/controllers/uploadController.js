@@ -33,7 +33,7 @@ const storage = new CloudinaryStorage({
       folder: 'driveflow_uploads',
       resource_type: 'image',
       transformation: [
-        { width: 1200, height: 1200, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
+        { width: 800, height: 800, crop: 'limit', quality: 'auto:good', fetch_format: 'auto' }
       ]
     };
   }

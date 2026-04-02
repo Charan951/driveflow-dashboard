@@ -6,6 +6,12 @@ import http from 'http';
 import compression from 'compression';
 import helmet from 'helmet';
 import { initSocket } from './socket.js';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { errorHandler, logger } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
@@ -135,16 +141,23 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// Static files (removed as we are using Cloudinary)
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')))
+
+// Handles any requests that don't match the ones above
+app.get('*any', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'dist', 'index.html'))
+})
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI);
 
-// Basic Route
-app.get('/', (_, res) => {
-  res.send('DriveFlow API is running');
-});
+// API health check
+app.get('/api/health', (_, res) => {
+  res.send('DriveFlow API is running')
+})
+
+;
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
