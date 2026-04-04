@@ -5,9 +5,15 @@ const SOCKET_URL = import.meta.env.VITE_API_URL;
 
 class SocketService {
   private socket: Socket | null = null;
+  private currentRoom: string | null = null;
 
   connect() {
-    if (this.socket) return;
+    if (this.socket?.connected) return;
+
+    if (this.socket) {
+      this.socket.connect();
+      return;
+    }
 
     const token = sessionStorage.getItem('token');
     
@@ -16,15 +22,19 @@ class SocketService {
       autoConnect: true,
       auth: {
         token
-      }
+      },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
     });
 
     this.socket.on('connect', () => {
-      // Socket connected
+      if (this.currentRoom) {
+        this.socket?.emit('join', this.currentRoom);
+      }
     });
 
     this.socket.on('disconnect', () => {
-      // Socket disconnected
     });
   }
 
@@ -32,6 +42,7 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      this.currentRoom = null;
     }
   }
 
@@ -40,7 +51,7 @@ class SocketService {
   }
 
   emit(event: string, data: unknown) {
-    if (!this.socket) this.connect();
+    if (!this.socket?.connected) this.connect();
     this.socket?.emit(event, data);
   }
 
@@ -59,10 +70,14 @@ class SocketService {
   }
 
   joinRoom(room: string) {
+    this.currentRoom = room;
     this.emit('join', room);
   }
 
   leaveRoom(room: string) {
+    if (this.currentRoom === room) {
+      this.currentRoom = null;
+    }
     this.emit('leave', room);
   }
 }

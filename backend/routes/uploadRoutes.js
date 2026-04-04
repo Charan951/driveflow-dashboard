@@ -16,10 +16,13 @@ router.post('/', protect, (req, res, next) => {
 
 // Upload multiple files
 router.post('/multiple', protect, (req, res, next) => {
-  upload.array('files', 10)(req, res, (err) => {
+  console.log('Multiple upload request received');
+  upload.array('files', 20)(req, res, (err) => {
     if (err) {
+      console.error('Multer error:', err);
       return res.status(400).json({ message: err.message || 'File upload failed' });
     }
+    console.log('Multer successfully processed files:', req.files?.length || 0);
     next();
   });
 }, uploadFiles);

@@ -153,7 +153,7 @@ export const fetchVehicleDetails = async (req, res) => {
 // @route   POST /api/vehicles
 // @access  Private
 export const addVehicle = async (req, res) => {
-  const { licensePlate, make, model, year, fuelType, type, color, image, vin } = req.body;
+  const { licensePlate, make, model, year, fuelType, type, color, image, vin, frontTyres, rearTyres, batteryDetails } = req.body;
 
   try {
     const vehicle = new Vehicle({
@@ -166,7 +166,10 @@ export const addVehicle = async (req, res) => {
       type: type || 'Car',
       color,
       image,
-      vin
+      vin,
+      frontTyres,
+      rearTyres,
+      batteryDetails
     });
 
     const createdVehicle = await vehicle.save();

@@ -19,27 +19,85 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _licensePlateController = TextEditingController();
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
+  final _variantController = TextEditingController();
   final _yearController = TextEditingController(
     text: DateTime.now().year.toString(),
   );
   final _colorController = TextEditingController();
-  final _vinController = TextEditingController();
-  final _mileageController = TextEditingController();
+  final _frontTyresController = TextEditingController();
+  final _rearTyresController = TextEditingController();
+  final _batteryDetailsController = TextEditingController();
   String _type = 'Car';
   String _fuelType = 'Petrol';
 
   Color get _accentPurple => const Color(0xFF3B82F6);
 
   @override
+  void initState() {
+    super.initState();
+    _makeController.addListener(_onVehicleInfoChanged);
+    _modelController.addListener(_onVehicleInfoChanged);
+    _variantController.addListener(_onVehicleInfoChanged);
+  }
+
+  @override
   void dispose() {
+    _makeController.removeListener(_onVehicleInfoChanged);
+    _modelController.removeListener(_onVehicleInfoChanged);
+    _variantController.removeListener(_onVehicleInfoChanged);
     _licensePlateController.dispose();
     _makeController.dispose();
     _modelController.dispose();
+    _variantController.dispose();
     _yearController.dispose();
     _colorController.dispose();
-    _vinController.dispose();
-    _mileageController.dispose();
+    _frontTyresController.dispose();
+    _rearTyresController.dispose();
+    _batteryDetailsController.dispose();
     super.dispose();
+  }
+
+  void _onVehicleInfoChanged() {
+    final make = _makeController.text.trim();
+    final model = _modelController.text.trim();
+    final variant = _variantController.text.trim();
+
+    if (make.isNotEmpty && model.isNotEmpty) {
+      // Debounce logic could be added here, but for simplicity:
+      _fetchReferenceData(make, model, variant);
+    }
+  }
+
+  bool _isFetchingRef = false;
+  Future<void> _fetchReferenceData(
+    String make,
+    String model,
+    String variant,
+  ) async {
+    if (_isFetchingRef) return;
+    setState(() => _isFetchingRef = true);
+    try {
+      final ref = await _service.searchReference(
+        make: make,
+        model: model,
+        variant: variant.isNotEmpty ? variant : null,
+      );
+      if (ref != null) {
+        if (ref['front_tyres'] != null) {
+          _frontTyresController.text = ref['front_tyres'].toString();
+        }
+        if (ref['rear_tyres'] != null) {
+          _rearTyresController.text = ref['rear_tyres'].toString();
+        }
+        if (ref['battery_details'] != null) {
+          _batteryDetailsController.text = ref['battery_details'].toString();
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch reference: $e');
+    } finally {
+      if (mounted) setState(() => _isFetchingRef = false);
+    }
   }
 
   Future<void> _handleRegNoSubmit() async {
@@ -53,6 +111,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         setState(() {
           _makeController.text = details['make']?.toString() ?? '';
           _modelController.text = details['model']?.toString() ?? '';
+          _variantController.text = details['variant']?.toString() ?? '';
           _yearController.text = details['year']?.toString() ?? '';
           if (details['type'] != null) {
             _type = details['type'].toString();
@@ -62,9 +121,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           }
           if (details['color'] != null) {
             _colorController.text = details['color'].toString();
-          }
-          if (details['vin'] != null) {
-            _vinController.text = details['vin'].toString();
           }
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -111,9 +167,10 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         year: int.tryParse(_yearController.text) ?? DateTime.now().year,
         type: _type,
         color: _colorController.text.trim(),
-        vin: _vinController.text.trim(),
-        mileage: num.tryParse(_mileageController.text),
         fuelType: _fuelType,
+        frontTyres: _frontTyresController.text.trim(),
+        rearTyres: _rearTyresController.text.trim(),
+        batteryDetails: _batteryDetailsController.text.trim(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -258,9 +315,25 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 24),
-          _buildTextField('Make', _makeController, 'e.g. Toyota', isDark),
+          _buildTextField(
+            'Registration Number',
+            _licensePlateController,
+            'e.g. MH12AB1234',
+            isDark,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField('Brand', _makeController, 'e.g. Toyota', isDark),
           const SizedBox(height: 16),
           _buildTextField('Model', _modelController, 'e.g. Camry', isDark),
+          const SizedBox(height: 16),
+          _buildTextField(
+            'Variant/Class (Optional)',
+            _variantController,
+            'e.g. VXI / SUV',
+            isDark,
+            required: false,
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -284,6 +357,56 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          const Text(
+            'Technical Specifications',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          if (_isFetchingRef)
+            const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Auto-filling specs...',
+                style: TextStyle(fontSize: 12, color: Colors.blue),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  'Front Tyres',
+                  _frontTyresController,
+                  'e.g. 175/65 R14',
+                  isDark,
+                  required: false,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildTextField(
+                  'Rear Tyres',
+                  _rearTyresController,
+                  'e.g. 175/65 R14',
+                  isDark,
+                  required: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            'Battery Details',
+            _batteryDetailsController,
+            'e.g. 35Ah / 40Ah',
+            isDark,
+            required: false,
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Additional Info',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           _buildDropdownField(
             'Fuel Type',
@@ -291,23 +414,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'],
             (v) => setState(() => _fuelType = v!),
             isDark,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            'Mileage (km)',
-            _mileageController,
-            'e.g. 50000',
-            isDark,
-            keyboardType: TextInputType.number,
-            required: false,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            'VIN (Optional)',
-            _vinController,
-            'Enter VIN number',
-            isDark,
-            required: false,
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -339,6 +445,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     bool isDark, {
     TextInputType? keyboardType,
     bool required = true,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,6 +458,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
           validator: required
               ? (v) => (v == null || v.isEmpty) ? 'Required' : null
               : null,

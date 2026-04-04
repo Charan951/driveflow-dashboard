@@ -11,6 +11,9 @@ export interface Vehicle {
     vin?: string;
     mileage?: number;
     fuelType?: string;
+    frontTyres?: string;
+    rearTyres?: string;
+    batteryDetails?: string;
     type?: 'Car';
     status?: 'Idle' | 'On Route' | 'In Service';
     lastService?: string;

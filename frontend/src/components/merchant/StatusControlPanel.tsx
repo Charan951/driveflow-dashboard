@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
+import Timeline from '../Timeline';
 
 interface StatusControlPanelProps {
   booking: Booking;
@@ -147,47 +148,27 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
       </div>
 
       {/* Workflow Progress */}
-      <div className="relative">
-        {/* Horizontal line for desktop */}
-        <div className="hidden md:block absolute left-0 top-[16px] w-full h-0.5 bg-gray-200 -z-10"></div>
-        {/* Vertical line for mobile - Starts from middle of first circle to middle of last circle */}
-        <div className="md:hidden absolute left-[16px] top-[16px] bottom-[16px] w-0.5 bg-gray-200 -z-10"></div>
-        
-        <div className="md:overflow-x-auto pb-2 md:pb-4">
-          <div
-            className="flex flex-col md:grid gap-6 md:gap-3"
-            style={{ gridTemplateColumns: `repeat(${activeStatusFlow.length}, minmax(80px,1fr))` }}
-          >
-            {activeStatusFlow.map((step, idx) => {
-              const stepIndex = activeStatusFlow.indexOf(step);
-              const isActive = booking.status === step;
-              const isCompleted = currentStatusIndex > stepIndex;
-              const label = STATUS_LABELS[step as keyof typeof STATUS_LABELS] || step;
-              return (
-                <div key={step} className="flex flex-row md:flex-col items-center gap-4 md:gap-0">
-                  <div
-                    className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold transition-all z-10 bg-white border-2 ${
-                      isActive
-                        ? 'bg-primary text-white border-primary ring-4 ring-blue-100 scale-110'
-                        : isCompleted
-                        ? 'bg-green-500 text-white border-green-500'
-                        : 'bg-white text-gray-400 border-gray-200'
-                    }`}
-                  >
-                    {idx + 1}
-                  </div>
-                  <span
-                    className={`text-xs md:text-[10px] md:mt-2 text-left md:text-center leading-tight transition-colors ${
-                      isActive ? 'font-bold text-primary' : 'font-medium text-gray-600'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+        <Timeline 
+          steps={activeStatusFlow.map((s) => {
+            const index = activeStatusFlow.indexOf(s);
+            const isCompleted = index <= currentStatusIndex;
+            const label =
+              s === 'ACCEPTED' && booking.status === 'REACHED_CUSTOMER'
+                ? 'Staff waiting at customer location'
+                : (s === 'OUT_FOR_DELIVERY' && booking.status !== 'OUT_FOR_DELIVERY'
+                    ? 'Waiting for staff pickup'
+                    : STATUS_LABELS[s as keyof typeof STATUS_LABELS] || s);
+
+            return {
+              step: label,
+              completed: isCompleted,
+              active: booking.status === s
+            };
+          })} 
+          vertical={false} 
+          className="gap-3 sm:gap-2" 
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

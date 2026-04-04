@@ -43,17 +43,23 @@ const BookingDetailPage: React.FC = () => {
   const [selectedCarWashStaff, setSelectedCarWashStaff] = useState<string>('');
  
   // Identify service types
-  const isCarWashService = React.useMemo(() => 
-    Array.isArray(booking?.services) && 
-    (booking!.services as Service[]).some(service => 
-      service.category === 'Car Wash' || service.category === 'Wash'
-    ), [booking?.services]);
+  const isCarWashService = React.useMemo(() => {
+    const hasCarWashCategory = Array.isArray(booking?.services) && 
+      (booking!.services as Service[]).some(service => {
+        if (!service.category) return false;
+        const cat = service.category.toLowerCase();
+        return cat.includes('car wash') || cat.includes('wash');
+      });
+    return hasCarWashCategory || booking?.carWash?.isCarWashService === true;
+  }, [booking?.services, booking?.carWash?.isCarWashService]);
 
   const isBatteryOrTireService = React.useMemo(() => 
     Array.isArray(booking?.services) && 
-    (booking!.services as Service[]).some(service => 
-      service.category === 'Battery' || service.category === 'Tyres' || service.category === 'Tyre & Battery'
-    ), [booking?.services]);
+    (booking!.services as Service[]).some(service => {
+      if (!service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('battery') || cat.includes('tyre') || cat.includes('tire');
+    }), [booking?.services]);
 
   // Memoized sorted lists
   const sortedMerchants = React.useMemo(() => {

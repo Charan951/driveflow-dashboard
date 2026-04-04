@@ -38,15 +38,8 @@ const AdminDocumentsPage = () => {
     if (url.startsWith('http') || url.startsWith('/')) {
         const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL}${url}`;
         
-        // Check if it's a Cloudinary URL and a PDF
-        let finalUrl = fullUrl;
-        if (fullUrl.includes('cloudinary.com') && fullUrl.toLowerCase().endsWith('.pdf')) {
-          // Add fl_attachment flag to ensure it's downloadable if viewing fails
-          if (!fullUrl.includes('fl_attachment')) {
-            finalUrl = fullUrl.replace('/upload/', '/upload/fl_attachment/');
-          }
-        }
-        window.open(finalUrl, '_blank');
+        // S3 and generic URLs can be opened directly
+        window.open(fullUrl, '_blank');
     } else {
         toast.error('Invalid document URL');
     }

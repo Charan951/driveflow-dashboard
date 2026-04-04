@@ -28,9 +28,10 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
-import settingRoutes from './routes/settingRoutes.js';
-import auditRoutes from './routes/auditRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import vehicleReferenceRoutes from './routes/vehicleReferenceRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
+import settingRoutes from './routes/settingRoutes.js';
 
 dotenv.config();
 
@@ -140,22 +141,25 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/upload', uploadRoutes);
-
-// Serve frontend static files
-app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')))
-
-// Handles any requests that don't match the ones above
-app.get('*any', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'frontend', 'dist', 'index.html'))
-})
-
-// Database Connection
-mongoose.connect(process.env.MONGO_URI);
+app.use('/api/vehicle-reference', vehicleReferenceRoutes);
 
 // API health check
 app.get('/api/health', (_, res) => {
   res.send('DriveFlow API is running')
-})
+});
+
+// Serve frontend static files - ONLY if dist exists
+const distPath = path.join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(distPath));
+
+// Handles any requests that don't match the ones above
+// Ensure this ONLY catches non-API routes
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Database Connection
+mongoose.connect(process.env.MONGO_URI);
 
 ;
 

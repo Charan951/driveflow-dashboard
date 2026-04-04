@@ -2,7 +2,7 @@ import api from './api';
 import imageCompression from 'browser-image-compression';
 
 const compressionOptions = {
-  maxSizeMB: 0.5,
+  maxSizeMB: 0.2, // Reduced from 0.5MB to 0.2MB for faster uploads
   maxWidthOrHeight: 1024,
   useWebWorker: true,
 };

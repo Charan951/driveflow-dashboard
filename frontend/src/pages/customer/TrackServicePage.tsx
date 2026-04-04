@@ -524,6 +524,13 @@ const TrackServicePage: React.FC = () => {
 
   const handleDownloadMerchantInvoice = async () => {
     if (!order?._id) return;
+    
+    // If merchant has uploaded a file, prioritize that
+    if (order.billing?.fileUrl) {
+      window.open(order.billing.fileUrl, '_blank');
+      return;
+    }
+
     try {
       toast.info('Generating invoice...');
       const response = await bookingService.getBookingInvoice(order._id);

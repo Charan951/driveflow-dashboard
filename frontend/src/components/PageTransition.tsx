@@ -13,7 +13,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={location.pathname}
+        key={location.pathname + location.search}
         initial="initial"
         animate="enter"
         exit="exit"

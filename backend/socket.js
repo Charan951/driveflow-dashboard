@@ -324,7 +324,7 @@ export const initSocket = (server) => {
 
         const populatedMessage = await message.populate('sender', '_id name role');
 
-        socket.broadcast.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage);
+        io.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage);
       } catch (e) {
         console.error('Error sending message:', e);
       }

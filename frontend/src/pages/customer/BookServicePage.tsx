@@ -37,6 +37,37 @@ const COMMON_TIRE_SIZES = [
   '195/55 R16', '205/55 R16', '215/60 R16', '225/45 R17', '235/45 R18'
 ];
 
+import { Skeleton } from "@/components/ui/skeleton";
+
+const BookingSkeleton = () => (
+  <div className="w-full h-full py-4 lg:py-6 space-y-6">
+    <div className="space-y-2">
+      <Skeleton className="h-8 w-[250px]" />
+      <Skeleton className="h-4 w-[350px]" />
+    </div>
+    <div className="flex justify-between bg-card rounded-2xl p-4 border border-border">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="flex flex-col items-center gap-2">
+          <Skeleton className="w-8 h-8 rounded-full" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      ))}
+    </div>
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-32" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[1, 2, 3, 4].map(i => (
+          <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+        ))}
+      </div>
+    </div>
+    <div className="flex gap-4 pt-4 border-t border-border">
+      <Skeleton className="h-12 flex-1 rounded-xl" />
+      <Skeleton className="h-12 flex-1 rounded-xl" />
+    </div>
+  </div>
+);
+
 const BookServicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,6 +85,7 @@ const BookServicePage: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -74,6 +106,7 @@ const BookServicePage: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      setIsDataLoading(true);
       const [servicesData, vehiclesData] = await Promise.all([
         serviceService.getServices(),
         vehicleService.getVehicles(),
@@ -83,6 +116,8 @@ const BookServicePage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load booking data');
+    } finally {
+      setIsDataLoading(false);
     }
   };
 
@@ -303,6 +338,10 @@ const BookServicePage: React.FC = () => {
     
     return matchesCategory;
   });
+
+  if (isDataLoading) {
+    return <BookingSkeleton />;
+  }
 
   return (
     <div className="w-full h-full py-4 lg:py-6 space-y-6 overflow-hidden">

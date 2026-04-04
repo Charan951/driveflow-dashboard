@@ -22,18 +22,13 @@ import {
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { serviceService, Service } from '@/services/serviceService';
 
-const getCloudinaryUrl = (publicId: string, width: number) => {
-  return `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},c_limit,q_auto,f_auto/${publicId}`;
-};
-
-// Fallback static services in case API fails or is empty
 const staticServices = [
   { 
     icon: Wrench, 
     title: 'Maintenance', 
     description: 'Complete vehicle servicing and repairs by certified professionals.', 
     color: 'bg-blue-500', 
-    image: getCloudinaryUrl("v1629882783/car-care/service-1_n8x2jz.jpg", 800),
+    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?q=80&w=800",
     link: '/services?category=Cars&service=Periodic%20Maintenance'
   },
   { 
@@ -41,7 +36,7 @@ const staticServices = [
     title: 'Insurance', 
     description: 'Comprehensive coverage plans to keep you protected on the road.', 
     color: 'bg-purple-500', 
-    image: getCloudinaryUrl("v1629882783/car-care/service-2_m9x3jz.jpg", 800),
+    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?q=80&w=800",
     link: '/contact'
   },
   { 
@@ -49,7 +44,7 @@ const staticServices = [
     title: 'Car Wash', 
     description: 'Premium washing and detailing packages for that showroom shine.', 
     color: 'bg-cyan-500', 
-    image: getCloudinaryUrl("v1629882783/car-care/service-3_g8x4jz.jpg", 800),
+    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?q=80&w=800",
     link: '/services?category=Cars&service=Car%20Wash'
   },
   { 
@@ -57,7 +52,7 @@ const staticServices = [
     title: 'Tires & Battery', 
     description: 'Quality parts replacement and installation you can trust.', 
     color: 'bg-orange-500', 
-    image: getCloudinaryUrl("v1629882783/car-care/service-4_f9x5jz.jpg", 800),
+    image: "https://images.unsplash.com/photo-1579454320454-3d69559b3173?q=80&w=800",
     link: '/services?category=Cars&service=Tyres%20%26%20Battery'
   },
 ];
@@ -72,19 +67,19 @@ const howItWorks = [
 const heroSlides = [
   {
     id: 1,
-    image: getCloudinaryUrl("v1629882783/car-care/hero-1_m8x1jz.jpg", 1920),
+    image: "https://images.unsplash.com/photo-1553976468-dcd9082e7636?q=80&w=1920",
     title: "Vehicle Care Reimagined",
     subtitle: "Experience premium vehicle services at your doorstep. Book, track, and manage all your car needs in one seamless platform."
   },
   {
     id: 2,
-    image: getCloudinaryUrl("v1629882783/car-care/hero-2_t9x8cz.jpg", 1920),
+    image: "https://images.unsplash.com/photo-1514866747592-c2d279258a78?q=80&w=1920",
     title: "Expert Maintenance",
     subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your car like our own."
   },
   {
     id: 3,
-    image: getCloudinaryUrl("v1629882783/car-care/hero-3_g7x6a3.jpg", 1920),
+    image: "https://images.unsplash.com/photo-1485291571150-772bcfc10da5?q=80&w=1920",
     title: "Premium Detailing",
     subtitle: "Give your vehicle the shine it deserves with our eco-friendly and detailed washing services."
   }

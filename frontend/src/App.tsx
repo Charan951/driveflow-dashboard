@@ -245,7 +245,6 @@ const App = () => (
               <Route path="/merchant/notifications" element={<MyNotificationsPage />} />
               <Route path="/merchant/orders" element={<MerchantOrders />} />
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />
-              <Route path="/merchant/stock" element={<MerchantStock />} />
               <Route path="/merchant/feedback" element={<MerchantFeedback />} />
               <Route path="/merchant/profile" element={<MerchantProfilePage />} />
               

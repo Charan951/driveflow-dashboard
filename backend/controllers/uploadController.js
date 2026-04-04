@@ -1,43 +1,21 @@
 import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import sharp from 'sharp';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Configure Storage
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => {
-    const isPDF = file.mimetype === 'application/pdf';
-    
-    // For PDFs, use 'raw' resource type to avoid image processing errors
-    // and ensure the original file is served as-is
-    if (isPDF) {
-      return {
-        folder: 'driveflow_uploads',
-        resource_type: 'raw',
-        public_id: `${file.fieldname}-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-      };
-    }
-
-    // For images, use 'image' resource type with transformations
-    return {
-      folder: 'driveflow_uploads',
-      resource_type: 'image',
-      transformation: [
-        { width: 800, height: 800, crop: 'limit', quality: 'auto:good', fetch_format: 'auto' }
-      ]
-    };
+// Configure AWS S3 v3
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   }
 });
+
+// Configure Multer Storage for memory
+const storage = multer.memoryStorage();
 
 // File filter
 const fileFilter = (req, file, cb) => {
@@ -56,42 +34,79 @@ const upload = multer({
   }
 });
 
-// Single file upload handler
-export const uploadFile = (req, res) => {
+// Helper to process and upload a single file
+const processAndUpload = async (file) => {
+  const folder = 'driveflow_uploads/';
+  const fileName = `${Date.now().toString()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+  const key = folder + fileName;
   
+  let buffer = file.buffer;
+  let mimetype = file.mimetype;
 
+  // Process images with sharp
+  if (file.mimetype.startsWith('image/')) {
+    try {
+      buffer = await sharp(file.buffer)
+        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      mimetype = 'image/jpeg';
+    } catch (error) {
+      console.error('Sharp processing error:', error);
+      // Fallback to original buffer if processing fails
+    }
+  }
+
+  const uploadParams = {
+    Bucket: process.env.AWS_S3_BUCKET_NAME,
+    Key: key,
+    Body: buffer,
+    ContentType: mimetype,
+  };
+
+  await s3.send(new PutObjectCommand(uploadParams));
+
+  // Construct the URL manually as S3Client.send doesn't return it
+  const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+  return {
+    url: fileUrl,
+    filename: key,
+    originalName: file.originalname,
+    mimetype: mimetype,
+    size: buffer.length
+  };
+};
+
+// Single file upload handler
+export const uploadFile = async (req, res) => {
   if (!req.file) {
-    
     return res.status(400).json({ message: 'No file uploaded' });
   }
   
-  // Cloudinary returns the URL in path
-  const fileUrl = req.file.path;
-  
-  res.json({ 
-    url: fileUrl,
-    filename: req.file.filename,
-    originalName: req.file.originalname,
-    mimetype: req.file.mimetype,
-    size: req.file.size
-  });
+  try {
+    const result = await processAndUpload(req.file);
+    res.json(result);
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ message: 'Error processing/uploading file' });
+  }
 };
 
 // Multiple file upload handler
-export const uploadFiles = (req, res) => {
+export const uploadFiles = async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ message: 'No files uploaded' });
   }
 
-  const files = req.files.map(file => ({
-    url: file.path,
-    filename: file.filename,
-    originalName: file.originalname,
-    mimetype: file.mimetype,
-    size: file.size
-  }));
-
-  res.json({ files });
+  try {
+    const uploadPromises = req.files.map(file => processAndUpload(file));
+    const files = await Promise.all(uploadPromises);
+    res.json({ files });
+  } catch (error) {
+    console.error('Multiple upload error:', error);
+    res.status(500).json({ message: 'Error processing/uploading files' });
+  }
 };
 
 export { upload };

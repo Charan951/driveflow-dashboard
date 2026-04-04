@@ -49,6 +49,11 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  // Close sidebar when location changes
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname, location.search]);
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });

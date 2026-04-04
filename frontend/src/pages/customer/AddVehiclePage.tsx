@@ -5,12 +5,14 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import VehicleCard from '@/components/VehicleCard';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
+import { searchVehicleReference } from '@/services/vehicleReferenceService';
 
 const AddVehiclePage: React.FC = () => {
   const [step, setStep] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [isFetchingTires, setIsFetchingTires] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   
   const [formData, setFormData] = useState({
@@ -21,11 +23,42 @@ const AddVehiclePage: React.FC = () => {
     fuel: '',
     year: '',
     color: '',
+    frontTyres: '',
+    rearTyres: '',
   });
 
   useEffect(() => {
     fetchVehicles();
   }, []);
+
+  useEffect(() => {
+    const fetchTireDetails = async () => {
+      // We fetch when make and model are available
+      if (formData.make && formData.model) {
+        setIsFetchingTires(true);
+        try {
+          const details = await searchVehicleReference(formData.make, formData.model, formData.variant);
+          if (details) {
+            setFormData(prev => ({
+              ...prev,
+              frontTyres: details.front_tyres || prev.frontTyres,
+              rearTyres: details.rear_tyres || prev.rearTyres,
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to fetch tire details:', error);
+        } finally {
+          setIsFetchingTires(false);
+        }
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      fetchTireDetails();
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [formData.make, formData.model, formData.variant]);
 
   const fetchVehicles = async () => {
     try {
@@ -93,13 +126,15 @@ const AddVehiclePage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      await vehicleService.addVehicle({
+      await vehicleService.addVehicle({ 
         licensePlate: formData.licensePlate,
         make: formData.make.trim(),
         model: formData.model.trim(),
         year: parseInt(formData.year) || new Date().getFullYear(),
         color: formData.color.trim() || undefined,
         fuelType: formData.fuel.trim() || undefined,
+        frontTyres: formData.frontTyres,
+        rearTyres: formData.rearTyres,
       });
       
       toast.success('Vehicle added successfully!');
@@ -196,7 +231,7 @@ const AddVehiclePage: React.FC = () => {
             <form onSubmit={handleFinalSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Make</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Brand</label>
                   <input
                     type="text"
                     name="make"
@@ -257,6 +292,42 @@ const AddVehiclePage: React.FC = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Front Tyres</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="frontTyres"
+                      value={formData.frontTyres}
+                      onChange={handleChange}
+                      placeholder={isFetchingTires ? 'Fetching...' : 'Auto-fetched or manual'}
+                      className={`w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 ${isFetchingTires ? 'opacity-70' : ''}`}
+                    />
+                    {isFetchingTires && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Rear Tyres</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="rearTyres"
+                      value={formData.rearTyres}
+                      onChange={handleChange}
+                      placeholder={isFetchingTires ? 'Fetching...' : 'Auto-fetched or manual'}
+                      className={`w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 ${isFetchingTires ? 'opacity-70' : ''}`}
+                    />
+                    {isFetchingTires && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

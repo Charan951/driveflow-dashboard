@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -43,6 +43,7 @@ class ApiEndpoints {
   static const String services = '/services';
   static const String vehicles = '/vehicles';
   static const String fetchVehicleDetails = '/vehicles/fetch-details';
+  static const String vehicleReferenceSearch = '/vehicle-reference/search';
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
   static String bookingById(String id) => '/bookings/$id';

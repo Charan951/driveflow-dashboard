@@ -24,6 +24,11 @@ export const getBookingInvoice = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
+    // If there is an uploaded file, redirect to it
+    if (booking.billing && booking.billing.fileUrl) {
+      return res.redirect(booking.billing.fileUrl);
+    }
+
     const doc = new PDFDocument();
     
     // Set response headers

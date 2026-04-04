@@ -29,6 +29,34 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wrench, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { Skeleton } from "@/components/ui/skeleton";
+
+const BookingsSkeleton = () => (
+  <div className="w-full h-full py-4 lg:py-6 space-y-8">
+    <div className="space-y-2">
+      <Skeleton className="h-8 w-[200px]" />
+      <Skeleton className="h-4 w-[300px]" />
+    </div>
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <Skeleton className="h-10 w-24 rounded-lg" />
+        <Skeleton className="h-10 w-24 rounded-lg" />
+        <Skeleton className="h-10 w-24 rounded-lg" />
+      </div>
+      <div className="border border-border rounded-xl overflow-hidden">
+        <div className="p-4 bg-muted/30 flex justify-between">
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-4 w-20" />)}
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="p-4 border-t border-border flex justify-between">
+            {[1, 2, 3, 4, 5].map(j => <Skeleton key={j} className="h-4 w-20" />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 const MyBookingsPage = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -379,11 +407,7 @@ const MyBookingsPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <BookingsSkeleton />;
   }
 
   return (

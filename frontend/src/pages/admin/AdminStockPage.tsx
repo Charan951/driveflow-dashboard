@@ -1,67 +1,154 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Package, AlertTriangle, Bell, TrendingUp } from 'lucide-react';
-import { getAllProducts } from '../../services/productService';
+import { Search, Filter, Package, Upload, CheckCircle, FileText, Plus, Edit, Trash2 } from 'lucide-react';
+import { 
+  getVehicleReference, 
+  importVehicleReference,
+  createVehicleReference,
+  updateVehicleReference,
+  deleteVehicleReference
+} from '../../services/vehicleReferenceService';
 import { toast } from 'react-hot-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-interface Product {
+interface VehicleData {
   _id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  threshold: number;
-  price: number;
-  merchant?: {
-    _id: string;
-    name: string;
-    email: string;
-  };
+  brand_name: string;
+  model: string;
+  brand_model: string;
+  front_tyres: string;
+  rear_tyres: string;
+  battery_details?: string;
 }
 
-const AdminStockPage = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+const AdminVehicleDataPage = () => {
+  const [vehicleData, setVehicleData] = useState<VehicleData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterCategory, setFilterCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<VehicleData | null>(null);
+  const [formData, setFormData] = useState({
+    brand_name: '',
+    model: '',
+    brand_model: '',
+    front_tyres: '',
+    rear_tyres: '',
+    battery_details: ''
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchProducts();
+    fetchVehicleData();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchVehicleData = async () => {
     try {
-      const data = await getAllProducts();
-      setProducts(data);
+      setLoading(true);
+      const data = await getVehicleReference();
+      console.log('Vehicle data received:', data);
+      if (Array.isArray(data)) {
+        setVehicleData(data);
+      } else {
+        console.error('Vehicle data is not an array:', data);
+        setVehicleData([]);
+      }
     } catch (error) {
-      toast.error('Failed to load stock data');
+      toast.error('Failed to load vehicle data');
+      setVehicleData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = filterCategory === 'All' || product.category === filterCategory;
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.merchant?.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      await importVehicleReference(file);
+      toast.success('Vehicle data imported successfully');
+      fetchVehicleData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to import data');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleOpenModal = (vehicle: VehicleData | null = null) => {
+    if (vehicle) {
+      setEditingVehicle(vehicle);
+      setFormData({
+        brand_name: vehicle.brand_name,
+        model: vehicle.model,
+        brand_model: vehicle.brand_model,
+        front_tyres: vehicle.front_tyres,
+        rear_tyres: vehicle.rear_tyres,
+        battery_details: vehicle.battery_details || ''
+      });
+    } else {
+      setEditingVehicle(null);
+      setFormData({
+        brand_name: '',
+        model: '',
+        brand_model: '',
+        front_tyres: '',
+        rear_tyres: '',
+        battery_details: ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingVehicle) {
+        await updateVehicleReference(editingVehicle._id, formData);
+        toast.success('Vehicle data updated successfully');
+      } else {
+        await createVehicleReference(formData);
+        toast.success('Vehicle data created successfully');
+      }
+      setIsModalOpen(false);
+      fetchVehicleData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save vehicle data');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this vehicle reference?')) {
+      try {
+        await deleteVehicleReference(id);
+        toast.success('Vehicle data deleted successfully');
+        fetchVehicleData();
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to delete vehicle data');
+      }
+    }
+  };
+
+  const filteredData = Array.isArray(vehicleData) ? vehicleData.filter(item => 
+    item.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.brand_model?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) : [];
 
   const stats = {
-    totalItems: products.reduce((sum, p) => sum + p.quantity, 0),
-    lowStock: products.filter(p => p.quantity <= p.threshold).length,
-    outOfStock: products.filter(p => p.quantity === 0).length,
-    totalValue: products.reduce((sum, p) => sum + (p.price * p.quantity), 0),
+    totalModels: Array.isArray(vehicleData) ? vehicleData.length : 0,
+    brands: Array.isArray(vehicleData) ? new Set(vehicleData.map(v => v.brand_name)).size : 0,
   };
 
-  const categories = Array.from(new Set(products.map(p => p.category)));
-
-  const handleNotifyMerchant = (merchantId: string, productName: string) => {
-    toast.success(`Notification sent to merchant for low stock: ${productName}`);
-    // Implement actual notification logic here
-  };
-
-  if (loading) {
+  if (loading && (!Array.isArray(vehicleData) || vehicleData.length === 0)) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -72,14 +159,39 @@ const AdminStockPage = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Stock Monitoring</h1>
-        <div className="bg-blue-50 text-blue-700 px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium">
-            Total Inventory Value: ₹{stats.totalValue.toLocaleString()}
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Vehicle Reference Data</h1>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          <button
+            onClick={() => handleOpenModal()}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <Plus size={18} />
+            Add New
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {uploading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <Upload size={18} />
+            )}
+            {uploading ? 'Importing...' : 'Import Excel'}
+          </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -87,8 +199,8 @@ const AdminStockPage = () => {
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs md:text-sm text-gray-500">Total Items</p>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{stats.totalItems}</h3>
+              <p className="text-xs md:text-sm text-gray-500">Total Models</p>
+              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{stats.totalModels}</h3>
             </div>
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
               <Package size={20} className="md:w-6 md:h-6" />
@@ -104,28 +216,11 @@ const AdminStockPage = () => {
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs md:text-sm text-gray-500">Low Stock Alerts</p>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{stats.lowStock}</h3>
+              <p className="text-xs md:text-sm text-gray-500">Unique Brands</p>
+              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{stats.brands}</h3>
             </div>
-            <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg">
-              <AlertTriangle size={20} className="md:w-6 md:h-6" />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 sm:col-span-2 md:col-span-1"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs md:text-sm text-gray-500">Out of Stock</p>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{stats.outOfStock}</h3>
-            </div>
-            <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-              <AlertTriangle size={20} className="md:w-6 md:h-6" />
+            <div className="p-2 bg-green-50 text-green-600 rounded-lg">
+              <CheckCircle size={20} className="md:w-6 md:h-6" />
             </div>
           </div>
         </motion.div>
@@ -133,163 +228,167 @@ const AdminStockPage = () => {
 
       {/* Filters and Search */}
       <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search product or merchant..."
+            placeholder="Search by brand, model or brand_model..."
             className="w-full pl-10 pr-4 py-2 text-sm md:text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center space-x-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-          <Filter size={18} className="text-gray-400 shrink-0" />
-          <select
-            className="border border-gray-200 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="All">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
-      {/* Stock View */}
+      {/* Data View */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Mobile View: Card Layout */}
-        <div className="md:hidden divide-y divide-gray-100">
-          {filteredProducts.map((product) => (
-            <div key={product._id} className="p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="min-w-0">
-                  <h3 className="font-medium text-gray-800 text-sm truncate">{product.name}</h3>
-                  <p className="text-[10px] text-gray-500">{product.category}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">₹{product.price}</p>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div className="flex-1 mr-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-gray-500">Stock Level</span>
-                    <span className={`text-[10px] font-medium ${
-                      product.quantity <= product.threshold ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {product.quantity} items
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div 
-                      className={`h-1.5 rounded-full ${
-                        product.quantity === 0 ? 'bg-red-500' :
-                        product.quantity <= product.threshold ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min(100, (product.quantity / (product.threshold * 3)) * 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-                {product.quantity <= product.threshold && (
-                  <button
-                    onClick={() => handleNotifyMerchant(product.merchant?._id, product.name)}
-                    className="p-2 text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100 shrink-0"
-                  >
-                    <Bell size={16} />
-                  </button>
-                )}
-              </div>
-
-              <div className="bg-gray-50 p-2 rounded-lg">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-500">Merchant</span>
-                  <span className="font-medium text-gray-700">{product.merchant?.name || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] mt-0.5">
-                  <span className="text-gray-500">Email</span>
-                  <span className="text-gray-400">{product.merchant?.email}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Desktop View: Table */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[1000px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-6 py-4 font-semibold text-gray-700">Product</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Category</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Merchant</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Stock Level</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Price</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Actions</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Brand</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Model</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Brand Model</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Front Tyres</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Rear Tyres</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Battery</th>
+                <th className="px-6 py-4 font-semibold text-gray-700 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredProducts.map((product) => (
-                <tr key={product._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-800">{product.name}</div>
+              {filteredData.map((item) => (
+                <tr key={item._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-800">
+                    {item.brand_name}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {product.category}
+                    {item.model}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    <div className="font-medium">{product.merchant?.name || 'Unknown'}</div>
-                    <div className="text-xs text-gray-500">{product.merchant?.email}</div>
+                    {item.brand_model}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            product.quantity === 0 ? 'bg-red-500' :
-                            product.quantity <= product.threshold ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min(100, (product.quantity / (product.threshold * 3)) * 100)}%` }}
-                        ></div>
-                      </div>
-                      <span className={`text-sm font-medium ${
-                        product.quantity <= product.threshold ? 'text-red-600' : 'text-gray-600'
-                      }`}>
-                        {product.quantity}
-                      </span>
-                    </div>
+                  <td className="px-6 py-4 text-sm text-gray-600 font-mono">
+                    {item.front_tyres}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                    ₹{product.price}
+                  <td className="px-6 py-4 text-sm text-gray-600 font-mono">
+                    {item.rear_tyres}
                   </td>
-                  <td className="px-6 py-4">
-                    {product.quantity <= product.threshold && (
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.battery_details || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => handleNotifyMerchant(product.merchant?._id, product.name)}
-                        className="text-yellow-600 hover:text-yellow-800 text-sm font-medium flex items-center space-x-1"
-                        title="Notify Merchant"
+                        onClick={() => handleOpenModal(item)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit"
                       >
-                        <Bell size={16} />
-                        <span>Alert</span>
+                        <Edit size={18} />
                       </button>
-                    )}
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {filteredProducts.length === 0 && (
+        {filteredData.length === 0 && (
           <div className="p-8 text-center text-gray-500">
-            No stock items found.
+            No vehicle data found. Import an Excel file to get started.
           </div>
         )}
       </div>
+
+      {/* Add/Edit Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{editingVehicle ? 'Edit Vehicle Reference' : 'Add New Vehicle Reference'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="brand_name">Brand Name</Label>
+                <Input
+                  id="brand_name"
+                  value={formData.brand_name}
+                  onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
+                  placeholder="e.g. BMW"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="model">Model</Label>
+                <Input
+                  id="model"
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  placeholder="e.g. 3 Series"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_model">Brand Model (Unique Identifier)</Label>
+              <Input
+                id="brand_model"
+                value={formData.brand_model}
+                onChange={(e) => setFormData({ ...formData, brand_model: e.target.value })}
+                placeholder="e.g. 320d Luxury Edition"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="front_tyres">Front Tyres</Label>
+                <Input
+                  id="front_tyres"
+                  value={formData.front_tyres}
+                  onChange={(e) => setFormData({ ...formData, front_tyres: e.target.value })}
+                  placeholder="e.g. 225 / 50 R17"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rear_tyres">Rear Tyres</Label>
+                <Input
+                  id="rear_tyres"
+                  value={formData.rear_tyres}
+                  onChange={(e) => setFormData({ ...formData, rear_tyres: e.target.value })}
+                  placeholder="e.g. 225 / 50 R17"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="battery_details">Battery Details</Label>
+              <Input
+                id="battery_details"
+                value={formData.battery_details}
+                onChange={(e) => setFormData({ ...formData, battery_details: e.target.value })}
+                placeholder="e.g. 80Ah AGM"
+              />
+            </div>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingVehicle ? 'Update' : 'Create'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default AdminStockPage;
+export default AdminVehicleDataPage;

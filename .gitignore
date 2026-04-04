@@ -7,8 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .env
-/backend/.env
-/frontend/.env
+**/.env
+.env.local
+.env.*.local
+*.local
 
 # Firebase Config
 backend/config/firebase-service-account.json

@@ -15,6 +15,10 @@ class Vehicle {
   final String? vin;
   final num? mileage;
   final String? fuelType;
+  final String? color;
+  final String? frontTyres;
+  final String? rearTyres;
+  final String? batteryDetails;
 
   Vehicle({
     required this.id,
@@ -33,6 +37,10 @@ class Vehicle {
     this.vin,
     this.mileage,
     this.fuelType,
+    this.color,
+    this.frontTyres,
+    this.rearTyres,
+    this.batteryDetails,
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
@@ -48,13 +56,29 @@ class Vehicle {
       vin: json['vin']?.toString(),
       mileage: json['mileage'] is num ? (json['mileage'] as num) : null,
       fuelType: json['fuelType']?.toString(),
-      lastService: json['lastService'] != null ? DateTime.tryParse(json['lastService'].toString()) : null,
-      nextService: json['nextService'] != null ? DateTime.tryParse(json['nextService'].toString()) : null,
-      insurance: json['insurance'] != null ? VehicleInsurance.fromJson(Map<String, dynamic>.from(json['insurance'])) : null,
+      color: json['color']?.toString(),
+      frontTyres: json['frontTyres']?.toString(),
+      rearTyres: json['rearTyres']?.toString(),
+      batteryDetails: json['batteryDetails']?.toString(),
+      lastService: json['lastService'] != null
+          ? DateTime.tryParse(json['lastService'].toString())
+          : null,
+      nextService: json['nextService'] != null
+          ? DateTime.tryParse(json['nextService'].toString())
+          : null,
+      insurance: json['insurance'] != null
+          ? VehicleInsurance.fromJson(
+              Map<String, dynamic>.from(json['insurance']),
+            )
+          : null,
       documents: (json['documents'] as List? ?? [])
           .map((e) => VehicleDocument.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
-      location: json['location'] != null ? VehicleLocation.fromJson(Map<String, dynamic>.from(json['location'])) : null,
+      location: json['location'] != null
+          ? VehicleLocation.fromJson(
+              Map<String, dynamic>.from(json['location']),
+            )
+          : null,
     );
   }
 
@@ -71,6 +95,10 @@ class Vehicle {
       if (vin != null) 'vin': vin,
       if (mileage != null) 'mileage': mileage,
       if (fuelType != null) 'fuelType': fuelType,
+      if (color != null) 'color': color,
+      if (frontTyres != null) 'frontTyres': frontTyres,
+      if (rearTyres != null) 'rearTyres': rearTyres,
+      if (batteryDetails != null) 'batteryDetails': batteryDetails,
       if (lastService != null) 'lastService': lastService?.toIso8601String(),
       if (nextService != null) 'nextService': nextService?.toIso8601String(),
       if (insurance != null) 'insurance': insurance!.toJson(),
@@ -99,8 +127,12 @@ class VehicleInsurance {
     return VehicleInsurance(
       policyNumber: json['policyNumber']?.toString(),
       provider: json['provider']?.toString(),
-      startDate: json['startDate'] != null ? DateTime.tryParse(json['startDate'].toString()) : null,
-      expiryDate: json['expiryDate'] != null ? DateTime.tryParse(json['expiryDate'].toString()) : null,
+      startDate: json['startDate'] != null
+          ? DateTime.tryParse(json['startDate'].toString())
+          : null,
+      expiryDate: json['expiryDate'] != null
+          ? DateTime.tryParse(json['expiryDate'].toString())
+          : null,
       status: (json['status'] ?? 'Active').toString(),
     );
   }
@@ -134,8 +166,12 @@ class VehicleDocument {
       name: (json['name'] ?? '').toString(),
       type: (json['type'] ?? 'Other').toString(),
       url: (json['url'] ?? '').toString(),
-      expiryDate: json['expiryDate'] != null ? DateTime.tryParse(json['expiryDate'].toString()) : null,
-      uploadedAt: json['uploadedAt'] != null ? DateTime.tryParse(json['uploadedAt'].toString()) : null,
+      expiryDate: json['expiryDate'] != null
+          ? DateTime.tryParse(json['expiryDate'].toString())
+          : null,
+      uploadedAt: json['uploadedAt'] != null
+          ? DateTime.tryParse(json['uploadedAt'].toString())
+          : null,
     );
   }
 
@@ -163,9 +199,5 @@ class VehicleLocation {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'address': address,
-    'lat': lat,
-    'lng': lng,
-  };
+  Map<String, dynamic> toJson() => {'address': address, 'lat': lat, 'lng': lng};
 }

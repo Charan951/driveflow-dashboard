@@ -54,7 +54,7 @@ const faqs = [
     questions: [
       {
         q: "Do you use genuine parts?",
-        a: "Yes, we use 100% genuine OES (Original Equipment Spares) or OEM (Original Equipment Manufacturer) parts recommended for your specific vehicle make and model."
+        a: "Yes, we use 100% genuine OES (Original Equipment Spares) or OEM (Original Equipment Manufacturer) parts recommended for your specific vehicle brand and model."
       },
       {
         q: "Is there a warranty on the service?",

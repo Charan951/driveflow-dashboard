@@ -30,6 +30,9 @@ class VehicleService {
     num? mileage,
     String? fuelType,
     String? color,
+    String? frontTyres,
+    String? rearTyres,
+    String? batteryDetails,
   }) async {
     final res = await _api.postAny(
       ApiEndpoints.vehicles,
@@ -43,11 +46,44 @@ class VehicleService {
         'mileage': mileage,
         'fuelType': fuelType,
         'color': color,
+        'frontTyres': frontTyres,
+        'rearTyres': rearTyres,
+        'batteryDetails': batteryDetails,
       }..removeWhere((k, v) => v == null),
     );
     if (res is Map<String, dynamic>) return Vehicle.fromJson(res);
     if (res is Map) return Vehicle.fromJson(Map<String, dynamic>.from(res));
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<Map<String, dynamic>?> searchReference({
+    required String make,
+    required String model,
+    String? variant,
+  }) async {
+    try {
+      final queryParams = {
+        'brand_name': make,
+        'model': model,
+        if (variant != null) 'variant': variant,
+      };
+
+      final queryString = queryParams.entries
+          .map(
+            (e) =>
+                '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',
+          )
+          .join('&');
+
+      final res = await _api.getAny(
+        '${ApiEndpoints.vehicleReferenceSearch}?$queryString',
+      );
+      if (res is Map<String, dynamic>) return res;
+      if (res is Map) return Map<String, dynamic>.from(res);
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<Map<String, dynamic>?> fetchDetails(String licensePlate) async {

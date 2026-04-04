@@ -38,7 +38,7 @@ const adminMenuItems = [
   { icon: DollarSign, label: 'Payments', path: '/admin/payments' },
   { icon: FileText, label: 'Documents', path: '/admin/documents' },
   { icon: Shield, label: 'Insurance', path: '/admin/insurance' },
-  { icon: Package, label: 'Stock', path: '/admin/stock' },
+  { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },
   { icon: Package, label: 'Services', path: '/admin/services' },
   { icon: Headphones, label: 'Support', path: '/admin/support' },
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },

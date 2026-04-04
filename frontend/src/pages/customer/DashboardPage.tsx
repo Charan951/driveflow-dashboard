@@ -32,6 +32,37 @@ import { socketService } from '@/services/socket';
 import { useAuthStore } from '@/store/authStore';
 import { getTimeBasedGreeting } from '@/lib/timeUtils';
 
+import { Skeleton } from "@/components/ui/skeleton";
+
+const DashboardSkeleton = () => (
+  <div className="w-full h-full py-4 lg:py-6 space-y-8 animate-pulse">
+    <div className="space-y-2">
+      <Skeleton className="h-8 w-[200px]" />
+      <Skeleton className="h-4 w-[300px]" />
+    </div>
+    <Skeleton className="h-40 w-full rounded-2xl" />
+    <div className="space-y-4">
+      <div className="flex justify-between">
+        <Skeleton className="h-6 w-[120px]" />
+        <Skeleton className="h-6 w-[80px]" />
+      </div>
+      <div className="flex gap-4 overflow-hidden">
+        {[1, 2, 3].map(i => (
+          <Skeleton key={i} className="h-48 w-[300px] flex-shrink-0 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-[150px]" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map(i => (
+          <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const vehiclesRef = useRef<HTMLDivElement>(null);
@@ -167,11 +198,11 @@ const DashboardPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center">Loading dashboard...</div>;
+    return <DashboardSkeleton />;
   }
 
   return (
-    <div className="w-full h-full min-h-screen py-4 lg:py-6 space-y-6 overflow-hidden">
+    <div className="w-full h-full min-h-screen px-4 py-4 lg:py-6 space-y-8 overflow-x-hidden">
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -289,23 +320,18 @@ const DashboardPage: React.FC = () => {
 
       {/* My Vehicles */}
       {vehicles.length === 0 && (
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">My Vehicles</h2>
-          <Link to="/add-vehicle" className="text-sm text-primary font-medium flex items-center gap-1 flex-shrink-0">
-            View all <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-        <div 
-          ref={vehiclesRef}
-          className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {vehicles.length === 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">My Vehicles</h2>
+          </div>
+          <div 
+            ref={vehiclesRef}
+            className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: vehicles.length * 0.1 }}
               className="w-full"
             >
               <Link
@@ -319,9 +345,8 @@ const DashboardPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground text-center px-4">Register a new vehicle</p>
               </Link>
             </motion.div>
-          )}
+          </div>
         </div>
-      </div>
       )}
 
       {/* Quick Services */}
