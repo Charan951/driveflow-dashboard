@@ -34,7 +34,8 @@ export interface TrackedVehicle {
   status: string;
   type: string;
   location: LocationPoint;
-  user?: {
+  user?: string | {
+    _id: string;
     name: string;
   };
 }

@@ -26,7 +26,8 @@ const AdminInsurancePage = () => {
   };
 
   const filteredVehicles = vehicles.filter(vehicle => {
-    const insurance = vehicle.insurance || {};
+    const insurance = vehicle.insurance;
+    if (!insurance) return false;
     const matchesStatus = filterStatus === 'All' || insurance.status === filterStatus;
     const matchesSearch = 
       vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||

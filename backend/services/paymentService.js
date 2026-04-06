@@ -174,10 +174,7 @@ class PaymentService {
           afterWashPhotos: [],
         },
         batteryTire: {
-          isBatteryTireService: !!tempData.isBatteryTireService,
-          merchantApproval: {
-            status: !!tempData.isBatteryTireService ? 'PENDING' : undefined
-          }
+          isBatteryTireService: !!tempData.isBatteryTireService
         }
       });
 

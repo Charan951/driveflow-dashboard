@@ -92,10 +92,10 @@ export const paymentService = {
    * Verify payment with Razorpay
    */
   verifyPayment: async (data: PaymentVerification) => {
-    const requestData: Record<string, unknown> = { ...data };
+    const requestData: any = { ...data };
     
     // Ensure bookingId is removed if it's empty
-    if (!requestData.bookingId || requestData.bookingId.trim() === '') {
+    if (!data.bookingId || data.bookingId.trim() === '') {
       delete requestData.bookingId;
     }
 

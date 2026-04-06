@@ -28,8 +28,8 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   React.useEffect(() => {
     setFormData(prev => {
         const partsCost = booking.billing?.partsTotal || prev.partsCost || 0;
-        const labourCost = parseFloat(prev.labourCost || 0);
-        const gst = parseFloat(prev.gst || 0);
+        const labourCost = parseFloat(prev.labourCost.toString() || '0');
+        const gst = parseFloat(prev.gst.toString() || '0');
         const baseAmount = booking.totalAmount || 0;
         
         return {
@@ -46,9 +46,9 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
         const newData = { ...prev, [name]: value };
         // Auto calculate total if costs change
         if (['partsCost', 'labourCost', 'gst'].includes(name)) {
-            const parts = parseFloat(newData.partsCost) || 0;
-            const labour = parseFloat(newData.labourCost) || 0;
-            const gst = parseFloat(newData.gst) || 0;
+            const parts = parseFloat(newData.partsCost.toString()) || 0;
+            const labour = parseFloat(newData.labourCost.toString()) || 0;
+            const gst = parseFloat(newData.gst.toString()) || 0;
             const baseAmount = booking.totalAmount || 0;
             newData.totalAmount = (baseAmount + parts + labour + gst).toString();
         }
@@ -95,10 +95,10 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             billing: {
                 invoiceNumber: formData.invoiceNumber,
                 invoiceDate: formData.invoiceDate,
-                partsTotal: parseFloat(formData.partsCost) || 0,
-                labourCost: parseFloat(formData.labourCost) || 0,
-                gst: parseFloat(formData.gst) || 0,
-                total: parseFloat(formData.totalAmount) || 0,
+                partsTotal: parseFloat(formData.partsCost.toString()) || 0,
+                labourCost: parseFloat(formData.labourCost.toString()) || 0,
+                gst: parseFloat(formData.gst.toString()) || 0,
+                total: parseFloat(formData.totalAmount.toString()) || 0,
                 fileUrl: fileUrl
             }
         };

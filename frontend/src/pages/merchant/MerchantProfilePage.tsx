@@ -169,9 +169,9 @@ const MerchantProfilePage: React.FC = () => {
             <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">
               Merchant Account
             </p>
-            {user?.category && (
+            {user?.category && user.category.length > 0 && (
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
-                Category: {user.category}
+                Category: {user.category.join(', ')}
               </p>
             )}
             

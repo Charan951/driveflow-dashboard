@@ -48,7 +48,7 @@ const AdminStaffPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    socketService.on('userStatusUpdate', (data) => {
+    socketService.on('userStatusUpdate', (data: any) => {
        setUsers(prevUsers => prevUsers.map(u => {
          if (u._id === data.userId) {
            return { ...u, isOnline: data.isOnline, lastSeen: data.lastSeen };

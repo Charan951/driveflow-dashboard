@@ -9,6 +9,7 @@ export interface CarWashBooking extends Booking {
     washStartedAt?: string;
     washCompletedAt?: string;
     staffAssigned?: {
+      _id: string;
       name: string;
       email: string;
       phone: string;
@@ -46,8 +47,8 @@ export const carWashService = {
   },
 
   // Complete car wash
-  completeCarWash: async (bookingId: string) => {
-    const response = await api.put(`/bookings/${bookingId}/carwash/complete`);
+  completeCarWash: async (bookingId: string, photos?: string[]) => {
+    const response = await api.put(`/bookings/${bookingId}/carwash/complete`, { photos });
     return response.data;
   },
 };

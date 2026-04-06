@@ -94,7 +94,7 @@ const TrackServicePage: React.FC = () => {
       return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
     });
   
-  const activeStatusFlow: readonly BookingStatus[] = getFlowForService(order?.services || []);
+  const activeStatusFlow: readonly BookingStatus[] = getFlowForService(Array.isArray(order?.services) ? order.services : []);
 
   // Live Tracking State
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);

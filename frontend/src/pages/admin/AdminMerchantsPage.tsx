@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import LocationPicker from '@/components/LocationPicker';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,8 +42,8 @@ const AdminMerchantsPage: React.FC = () => {
     email: '',
     password: '',
     phone: '',
-    category: ['general'] as ('general' | 'battery' | 'tires')[],
-    location: { address: '', lat: 0, lng: 0 },
+    category: ['general'] as string[],
+    location: { address: '', lat: 0, lng: 0 } as LocationValue,
   });
 
   const [editingMerchant, setEditingMerchant] = useState<{
@@ -51,8 +51,8 @@ const AdminMerchantsPage: React.FC = () => {
     name: string;
     email: string;
     phone: string;
-    category: ('general' | 'battery' | 'tires')[];
-    location: { address: string; lat: number; lng: number };
+    category: string[];
+    location: LocationValue;
   } | null>(null);
 
   const [showMerchantPassword, setShowMerchantPassword] = useState(false);

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { userService, User } from '@/services/userService';
 import { bookingService, Booking } from '@/services/bookingService';
-import { getMerchantProducts } from '@/services/productService';
+import { getMerchantProducts, Product } from '@/services/productService';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, 

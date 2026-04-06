@@ -121,11 +121,11 @@ const PublicNavbar: React.FC = () => {
         <Link 
           to="/" 
           className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center overflow-hidden">
             <img
-              src="/carzzi-logo.png"
+              src="/speshway-logo.png"
               alt="Carzzi"
-              className="w-10 h-10 rounded-xl object-cover"
+              className="w-full h-full object-cover"
               onError={(e) => {
                 // If logo doesn't exist, use fallback icon container
                 const target = e.target as HTMLImageElement;

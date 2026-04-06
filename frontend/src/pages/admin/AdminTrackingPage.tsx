@@ -152,7 +152,8 @@ const AdminTrackingPage: React.FC = () => {
          }) : [];
 
          const newVehicles = prev.vehicles.map(v => {
-           if (v.user?._id === data.userId || v.user === data.userId) { // Assuming vehicle linked to user
+           const userId = typeof v.user === 'object' ? v.user?._id : v.user;
+           if (userId === data.userId) { // Assuming vehicle linked to user
              return { ...v, location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
            }
            return v;
@@ -254,12 +255,15 @@ const AdminTrackingPage: React.FC = () => {
         const response = await routingService.getRoute(start, end);
         if (response.routes && response.routes.length > 0) {
           const route = response.routes[0];
-          const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
-          setRouteGeometry(coordinates);
-          setRouteInfo({
-            distance: route.distance,
-            duration: route.duration,
-          });
+          const geometry = typeof route.geometry === 'object' ? route.geometry : null;
+          if (geometry && geometry.coordinates) {
+            const coordinates = geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+            setRouteGeometry(coordinates);
+            setRouteInfo({
+              distance: route.distance,
+              duration: route.duration,
+            });
+          }
         }
       } catch (e) {
         console.error('Failed to update live ETA', e);
@@ -325,14 +329,17 @@ const AdminTrackingPage: React.FC = () => {
                 const response = await routingService.getRoute(start, end);
                 if (response.routes && response.routes.length > 0) {
                     const route = response.routes[0];
-                    const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
-                    
-                    setRouteGeometry(coordinates);
-                    setRouteInfo({
-                        distance: route.distance,
-                        duration: route.duration,
-                        airDistance: airDist
-                    });
+                    const geometry = typeof route.geometry === 'object' ? route.geometry : null;
+                    if (geometry && geometry.coordinates) {
+                        const coordinates = geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+                        
+                        setRouteGeometry(coordinates);
+                        setRouteInfo({
+                            distance: route.distance,
+                            duration: route.duration,
+                            airDistance: airDist
+                        });
+                    }
                     toast.success('Showing route to active job');
                 }
             } catch (error) {
@@ -486,14 +493,17 @@ const AdminTrackingPage: React.FC = () => {
         const response = await routingService.getRoute(start, end);
         if (response.routes && response.routes.length > 0) {
             const route = response.routes[0];
-            // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
-            const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
-            
-            setRouteGeometry(coordinates);
-            setRouteInfo({
-                distance: route.distance,
-                duration: route.duration
-            });
+            const geometry = typeof route.geometry === 'object' ? route.geometry : null;
+            if (geometry && geometry.coordinates) {
+                // OSRM returns [lng, lat], we need [lat, lng] for Leaflet
+                const coordinates = geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+                
+                setRouteGeometry(coordinates);
+                setRouteInfo({
+                    distance: route.distance,
+                    duration: route.duration
+                });
+            }
             toast.dismiss(loadingToast);
             toast.success(`Route found: ${(route.distance / 1000).toFixed(1)} km, ${Math.round(route.duration / 60)} min`);
         }
@@ -607,7 +617,7 @@ const AdminTrackingPage: React.FC = () => {
                  <Popup>
                    <div className="p-1">
                      <h3 className="font-bold text-sm">{'name' in item ? item.name : `${item.make} ${item.model}`}</h3>
-                     <p className="text-xs text-gray-600">{'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}</p>
+                     <p className="text-xs text-gray-600">{'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : ('licensePlate' in item ? item.licensePlate : ''))}</p>
                      {'currentJob' in item && item.currentJob && (
                        <div className="mt-1 pt-1 border-t border-gray-200">
                          <p className="text-xs font-semibold text-blue-600">Active Job</p>
@@ -722,7 +732,7 @@ const AdminTrackingPage: React.FC = () => {
                         </div>
                       </div>
                       <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : item.licensePlate)}
+                        {'subRole' in item ? item.subRole : ('role' in item && item.role === 'merchant' ? 'Merchant' : ('licensePlate' in item ? item.licensePlate : ''))}
                       </p>
                       <div className="flex items-center gap-1 mt-1 text-[10px] md:text-xs text-gray-400">
                         <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" />

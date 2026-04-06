@@ -1,5 +1,17 @@
 import Setting from '../models/Setting.js';
 
+// @desc    Get public settings
+// @route   GET /api/settings/public
+// @access  Public
+export const getPublicSettings = async (req, res) => {
+  try {
+    const settings = await Setting.find({ group: 'content' });
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get all settings
 // @route   GET /api/settings
 // @access  Private/Admin

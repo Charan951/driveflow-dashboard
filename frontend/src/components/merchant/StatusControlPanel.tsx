@@ -201,7 +201,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
             )
         )}
         
-        {booking.status !== 'Completed' && booking.status !== 'Delivered' && booking.status !== 'On Hold' && (
+        {booking.status !== 'COMPLETED' && booking.status !== 'DELIVERED' && booking.status !== 'On Hold' && (
             <button
                 onClick={() => setShowDelayModal(true)}
                 disabled={loading}

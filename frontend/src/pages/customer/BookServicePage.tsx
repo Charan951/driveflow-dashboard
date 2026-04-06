@@ -41,29 +41,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const BookingSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-6">
-    <div className="space-y-2">
-      <Skeleton className="h-8 w-[250px]" />
-      <Skeleton className="h-4 w-[350px]" />
-    </div>
-    <div className="flex justify-between bg-card rounded-2xl p-4 border border-border">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="flex flex-col items-center gap-2">
-          <Skeleton className="w-8 h-8 rounded-full" />
-          <Skeleton className="h-3 w-12" />
-        </div>
-      ))}
-    </div>
-    <div className="space-y-4">
-      <Skeleton className="h-6 w-32" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[1, 2, 3, 4].map(i => (
-          <Skeleton key={i} className="h-32 w-full rounded-2xl" />
-        ))}
-      </div>
-    </div>
-    <div className="flex gap-4 pt-4 border-t border-border">
-      <Skeleton className="h-12 flex-1 rounded-xl" />
-      <Skeleton className="h-12 flex-1 rounded-xl" />
+    <div className="text-center p-12">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <p className="text-lg font-medium text-muted-foreground">Loading service data...</p>
     </div>
   </div>
 );
@@ -83,7 +63,11 @@ const BookServicePage: React.FC = () => {
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
+  const [pickupLocation, setPickupLocation] = useState<LocationValue>({ 
+    address: user?.address || '',
+    lat: user?.location?.lat,
+    lng: user?.location?.lng
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
@@ -111,11 +95,15 @@ const BookServicePage: React.FC = () => {
         serviceService.getServices(),
         vehicleService.getVehicles(),
       ]);
-      setServices(servicesData);
-      setVehicles(vehiclesData);
+      console.log('Services loaded:', servicesData);
+      console.log('Vehicles loaded:', vehiclesData);
+      setServices(Array.isArray(servicesData) ? servicesData : []);
+      setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('Failed to fetch data in BookServicePage:', error);
       toast.error('Failed to load booking data');
+      setServices([]);
+      setVehicles([]);
     } finally {
       setIsDataLoading(false);
     }
@@ -144,7 +132,17 @@ const BookServicePage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user && (!user.addresses || user.addresses.length === 0)) {
+    if (user && !pickupLocation.address) {
+      setPickupLocation({
+        address: user.address || '',
+        lat: user.location?.lat,
+        lng: user.location?.lng
+      });
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && (!user.addresses || !Array.isArray(user.addresses) || user.addresses.length === 0)) {
       setShowCustomLocation(true);
     }
   }, [user]);
@@ -160,7 +158,7 @@ const BookServicePage: React.FC = () => {
   useEffect(() => {
     const category = searchParams.get('category');
     
-        if (category === 'Tyres') {
+    if (category === 'Tyres') {
       setActiveSubCategory(null); // No default selection
     } else {
       setActiveSubCategory('All');
@@ -195,7 +193,7 @@ const BookServicePage: React.FC = () => {
 
       // Check if this is a service that requires payment first (Car Wash, Battery, or Tires)
       const isCarWash = selectedServicesData.some(service => 
-        service.category === 'Car Wash' || service.category === 'Wash'
+        service.category === 'Car Wash' || service.category === 'Wash' || service.category === 'Detailing'
       );
       
       const isBatteryTire = selectedServicesData.some(service => 
@@ -261,11 +259,12 @@ const BookServicePage: React.FC = () => {
     }
   };
 
-  const selectedVehicleData = vehicles.find(v => v._id === selectedVehicle);
-  const selectedServicesData = services.filter(s => selectedServices.includes(s._id));
+  const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
+  const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
   const totalPrice = selectedServicesData.reduce((sum, service) => {
+    if (!service) return sum;
     const qty = serviceQuantities[service._id] || 1;
-    return sum + (service.price * qty);
+    return sum + (Number(service.price || 0) * qty);
   }, 0);
 
   const categoryMap: Record<string, string[]> = {
@@ -280,6 +279,8 @@ const BookServicePage: React.FC = () => {
   const getServiceTitle = () => {
     const categoryParam = searchParams.get('category');
     
+    if (!categoryParam) return 'Book a Service';
+
     switch (categoryParam) {
       case 'Wash':
         return 'Book a Car Wash Service';
@@ -310,7 +311,8 @@ const BookServicePage: React.FC = () => {
     }
   };
 
-  const filteredServices = services.filter(service => {
+  const filteredServices = Array.isArray(services) ? services.filter(service => {
+    if (!service) return false;
     // If we have a pre-selected service from location state, show only that one
     if (location.state?.service?._id) {
       return service._id === location.state.service._id;
@@ -337,14 +339,16 @@ const BookServicePage: React.FC = () => {
     }
     
     return matchesCategory;
-  });
+  }) : [];
 
   if (isDataLoading) {
     return <BookingSkeleton />;
   }
 
+  console.log('Rendering BookServicePage with category:', searchParams.get('category'));
+
   return (
-    <div className="w-full h-full py-4 lg:py-6 space-y-6 overflow-hidden">
+    <div className="w-full min-h-screen py-4 lg:py-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">{getServiceTitle()}</h1>
@@ -402,7 +406,7 @@ const BookServicePage: React.FC = () => {
             {currentStep === 0 && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold">Select Vehicle</h2>
-                {vehicles.length === 0 ? (
+                {!Array.isArray(vehicles) || vehicles.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <p>No vehicles found. Please add a vehicle to your profile first.</p>
                       <button onClick={() => navigate('/add-vehicle')} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
@@ -564,9 +568,9 @@ const BookServicePage: React.FC = () => {
 
                         {/* Size Selection for "Customer can opt change" or services with "change" in name */}
                         {selectedServices.includes(service._id) && 
-                         (service.name.toLowerCase().includes('change') || service.name.toLowerCase().includes('size')) && (
-                          <motion.div 
-                            initial={{ opacity: 0, height: 0 }}
+                          (service.name?.toLowerCase()?.includes('change') || service.name?.toLowerCase()?.includes('size')) && (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             className="bg-card border-2 border-primary/20 rounded-2xl p-4 sm:p-6 ml-2 sm:ml-4 space-y-4"
                           >

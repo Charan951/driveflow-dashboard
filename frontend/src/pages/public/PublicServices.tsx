@@ -13,6 +13,7 @@ import {
   Car,
 } from 'lucide-react';
 import { serviceService, Service } from '@/services/serviceService';
+import { heroService } from '@/services/heroService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
@@ -21,6 +22,11 @@ const PublicServices = () => {
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=2000",
+    title: "Professional Vehicle Services",
+    subtitle: "Comprehensive maintenance, repair, and detailing services delivered at your convenience."
+  });
   const { isAuthenticated, role } = useAuthStore();
   const navigate = useNavigate();
 
@@ -28,8 +34,38 @@ const PublicServices = () => {
   const serviceParam = searchParams.get('service'); // "Periodic Service", "Teflon Coating", etc.
 
   useEffect(() => {
-    fetchServices();
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchServices(),
+        fetchHero()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch services:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['services'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch services hero from S3', error);
+    }
+  };
 
   useEffect(() => {
     if (hash) {
@@ -42,16 +78,10 @@ const PublicServices = () => {
 
   const fetchServices = async () => {
     try {
-      setLoading(true);
       const data = await serviceService.getServices();
       setServices(data);
     } catch (error) {
       console.error('Failed to fetch services:', error);
-      // Fallback to static data or show error? 
-      // For now, we'll just show empty or let the static part handle it if we kept it.
-      // But we are replacing static data.
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -139,7 +169,7 @@ const PublicServices = () => {
       <section className="relative h-[300px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src={isDetailView && displayServices.length > 0 ? (displayServices[0].image || getServiceFallbackImage(displayServices[0].category)) : "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=2000"}
+            src={isDetailView && displayServices.length > 0 ? (displayServices[0].image || getServiceFallbackImage(displayServices[0].category)) : hero.image}
             alt="Services Background" 
             className="w-full h-full object-cover"
           />
@@ -162,13 +192,11 @@ const PublicServices = () => {
               </button>
             )}
             <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              {isDetailView && displayServices.length > 0 ? displayServices[0].name : 'Our Services'}
+              {isDetailView && displayServices.length > 0 ? displayServices[0].name : hero.title}
             </h1>
-            {/* <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              {isDetailView && displayServices.length > 0
-                ? displayServices[0].description
-                : 'Comprehensive automotive care solutions designed for your convenience and safety.'}
-            </p> */}
+            <p className="text-lg opacity-90 max-w-2xl mx-auto">
+              {isDetailView && displayServices.length > 0 ? displayServices[0].description : hero.subtitle}
+            </p>
           </motion.div>
         </div>
       </section>

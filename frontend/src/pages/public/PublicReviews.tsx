@@ -1,36 +1,70 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { Star, Quote, User } from 'lucide-react';
-import { reviewService, Review } from '../../services/reviewService';
+import { heroService } from '@/services/heroService';
+import { reviewService, Review } from '@/services/reviewService';
 import { toast } from 'sonner';
 
 const PublicReviews = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const data = await reviewService.getPublicReviews();
-        if (Array.isArray(data)) {
-          setReviews(data);
-        } else {
-          console.error('Invalid reviews data format:', data);
-          setReviews([]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch reviews:', error);
-        toast.error('Failed to load reviews');
-        setReviews([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=2000",
+    title: "Customer Reviews",
+    subtitle: "Get your bike and car serviced at the most trusted service center."
+  });
 
-    fetchReviews();
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  const containerVariants = {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchReviews(),
+        fetchHero()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch reviews page data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const data = await reviewService.getPublicReviews();
+      if (Array.isArray(data)) {
+        setReviews(data);
+      } else {
+        setReviews([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
+      toast.error('Failed to load reviews');
+      setReviews([]);
+    }
+  };
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['reviews'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch reviews hero from S3', error);
+    }
+  };
+
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -40,7 +74,7 @@ const PublicReviews = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
@@ -58,7 +92,7 @@ const PublicReviews = () => {
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=2000"
+            src={hero.image}
             alt="Reviews Background" 
             className="w-full h-full object-cover"
           />
@@ -72,10 +106,10 @@ const PublicReviews = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              Customer Reviews
+              {hero.title}
             </h1>
             <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              Get your bike and car serviced at the most trusted service center.
+              {hero.subtitle}
             </p>
           </motion.div>
         </div>

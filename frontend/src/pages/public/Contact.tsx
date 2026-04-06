@@ -73,7 +73,7 @@ const Contact = () => {
               {
                 icon: MapPin,
                 title: "Visit Us",
-                details: ["123 DriveFlow Lane", "Auto City, AC 90210"],
+                details: ["123 Carzzi Lane", "Auto City, AC 90210"],
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
                 border: "border-blue-200 dark:border-blue-900"
@@ -89,7 +89,7 @@ const Contact = () => {
               {
                 icon: Mail,
                 title: "Email Us",
-                details: ["support@driveflow.com", "info@driveflow.com"],
+                details: ["support@carzzi.com", "info@carzzi.com"],
                 color: "text-purple-500",
                 bg: "bg-purple-500/10",
                 border: "border-purple-200 dark:border-purple-900"

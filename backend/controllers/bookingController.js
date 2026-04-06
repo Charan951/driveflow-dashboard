@@ -177,10 +177,7 @@ export const createBooking = async (req, res) => {
           // Mark as battery/tire service if applicable
           ...(isBatteryTireService && {
             batteryTire: {
-              isBatteryTireService: true,
-              merchantApproval: {
-                status: 'PENDING'
-              }
+              isBatteryTireService: true
             }
           })
         });
@@ -496,10 +493,6 @@ export const assignBooking = async (req, res) => {
     const isBatteryTire = await isBatteryOrTireBooking(booking);
     if (isBatteryTire) {
       updateData['batteryTire.isBatteryTireService'] = true;
-      // For battery/tire services, if an admin is assigning staff or merchant,
-      // it should be automatically approved so staff can proceed.
-      updateData['batteryTire.merchantApproval.status'] = 'APPROVED';
-      updateData['batteryTire.merchantApproval.approvedAt'] = new Date();
     }
 
     // CRITICAL: Status transition to ASSIGNED
@@ -709,11 +702,9 @@ export const updateBookingStatus = async (req, res) => {
       const isBatteryTireService = await isBatteryOrTireBooking(booking);
       
       if (isBatteryTireService) {
-        // Check merchant approval for battery/tire services
+        // Check merchant assignment for battery/tire services
         if (canonTo === 'STAFF_REACHED_MERCHANT') {
-          // If a merchant is assigned, we allow proceeding even if not explicitly approved by merchant
-          // because admin assignment implies approval for these services.
-          if (booking.batteryTire?.merchantApproval?.status !== 'APPROVED' && !booking.merchant) {
+          if (!booking.merchant) {
             return res.status(400).json({ message: 'Merchant must be assigned before staff can proceed to merchant location' });
           }
         }

@@ -13,7 +13,7 @@ interface ServiceExecutionPanelProps {
 
 const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
-  const [notes, setNotes] = useState(booking.serviceExecution?.notes || '');
+  const [notes, setNotes] = useState(booking.notes || '');
   const [extraCostReason, setExtraCostReason] = useState('');
   const [extraCostAmount, setExtraCostAmount] = useState('');
 

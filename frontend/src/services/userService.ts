@@ -5,13 +5,15 @@ export interface User {
   name: string;
   email: string;
   role: string;
-  category?: ('general' | 'battery' | 'tires')[] | null;
-  subRole?: 'Driver' | 'Support' | 'Manager' | null;
-  status?: 'Active' | 'Inactive' | 'On Leave';
+  category?: (string)[] | null;
+  subRole?: 'Driver' | 'Support' | 'Manager' | string | null;
+  status?: 'Active' | 'Inactive' | 'On Leave' | string;
   isOnline?: boolean;
   isShopOpen?: boolean;
   lastSeen?: string;
   phone?: string;
+  createdAt?: string;
+  address?: string;
   addresses?: {
     label: string;
     address: string;

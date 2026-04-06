@@ -12,6 +12,10 @@ export const settingService = {
     const response = await api.get('/settings');
     return response.data;
   },
+  getPublicSettings: async (): Promise<Setting[]> => {
+    const response = await api.get('/settings/public');
+    return response.data;
+  },
   updateSetting: async (data: Setting) => {
     const response = await api.put('/settings', data);
     return response.data;

@@ -472,8 +472,6 @@ const StaffOrderPage: React.FC = () => {
             )
           );
 
-        const isMerchantApproved = order.batteryTire?.merchantApproval?.status === 'APPROVED';
-
         const isHeadingToMerchant = (order.status === 'VEHICLE_PICKED') || 
                                    (isBatteryOrTireService && order.status === 'ASSIGNED');
 
@@ -751,8 +749,6 @@ const StaffOrderPage: React.FC = () => {
       const cat = service.category.toLowerCase();
       return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
     });
-
-  const isMerchantApproved = order.batteryTire?.merchantApproval?.status === 'APPROVED';
 
   const getNextStatusAction = (currentStatus: string) => {
     if (isCarWash) {

@@ -13,6 +13,7 @@ const ServiceDetailsPage: React.FC = () => {
   useEffect(() => {
     const fetchService = async () => {
       try {
+        if (!id) return;
         const data = await serviceService.getService(id);
         setService(data);
       } catch (error) {
@@ -41,7 +42,7 @@ const ServiceDetailsPage: React.FC = () => {
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-2">What's Included</h2>
               <ul className="space-y-2">
-                {service.features.map((feature, index) => (
+                {service.features?.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <Check className="w-5 h-5 text-primary" />
                     <span>{feature}</span>

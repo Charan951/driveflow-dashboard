@@ -74,14 +74,14 @@ export const getFlowForService = (services: any[]): readonly BookingStatus[] => 
 
   // Check if it's a car wash service
   const isCarWash = services.some(service => {
-    if (typeof service !== 'object' || !service.category) return false;
+    if (!service || typeof service !== 'object' || !service.category) return false;
     const cat = service.category.toLowerCase();
     return cat.includes('car wash') || cat.includes('wash');
   });
 
   // Check if it's a battery or tire service
   const isBatteryOrTire = services.some(service => {
-    if (typeof service !== 'object' || !service.category) return false;
+    if (!service || typeof service !== 'object' || !service.category) return false;
     const cat = service.category.toLowerCase();
     return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
   });

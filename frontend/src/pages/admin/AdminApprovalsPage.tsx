@@ -266,7 +266,7 @@ const AdminApprovalsPage: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Related To</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {request.relatedModel} #{request.relatedId?._id?.slice(-6) || request.relatedId?.toString().slice(-6) || 'N/A'}
+                        {request.relatedModel} #{(request.relatedId as any)?._id?.slice(-6) || request.relatedId?.toString().slice(-6) || 'N/A'}
                       </p>
                     </div>
                   </div>

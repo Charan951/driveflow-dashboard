@@ -151,19 +151,23 @@ export const CarWashPage: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Customer</p>
-                      <p className="font-medium text-sm sm:text-base truncate">{booking.user.name}</p>
+                      <p className="font-medium text-sm sm:text-base truncate">
+                        {typeof booking.user === 'object' ? booking.user.name : 'Unknown'}
+                      </p>
                       <div className="flex items-center gap-1 mt-1">
                         <Phone className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                        <p className="text-sm text-muted-foreground truncate">{booking.user.phone}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {typeof booking.user === 'object' ? booking.user.phone : 'N/A'}
+                        </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Vehicle</p>
                       <p className="font-medium text-sm sm:text-base truncate">
-                        {booking.vehicle.make} {booking.vehicle.model}
+                        {typeof booking.vehicle === 'object' ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
                       </p>
                       <p className="text-sm text-muted-foreground truncate">
-                        {booking.vehicle.registrationNumber}
+                        {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : booking.vehicle}
                       </p>
                     </div>
                     <div>

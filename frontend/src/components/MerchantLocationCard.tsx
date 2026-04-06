@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
 import { MapPin, Edit2, Save, X } from 'lucide-react';
-import LocationPicker from '@/components/LocationPicker';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
 
 const MerchantLocationCard: React.FC = () => {
@@ -11,7 +11,7 @@ const MerchantLocationCard: React.FC = () => {
   // Looking at useAuthStore, usually it has setUser or login. I'll assume I can update it.
   
   const [isEditing, setIsEditing] = useState(false);
-  const [location, setLocation] = useState(user?.location || { address: '', lat: 17.3850, lng: 78.4867 });
+  const [location, setLocation] = useState<LocationValue>(user?.location || { address: '', lat: 17.3850, lng: 78.4867 });
   const [isShopOpen, setIsShopOpen] = useState(user?.isShopOpen ?? true);
   const [isLoading, setIsLoading] = useState(false);
 

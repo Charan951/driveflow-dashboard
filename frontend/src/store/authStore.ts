@@ -12,7 +12,9 @@ interface User {
   avatar?: string;
   role: UserRole;
   subRole?: UserSubRole;
+  category?: string[];
   isShopOpen?: boolean;
+  address?: string;
   addresses?: {
     label: string;
     address: string;

@@ -6,6 +6,8 @@ export interface Review {
   comment: string;
   category: string;
   createdAt: string;
+  isAccepted?: boolean;
+  isVisible?: boolean;
   reviewer: {
     _id: string;
     name: string;

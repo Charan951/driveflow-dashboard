@@ -44,6 +44,7 @@ const adminMenuItems = [
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },
   { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
+  { icon: LayoutDashboard, label: 'Hero Images', path: '/admin/hero-images' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
 ];

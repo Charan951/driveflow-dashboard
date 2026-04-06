@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Award, Users, Clock, Shield, CheckCircle, Target, Heart, Wrench } from "lucide-react";
+import { heroService } from "@/services/heroService";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -18,13 +19,39 @@ const staggerContainer = {
 };
 
 const AboutUs = () => {
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=2000",
+    title: "Revolutionizing Vehicle Care",
+    subtitle: "We're on a mission to make car maintenance as simple as ordering a pizza. Quality service, transparent pricing, and convenience at your doorstep."
+  });
+
+  useEffect(() => {
+    fetchHero();
+  }, []);
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['about'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch about hero from S3', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=2000"
+            src={hero.image}
             alt="About Us Background" 
             className="w-full h-full object-cover"
           />
@@ -39,11 +66,10 @@ const AboutUs = () => {
             className="max-w-3xl mx-auto"
           >
             <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-              Revolutionizing Vehicle Care
+              {hero.title}
             </h1>
             <p className="text-xl opacity-90 mb-8 leading-relaxed">
-              We're on a mission to make car maintenance as simple as ordering a pizza. 
-              Quality service, transparent pricing, and convenience at your doorstep.
+              {hero.subtitle}
             </p>
           </motion.div>
         </div>
@@ -77,7 +103,7 @@ const AboutUs = () => {
               </div>
               <h2 className="text-3xl font-bold mb-6 text-foreground">Driven by Excellence, Service You Can Trust</h2>
               <p className="text-muted-foreground mb-6 text-lg">
-                Founded in 2024, DriveFlow started with a simple question: "Why is car maintenance so complicated?" 
+                Founded in 2024, Carzzi started with a simple question: "Why is car maintenance so complicated?" 
                 We decided to build a platform that connects car owners with trusted mechanics, ensuring transparency 
                 and quality every step of the way.
               </p>
@@ -132,7 +158,7 @@ const AboutUs = () => {
       <section className="py-16 md:py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold mb-4">Why Choose DriveFlow?</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose Carzzi?</h2>
             <p className="text-muted-foreground">
               We're not just another car service app. We're your partner in vehicle maintenance.
             </p>

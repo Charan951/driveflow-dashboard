@@ -176,15 +176,23 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Customer</p>
-            <p className="font-medium text-sm sm:text-base truncate">{booking.user.name}</p>
-            <p className="text-sm text-muted-foreground truncate">{booking.user.phone}</p>
+          <div className="bg-muted/50 rounded-xl p-3">
+            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Customer</p>
+            <p className="font-medium text-sm sm:text-base truncate">
+              {typeof booking.user === 'object' ? booking.user.name : 'Unknown'}
+            </p>
+            <p className="text-sm text-muted-foreground truncate">
+              {typeof booking.user === 'object' ? booking.user.phone : 'N/A'}
+            </p>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Vehicle</p>
-            <p className="font-medium text-sm sm:text-base truncate">{booking.vehicle.make} {booking.vehicle.model}</p>
-            <p className="text-sm text-muted-foreground truncate">{booking.vehicle.registrationNumber}</p>
+          <div className="bg-muted/50 rounded-xl p-3">
+            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Vehicle</p>
+            <p className="font-medium text-sm sm:text-base truncate">
+              {typeof booking.vehicle === 'object' ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
+            </p>
+            <p className="text-sm text-muted-foreground truncate">
+                {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : booking.vehicle}
+              </p>
           </div>
         </div>
 

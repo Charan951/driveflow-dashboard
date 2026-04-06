@@ -140,7 +140,7 @@ const AddVehiclePage: React.FC = () => {
       toast.success('Vehicle added successfully!');
       setShowForm(false);
       setStep(1);
-      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '' });
+      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '', frontTyres: '', rearTyres: '' });
       fetchVehicles(); // Refresh list
     } catch (error) {
       console.error('Failed to add vehicle:', error);

@@ -24,6 +24,11 @@ export const serviceService = {
     const response = await api.get('/services', { params });
     return response.data;
   },
+
+  getService: async (id: string) => {
+    const response = await api.get(`/services/${id}`);
+    return response.data;
+  },
   
   // Admin only
   createService: async (data: Omit<Service, '_id'>) => {

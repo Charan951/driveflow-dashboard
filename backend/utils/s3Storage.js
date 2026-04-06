@@ -12,42 +12,44 @@ const s3 = new S3Client({
 });
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
-const FILE_KEY = 'vehicle_reference_data.json';
 
-export const getVehicleDataFromS3 = async () => {
+export const getDataFromS3 = async (fileKey) => {
   try {
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: FILE_KEY,
+      Key: fileKey,
     });
     const response = await s3.send(command);
     const bodyContents = await streamToString(response.Body);
     return JSON.parse(bodyContents);
   } catch (error) {
     if (error.name === 'NoSuchKey') {
-      console.log('S3 file not found, returning empty array');
-      return [];
+      console.log(`S3 file ${fileKey} not found, returning null/empty`);
+      return null;
     }
-    console.error('Error fetching data from S3:', error);
+    console.error(`Error fetching data from S3 (${fileKey}):`, error);
     throw error;
   }
 };
 
-export const saveVehicleDataToS3 = async (data) => {
+export const saveDataToS3 = async (fileKey, data) => {
   try {
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: FILE_KEY,
+      Key: fileKey,
       Body: JSON.stringify(data, null, 2),
       ContentType: 'application/json',
     });
     await s3.send(command);
-    console.log('Data saved to S3 successfully');
+    console.log(`Data saved to S3 successfully (${fileKey})`);
   } catch (error) {
-    console.error('Error saving data to S3:', error);
+    console.error(`Error saving data to S3 (${fileKey}):`, error);
     throw error;
   }
 };
+
+export const getVehicleDataFromS3 = () => getDataFromS3('vehicle_reference_data.json').then(res => res || []);
+export const saveVehicleDataToS3 = (data) => saveDataToS3('vehicle_reference_data.json', data);
 
 const streamToString = (stream) =>
   new Promise((resolve, reject) => {

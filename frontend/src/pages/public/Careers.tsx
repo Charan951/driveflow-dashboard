@@ -1,9 +1,36 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Briefcase, MapPin, Clock, ArrowRight, Zap, Heart, Users, DollarSign } from "lucide-react";
 import { toast } from "sonner";
+import { heroService } from "@/services/heroService";
 
 const Careers = () => {
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=2000",
+    title: "Build the Future of Vehicle Care",
+    subtitle: "Join a team of passionate individuals revolutionizing how people maintain their cars. We're looking for dreamers, doers, and problem solvers."
+  });
+
+  useEffect(() => {
+    fetchHero();
+  }, []);
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['careers'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch careers hero from S3', error);
+    }
+  };
+
   const positions = [
     {
       id: 1,
@@ -49,7 +76,7 @@ const Careers = () => {
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=2000" 
+            src={hero.image} 
             alt="Team meeting" 
             className="w-full h-full object-cover"
           />
@@ -63,11 +90,10 @@ const Careers = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              Build the Future of Vehicle Care
+              {hero.title}
             </h1>
             <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              Join a team of passionate individuals revolutionizing how people maintain their cars. 
-              We're looking for dreamers, doers, and problem solvers.
+              {hero.subtitle}
             </p>
             <div className="mt-8">
               <button 

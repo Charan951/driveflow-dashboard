@@ -210,7 +210,12 @@ const AdminUserDetailPage: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {vehicles.map(vehicle => (
-                    <VehicleCard key={vehicle._id} {...vehicle} onClick={() => navigate(`/admin/vehicles/${vehicle._id}`)} />
+                    <VehicleCard 
+                      key={vehicle._id} 
+                      id={vehicle._id}
+                      {...vehicle} 
+                      onClick={() => navigate(`/admin/vehicles/${vehicle._id}`)} 
+                    />
                   ))}
                 </div>
               )}
@@ -256,10 +261,11 @@ const AdminUserDetailPage: React.FC = () => {
                               {new Date(booking.date).toLocaleDateString()}
                             </td>
                             <td className="p-4">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium
-                                ${booking.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                                  booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 
-                                  'bg-yellow-100 text-yellow-800'}`}>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium 
+                                  ${booking.status === 'DELIVERED' || booking.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                    booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                    'bg-blue-100 text-blue-800'}`}
+                                >
                                 {booking.status}
                               </span>
                             </td>

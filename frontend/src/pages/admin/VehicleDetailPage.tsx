@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
-import { userService } from '@/services/userService';
+import { userService, User } from '@/services/userService';
 import { toast } from 'sonner';
 import { 
   Car, 
@@ -15,7 +15,8 @@ import {
   ArrowLeft,
   AlertCircle,
   MoreVertical,
-  Navigation
+  Navigation,
+  Clock
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -227,18 +228,19 @@ const VehicleDetailPage: React.FC = () => {
                                   <Calendar className="w-3 h-3" /> {new Date(booking.date).toLocaleDateString()}
                                </span>
                                <span className="flex items-center gap-1">
-                                  <User className="w-3 h-3" /> {(booking.user as unknown as User)?.name || 'Unknown User'}
+                                  <UserIcon className="w-3 h-3" /> {(booking.user as unknown as User)?.name || 'Unknown User'}
                                </span>
                             </div>
                          </div>
                          <div className="text-right">
                             <div className="font-bold mb-1">${booking.totalAmount}</div>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                              ${booking.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                                booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 
-                                'bg-yellow-100 text-yellow-800'}`}>
-                              {booking.status}
-                            </span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium 
+                                  ${booking.status === 'DELIVERED' || booking.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                    booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                    'bg-blue-100 text-blue-800'}`}
+                                >
+                                  {booking.status}
+                                </span>
                          </div>
                       </div>
                    ))}

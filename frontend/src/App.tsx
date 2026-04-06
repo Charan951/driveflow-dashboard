@@ -118,6 +118,7 @@ const AdminNotificationsPage = lazyRetry(() => import("./pages/admin/AdminNotifi
 const AdminReportsPage = lazyRetry(() => import("./pages/admin/AdminReportsPage"));
 const AdminRolesPage = lazyRetry(() => import("./pages/admin/AdminRolesPage"));
 const AdminSettingsPage = lazyRetry(() => import("./pages/admin/AdminSettingsPage"));
+const AdminHeroImagesPage = lazyRetry(() => import("./pages/admin/AdminHeroImagesPage"));
 const AdminAuditPage = lazyRetry(() => import("./pages/admin/AdminAuditPage"));
 const AdminUsersPage = lazyRetry(() => import("./pages/admin/AdminUsersPage"));
 const AdminUserDetailPage = lazyRetry(() => import("./pages/admin/UserDetailPage"));
@@ -235,6 +236,7 @@ const App = () => (
               <Route path="/admin/reports" element={<AdminReportsPage />} />
               <Route path="/admin/roles" element={<AdminRolesPage />} />
               <Route path="/admin/settings" element={<AdminSettingsPage />} />
+              <Route path="/admin/hero-images" element={<AdminHeroImagesPage />} />
               <Route path="/admin/audit" element={<AdminAuditPage />} />
             </Route>
           </Route>

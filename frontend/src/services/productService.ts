@@ -1,12 +1,14 @@
 import api from './api';
 
 export interface Product {
-  _id?: string;
+  _id: string;
   name: string;
   description: string;
   price: number;
   category: string;
   stock: number;
+  quantity: number;
+  threshold: number;
   image?: string;
   merchant?: string;
 }

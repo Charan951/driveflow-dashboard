@@ -4,6 +4,11 @@ import {
   Calendar, 
   DollarSign, 
   FileText, 
+  CreditCard,
+  UserPlus,
+  Map,
+  BarChart,
+  ArrowRight
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import CounterCard from '@/components/CounterCard';
@@ -87,6 +92,63 @@ const AdminDashboard: React.FC = () => {
     return <div className="p-8 text-center">Loading dashboard...</div>;
   }
 
+  const quickActions = [
+    {
+      title: 'Pending Bills',
+      description: 'Review and approve payments',
+      icon: <CreditCard className="w-6 h-6" />,
+      color: 'bg-blue-500',
+      lightColor: 'bg-blue-50',
+      textColor: 'text-blue-600',
+      path: '/admin/payments',
+    },
+    {
+      title: 'Pending Bookings',
+      description: 'Review new service requests',
+      icon: <Calendar className="w-6 h-6" />,
+      color: 'bg-purple-500',
+      lightColor: 'bg-purple-50',
+      textColor: 'text-purple-600',
+      path: '/admin/bookings?status=CREATED',
+    },
+    {
+      title: 'Live Tracking',
+      description: 'Track staff and vehicles',
+      icon: <Map className="w-6 h-6" />,
+      color: 'bg-orange-500',
+      lightColor: 'bg-orange-50',
+      textColor: 'text-orange-600',
+      path: '/admin/tracking',
+    },
+    {
+      title: 'Reports',
+      description: 'View detailed performance',
+      icon: <BarChart className="w-6 h-6" />,
+      color: 'bg-emerald-500',
+      lightColor: 'bg-emerald-50',
+      textColor: 'text-emerald-600',
+      path: '/admin/reports',
+    },
+    {
+      title: 'Manage Staff',
+      description: 'Add or update staff members',
+      icon: <UserPlus className="w-6 h-6" />,
+      color: 'bg-indigo-500',
+      lightColor: 'bg-indigo-50',
+      textColor: 'text-indigo-600',
+      path: '/admin/staff',
+    },
+    {
+      title: 'Support Tickets',
+      description: 'Answer customer queries',
+      icon: <FileText className="w-6 h-6" />,
+      color: 'bg-rose-500',
+      lightColor: 'bg-rose-50',
+      textColor: 'text-rose-600',
+      path: '/admin/support',
+    },
+  ];
+
   return (
     <motion.div 
       variants={staggerContainer}
@@ -123,6 +185,30 @@ const AdminDashboard: React.FC = () => {
             icon={<DollarSign className="w-4 h-4 text-emerald-600" />} 
             delay={0.2} 
           />
+        </div>
+      </motion.div>
+
+      {/* Quick Actions */}
+      <motion.div variants={staggerItem}>
+        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {quickActions.map((action, index) => (
+            <motion.div
+              key={action.title}
+              whileHover={{ scale: 1.05, translateY: -5 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate(action.path)}
+              className="bg-card border border-border rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md transition-all group overflow-hidden relative flex flex-col items-center text-center"
+            >
+              <div className={`w-12 h-12 rounded-2xl ${action.color} text-white flex items-center justify-center mb-3 shadow-lg group-hover:rotate-6 transition-transform duration-300`}>
+                {action.icon}
+              </div>
+              
+              <h3 className="font-bold text-xs sm:text-sm text-foreground">
+                {action.title}
+              </h3>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 

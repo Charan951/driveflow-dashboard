@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, Search, MessageCircle, ChevronRight } from 'lucide-react';
+import { heroService } from "@/services/heroService";
 import {
   Accordion,
   AccordionContent,
@@ -65,13 +66,39 @@ const faqs = [
 ];
 
 const FAQs = () => {
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=2000",
+    title: "Frequently Asked Questions",
+    subtitle: "Have questions? We're here to help. Find answers to common questions about our services, booking process, and more."
+  });
+
+  useEffect(() => {
+    fetchHero();
+  }, []);
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['faqs'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch faqs hero from S3', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=2000"
+            src={hero.image}
             alt="FAQs Background" 
             className="w-full h-full object-cover"
           />
@@ -88,10 +115,10 @@ const FAQs = () => {
               Help Center
             </span>
             <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-gray-400">
-              Frequently Asked Questions
+              {hero.title}
             </h1>
             <p className="text-xl opacity-90 max-w-2xl mx-auto leading-relaxed text-gray-200">
-              Have questions? We're here to help. Find answers to common questions about our services, booking process, and more.
+              {hero.subtitle}
             </p>
           </motion.div>
         </div>

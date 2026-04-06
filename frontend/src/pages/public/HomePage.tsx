@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { serviceService, Service } from '@/services/serviceService';
+import { heroService } from '@/services/heroService';
 
 const staticServices = [
   { 
@@ -28,7 +29,7 @@ const staticServices = [
     title: 'Maintenance', 
     description: 'Complete vehicle servicing and repairs by certified professionals.', 
     color: 'bg-blue-500', 
-    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800",
     link: '/services?category=Cars&service=Periodic%20Maintenance'
   },
   { 
@@ -36,7 +37,7 @@ const staticServices = [
     title: 'Insurance', 
     description: 'Comprehensive coverage plans to keep you protected on the road.', 
     color: 'bg-purple-500', 
-    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=800",
     link: '/contact'
   },
   { 
@@ -44,7 +45,7 @@ const staticServices = [
     title: 'Car Wash', 
     description: 'Premium washing and detailing packages for that showroom shine.', 
     color: 'bg-cyan-500', 
-    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?auto=format&fit=crop&q=80&w=800",
     link: '/services?category=Cars&service=Car%20Wash'
   },
   { 
@@ -52,7 +53,7 @@ const staticServices = [
     title: 'Tires & Battery', 
     description: 'Quality parts replacement and installation you can trust.', 
     color: 'bg-orange-500', 
-    image: "https://images.unsplash.com/photo-1579454320454-3d69559b3173?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1579454320454-3d69559b3173?auto=format&fit=crop&q=80&w=800",
     link: '/services?category=Cars&service=Tyres%20%26%20Battery'
   },
 ];
@@ -64,29 +65,33 @@ const howItWorks = [
   { step: 4, title: 'Track & Relax', description: 'Real-time updates on your service status' },
 ];
 
-const heroSlides = [
+const defaultHeroSlides = [
   {
     id: 1,
-    image: "https://images.unsplash.com/photo-1553976468-dcd9082e7636?q=80&w=1920",
-    title: "Vehicle Care Reimagined",
+    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1920",
+    titleWhite: "Vehicle Care",
+    titleBlue: "Reimagined",
     subtitle: "Experience premium vehicle services at your doorstep. Book, track, and manage all your car needs in one seamless platform."
   },
   {
     id: 2,
-    image: "https://images.unsplash.com/photo-1514866747592-c2d279258a78?q=80&w=1920",
-    title: "Expert Maintenance",
+    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=1920",
+    titleWhite: "Expert",
+    titleBlue: "Maintenance",
     subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your car like our own."
   },
   {
     id: 3,
-    image: "https://images.unsplash.com/photo-1485291571150-772bcfc10da5?q=80&w=1920",
-    title: "Premium Detailing",
+    image: "https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?auto=format&fit=crop&q=80&w=1920",
+    titleWhite: "Premium",
+    titleBlue: "Detailing",
     subtitle: "Give your vehicle the shine it deserves with our eco-friendly and detailed washing services."
   }
 ];
 
 const HomePage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   // Initialize with staticServices to ensure content is always visible (Optimistic UI / Fallback)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [services, setServices] = useState<any[]>(staticServices);
@@ -94,15 +99,62 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+      if (heroSlides.length > 0) {
+        setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+      }
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [heroSlides.length]);
 
   useEffect(() => {
-    fetchServices();
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchServices(),
+        fetchHeroSlides()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch data', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (heroSlides.length > 0 && currentSlide >= heroSlides.length) {
+      setCurrentSlide(0);
+    }
+  }, [heroSlides.length, currentSlide]);
+
+  const fetchHeroSlides = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      if (data.homeSlides && data.homeSlides.length > 0) {
+        // Migrate or ensure fields exist
+        const processedSlides = data.homeSlides.map(s => {
+          if (s.title && !s.titleWhite && !s.titleBlue) {
+            const parts = s.title.split(' ');
+            const titleBlue = parts.pop() || '';
+            const titleWhite = parts.join(' ');
+            return { ...s, titleWhite, titleBlue };
+          }
+          return {
+            ...s,
+            titleWhite: s.titleWhite || '',
+            titleBlue: s.titleBlue || ''
+          };
+        });
+        setHeroSlides(processedSlides);
+      }
+    } catch (error) {
+      console.error('Failed to fetch hero settings from S3', error);
+    }
+  };
 
   const fetchServices = async () => {
     try {
@@ -151,7 +203,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
+      <section className="relative w-full h-[100dvh] min-h-[600px] flex items-center overflow-hidden">
         {/* Carousel Background */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -163,15 +215,16 @@ const HomePage: React.FC = () => {
             className="absolute inset-0 z-0"
           >
             <img 
-              src={heroSlides[currentSlide].image}
-              alt={heroSlides[currentSlide].title}
-              className="w-full h-full object-cover"
+              src={heroSlides[currentSlide]?.image || ''}
+              alt={heroSlides[currentSlide]?.title || ''}
+              className="w-full h-full object-cover object-center transition-opacity duration-1000"
+              loading="eager"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
           </motion.div>
         </AnimatePresence>
         
-        <div className="container relative z-10 mx-auto px-4 pt-20">
+        <div className="container relative z-10 mx-auto px-4">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -181,39 +234,46 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="max-w-4xl"
             >
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-                {heroSlides[currentSlide].title.split(' ').slice(0, -1).join(' ')} <br />
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1]">
+                {heroSlides[currentSlide]?.titleWhite || ''} <br />
                 <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
-                  {heroSlides[currentSlide].title.split(' ').slice(-1)}
+                  {heroSlides[currentSlide]?.titleBlue || ''}
                 </span>
               </h1>
-              <p className="text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed">
-                {heroSlides[currentSlide].subtitle}
+              <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
+                {heroSlides[currentSlide]?.subtitle || ''}
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-wrap gap-5">
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-bold text-lg hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-primary/25 hover:-translate-y-1"
+                  className="inline-flex items-center justify-center gap-2 px-10 py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5"
                 >
                   Get Started
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-6 h-6" />
                 </Link>
                 <Link
                   to="/about-us"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 backdrop-blur-md text-white rounded-full font-bold text-lg hover:bg-white/20 transition-all border border-white/20"
+                  className="inline-flex items-center justify-center gap-2 px-10 py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-xl hover:bg-white/15 transition-all border border-white/30"
                 >
                   Learn More
                 </Link>
               </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
+        {/* Bottom Bar: Indicators & Stats */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 pb-10 md:pb-16">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
               {/* Slider Indicators */}
-              <div className="flex gap-2 mt-12">
+              <div className="flex gap-3 mb-2">
                 {heroSlides.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setCurrentSlide(index)}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      currentSlide === index ? 'w-12 bg-primary' : 'w-2 bg-white/30 hover:bg-white/50'
+                    className={`h-2 rounded-full transition-all duration-700 ${
+                      currentSlide === index ? 'w-16 bg-primary shadow-lg shadow-primary/50' : 'w-3 bg-white/30 hover:bg-white/50'
                     }`}
                     aria-label={`Go to slide ${index + 1}`}
                   />
@@ -221,20 +281,20 @@ const HomePage: React.FC = () => {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 mt-16 border-t border-white/10 pt-8">
+              <div className="grid grid-cols-3 gap-8 md:gap-16 border-t md:border-t-0 md:border-l border-white/20 pt-8 md:pt-0 md:pl-16 max-w-3xl">
                 {[
                   { value: '50K+', label: 'Happy Customers' },
                   { value: '500+', label: 'Service Partners' },
                   { value: '4.9/5', label: 'Average Rating' },
                 ].map((stat, index) => (
-                  <div key={index}>
-                    <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
-                    <p className="text-sm text-gray-300">{stat.label}</p>
+                  <div key={index} className="group">
+                    <p className="text-2xl md:text-4xl font-black text-white mb-1 group-hover:text-primary transition-colors">{stat.value}</p>
+                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-[0.2em] font-medium leading-none">{stat.label}</p>
                   </div>
                 ))}
               </div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -311,7 +371,7 @@ const HomePage: React.FC = () => {
               viewport={{ once: true }}
             >
               <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-                Why Drivers Choose <span className="text-primary">DriveFlow</span>
+                Why Drivers Choose <span className="text-primary">Carzzi</span>
               </h2>
               <p className="text-muted-foreground text-lg mb-8">
                 We combine technology with automotive expertise to deliver a service experience 
@@ -375,7 +435,7 @@ const HomePage: React.FC = () => {
               Ready to Hit the Road?
             </h2>
             <p className="text-white/80 text-xl mb-10">
-              Join thousands of happy customers who trust DriveFlow for all their vehicle needs.
+              Join thousands of happy customers who trust Carzzi for all their vehicle needs.
             </p>
             <Link
               to="/register"

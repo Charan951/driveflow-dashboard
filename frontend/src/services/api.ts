@@ -21,7 +21,8 @@ api.interceptors.request.use((config) => {
       '/services',
       '/reviews',
       '/products',
-      '/settings/public'
+      '/settings/public',
+      '/hero'
     ];
     
     const isPublicRequest = publicEndpoints.some(endpoint => config.url?.includes(endpoint));

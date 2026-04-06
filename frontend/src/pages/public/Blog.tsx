@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Calendar, Clock, User, ArrowRight, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { heroService } from '@/services/heroService';
 
 // Blog Data
 const blogPosts = [
@@ -172,6 +173,31 @@ const categories = ['All', 'Maintenance', 'Technology', 'Safety', 'Lifestyle', '
 const Blog = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=2000",
+    title: "Our Blog",
+    subtitle: "Insights, tips, and the latest news from the world of vehicle care."
+  });
+
+  useEffect(() => {
+    fetchHero();
+  }, []);
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['blog'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch blog hero from S3', error);
+    }
+  };
 
   const filteredPosts = blogPosts.filter(post => {
     const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
@@ -186,7 +212,7 @@ const Blog = () => {
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=2000"
+            src={hero.image}
             alt="Blog Background" 
             className="w-full h-full object-cover"
           />
@@ -200,10 +226,10 @@ const Blog = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              DriveFlow Blog
+              {hero.title}
             </h1>
             <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              Insights, tips, and news from the world of automotive care and technology.
+              {hero.subtitle}
             </p>
           </motion.div>
         </div>

@@ -9,7 +9,7 @@ export interface Booking {
   vehicle: Vehicle | string;
   services: Service[] | string[];
   date: string;
-  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED' | 'STAFF_REACHED_MERCHANT' | 'PICKUP_BATTERY_TIRE' | 'INSTALLATION' | 'DELIVERY';
+  status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED' | 'STAFF_REACHED_MERCHANT' | 'PICKUP_BATTERY_TIRE' | 'INSTALLATION' | 'DELIVERY' | 'On Hold';
   totalAmount: number;
   notes?: string;
   location?: {
@@ -91,6 +91,7 @@ export interface Booking {
     reason: string;
     note?: string;
     startTime?: string;
+    previousStatus?: string;
   };
   serviceExecution?: {
     jobStartTime?: string;
