@@ -55,23 +55,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              // React and related core libs
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-                return 'vendor-core';
-              }
-              // Large UI/Animation libs
-              if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@radix-ui')) {
-                return 'vendor-ui';
-              }
-              // Firebase
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
-              // Maps and Charts
-              if (id.includes('leaflet') || id.includes('recharts')) {
-                return 'vendor-visuals';
-              }
-              // Other node_modules
               return 'vendor';
             }
           },
