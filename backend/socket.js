@@ -91,14 +91,15 @@ export const initSocket = (server) => {
 
     // Join a specific room
     socket.on('join', (room) => {
+      console.log(`Socket ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
       
       // Security check for admin room
       if (room === 'admin') {
         if (socket.user?.role !== 'admin') {
-          
+          console.warn(`Unauthorized admin room join attempt from user ${socket.user?._id} with role ${socket.user?.role}`);
           return;
         }
-        
+        console.log(`Admin user ${socket.user?._id} joined admin room`);
       }
       
       socket.join(room);
@@ -324,7 +325,7 @@ export const initSocket = (server) => {
 
         const populatedMessage = await message.populate('sender', '_id name role');
 
-        io.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage);
+        io.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage.toObject());
       } catch (e) {
         console.error('Error sending message:', e);
       }
@@ -334,7 +335,22 @@ export const initSocket = (server) => {
       if (!data.bookingId) return;
 
       try {
-        const messages = await Message.find({ bookingId: data.bookingId })
+        const query = { bookingId: data.bookingId };
+        
+        // Filter out messages not meant for the current user's role
+        if (socket.user) {
+          if (socket.user.role === 'merchant' || socket.user.role === 'staff') {
+            // Merchants and staff should not see customer-only messages
+            // This also includes messages with no recipientRole (backwards compatibility)
+            query.recipientRole = { $in: ['all', 'merchant', undefined, null] };
+          } else if (socket.user.role === 'customer') {
+            // Customers should not see merchant-only messages (if any)
+            query.recipientRole = { $in: ['all', 'customer', undefined, null] };
+          }
+          // Admin can see everything (default query)
+        }
+
+        const messages = await Message.find(query)
           .populate('sender', 'name role')
           .sort({ createdAt: 1 });
 

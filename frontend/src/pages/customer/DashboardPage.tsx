@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import VehicleCard from '@/components/VehicleCard';
+import VehicleDetailModal from '@/components/VehicleDetailModal';
 import OrderCard from '@/components/OrderCard';
 import {
   Dialog,
@@ -305,7 +306,7 @@ const DashboardPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">10:00 AM</span>
+              <span className="text-sm">{new Date(upcomingBooking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
             </div>
           </div>
           <Link

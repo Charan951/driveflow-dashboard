@@ -4,7 +4,9 @@ export interface Vehicle {
     _id: string;
     make: string;
     model: string;
+    variant?: string;
     year: number;
+    registrationDate?: string;
     licensePlate: string;
     color?: string;
     image?: string;
@@ -59,6 +61,10 @@ export const vehicleService = {
     },
     fetchVehicleDetails: async (licensePlate: string) => {
         const response = await api.post('/vehicles/fetch-details', { licensePlate });
+        return response.data;
+    },
+    getVehicleRCDetails: async (vehicleNumber: string) => {
+        const response = await api.post('/vehicles/rc-details', { vehicle_number: vehicleNumber });
         return response.data;
     },
 };

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Plus, Car, Upload, ChevronRight } from 'lucide-react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import VehicleCard from '@/components/VehicleCard';
+import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
@@ -14,6 +15,8 @@ const AddVehiclePage: React.FC = () => {
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
   const [isFetchingTires, setIsFetchingTires] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     licensePlate: '',
@@ -22,6 +25,7 @@ const AddVehiclePage: React.FC = () => {
     variant: '',
     fuel: '',
     year: '',
+    registrationDate: '',
     color: '',
     frontTyres: '',
     rearTyres: '',
@@ -78,16 +82,28 @@ const AddVehiclePage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const details = await vehicleService.fetchVehicleDetails(formData.licensePlate);
+      const details = await vehicleService.getVehicleRCDetails(formData.licensePlate);
 
       if (details && details.found) {
+        // Extract year from registration_date (assuming DD-MM-YYYY or YYYY-MM-DD)
+        let extractedYear = '';
+        if (details.registration_date) {
+          const dateParts = details.registration_date.split(/[-/]/);
+          if (dateParts.length === 3) {
+            // Check if year is first or last
+            if (dateParts[0].length === 4) extractedYear = dateParts[0];
+            else if (dateParts[2].length === 4) extractedYear = dateParts[2];
+          }
+        }
+
         setFormData((prev) => ({
           ...prev,
-          make: details.make || '',
-          model: details.model || '',
+          make: details.brand_name || '',
+          model: details.brand_model || '',
           variant: details.variant || '',
-          fuel: details.fuelType || '',
-          year: details.year?.toString() || '',
+          fuel: details.fuel_type || '',
+          year: extractedYear || new Date().getFullYear().toString(),
+          registrationDate: details.registration_date || '',
           color: details.color || '',
         }));
         toast.success('Vehicle details found!');
@@ -97,20 +113,10 @@ const AddVehiclePage: React.FC = () => {
           'Vehicle details not found. Please enter manually.';
         toast.info(message);
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error fetching vehicle details:', error);
-
-      const err = error as { response?: { status?: number; data?: { message?: string } } };
-      const status = err.response?.status;
-      const message = err.response?.data?.message;
-
-      if (status === 404) {
-        toast.info(message || 'Vehicle details not found. Please enter manually.');
-      } else if (status === 500 && message === 'RapidAPI not configured') {
-        toast.info('Auto-fetch is not configured. Please enter details manually.');
-      } else {
-        toast.info('Could not auto-fetch details. Please enter manually.');
-      }
+      const message = error.response?.data?.message || 'Could not auto-fetch details. Please enter manually.';
+      toast.info(message);
     } finally {
       setIsLoading(false);
       setStep(2);
@@ -130,7 +136,9 @@ const AddVehiclePage: React.FC = () => {
         licensePlate: formData.licensePlate,
         make: formData.make.trim(),
         model: formData.model.trim(),
+        variant: formData.variant.trim(),
         year: parseInt(formData.year) || new Date().getFullYear(),
+        registrationDate: formData.registrationDate.trim() || undefined,
         color: formData.color.trim() || undefined,
         fuelType: formData.fuel.trim() || undefined,
         frontTyres: formData.frontTyres,
@@ -140,7 +148,7 @@ const AddVehiclePage: React.FC = () => {
       toast.success('Vehicle added successfully!');
       setShowForm(false);
       setStep(1);
-      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '', frontTyres: '', rearTyres: '' });
+      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', registrationDate: '', color: '', frontTyres: '', rearTyres: '' });
       fetchVehicles(); // Refresh list
     } catch (error) {
       console.error('Failed to add vehicle:', error);
@@ -273,6 +281,17 @@ const AddVehiclePage: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Registration Date</label>
+                  <input
+                    type="text"
+                    name="registrationDate"
+                    value={formData.registrationDate}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Year</label>
                   <input
                     type="number"
@@ -292,42 +311,6 @@ const AddVehiclePage: React.FC = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Front Tyres</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="frontTyres"
-                      value={formData.frontTyres}
-                      onChange={handleChange}
-                      placeholder={isFetchingTires ? 'Fetching...' : 'Auto-fetched or manual'}
-                      className={`w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 ${isFetchingTires ? 'opacity-70' : ''}`}
-                    />
-                    {isFetchingTires && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Rear Tyres</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="rearTyres"
-                      value={formData.rearTyres}
-                      onChange={handleChange}
-                      placeholder={isFetchingTires ? 'Fetching...' : 'Auto-fetched or manual'}
-                      className={`w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 ${isFetchingTires ? 'opacity-70' : ''}`}
-                    />
-                    {isFetchingTires && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -378,7 +361,10 @@ const AddVehiclePage: React.FC = () => {
                 nextService={vehicle.nextService}
                 status={vehicle.status}
                 onDelete={() => handleDeleteVehicle(vehicle._id)}
-                onClick={() => {}}
+                onClick={() => {
+                  setSelectedVehicleForDetail(vehicle);
+                  setIsDetailModalOpen(true);
+                }}
               />
             </motion.div>
           ))}
@@ -396,6 +382,16 @@ const AddVehiclePage: React.FC = () => {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Vehicle Detail Modal */}
+      <VehicleDetailModal
+        vehicle={selectedVehicleForDetail}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedVehicleForDetail(null);
+        }}
+      />
     </div>
   );
 };

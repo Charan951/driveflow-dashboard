@@ -5,7 +5,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
-import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle } from 'lucide-react';
+import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
+import ElapsedTimer from '@/components/ElapsedTimer';
 import * as turf from '@turf/turf';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -830,14 +831,22 @@ const StaffOrderPage: React.FC = () => {
 
   return (
     <div className="container-mobile space-y-6 max-w-2xl mx-auto pb-24 no-horizontal-scroll">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold truncate">Order Details</h1>
-          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-            order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-          }`}>
-            {order.status.replace('_AT_MERCHANT', '')}
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">Order Details</h1>
+            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+              order.status === 'DELIVERED' || order.status === 'SERVICE_COMPLETED' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+            }`}>
+              {order.status.replace('_AT_MERCHANT', '')}
+            </span>
+          </div>
+          {order.assignedAt && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 w-fit px-2 py-1 rounded-md">
+              <span className="uppercase font-bold tracking-wider opacity-70">Elapsed Time</span>
+              <ElapsedTimer startTime={order.assignedAt} className="text-primary font-bold" />
+            </div>
+          )}
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
           {isBatteryOrTire || isCarWash ? (

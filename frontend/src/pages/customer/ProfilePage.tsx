@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { userService } from '@/services/userService';
 import VehicleCard from '@/components/VehicleCard';
+import VehicleDetailModal from '@/components/VehicleDetailModal';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -22,6 +23,8 @@ const ProfilePage: React.FC = () => {
   const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   // Address Form State
   const [newAddress, setNewAddress] = useState({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
@@ -341,13 +344,32 @@ const ProfilePage: React.FC = () => {
         <div className="space-y-3">
           {myVehicles.length > 0 ? (
              myVehicles.slice(0, 2).map((v) => (
-                <VehicleCard key={v._id} id={v._id} {...v} compact onClick={() => {}} />
+                <VehicleCard 
+                  key={v._id} 
+                  id={v._id} 
+                  {...v} 
+                  compact 
+                  onClick={() => {
+                    setSelectedVehicleForDetail(v);
+                    setIsDetailModalOpen(true);
+                  }} 
+                />
               ))
           ) : (
             <p className="text-muted-foreground text-sm">No vehicles found.</p>
           )}
         </div>
       </section>
+
+      {/* Vehicle Detail Modal */}
+      <VehicleDetailModal
+        vehicle={selectedVehicleForDetail}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedVehicleForDetail(null);
+        }}
+      />
     </div>
   );
 };

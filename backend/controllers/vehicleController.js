@@ -68,6 +68,98 @@ export const getInsuranceData = async (req, res) => {
   }
 };
 
+// @desc    Fetch vehicle RC details from RapidAPI V2
+// @route   POST /api/vehicles/rc-details
+// @access  Private
+export const getVehicleRCDetails = async (req, res) => {
+  const { vehicle_number } = req.body;
+
+  if (!vehicle_number) {
+    return res.status(400).json({ message: 'Vehicle number is required' });
+  }
+
+  // Normalize: No spaces, all uppercase, O -> 0
+  const normalizedPlate = vehicle_number.replace(/\s/g, '').toUpperCase().replace(/O/g, '0');
+
+  try {
+    const rapidKey = process.env.RAPID_API_KEY || process.env.RAPIDAPI_KEY;
+    const rapidHost = process.env.RAPIDAPI_HOST || 'vehicle-rc-information.p.rapidapi.com';
+    const rapidUrl = process.env.RAPIDAPI_ENDPOINT || `https://${rapidHost}/advanced`;
+
+    if (!rapidKey) {
+      return res.status(500).json({ message: 'RapidAPI key not configured' });
+    }
+
+    const options = {
+      method: 'POST',
+      url: rapidUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-host': rapidHost,
+        'x-rapidapi-key': rapidKey
+      },
+      data: {
+        vehicle_number: normalizedPlate
+      }
+    };
+
+    const response = await axios.request(options);
+    const data = response.data;
+
+    // Based on RapidAPI V2 structure (as per requirement and common patterns)
+    if (data && data.status === 'success' && data.data) {
+      const rcData = data.data;
+      return res.json({
+        found: true,
+        brand_name: rcData.brand_name || '',
+        brand_model: rcData.brand_model || '',
+        fuel_type: rcData.fuel_type || '',
+        registration_date: rcData.registration_date || '',
+        color: rcData.color || '',
+        variant: rcData.variant || '',
+        engine_number: rcData.engine_number || '',
+        chassis_number: rcData.chassis_number || '',
+        owner_name: rcData.owner_name || ''
+      });
+    } else if (data && data.brand_name) {
+      // Fallback: Some APIs return data directly without status/data wrapper
+      return res.json({
+        found: true,
+        brand_name: data.brand_name || '',
+        brand_model: data.brand_model || '',
+        fuel_type: data.fuel_type || '',
+        registration_date: data.registration_date || '',
+        color: data.color || '',
+        variant: data.variant || '',
+      });
+    } else {
+      return res.json({
+        found: false,
+        message: data?.message || 'Vehicle details not found'
+      });
+    }
+  } catch (error) {
+    console.error('RapidAPI Error details:', error.response?.data || error.message);
+    
+    // Detailed error handling for RapidAPI provider issues (502, 503, 504)
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    if (status === 502 || status === 503 || status === 504) {
+      return res.status(status).json({ 
+        message: 'RapidAPI Provider Error: The vehicle database provider is temporarily unavailable. Please try again after some time or enter details manually.' 
+      });
+    }
+    
+    const isHtmlError = typeof errorData === 'string' && errorData.includes('<!DOCTYPE html>');
+    const message = isHtmlError 
+      ? 'RapidAPI Provider Error: The API provider is currently down or misconfigured. Please try again later.'
+      : (errorData?.message || error.message || 'Failed to fetch vehicle details');
+      
+    res.status(status || 500).json({ message });
+  }
+};
+
 // @desc    Fetch vehicle details from external API (Mock/Simulated)
 // @route   POST /api/vehicles/fetch-details
 // @access  Private
@@ -153,7 +245,7 @@ export const fetchVehicleDetails = async (req, res) => {
 // @route   POST /api/vehicles
 // @access  Private
 export const addVehicle = async (req, res) => {
-  const { licensePlate, make, model, year, fuelType, type, color, image, vin, frontTyres, rearTyres, batteryDetails } = req.body;
+  const { licensePlate, make, model, variant, year, registrationDate, fuelType, type, color, image, vin, frontTyres, rearTyres, batteryDetails } = req.body;
 
   try {
     const vehicle = new Vehicle({
@@ -161,7 +253,9 @@ export const addVehicle = async (req, res) => {
       licensePlate,
       make,
       model,
+      variant,
       year,
+      registrationDate,
       fuelType,
       type: type || 'Car',
       color,

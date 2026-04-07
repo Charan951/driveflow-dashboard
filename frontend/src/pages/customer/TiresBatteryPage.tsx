@@ -32,6 +32,15 @@ const TiresBatteryPage: React.FC = () => {
       setProducts(productsData);
       setVehicles(vehiclesData);
       setBookings(bookingsData);
+
+      // Pre-select tire size based on the first vehicle's tire size if available
+      if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
+        const firstVehicle = vehiclesData[0];
+        const vehicleTireSize = firstVehicle.frontTyres || firstVehicle.rearTyres;
+        if (vehicleTireSize && tireSizes.includes(vehicleTireSize)) {
+          setSelectedTireSize(vehicleTireSize);
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load products');

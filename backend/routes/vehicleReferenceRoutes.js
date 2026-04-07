@@ -189,10 +189,11 @@ router.get('/search', asyncHandler(async (req, res) => {
   }
 
   const cleanBrand = brand_name.trim().toLowerCase();
+  const fullModel = model.trim().toLowerCase();
   const cleanModel = model.replace(/\[.*\]/g, '').trim().toLowerCase();
   const cleanVariant = variant ? variant.trim().toLowerCase() : '';
 
-  console.log(`Searching for: Brand=${cleanBrand}, Model=${cleanModel}, Variant=${cleanVariant}`);
+  console.log(`Searching for: Brand=${cleanBrand}, Model=${fullModel} (clean=${cleanModel}), Variant=${cleanVariant}`);
 
   const allData = await getVehicleDataFromS3();
 
@@ -207,11 +208,11 @@ router.get('/search', asyncHandler(async (req, res) => {
     return value.toLowerCase() === search;
   };
 
-  // 1. Try exact match for Brand, Model, and Variant
+  // 1. Try exact match for Brand, Model (full), and Variant
   if (cleanVariant) {
     const exactMatch = allData.find(item => 
       exactMatches(item.brand_name, cleanBrand) && 
-      exactMatches(item.model, cleanModel) && 
+      (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) && 
       exactMatches(item.brand_model, cleanVariant)
     );
     if (exactMatch) {
@@ -219,10 +220,10 @@ router.get('/search', asyncHandler(async (req, res) => {
       return res.json(exactMatch);
     }
 
-    // 2. Try exact Brand and Model with partial Variant match
+    // 2. Try exact Brand and Model (full/clean) with partial Variant match
     const modelExactVariantPartial = allData.find(item => 
       exactMatches(item.brand_name, cleanBrand) && 
-      exactMatches(item.model, cleanModel) && 
+      (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) && 
       matches(item.brand_model, cleanVariant)
     );
     if (modelExactVariantPartial) {
@@ -234,7 +235,7 @@ router.get('/search', asyncHandler(async (req, res) => {
   // 3. If variant didn't help, but we have an exact model match, use that
   const exactModelFallback = allData.find(item => 
     exactMatches(item.brand_name, cleanBrand) && 
-    exactMatches(item.model, cleanModel)
+    (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel))
   );
   if (exactModelFallback) {
     console.log('Found exact model fallback:', exactModelFallback.brand_model);
@@ -245,7 +246,7 @@ router.get('/search', asyncHandler(async (req, res) => {
   if (cleanVariant) {
     const data = allData.find(item => 
       exactMatches(item.brand_name, cleanBrand) && 
-      matches(item.model, cleanModel) && 
+      (matches(item.model, fullModel) || matches(item.model, cleanModel)) && 
       matches(item.brand_model, cleanVariant)
     );
     if (data) {
@@ -256,7 +257,7 @@ router.get('/search', asyncHandler(async (req, res) => {
 
   const fallbackData = allData.find(item => 
     exactMatches(item.brand_name, cleanBrand) && 
-    matches(item.model, cleanModel)
+    (matches(item.model, fullModel) || matches(item.model, cleanModel))
   );
 
   if (fallbackData) {

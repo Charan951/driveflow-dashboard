@@ -8,8 +8,10 @@ const vehicleSchema = new mongoose.Schema({
   },
   make: { type: String, required: true },
   model: { type: String, required: true },
+  variant: { type: String },
   year: { type: Number, required: true },
   licensePlate: { type: String, required: true },
+  registrationDate: { type: String },
   color: { type: String },
   image: { type: String }, // URL
   vin: { type: String },

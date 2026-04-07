@@ -1,9 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { heroService } from "@/services/heroService";
 
 const Contact = () => {
+  const [hero, setHero] = useState({
+    image: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&q=80&w=2000",
+    title: "Get in Touch",
+    subtitle: "We'd love to hear from you. Our friendly team is always here to chat."
+  });
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -11,6 +17,26 @@ const Contact = () => {
     message: ""
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchHero();
+  }, []);
+
+  const fetchHero = async () => {
+    try {
+      const data = await heroService.getHeroSettings();
+      const pageHero = data.pageHeroes?.['contact'];
+      if (pageHero) {
+        setHero({
+          image: pageHero.image || hero.image,
+          title: pageHero.title || hero.title,
+          subtitle: pageHero.subtitle || hero.subtitle
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch contact hero from S3', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +59,7 @@ const Contact = () => {
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&q=80&w=2000"
+            src={hero.image}
             alt="Contact Support" 
             className="w-full h-full object-cover"
           />
@@ -47,7 +73,7 @@ const Contact = () => {
             transition={{ duration: 0.6 }}
             className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400"
           >
-            Get in Touch
+            {hero.title}
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -55,7 +81,7 @@ const Contact = () => {
             transition={{ delay: 0.2, duration: 0.6 }}
             className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed"
           >
-            We'd love to hear from you. Our friendly team is always here to chat.
+            {hero.subtitle}
           </motion.p>
         </div>
       </section>
@@ -73,7 +99,7 @@ const Contact = () => {
               {
                 icon: MapPin,
                 title: "Visit Us",
-                details: ["123 Carzzi Lane", "Auto City, AC 90210"],
+                details: ["Hyderabad"],
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
                 border: "border-blue-200 dark:border-blue-900"
@@ -81,7 +107,7 @@ const Contact = () => {
               {
                 icon: Phone,
                 title: "Call Us",
-                details: ["+1 (555) 123-4567", "+1 (555) 987-6543"],
+                details: ["+91 8143404488"],
                 color: "text-green-500",
                 bg: "bg-green-500/10",
                 border: "border-green-200 dark:border-green-900"
@@ -89,7 +115,7 @@ const Contact = () => {
               {
                 icon: Mail,
                 title: "Email Us",
-                details: ["support@carzzi.com", "info@carzzi.com"],
+                details: ["support@carzzi.com"],
                 color: "text-purple-500",
                 bg: "bg-purple-500/10",
                 border: "border-purple-200 dark:border-purple-900"
@@ -214,6 +240,21 @@ const Contact = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* WhatsApp Floating Button */}
+      <motion.a
+        href="https://wa.me/918143404488"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center z-50"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8, duration: 0.6 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+      >
+        <MessageSquare className="w-7 h-7" />
+      </motion.a>
     </div>
   );
 };

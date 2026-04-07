@@ -26,12 +26,15 @@ import Timeline from '@/components/Timeline';
 import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import ChatWidget from '@/components/ChatWidget';
+import ElapsedTimer from '@/components/ElapsedTimer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getETA, ETAResponse } from '@/services/trackingService';
+import { routingService } from '@/services/routingService';
+import { SmoothMarker } from '@/components/SmoothMarker';
 import * as turf from '@turf/turf';
 
 // Fix for default marker icon in Leaflet
@@ -98,6 +101,7 @@ const TrackServicePage: React.FC = () => {
 
   // Live Tracking State
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [eta, setEta] = useState<ETAResponse | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const etaTimer = useRef<number | null>(null);
@@ -320,14 +324,37 @@ const TrackServicePage: React.FC = () => {
   useEffect(() => {
     if (!order || !staffLocation) {
       setEta(null);
+      setRouteGeometry([]);
       return;
     }
     const destLat = typeof order.location === 'object' ? order.location?.lat : undefined;
     const destLng = typeof order.location === 'object' ? order.location?.lng : undefined;
     if (!destLat || !destLng) {
       setEta(null);
+      setRouteGeometry([]);
       return;
     }
+
+    const fetchRoute = async () => {
+      try {
+        const start: [number, number] = [staffLocation.lat, staffLocation.lng];
+        const end: [number, number] = [destLat, destLng];
+        const response = await routingService.getRoute(start, end);
+        if (response.routes && response.routes.length > 0) {
+          const route = response.routes[0];
+          const geometry = typeof route.geometry === 'object' ? route.geometry : null;
+          if (geometry && geometry.coordinates) {
+            const coordinates = geometry.coordinates.map((c: number[]) => [c[1], c[0]]) as [number, number][];
+            setRouteGeometry(coordinates);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch route', e);
+      }
+    };
+
+    fetchRoute();
+
     const showForStatuses = ['ACCEPTED', 'REACHED_CUSTOMER', 'OUT_FOR_DELIVERY'];
     if (!showForStatuses.includes(order.status)) {
       setEta(null);
@@ -509,6 +536,13 @@ const TrackServicePage: React.FC = () => {
   };
 
 
+
+  const isChatEnabled = order && [
+    'SERVICE_STARTED',
+    'CAR_WASH_STARTED',
+    'INSTALLATION',
+    'On Hold'
+  ].includes(order.status);
 
   const handleChatMerchant = () => {
     const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
@@ -746,7 +780,15 @@ const TrackServicePage: React.FC = () => {
         transition={{ delay: 0.15 }}
         className="bg-card rounded-2xl border border-border p-4 sm:p-6"
       >
-        <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Status & Workflow</h2>
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground">Status & Workflow</h2>
+          {order.assignedAt && (
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-primary/10 rounded-xl border border-primary/20">
+              <span className="text-[10px] sm:text-xs uppercase font-bold text-primary/70 tracking-wider">Elapsed</span>
+              <ElapsedTimer startTime={order.assignedAt} className="text-primary font-bold text-xs sm:text-sm" />
+            </div>
+          )}
+        </div>
         <Timeline steps={timelineSteps} vertical={false} className="gap-3 sm:gap-2" />
       </motion.div>
 
@@ -801,9 +843,23 @@ const TrackServicePage: React.FC = () => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution="&copy; <a href=&quot;https://www.openstreetmap.org/copyright&quot;>OpenStreetMap</a> contributors"
                   />
-                  <Marker position={[staffLocation.lat, staffLocation.lng]}>
+                  <SmoothMarker position={[staffLocation.lat, staffLocation.lng]}>
                     <Popup>Staff is here</Popup>
-                  </Marker>
+                  </SmoothMarker>
+                  {routeGeometry.length > 0 && (
+                    <Polyline 
+                      positions={routeGeometry} 
+                      color="#2563eb" 
+                      weight={4} 
+                      opacity={0.8}
+                      dashArray="10, 10"
+                    />
+                  )}
+                  {order.location && typeof order.location === 'object' && order.location.lat && order.location.lng && (
+                    <Marker position={[order.location.lat, order.location.lng]}>
+                      <Popup>Destination</Popup>
+                    </Marker>
+                  )}
                 </MapContainer>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -1247,12 +1303,14 @@ const TrackServicePage: React.FC = () => {
                       >
                         <Phone className="w-5 h-5 text-foreground" />
                       </button>
-                      <button
-                        onClick={handleChatMerchant}
-                        className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-                      >
-                        <MessageCircle className="w-5 h-5 text-primary-foreground" />
-                      </button>
+                      {isChatEnabled && (
+                        <button
+                          onClick={handleChatMerchant}
+                          className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+                        >
+                          <MessageCircle className="w-5 h-5 text-primary-foreground" />
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (

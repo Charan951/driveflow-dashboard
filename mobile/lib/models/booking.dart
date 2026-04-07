@@ -275,6 +275,7 @@ class Booking {
   final bool pickupRequired;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
+  final String? assignedAt;
   final CarWashDetails? carWash;
   final BatteryTireDetails? batteryTire;
   final InspectionDetails? inspection;
@@ -311,6 +312,7 @@ class Booking {
     this.pickupRequired = true,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
+    this.assignedAt,
     this.carWash,
     this.batteryTire,
     this.inspection,
@@ -664,6 +666,7 @@ class Booking {
       pickupRequired: map['pickupRequired'] != false,
       inspectionCompletedAt: inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt,
+      assignedAt: map['assignedAt']?.toString(),
       carWash: carWash,
       batteryTire: batteryTire,
       inspection: inspection,

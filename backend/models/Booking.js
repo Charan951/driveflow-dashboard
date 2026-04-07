@@ -185,6 +185,9 @@ const bookingSchema = mongoose.Schema(
       ref: 'User',
       index: true,
     },
+    assignedAt: {
+      type: Date,
+    },
     deliveryOtp: {
       code: { type: String },
       expiresAt: { type: Date },

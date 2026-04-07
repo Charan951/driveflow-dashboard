@@ -20,6 +20,11 @@ const messageSchema = new mongoose.Schema({
     enum: ['text', 'approval'],
     default: 'text',
   },
+  recipientRole: {
+    type: String,
+    enum: ['all', 'customer', 'merchant'],
+    default: 'all',
+  },
   approval: {
     partName: String,
     amount: Number,

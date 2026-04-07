@@ -465,17 +465,16 @@ export const getBookingById = async (req, res) => {
 // @route   PUT /api/bookings/:id/assign
 // @access  Private/Admin
 export const assignBooking = async (req, res) => {
-  const { merchantId, driverId, technicianId, slot, carWashStaffId } = req.body;
+  const { merchantId, driverId, technicianId, slot, carWashStaffId, assignedAt } = req.body;
   const bookingId = req.params.id;
 
   try {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    
-
     const updateData = {};
     if (slot) updateData.date = slot;
+    if (assignedAt) updateData.assignedAt = assignedAt;
 
     // Direct assignment updates
     if (merchantId) updateData.merchant = merchantId;
@@ -615,6 +614,11 @@ export const updateBookingStatus = async (req, res) => {
 
       if (!canonTo) {
         return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      // After service is completed, merchant cannot change status
+      if (req.user.role === 'merchant' && ['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(canonFrom)) {
+        return res.status(401).json({ message: 'Merchant cannot change status after service completion' });
       }
 
       if (!isValidTransition(canonFrom, canonTo)) {
@@ -807,6 +811,75 @@ export const updateBookingStatus = async (req, res) => {
 
       booking.status = canonTo;
       const savedBooking = await booking.save();
+
+      // Automate chat message when service starts or chat is enabled
+      const chatEnabledStatuses = ['SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'On Hold'];
+      if (chatEnabledStatuses.includes(canonTo)) {
+        try {
+          // Find an admin user to act as 'Carzii' system sender
+          let systemUser = await User.findOne({ role: 'admin' });
+          if (!systemUser) {
+            // Fallback: try to find any admin role with case insensitive search or any user if all fails
+            systemUser = await User.findOne({ role: { $regex: /^admin$/i } });
+          }
+          
+          if (systemUser) {
+            // Check if greeting has already been sent for this booking
+            const existingGreeting = await Message.findOne({
+              bookingId: savedBooking._id,
+              text: /Welcome to Carzzi Support Chat/
+            });
+
+            if (!existingGreeting) {
+              const greetingText = `Hi 👋 Hope you’re doing well! 
+Welcome to Carzzi Support Chat  🚗 
+Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts submitted. 
+If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
+Thank you for choosing Carzzi 🙌`;
+
+              const greetingMessage = new Message({
+                bookingId: savedBooking._id,
+                sender: systemUser._id,
+                text: greetingText,
+                recipientRole: 'customer'
+              });
+              await greetingMessage.save();
+              
+              const populatedGreeting = await greetingMessage.populate('sender', '_id name role');
+              getIO().to(`booking_${savedBooking._id.toString()}`).emit('receiveMessage', populatedGreeting.toObject());
+            }
+
+            // Only send status-specific message if it's the first time entering this status
+            const existingStatusMessage = await Message.findOne({
+              bookingId: savedBooking._id,
+              text: new RegExp(`^${canonTo.replace(/_/g, ' ')}`, 'i')
+            });
+
+            if (!existingStatusMessage) {
+              let statusText = '';
+              if (canonTo === 'SERVICE_STARTED') statusText = "Service has started for your vehicle. Our technician is working on it.";
+              else if (canonTo === 'CAR_WASH_STARTED') statusText = "Car wash has started for your vehicle. Our staff is working on it.";
+              else if (canonTo === 'INSTALLATION') statusText = "Installation has started for your vehicle.";
+              else if (canonTo === 'On Hold') statusText = "Your service is currently on hold. We will update you soon.";
+
+              if (statusText) {
+                const statusMessage = new Message({
+                  bookingId: savedBooking._id,
+                  sender: systemUser._id,
+                  text: statusText,
+                  recipientRole: 'customer'
+                });
+                await statusMessage.save();
+                
+                const populatedStatus = await statusMessage.populate('sender', '_id name role');
+                getIO().to(`booking_${savedBooking._id.toString()}`).emit('receiveMessage', populatedStatus.toObject());
+              }
+            }
+          }
+        } catch (msgErr) {
+          console.error('Error sending automated service started message:', msgErr);
+        }
+      }
 
       // Populate fields before returning to frontend
       const updatedBooking = await Booking.findById(savedBooking._id)

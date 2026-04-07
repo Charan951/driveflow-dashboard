@@ -37,10 +37,10 @@ const AdminDashboard: React.FC = () => {
     const refreshHandler = () => fetchData();
     const newBookingHandler = (data: any) => {
       toast.success('New service booked!', {
-        description: `Order #${data.orderNumber || ''} by ${data.userName || 'a customer'}`,
+        description: `Order #${data.orderNumber || ''} by ${data.user?.name || 'a customer'}`,
         action: {
           label: 'View',
-          onClick: () => window.location.href = `/admin/bookings/${data.bookingId || data._id}`
+          onClick: () => navigate(`/admin/bookings/${data._id}`)
         }
       });
       fetchData();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+  import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
@@ -88,6 +88,18 @@ const PublicNavbar: React.FC = () => {
     closeSidebar();
   }, [location.pathname]);
 
+  // Prevent body scroll when sidebar is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -112,126 +124,127 @@ const PublicNavbar: React.FC = () => {
   const shouldBeScrolled = isScrolled || !isTransparentPage;
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      shouldBeScrolled 
-        ? 'bg-card/80 backdrop-blur-xl border-b border-border shadow-sm' 
-        : 'bg-transparent'
-    }`}>
-      <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
-        <Link 
-          to="/" 
-          className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center overflow-hidden">
-            <img
-              src="/speshway-logo.png"
-              alt="Carzzi"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // If logo doesn't exist, use fallback icon container
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent) {
-                  parent.innerHTML = '<svg class="w-6 h-6 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 13.1V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>';
-                }
-              }}
-            />
-          </div>
-          <span className={`font-semibold text-lg ${shouldBeScrolled ? 'text-foreground' : 'text-white'}`}>Carzzi</span>
-        </Link>
+    <>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        shouldBeScrolled 
+          ? 'bg-card/80 backdrop-blur-xl border-b border-border shadow-sm' 
+          : 'bg-transparent'
+      }`}>
+        <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
+          <Link 
+            to="/" 
+            className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center overflow-hidden">
+              <img
+                src="/speshway-logo.png"
+                alt="Carzzi"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // If logo doesn't exist, use fallback icon container
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<svg class="w-6 h-6 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 13.1V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>';
+                  }
+                }}
+              />
+            </div>
+          </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-6">
-          <NavigationMenu>
-            <NavigationMenuList className="gap-6">
-              {links.map((link) => {
-                if (link.name === 'Services') {
-                  return (
-                    <NavigationMenuItem key={link.name}>
-                      <NavigationMenuTrigger className={`flex items-center gap-1 text-sm font-medium transition-colors outline-none bg-transparent hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent p-0 h-auto ${
-                        location.pathname.startsWith('/services')
-                          ? 'text-primary'
-                          : (shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
-                      }`}>
-                        {link.name}
-                      </NavigationMenuTrigger>
-                      <NavigationMenuContent>
-                        <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
-                          {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
-                            <div key={category.title} className="space-y-3">
-                              <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
-                              <div className="flex flex-col gap-2">
-                                {category.items.length > 0 ? (
-                                  category.items.map((item) => (
-                                    <NavigationMenuLink key={item.name} asChild>
-                                      <Link 
-                                        to={item.path}
-                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
-                                        {item.name}
-                                      </Link>
-                                    </NavigationMenuLink>
-                                  ))
-                                ) : (
-                                  <NavigationMenuLink asChild>
-                                    <Link 
-                                      to={category.path!}
-                                      className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
-                                      View Insurance
-                                    </Link>
-                                  </NavigationMenuLink>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </NavigationMenuContent>
-                    </NavigationMenuItem>
-                  );
-                }
-                return (
-                  <NavigationMenuItem key={link.path}>
-                    <NavigationMenuLink asChild>
-                      <Link
-                        to={link.path}
-                        className={`text-sm font-medium transition-colors ${
-                          location.pathname === link.path
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
+            <NavigationMenu>
+              <NavigationMenuList className="gap-6">
+                {links.map((link) => {
+                  if (link.name === 'Services') {
+                    return (
+                      <NavigationMenuItem key={link.name}>
+                        <NavigationMenuTrigger className={`flex items-center gap-1 text-sm font-medium transition-colors outline-none bg-transparent hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent p-0 h-auto ${
+                          location.pathname.startsWith('/services')
                             ? 'text-primary'
                             : (shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
                         }`}>
-                        {link.name}
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                );
-              })}
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
+                          {link.name}
+                        </NavigationMenuTrigger>
+                        <NavigationMenuContent>
+                          <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
+                            {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
+                              <div key={category.title} className="space-y-3">
+                                <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
+                                <div className="flex flex-col gap-2">
+                                  {category.items.length > 0 ? (
+                                    category.items.map((item) => (
+                                      <NavigationMenuLink key={item.name} asChild>
+                                        <Link 
+                                          to={item.path}
+                                          className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
+                                          {item.name}
+                                        </Link>
+                                      </NavigationMenuLink>
+                                    ))
+                                  ) : (
+                                    <NavigationMenuLink asChild>
+                                      <Link 
+                                        to={category.path!}
+                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
+                                        View Insurance
+                                      </Link>
+                                    </NavigationMenuLink>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </NavigationMenuContent>
+                      </NavigationMenuItem>
+                    );
+                  }
+                  return (
+                    <NavigationMenuItem key={link.path}>
+                      <NavigationMenuLink asChild>
+                        <Link
+                          to={link.path}
+                          className={`text-sm font-medium transition-colors ${
+                            location.pathname === link.path
+                              ? 'text-primary'
+                              : (shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white')
+                          }`}>
+                          {link.name}
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  );
+                })}
+              </NavigationMenuList>
+            </NavigationMenu>
+          </div>
 
-        <div className="hidden md:flex items-center gap-4">
-          <Link 
-            to="/login" 
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white'
+          <div className="hidden md:flex items-center gap-4">
+            <Link 
+              to="/login" 
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                shouldBeScrolled ? 'text-foreground hover:text-primary' : 'text-white/90 hover:text-white'
+              }`}>
+              Login
+            </Link>
+            <Link 
+              to="/register" 
+              className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:bg-primary/90 transition-all shadow-md hover:shadow-lg active:scale-95">
+              Get Started
+            </Link>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={`md:hidden p-2 transition-colors ${
+              isScrolled ? 'text-foreground hover:text-primary' : 'text-white hover:text-white/80'
             }`}>
-            Login
-          </Link>
-          <Link 
-            to="/register" 
-            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:bg-primary/90 transition-all shadow-md hover:shadow-lg active:scale-95">
-            Get Started
-          </Link>
+            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`md:hidden p-2 transition-colors ${
-            isScrolled ? 'text-foreground hover:text-primary' : 'text-white hover:text-white/80'
-          }`}>
-          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
+      </nav>
 
       {/* Mobile Menu Sidebar */}
       <AnimatePresence>
@@ -257,7 +270,7 @@ const PublicNavbar: React.FC = () => {
                   to="/" 
                   className="flex items-center gap-2">
                   <img
-                      src="/carzzi-logo.png"
+                      src="/speshway-logo.png"
                       alt="Carzzi"
                       className="w-8 h-8 rounded-lg object-cover"
                       onError={(e) => {
@@ -366,7 +379,7 @@ const PublicNavbar: React.FC = () => {
           </>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   );
 };
 

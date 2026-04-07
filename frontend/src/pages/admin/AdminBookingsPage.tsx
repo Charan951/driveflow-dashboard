@@ -53,6 +53,13 @@ const AdminBookingsPage: React.FC = () => {
 
     socketService.on('bookingCreated', (newBooking: Booking) => {
        setBookings(prev => [newBooking, ...prev]);
+       toast.success('New Booking Received!', {
+         description: `Order #${newBooking.orderNumber} has been created.`,
+         action: {
+           label: 'View',
+           onClick: () => navigate(`/admin/bookings/${newBooking._id}`)
+         }
+       });
     });
 
     return () => {
@@ -243,7 +250,7 @@ const AdminBookingsPage: React.FC = () => {
                           </span>
                           <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                              <Clock className="w-3 h-3 shrink-0" /> 
-                             <span>10:00 AM</span>
+                             <span>{new Date(booking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                           </span>
                         </div>
                       </td>
@@ -342,7 +349,7 @@ const AdminBookingsPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1 text-xs">
                         <Clock className="w-3 h-3 text-muted-foreground" />
-                        <span>10:00 AM</span>
+                        <span>{new Date(booking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                       </div>
                     </div>
                     <span className="font-bold text-primary">₹{booking.totalAmount}</span>

@@ -2,6 +2,7 @@ class Vehicle {
   final String id;
   final String make;
   final String model;
+  final String? variant;
   final int year;
   final String licensePlate;
   final String? type;
@@ -24,6 +25,7 @@ class Vehicle {
     required this.id,
     required this.make,
     required this.model,
+    this.variant,
     required this.year,
     required this.licensePlate,
     this.type,
@@ -48,6 +50,7 @@ class Vehicle {
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       make: (json['make'] ?? '').toString(),
       model: (json['model'] ?? '').toString(),
+      variant: json['variant']?.toString(),
       year: (json['year'] is num) ? (json['year'] as num).toInt() : 0,
       licensePlate: (json['licensePlate'] ?? '').toString(),
       type: json['type']?.toString(),
@@ -87,6 +90,7 @@ class Vehicle {
       'id': id,
       'make': make,
       'model': model,
+      if (variant != null) 'variant': variant,
       'year': year,
       'licensePlate': licensePlate,
       if (type != null) 'type': type,

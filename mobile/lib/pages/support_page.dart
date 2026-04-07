@@ -430,7 +430,7 @@ class _SupportPageState extends State<SupportPage> {
                                     const _SupportCardRow(
                                       icon: Icons.phone_outlined,
                                       title: 'Phone',
-                                      subtitle: '+91 9595177744',
+                                      subtitle: '+91 8143404488',
                                     ),
                                     const SizedBox(height: 10),
                                     const _SupportCardRow(

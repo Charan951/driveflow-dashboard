@@ -8,6 +8,17 @@ import { updateApprovalStatus } from '@/services/approvalService';
 import { toast } from 'sonner';
 import AddPartModal from './merchant/AddPartModal';
 
+const CARZZI_GREETING_MESSAGE = `Hi 👋 Hope you’re doing well! 
+Welcome to Carzzi Support Chat  🚗 
+Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts  submitted. 
+If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
+Thank you for choosing Carzzi 🙌`;
+
+// This should ideally come from a config or backend, but for now, we'll use a placeholder
+const CARZZI_SENDER_ID = 'carzzi-system-user'; 
+const CARZZI_SENDER_NAME = 'Carzzi';
+const CARZZI_SENDER_ROLE = 'system';
+
 interface Message {
   _id: string;
   bookingId: string;
@@ -18,6 +29,7 @@ interface Message {
   };
   text: string;
   type?: 'text' | 'approval';
+  recipientRole?: 'all' | 'customer' | 'merchant';
   approval?: {
     partName: string;
     amount: number;
@@ -26,6 +38,9 @@ interface Message {
     image?: string;
   };
   createdAt: string;
+  senderId?: string;
+  senderName?: string;
+  senderRole?: string;
 }
 
 interface ChatWidgetProps {
@@ -42,6 +57,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isConnected, setIsConnected] = useState(socketService.isConnected());
+  const [hasSentGreeting, setHasSentGreeting] = useState(false);
   const { user } = useAuthStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,20 +90,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
   }, []);
 
   const isEnabled = [
-    'ASSIGNED',
-    'ACCEPTED',
-    'REACHED_CUSTOMER',
-    'VEHICLE_PICKED',
-    'REACHED_MERCHANT',
     'SERVICE_STARTED',
-    'SERVICE_COMPLETED',
-    'OUT_FOR_DELIVERY',
     'CAR_WASH_STARTED',
-    'CAR_WASH_COMPLETED',
-    'STAFF_REACHED_MERCHANT',
-    'PICKUP_BATTERY_TIRE',
     'INSTALLATION',
-    'DELIVERY',
     'On Hold'
   ].includes(status);
 
@@ -108,10 +113,22 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     socketService.connect();
     socketService.joinRoom(`booking_${bookingId}`);
     
-    socketService.emit('getMessages', { bookingId });
-
     const handleReceiveMessage = (message: any) => {
-      setMessages((prev) => {
+        // Filter out messages not meant for the current user's role
+        const role = user?.role;
+        const msgRecipientRole = message.recipientRole;
+
+        if (msgRecipientRole === 'customer') {
+          if (role === 'merchant' || role === 'staff') {
+            return;
+          }
+        } else if (msgRecipientRole === 'merchant') {
+          if (role === 'customer') {
+            return;
+          }
+        }
+
+        setMessages((prev) => {
         // 1. Check if we already have this message (by real ID)
         const existingIndex = prev.findIndex(m => m._id === message._id);
         if (existingIndex !== -1) {
@@ -143,16 +160,30 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
       });
     };
 
-    const handleLoadMessages = (loadedMessages: any) => {
-      setMessages(loadedMessages);
+    const handleLoadMessages = (loadedMessages: any[]) => {
+      const role = user?.role;
+      const filteredMessages = loadedMessages.filter((msg: any) => {
+        if (msg.recipientRole === 'customer') {
+          return role !== 'merchant' && role !== 'staff';
+        }
+        if (msg.recipientRole === 'merchant') {
+          return role !== 'customer';
+        }
+        return true;
+      });
+
+      setMessages(filteredMessages);
       // When messages are first loaded, if chat is closed/minimized, set total as unread
       if (!isOpenRef.current || isMinimizedRef.current) {
-        setUnreadCount(loadedMessages.length);
+        setUnreadCount(filteredMessages.length);
       }
     };
 
     socketService.on('receiveMessage', handleReceiveMessage);
     socketService.on('loadMessages', handleLoadMessages);
+
+    // Emit after listeners are attached
+    socketService.emit('getMessages', { bookingId });
 
     return () => {
       socketService.off('receiveMessage', handleReceiveMessage);
@@ -198,6 +229,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
       },
       text: inputText,
       createdAt: new Date().toISOString(),
+      senderId: user!._id,
+      senderName: user!.name,
+      senderRole: user!.role,
     };
     setMessages((prev) => [...prev, newMessage]);
 
@@ -246,17 +280,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                 opacity: 1, 
                 scale: 1, 
                 y: 0,
-                height: isMinimized ? '50px' : '420px'
+                height: isMinimized ? '44px' : '400px'
               }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className={cn(
-                "bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden mb-4 transition-all duration-300",
-                "w-[300px] sm:w-[340px]"
+                "bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden mb-3 transition-all duration-300",
+                "w-[280px] sm:w-[320px]"
               )}
             >
               {/* Header */}
-              <div className="px-4 py-3 bg-primary text-primary-foreground flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-2">
+              <div className="px-3 py-2 bg-primary text-primary-foreground flex items-center justify-between shadow-sm min-h-[44px] relative w-full">
+                {/* Left side: Connection status */}
+                <div className="flex items-center gap-2 relative z-10">
                   <div className="relative">
                     <div className={cn(
                       "w-2 h-2 rounded-full",
@@ -266,23 +301,16 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                       <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-20" />
                     )}
                   </div>
-                  <h3 className="font-bold text-xs tracking-tight">Service Chat</h3>
                   {!isConnected && <span className="text-[8px] font-medium opacity-80 uppercase tracking-widest">(Offline)</span>}
                 </div>
-                <div className="flex items-center gap-1">
-                  <button 
-                    onClick={() => setIsMinimized(!isMinimized)}
-                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
-                  </button>
-                  <button 
-                    onClick={() => setIsOpen(false)}
-                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+
+                {/* Center: Service Chat title */}
+                <h3 className="font-bold text-xs tracking-tight absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                  Service Chat
+                </h3>
+
+                {/* Right side: Placeholder for balance */}
+                <div className="w-8 h-8 relative z-10" />
               </div>
 
               {!isMinimized && (
@@ -290,14 +318,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                   {/* Messages */}
                   <div 
                     ref={scrollRef}
-                    className="flex-1 overflow-y-auto p-3 space-y-3 bg-muted/20"
+                    className="flex-1 w-full overflow-y-auto p-2.5 space-y-2.5 bg-muted/20"
                   >
                     {messages.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground/60">
-                        <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-3">
-                          <MessageSquare className="w-6 h-6 opacity-40" />
+                      <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground/60">
+                        <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center mb-2">
+                          <MessageSquare className="w-5 h-5 opacity-40" />
                         </div>
-                        <p className="text-[11px] font-medium">Start a conversation with the {user?.role === 'customer' ? 'merchant' : 'customer'}.</p>
+                        <p className="text-[10px] font-medium">Start a conversation.</p>
                       </div>
                     ) : (
                       messages.map((msg) => {
@@ -308,12 +336,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                             className={cn("flex", isSelf ? "justify-end" : "justify-start")}
                           >
                             <div className={cn(
-                              "max-w-[85%] p-2.5 rounded-xl shadow-sm",
+                              "max-w-[75%] p-2 rounded-xl shadow-sm",
                               isSelf
                                 ? "bg-primary text-primary-foreground rounded-br-sm"
                                 : "bg-card border border-border/50 text-foreground rounded-bl-sm"
                             )}>
-                              <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                              {!isSelf && (msg.sender.role === 'system' || msg.sender.role === 'merchant' || msg.sender.role === 'admin') && (
+                                <p className="text-[8px] font-bold mb-0.5 opacity-70 uppercase tracking-tight">
+                                  {msg.sender.role === 'admin' ? 'Carzii' : msg.sender.name}
+                                </p>
+                              )}
+                              <p className="text-[11.5px] leading-tight whitespace-pre-wrap">{msg.text}</p>
                               {msg.type === 'approval' && msg.approval && (
                                 <div className={cn(
                                   "mt-2 p-2.5 rounded-lg border transition-all",
@@ -357,7 +390,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                                   )}
                                 </div>
                               )}
-                              <p className="text-[8px] mt-1 opacity-40 text-right font-medium">
+                              <p className={cn("text-[8px] mt-1 opacity-40 font-medium", isSelf ? "text-right" : "text-left")}>
                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             </div>
@@ -371,15 +404,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                   {/* Input */}
                   <form 
                     onSubmit={handleSendMessage}
-                    className="p-3 bg-card border-t border-border flex items-center gap-2"
+                    className="w-full p-2 bg-card border-t border-border flex items-center gap-1.5"
                   >
                     {user?.role === 'merchant' && (
                       <button 
                         type="button"
                         onClick={() => setIsPartModalOpen(true)}
-                        className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                        className="p-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3 h-3" />
                       </button>
                     )}
                     <input 
@@ -387,14 +420,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       placeholder="Type message..."
-                      className="flex-1 bg-muted/50 border-none rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                      className="flex-1 bg-muted/50 border-none rounded-lg px-2.5 py-1.5 text-[11px] focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                     />
                     <button 
                       type="submit"
                       disabled={!inputText.trim()}
-                      className="p-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20"
+                      className="p-1.5 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20"
                     >
-                      <Send className="w-3.5 h-3.5" />
+                      <Send className="w-3 h-3" />
                     </button>
                   </form>
                 </>
@@ -424,7 +457,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
             </span>
           )}
           {!isConnected && !isOpen && (
-            <span className="absolute -bottom-1 -left-1 w-5 h-5 bg-yellow-500 text-white rounded-full flex items-center justify-center border-2 border-background animate-pulse shadow-sm">
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 text-white rounded-full flex items-center justify-center border-2 border-background animate-pulse shadow-sm">
               <AlertTriangle className="w-3 h-3" />
             </span>
           )}

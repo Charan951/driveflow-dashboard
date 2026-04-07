@@ -200,7 +200,7 @@ export const updateApprovalStatus = async (req, res) => {
             await chatMessage.save();
             const io = getIO();
             const populated = await chatMessage.populate('sender', '_id name role');
-            io.to(`booking_${approval.relatedId}`).emit('receiveMessage', populated);
+            io.to(`booking_${approval.relatedId}`).emit('receiveMessage', populated.toObject());
         }
     } catch (err) {
         console.error('Error updating chat message for approval:', err);

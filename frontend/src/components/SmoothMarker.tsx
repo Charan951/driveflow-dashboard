@@ -13,7 +13,7 @@ export const SmoothMarker: React.FC<SmoothMarkerProps> = ({ position, ...props }
   const startTimeRef = useRef<number | null>(null);
   const startPosRef = useRef(position);
   const targetPosRef = useRef(position);
-  const duration = 2000; // 2 seconds animation to match update interval mostly
+  const duration = 1000; // 1 second animation to match 1s update interval
 
   useEffect(() => {
     currentPosRef.current = currentPosition;

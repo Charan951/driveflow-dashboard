@@ -124,6 +124,15 @@ export const verifyPayment = async (req, res) => {
       // The booking was created by the service layer.
       // We just need to handle notifications here.
       
+      // Populate for real-time consumers
+      const populated = await Booking.findById(booking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services');
+
+      // Emit socket event for real-time updates
+      emitBookingUpdate(populated);
+
       // Import required models for notifications
       const Service = (await import('../models/Service.js')).default;
       const services = await Service.find({ _id: { $in: booking.services } });

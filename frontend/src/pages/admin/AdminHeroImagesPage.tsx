@@ -26,7 +26,8 @@ const PAGES = [
   { id: 'faqs', label: 'FAQs' },
   { id: 'services', label: 'Services' },
   { id: 'reviews', label: 'Reviews' },
-  { id: 'blog', label: 'Blog' }
+  { id: 'blog', label: 'Blog' },
+  { id: 'contact', label: 'Contact' }
 ];
 
 const AdminHeroImagesPage = () => {

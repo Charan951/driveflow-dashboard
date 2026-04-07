@@ -41,6 +41,11 @@ const BookingDetailPage: React.FC = () => {
   const [selectedMerchant, setSelectedMerchant] = useState<string>('');
   const [selectedDriver, setSelectedDriver] = useState<string>('');
   const [selectedCarWashStaff, setSelectedCarWashStaff] = useState<string>('');
+  const [assignedAt, setAssignedAt] = useState<string>(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000; // in ms
+    return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+  });
  
   // Identify service types
   const isCarWashService = React.useMemo(() => {
@@ -170,6 +175,11 @@ const BookingDetailPage: React.FC = () => {
         if (bookingData.merchant) setSelectedMerchant(getResourceId(bookingData.merchant));
         if (bookingData.pickupDriver) setSelectedDriver(getResourceId(bookingData.pickupDriver));
         if (bookingData.carWash?.staffAssigned) setSelectedCarWashStaff(getResourceId(bookingData.carWash.staffAssigned));
+        if (bookingData.assignedAt) {
+          const date = new Date(bookingData.assignedAt);
+          const offset = date.getTimezoneOffset() * 60000;
+          setAssignedAt(new Date(date.getTime() - offset).toISOString().slice(0, 16));
+        }
 
       } catch (error) {
         console.error(error);
@@ -194,6 +204,24 @@ const BookingDetailPage: React.FC = () => {
     socketService.on('bookingUpdated', (updatedBooking: Booking) => {
       if (updatedBooking._id === id) {
          setBooking(updatedBooking);
+         
+         // Helper to safely get ID
+         const getResourceId = (resource: any) => {
+           if (!resource) return '';
+           if (typeof resource === 'string') return resource;
+           if (typeof resource === 'object' && resource._id) return resource._id;
+           return '';
+         };
+
+         // Sync local assignment states with updated booking
+         if (updatedBooking.merchant) setSelectedMerchant(getResourceId(updatedBooking.merchant));
+         if (updatedBooking.pickupDriver) setSelectedDriver(getResourceId(updatedBooking.pickupDriver));
+         if (updatedBooking.carWash?.staffAssigned) setSelectedCarWashStaff(getResourceId(updatedBooking.carWash.staffAssigned));
+         if (updatedBooking.assignedAt) {
+           const date = new Date(updatedBooking.assignedAt);
+           const offset = date.getTimezoneOffset() * 60000;
+           setAssignedAt(new Date(date.getTime() - offset).toISOString().slice(0, 16));
+         }
       }
     });
 
@@ -298,19 +326,22 @@ const BookingDetailPage: React.FC = () => {
       if (isCarWashService) {
         // For car wash services, only assign car wash staff
         assignmentData = {
-          carWashStaffId: selectedCarWashStaff || undefined
+          carWashStaffId: selectedCarWashStaff || undefined,
+          assignedAt: new Date(assignedAt).toISOString()
         };
       } else if (isBatteryOrTireService) {
         // For battery/tire services, assign both merchant and staff
         assignmentData = {
           merchantId: selectedMerchant || undefined,
-          driverId: selectedDriver || undefined
+          driverId: selectedDriver || undefined,
+          assignedAt: new Date(assignedAt).toISOString()
         };
       } else {
         // For regular services, assign merchant and driver
         assignmentData = {
           merchantId: selectedMerchant || undefined,
-          driverId: selectedDriver || undefined
+          driverId: selectedDriver || undefined,
+          assignedAt: new Date(assignedAt).toISOString()
         };
       }
 
@@ -968,15 +999,30 @@ const BookingDetailPage: React.FC = () => {
 
           {/* Assignment Panel */}
           <div className="bg-card rounded-2xl border border-border p-6">
-             <h3 className="font-semibold text-lg mb-4 flex items-center justify-between">
-                <span>Assignments & Operations</span>
-                <button 
-                  onClick={handleAssignment}
-                  className="px-3 py-1 bg-primary text-primary-foreground text-xs rounded-lg hover:bg-primary/90"
-                >
-                   Save Assignments
-                </button>
-             </h3>
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                   <Shield className="w-5 h-5 text-primary" />
+                   Assignments & Operations
+                </h3>
+                <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-border">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <input 
+                         type="datetime-local" 
+                         value={assignedAt}
+                         onChange={(e) => setAssignedAt(e.target.value)}
+                         className="bg-transparent border-none text-sm focus:ring-0"
+                      />
+                   </div>
+                   <button 
+                     onClick={handleAssignment}
+                     className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm flex items-center gap-2"
+                   >
+                      <CheckCircle className="w-4 h-4" />
+                      Save Assignments
+                   </button>
+                </div>
+             </div>
              
              {isCarWashService ? (
                // Car wash service assignment - only show staff selection

@@ -53,7 +53,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       setLocation({ lat: latitude, lng: longitude });
       
-      if (now - lastSocketUpdate.current > 5000) {
+      if (now - lastSocketUpdate.current >= 1000) {
         const payload: LocationPayload = {
           userId: user?._id,
           role: user?.role,
@@ -325,8 +325,8 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
         {
           enableHighAccuracy: highAccuracy,
-          timeout: highAccuracy ? 8000 : 15000,
-          maximumAge: highAccuracy ? 5000 : 30000
+          timeout: highAccuracy ? 5000 : 15000,
+          maximumAge: highAccuracy ? 0 : 30000
         }
       );
     };

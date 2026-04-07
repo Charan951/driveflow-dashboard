@@ -8,11 +8,13 @@ import {
   getUserVehicles,
   getVehicleById,
   getInsuranceData,
+  getVehicleRCDetails,
 } from '../controllers/vehicleController.js';
 import { protect, admin, merchant } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+router.post('/rc-details', protect, getVehicleRCDetails);
 router.post('/fetch-details', protect, fetchVehicleDetails);
 
 router.get('/insurance/all', protect, admin, getInsuranceData);

@@ -21,7 +21,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  title = 'Carzzi', 
+  title = '', 
   showBack = false,
   transparent = false 
 }) => {
@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Menu className="w-6 h-6" />
         </button>
-        <h1 className="font-semibold text-lg hidden sm:block">{title}</h1>
+        {title && <h1 className="font-semibold text-lg hidden sm:block">{title}</h1>}
       </div>
 
       {/* Right - Notifications & Avatar */}

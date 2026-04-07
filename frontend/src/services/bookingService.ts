@@ -34,6 +34,7 @@ export interface Booking {
   };
   pickupDriver?: { _id: string; name: string; email: string; phone?: string };
   technician?: { _id: string; name: string; email: string; phone?: string };
+  assignedAt?: string;
   media?: string[];
   parts?: {
     product?: string | { _id: string; name: string; price: number };
@@ -226,7 +227,14 @@ export const bookingService = {
     return response.data;
   },
 
-  assignBooking: async (id: string, data: { merchantId?: string; driverId?: string; carWashStaffId?: string; slot?: string }) => {
+  assignBooking: async (id: string, data: { 
+    merchantId?: string; 
+    driverId?: string; 
+    technicianId?: string; 
+    slot?: string; 
+    carWashStaffId?: string;
+    assignedAt?: string;
+  }) => {
     const response = await api.put(`/bookings/${id}/assign`, data);
     return response.data;
   },

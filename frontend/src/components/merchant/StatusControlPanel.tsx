@@ -29,8 +29,9 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   let nextStatus = '';
   if (booking.status === 'REACHED_MERCHANT') nextStatus = 'SERVICE_STARTED';
   else if (booking.status === 'SERVICE_STARTED') nextStatus = ''; // Forced via Bill Upload
-  else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
-  else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
+  // Merchant cannot move to OUT_FOR_DELIVERY or DELIVERED anymore
+  // else if (booking.status === 'SERVICE_COMPLETED') nextStatus = 'OUT_FOR_DELIVERY';
+  // else if (booking.status === 'OUT_FOR_DELIVERY') nextStatus = 'DELIVERED';
 
   const handleStatusChange = async (status: BookingStatus | string) => {
     // Validation before completing
@@ -201,7 +202,11 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
             )
         )}
         
-        {booking.status !== 'COMPLETED' && booking.status !== 'DELIVERED' && booking.status !== 'On Hold' && (
+        {booking.status !== 'COMPLETED' && 
+         booking.status !== 'DELIVERED' && 
+         booking.status !== 'SERVICE_COMPLETED' &&
+         booking.status !== 'OUT_FOR_DELIVERY' &&
+         booking.status !== 'On Hold' && (
             <button
                 onClick={() => setShowDelayModal(true)}
                 disabled={loading}

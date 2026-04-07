@@ -243,17 +243,17 @@ const HomePage: React.FC = () => {
               <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
                 {heroSlides[currentSlide]?.subtitle || ''}
               </p>
-              <div className="flex flex-wrap gap-5">
+              <div className="flex flex-row items-center gap-3 sm:gap-5">
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center gap-2 px-10 py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
                 >
                   Get Started
-                  <ArrowRight className="w-6 h-6" />
+                  <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
                 </Link>
                 <Link
                   to="/about-us"
-                  className="inline-flex items-center justify-center gap-2 px-10 py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-xl hover:bg-white/15 transition-all border border-white/30"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
                 >
                   Learn More
                 </Link>
@@ -265,7 +265,7 @@ const HomePage: React.FC = () => {
         {/* Bottom Bar: Indicators & Stats */}
         <div className="absolute bottom-0 left-0 right-0 z-20 pb-10 md:pb-16">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-start gap-8">
               {/* Slider Indicators */}
               <div className="flex gap-3 mb-2">
                 {heroSlides.map((_, index) => (
@@ -277,20 +277,6 @@ const HomePage: React.FC = () => {
                     }`}
                     aria-label={`Go to slide ${index + 1}`}
                   />
-                ))}
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 md:gap-16 border-t md:border-t-0 md:border-l border-white/20 pt-8 md:pt-0 md:pl-16 max-w-3xl">
-                {[
-                  { value: '50K+', label: 'Happy Customers' },
-                  { value: '500+', label: 'Service Partners' },
-                  { value: '4.9/5', label: 'Average Rating' },
-                ].map((stat, index) => (
-                  <div key={index} className="group">
-                    <p className="text-2xl md:text-4xl font-black text-white mb-1 group-hover:text-primary transition-colors">{stat.value}</p>
-                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-[0.2em] font-medium leading-none">{stat.label}</p>
-                  </div>
                 ))}
               </div>
             </div>

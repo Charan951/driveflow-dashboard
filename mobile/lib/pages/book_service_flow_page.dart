@@ -556,7 +556,36 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         const SizedBox(height: 16),
         ..._vehicles.map(
           (v) => GestureDetector(
-            onTap: () => setState(() => _selectedVehicleId = v.id),
+            onTap: () {
+              setState(() {
+                _selectedVehicleId = v.id;
+
+                // Pre-fill tire sizes for already selected tire services
+                final vehicleTireSize = v.frontTyres ?? v.rearTyres;
+                if (vehicleTireSize != null && vehicleTireSize.isNotEmpty) {
+                  for (final serviceId in _selectedServiceIds) {
+                    final service = _allServices.firstWhere(
+                      (s) => s.id == serviceId,
+                      orElse: () => _allServices.first,
+                    );
+                    final isTireService =
+                        service.name.toLowerCase().contains('change') ||
+                        service.name.toLowerCase().contains('size');
+
+                    if (isTireService &&
+                        (_tireSizes[serviceId] == null ||
+                            _tireSizes[serviceId]!.isEmpty)) {
+                      _tireSizes[serviceId] = vehicleTireSize;
+
+                      // If the size is not in commonTireSizes, enable manual size mode
+                      if (!commonTireSizes.contains(vehicleTireSize)) {
+                        _isManualSize[serviceId] = true;
+                      }
+                    }
+                  }
+                }
+              });
+            },
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
@@ -863,6 +892,37 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 _selectedServiceIds.remove(service.id);
                               } else {
                                 _selectedServiceIds.add(service.id);
+
+                                // Pre-fill tire size if vehicle is selected
+                                if (_selectedVehicleId != null) {
+                                  final vehicle = _vehicles.firstWhere(
+                                    (v) => v.id == _selectedVehicleId,
+                                    orElse: () => _vehicles.first,
+                                  );
+                                  final vehicleTireSize =
+                                      vehicle.frontTyres ?? vehicle.rearTyres;
+
+                                  final isTireService =
+                                      service.name.toLowerCase().contains(
+                                        'change',
+                                      ) ||
+                                      service.name.toLowerCase().contains(
+                                        'size',
+                                      );
+
+                                  if (isTireService &&
+                                      vehicleTireSize != null &&
+                                      vehicleTireSize.isNotEmpty) {
+                                    _tireSizes[service.id] = vehicleTireSize;
+
+                                    // If the size is not in commonTireSizes, enable manual size mode
+                                    if (!commonTireSizes.contains(
+                                      vehicleTireSize,
+                                    )) {
+                                      _isManualSize[service.id] = true;
+                                    }
+                                  }
+                                }
                               }
                             });
                           },

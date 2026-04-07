@@ -24,11 +24,14 @@ import api from '@/services/api';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
+import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
+import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Info } from 'lucide-react';
 
 const steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
 
@@ -70,10 +73,20 @@ const BookServicePage: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+  const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
+  const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
+  const totalPrice = selectedServicesData.reduce((sum, service) => {
+    if (!service) return sum;
+    const qty = serviceQuantities[service._id] || 1;
+    return sum + (Number(service.price || 0) * qty);
+  }, 0);
 
   useEffect(() => {
     fetchData();
@@ -123,12 +136,110 @@ const BookServicePage: React.FC = () => {
     }
   };
 
-  const toggleService = (serviceId: string) => {
-    setSelectedServices(prev =>
-      prev.includes(serviceId)
-        ? prev.filter(id => id !== serviceId)
-        : [...prev, serviceId]
-    );
+  useEffect(() => {
+    const prefillTireSizes = async () => {
+      if (selectedVehicle && selectedVehicleData) {
+        let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
+        
+        // If no tire size on vehicle, try to fetch from reference
+        if (!vehicleTireSize) {
+          try {
+            const details = await searchVehicleReference(
+              selectedVehicleData.make, 
+              selectedVehicleData.model, 
+              selectedVehicleData.variant
+            );
+            if (details) {
+              vehicleTireSize = details.front_tyres || details.rear_tyres;
+            }
+          } catch (error) {
+            console.error('Failed to auto-fetch tire size during booking:', error);
+          }
+        }
+
+        if (vehicleTireSize) {
+          setTireSizes(prevSizes => {
+            const newSizes = { ...prevSizes };
+            let changed = false;
+            
+            selectedServices.forEach(serviceId => {
+              const service = services.find(s => s._id === serviceId);
+              const isTireService = service?.name?.toLowerCase()?.includes('change') || 
+                                  service?.name?.toLowerCase()?.includes('size');
+              
+              if (isTireService && !newSizes[serviceId]) {
+                newSizes[serviceId] = vehicleTireSize;
+                changed = true;
+                
+                // If the size is not in COMMON_TIRE_SIZES, enable manual size mode
+                if (!COMMON_TIRE_SIZES.includes(vehicleTireSize)) {
+                  setIsManualSize(prevManual => ({
+                    ...prevManual,
+                    [serviceId]: true
+                  }));
+                }
+              }
+            });
+            
+            return changed ? newSizes : prevSizes;
+          });
+        }
+      }
+    };
+
+    prefillTireSizes();
+  }, [selectedVehicle, selectedVehicleData, selectedServices, services]);
+
+  const toggleService = async (serviceId: string) => {
+    const isSelecting = !selectedServices.includes(serviceId);
+    
+    setSelectedServices(prev => {
+      return isSelecting
+        ? [...prev, serviceId]
+        : prev.filter(id => id !== serviceId);
+    });
+
+    // If selecting a tire service and a vehicle is selected, pre-fill tire size
+    if (isSelecting) {
+      const service = services.find(s => s._id === serviceId);
+      const isTireService = service?.name?.toLowerCase()?.includes('change') || 
+                          service?.name?.toLowerCase()?.includes('size');
+      
+      if (isTireService && selectedVehicleData) {
+        let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
+        
+        // If no tire size on vehicle, try to fetch from reference
+        if (!vehicleTireSize) {
+          try {
+            const details = await searchVehicleReference(
+              selectedVehicleData.make, 
+              selectedVehicleData.model, 
+              selectedVehicleData.variant
+            );
+            if (details) {
+              vehicleTireSize = details.front_tyres || details.rear_tyres;
+            }
+          } catch (error) {
+            console.error('Failed to auto-fetch tire size during booking selection:', error);
+          }
+        }
+
+        if (vehicleTireSize) {
+          setTireSizes(prevSizes => ({
+            ...prevSizes,
+            [serviceId]: vehicleTireSize
+          }));
+          
+          // If the size is not in COMMON_TIRE_SIZES, enable manual size mode
+          if (!COMMON_TIRE_SIZES.includes(vehicleTireSize)) {
+            setIsManualSize(prevManual => ({
+              ...prevManual,
+              [serviceId]: true
+            }));
+          }
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -258,14 +369,6 @@ const BookServicePage: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
-  const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
-  const totalPrice = selectedServicesData.reduce((sum, service) => {
-    if (!service) return sum;
-    const qty = serviceQuantities[service._id] || 1;
-    return sum + (Number(service.price || 0) * qty);
-  }, 0);
 
   const categoryMap: Record<string, string[]> = {
     'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
@@ -442,16 +545,40 @@ const BookServicePage: React.FC = () => {
                           </p>
                           <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
                         </div>
-                        {selectedVehicle === vehicle._id && (
-                          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                            <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedVehicleForDetail(vehicle);
+                              setIsDetailModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                            title="View Details"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                          {selectedVehicle === vehicle._id && (
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </motion.button>
                   ))}
                 </div>
                 )}
+                
+                {/* Vehicle Detail Modal */}
+                <VehicleDetailModal
+                  vehicle={selectedVehicleForDetail}
+                  isOpen={isDetailModalOpen}
+                  onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedVehicleForDetail(null);
+                  }}
+                />
               </div>
             )}
 
