@@ -317,7 +317,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                         title: primaryService?.name ?? 'Service',
                         categoryLabel: primaryService?.category,
                         subtitle: b.vehicle != null
-                            ? '${b.vehicle!.make} ${b.vehicle!.model} • ${b.vehicle!.licensePlate}'
+                            ? '${b.vehicle!.make} ${b.vehicle!.model}${b.vehicle!.variant != null && b.vehicle!.variant!.isNotEmpty ? ' ${b.vehicle!.variant}' : ''} • ${b.vehicle!.licensePlate}'
                             : null,
                         extra: b.services.length > 1
                             ? '+${b.services.length - 1} more'

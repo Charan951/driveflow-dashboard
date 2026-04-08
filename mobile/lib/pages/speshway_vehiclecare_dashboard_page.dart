@@ -592,7 +592,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         ? booking.services.first.name
         : 'Service';
     final vehicleLabel = booking.vehicle != null
-        ? '${booking.vehicle!.make} ${booking.vehicle!.model} • ${booking.vehicle!.licensePlate}'
+        ? '${booking.vehicle!.make} ${booking.vehicle!.model}${booking.vehicle!.variant != null && booking.vehicle!.variant!.isNotEmpty ? ' ${booking.vehicle!.variant}' : ''} • ${booking.vehicle!.licensePlate}'
         : 'Vehicle service';
     final dateLabel = _formatDate(context, booking.date);
     final timeLabel = _formatTime(context, booking.date);
@@ -961,7 +961,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
               // Formatting vehicle label to match screenshot style: JUPITER 5G • TS08JY4741
               final vehicleLabel = b.vehicle != null
-                  ? '${b.vehicle!.make.toUpperCase()} ${b.vehicle!.model.toUpperCase()} • ${b.vehicle!.licensePlate.toUpperCase()}'
+                  ? '${b.vehicle!.make.toUpperCase()} ${b.vehicle!.model.toUpperCase()}${b.vehicle!.variant != null && b.vehicle!.variant!.isNotEmpty ? ' ${b.vehicle!.variant!.toUpperCase()}' : ''} • ${b.vehicle!.licensePlate.toUpperCase()}'
                   : '';
 
               final statusText = _statusLabel(b.status);

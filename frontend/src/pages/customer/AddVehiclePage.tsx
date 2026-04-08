@@ -37,8 +37,7 @@ const AddVehiclePage: React.FC = () => {
 
   useEffect(() => {
     const fetchTireDetails = async () => {
-      // We fetch when make and model are available
-      if (formData.make && formData.model) {
+      if (formData.make && formData.model && formData.variant && formData.variant.trim() !== '') {
         setIsFetchingTires(true);
         try {
           const details = await searchVehicleReference(formData.make, formData.model, formData.variant);

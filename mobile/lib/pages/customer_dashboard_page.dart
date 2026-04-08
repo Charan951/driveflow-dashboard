@@ -481,7 +481,7 @@ class _UpcomingBookingCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                v.make,
+                '${v.make} ${v.model}${v.variant != null && v.variant!.isNotEmpty ? ' ${v.variant}' : ''}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -855,7 +855,7 @@ class _RecentBookingsSection extends StatelessWidget {
                   ? b.services.first.name
                   : 'Service';
               final vehicleLabel = b.vehicle != null
-                  ? '${b.vehicle!.make} ${b.vehicle!.model} • ${b.vehicle!.licensePlate}'
+                  ? '${b.vehicle!.make} ${b.vehicle!.model}${b.vehicle!.variant != null && b.vehicle!.variant!.isNotEmpty ? ' ${b.vehicle!.variant}' : ''} • ${b.vehicle!.licensePlate}'
                   : '';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),

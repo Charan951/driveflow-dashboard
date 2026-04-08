@@ -31,6 +31,7 @@ class VehicleService {
     num? mileage,
     String? fuelType,
     String? color,
+    String? registrationDate,
     String? frontTyres,
     String? rearTyres,
     String? batteryDetails,
@@ -48,6 +49,7 @@ class VehicleService {
         'mileage': mileage,
         'fuelType': fuelType,
         'color': color,
+        'registrationDate': registrationDate,
         'frontTyres': frontTyres,
         'rearTyres': rearTyres,
         'batteryDetails': batteryDetails,
@@ -64,11 +66,11 @@ class VehicleService {
     String? variant,
   }) async {
     try {
-      final queryParams = {
-        'brand_name': make,
-        'model': model,
-        if (variant != null) 'variant': variant,
-      };
+      final m = make.trim();
+      final md = model.trim();
+      final v = (variant ?? '').trim();
+      if (m.isEmpty || md.isEmpty || v.isEmpty) return null;
+      final queryParams = {'brand_name': m, 'model': md, 'variant': v};
 
       final queryString = queryParams.entries
           .map(

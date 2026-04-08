@@ -37,7 +37,7 @@ class MessageSender {
   final String name;
   final String role;
 
-  MessageSender({
+  const MessageSender({
     required this.id,
     required this.name,
     required this.role,

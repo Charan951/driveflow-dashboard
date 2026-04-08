@@ -25,7 +25,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   BookingDetail? _booking;
   bool _isLoading = true;
   bool _isSaving = false;
-  late TabController _tabController;
+  TabController? _tabController;
 
   // Inspection State
   final List<Map<String, dynamic>> _newParts = [];
@@ -55,10 +55,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   bool _noLeaksChecked = false;
   bool _noErrorLightsChecked = false;
 
+  // Warranty State (Battery/Tire)
+  final TextEditingController _warrantyNameController = TextEditingController();
+  final TextEditingController _warrantyPriceController =
+      TextEditingController();
+  final TextEditingController _warrantyMonthsController =
+      TextEditingController();
+  String? _warrantyImage;
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
     _socketService.addListener(_onSocketUpdate);
   }
 
@@ -68,13 +76,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       _socketService.leaveRoom('booking_${_booking!.id}');
     }
     _socketService.removeListener(_onSocketUpdate);
-    _tabController.dispose();
+    _tabController?.dispose();
     _extraCostReasonController.dispose();
     _extraCostAmountController.dispose();
     _invoiceNumberController.dispose();
     _partsCostController.dispose();
     _labourCostController.dispose();
     _gstController.dispose();
+    _warrantyNameController.dispose();
+    _warrantyPriceController.dispose();
+    _warrantyMonthsController.dispose();
     super.dispose();
   }
 
@@ -132,7 +143,22 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           _safetyChecksChecked = data.qc?.safetyChecks ?? false;
           _noLeaksChecked = data.qc?.noLeaks ?? false;
           _noErrorLightsChecked = data.qc?.noErrorLights ?? false;
+
+          // Sync warranty fields
+          _warrantyNameController.text = data.batteryTire?.warranty?.name ?? '';
+          _warrantyPriceController.text =
+              data.batteryTire?.warranty?.price?.toString() ?? '';
+          _warrantyMonthsController.text =
+              data.batteryTire?.warranty?.warrantyMonths?.toString() ?? '';
+          _warrantyImage = data.batteryTire?.warranty?.image;
         });
+        final bool isBattery =
+            _booking?.batteryTire?.isBatteryTireService == true;
+        final int desiredLength = isBattery ? 2 : 4;
+        if (_tabController == null || _tabController!.length != desiredLength) {
+          _tabController?.dispose();
+          _tabController = TabController(length: desiredLength, vsync: this);
+        }
         _socketService.joinRoom('booking_$id');
       }
     } catch (e) {
@@ -233,62 +259,77 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       return const Scaffold(body: Center(child: Text('Order not found')));
     }
 
+    final bool isBattery = _booking!.batteryTire?.isBatteryTireService == true;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'Order #${_booking!.orderNumber ?? _booking!.id.substring(_booking!.id.length - 6).toUpperCase()}',
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            const Tab(text: 'Overview'),
-            const Tab(text: 'Inspection'),
-            Tab(
-              child: Opacity(
-                opacity: _booking?.inspectionCompletedAt != null ? 1.0 : 0.5,
-                child: const Text('QC & Service'),
+        bottom: _tabController == null
+            ? null
+            : TabBar(
+                controller: _tabController!,
+                isScrollable: true,
+                tabs: isBattery
+                    ? const [Tab(text: 'Overview'), Tab(text: 'Warranty')]
+                    : [
+                        const Tab(text: 'Overview'),
+                        const Tab(text: 'Inspection'),
+                        Tab(
+                          child: Opacity(
+                            opacity: _booking?.inspectionCompletedAt != null
+                                ? 1.0
+                                : 0.5,
+                            child: const Text('QC & Service'),
+                          ),
+                        ),
+                        Tab(
+                          child: Opacity(
+                            opacity: _booking?.qcCompletedAt != null
+                                ? 1.0
+                                : 0.5,
+                            child: const Text('Billing'),
+                          ),
+                        ),
+                      ],
+                onTap: (index) {
+                  if (isBattery) return;
+                  if (index == 2) {
+                    if (_booking?.inspectionCompletedAt == null) {
+                      _tabController!.index = _tabController!.previousIndex;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please complete inspection first'),
+                        ),
+                      );
+                    }
+                  } else if (index == 3) {
+                    if (_booking?.qcCompletedAt == null) {
+                      _tabController!.index = _tabController!.previousIndex;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please complete QC check first'),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
-            ),
-            Tab(
-              child: Opacity(
-                opacity: _booking?.qcCompletedAt != null ? 1.0 : 0.5,
-                child: const Text('Billing'),
-              ),
-            ),
-          ],
-          onTap: (index) {
-            if (index == 2) {
-              if (_booking?.inspectionCompletedAt == null) {
-                _tabController.index = _tabController.previousIndex;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please complete inspection first'),
-                  ),
-                );
-              }
-            } else if (index == 3) {
-              if (_booking?.qcCompletedAt == null) {
-                _tabController.index = _tabController.previousIndex;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please complete QC check first'),
-                  ),
-                );
-              }
-            }
-          },
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOverview(),
-          _buildInspection(),
-          _buildQCAndService(),
-          _buildBilling(),
-        ],
-      ),
+      body: _tabController == null
+          ? const SizedBox.shrink()
+          : TabBarView(
+              controller: _tabController!,
+              children: isBattery
+                  ? [_buildOverview(), _buildWarranty()]
+                  : [
+                      _buildOverview(),
+                      _buildInspection(),
+                      _buildQCAndService(),
+                      _buildBilling(),
+                    ],
+            ),
       bottomNavigationBar: _buildStatusControl(),
     );
   }
@@ -1480,6 +1521,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     bool isWaitingForPayment = false;
     String? warningMessage;
 
+    final bool isBattery = _booking!.batteryTire?.isBatteryTireService == true;
+
     switch (_booking!.status) {
       case 'VEHICLE_PICKED':
         nextStatuses = ['REACHED_MERCHANT'];
@@ -1489,7 +1532,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         nextStatuses = ['SERVICE_STARTED'];
         break;
       case 'SERVICE_STARTED':
-        // Status can only be updated to SERVICE_COMPLETED via Billing submission
+        // For battery/tire, merchant may directly proceed to installation/delivery
+        if (isBattery) {
+          nextStatuses = ['INSTALLATION'];
+        }
         break;
       case 'SERVICE_COMPLETED':
         if (_booking!.paymentStatus != 'paid') {
@@ -1629,5 +1675,208 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         ],
       ),
     );
+  }
+
+  Widget _buildWarranty() {
+    final warranty = _booking!.batteryTire?.warranty;
+    if (warranty?.name != null && warranty!.name!.isNotEmpty) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.green[200]!),
+          ),
+          color: Colors.green[50],
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Warranty Information',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      warranty.addedAt ?? '',
+                      style: TextStyle(color: Colors.green[700], fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (warranty.image != null && warranty.image!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      warranty.image!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                _kv('Product', warranty.name ?? '-'),
+                _kv('Price', '₹${warranty.price ?? 0}'),
+                _kv('Warranty', '${warranty.warrantyMonths ?? 0} months'),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Add Warranty Information',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _warrantyNameController,
+            decoration: const InputDecoration(labelText: 'Product Name'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _warrantyPriceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Price (₹)'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _warrantyMonthsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Warranty Months'),
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: _isUploading ? null : _pickWarrantyImage,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey[50],
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    _warrantyImage != null
+                        ? Icons.check_circle
+                        : Icons.image_outlined,
+                    size: 40,
+                    color: _warrantyImage != null ? Colors.green : Colors.grey,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _warrantyImage != null
+                        ? 'Image Selected'
+                        : 'Tap to upload product image',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving || _isUploading ? null : _submitWarranty,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(_isSaving ? 'Submitting...' : 'Add Warranty'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(String k, String v) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(k, style: const TextStyle(color: Colors.grey)),
+          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickWarrantyImage() async {
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 60,
+    );
+    if (photo == null) return;
+    setState(() => _isUploading = true);
+    try {
+      final urls = await _service.uploadFiles([photo]);
+      if (urls.isNotEmpty) {
+        setState(() => _warrantyImage = urls.first);
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _submitWarranty() async {
+    if (_booking == null) return;
+    if (_warrantyNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter product name')),
+      );
+      return;
+    }
+    final price = double.tryParse(_warrantyPriceController.text);
+    final months = int.tryParse(_warrantyMonthsController.text);
+    if (price == null || price <= 0 || months == null || months <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter valid price and months')),
+      );
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await _service.addWarranty(
+        _booking!.id,
+        name: _warrantyNameController.text.trim(),
+        price: price,
+        warrantyMonths: months,
+        image: _warrantyImage,
+      );
+      await _load(_booking!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Warranty added successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to add warranty')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

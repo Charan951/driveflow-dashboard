@@ -141,8 +141,8 @@ const BookServicePage: React.FC = () => {
       if (selectedVehicle && selectedVehicleData) {
         let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
         
-        // If no tire size on vehicle, try to fetch from reference
-        if (!vehicleTireSize) {
+        // If no tire size on vehicle, try to fetch from reference when variant is present
+        if (!vehicleTireSize && selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
           try {
             const details = await searchVehicleReference(
               selectedVehicleData.make, 
@@ -208,8 +208,8 @@ const BookServicePage: React.FC = () => {
       if (isTireService && selectedVehicleData) {
         let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
         
-        // If no tire size on vehicle, try to fetch from reference
-        if (!vehicleTireSize) {
+        // If no tire size on vehicle, try to fetch from reference when variant is present
+        if (!vehicleTireSize && selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
           try {
             const details = await searchVehicleReference(
               selectedVehicleData.make, 

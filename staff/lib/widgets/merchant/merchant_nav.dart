@@ -15,7 +15,7 @@ class MerchantNavItem {
 
 const List<MerchantNavItem> allMerchantNavItems = [
   MerchantNavItem(
-    icon: Icons.dashboard_outlined,
+    icon: Icons.home,
     label: 'Dashboard',
     route: '/merchant-dashboard',
   ),
@@ -25,24 +25,9 @@ const List<MerchantNavItem> allMerchantNavItems = [
     route: '/merchant-orders',
   ),
   MerchantNavItem(
-    icon: Icons.layers_outlined,
-    label: 'Stock',
-    route: '/merchant-stock',
-  ),
-  MerchantNavItem(
     icon: Icons.message_outlined,
     label: 'Feedback',
     route: '/merchant-feedback',
-  ),
-  MerchantNavItem(
-    icon: Icons.store_outlined,
-    label: 'Services',
-    route: '/merchant-services',
-  ),
-  MerchantNavItem(
-    icon: Icons.directions_car_outlined,
-    label: 'Vehicles',
-    route: '/merchant-vehicles',
   ),
   MerchantNavItem(
     icon: Icons.people_outline,
@@ -251,38 +236,13 @@ class MerchantBottomNav extends StatelessWidget {
     // Determine which items to show in bottom nav.
     // Dashboard, Orders, Stock, Feedback, Profile are usually the most important.
 
-    final List<MerchantNavItem> bottomNavItems = [];
+    final List<MerchantNavItem> bottomNavItems = [
+      filteredItems.firstWhere((i) => i.label == 'Orders'),
+      filteredItems.firstWhere((i) => i.label == 'Dashboard'),
+      filteredItems.firstWhere((i) => i.label == 'Profile'),
+    ];
 
-    // Add Dashboard and Orders first
-    final dashboard = filteredItems.firstWhere((i) => i.label == 'Dashboard');
-    final orders = filteredItems.firstWhere((i) => i.label == 'Orders');
-    bottomNavItems.add(dashboard);
-    bottomNavItems.add(orders);
-
-    // Add Stock and Feedback if they exist
-    final stock = filteredItems.firstWhere(
-      (i) => i.label == 'Stock',
-      orElse: () => dashboard,
-    );
-    final feedback = filteredItems.firstWhere(
-      (i) => i.label == 'Feedback',
-      orElse: () => dashboard,
-    );
-    if (stock != dashboard) bottomNavItems.add(stock);
-    if (feedback != dashboard) bottomNavItems.add(feedback);
-
-    // Add Profile as the last item
-    final profile = filteredItems.firstWhere(
-      (i) => i.label == 'Profile',
-      orElse: () => dashboard,
-    );
-    if (profile != dashboard) bottomNavItems.add(profile);
-
-    // If we have more than 5, we'll just take the first 5 of this custom list.
-    // In our case, it should be exactly 5.
-    final displayItems = bottomNavItems.length > 5
-        ? bottomNavItems.take(5).toList()
-        : bottomNavItems;
+    final displayItems = bottomNavItems;
 
     // Find if the current route is in our display items
     final currentRoute = ModalRoute.of(context)?.settings.name;

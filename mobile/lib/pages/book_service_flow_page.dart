@@ -51,6 +51,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   String? _activeSubCategory;
   final Map<String, String> _tireSizes = {};
   final Map<String, bool> _isManualSize = {};
+  final Map<String, TextEditingController> _tireSizeControllers = {};
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   String? _selectedAddress;
@@ -60,6 +61,139 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   bool _locating = false;
   bool _resolvingAddress = false;
   final MapController _mapController = MapController();
+  String? _selectedVehicleOEMTire;
+
+  Future<void> _autoFillTireSize(String serviceId, Vehicle vehicle) async {
+    String _format(String v) {
+      var s = v.trim();
+      s = s.replaceAll(RegExp(r'\s*/\s*'), '/');
+      s = s.replaceAll(RegExp(r'\s+'), ' ');
+      s = s.replaceAllMapped(
+        RegExp(r'(\d{2,3})/(\d{2})\s*R\s*(\d{2})'),
+        (m) => '${m[1]}/${m[2]} R${m[3]}',
+      );
+      return s;
+    }
+
+    String _clean(String? v) {
+      if (v == null) return '';
+      var s = v.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+      s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return s;
+    }
+
+    const overrides = {'tata|nexon|xe': '195/60 R16'};
+
+    final service = _allServices.firstWhere(
+      (s) => s.id == serviceId,
+      orElse: () => _allServices.first,
+    );
+    final isTireService =
+        service.name.toLowerCase().contains('change') ||
+        service.name.toLowerCase().contains('size');
+
+    if (!isTireService) return;
+
+    String? tireSize;
+
+    // Always try reference first with cleaned brand, model, and variant
+    try {
+      final ref = await _vehicleService.searchReference(
+        make: _clean(vehicle.make),
+        model: _clean(vehicle.model),
+        variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
+            ? _clean(vehicle.variant)
+            : null,
+      );
+      if (ref != null) {
+        tireSize = (ref['front_tyres'] ?? ref['rear_tyres'])?.toString();
+      }
+    } catch (e) {
+      debugPrint('Failed to auto-fetch tire size from reference: $e');
+    }
+
+    // Fallback to vehicle-saved tyres if reference not found
+    tireSize ??= vehicle.frontTyres ?? vehicle.rearTyres;
+
+    if (tireSize != null && tireSize.isNotEmpty) {
+      tireSize = _format(tireSize);
+    }
+
+    final b = _clean(vehicle.make).toLowerCase();
+    final m = _clean(vehicle.model).toLowerCase();
+    final v = (vehicle.variant != null && vehicle.variant!.trim().isNotEmpty)
+        ? _clean(vehicle.variant).toLowerCase()
+        : null;
+    final k1 = v != null && v.isNotEmpty ? '$b|$m|$v' : '$b|$m';
+    if (overrides.containsKey(k1)) {
+      tireSize = overrides[k1];
+    } else if (overrides.containsKey('$b|$m')) {
+      tireSize = overrides['$b|$m'];
+    }
+
+    if (tireSize != null && tireSize.isNotEmpty) {
+      setState(() {
+        _tireSizes[serviceId] = tireSize!;
+
+        // Update controller if it exists
+        if (_tireSizeControllers.containsKey(serviceId)) {
+          _tireSizeControllers[serviceId]!.text = tireSize!;
+        }
+
+        if (!commonTireSizes.contains(tireSize)) {
+          _isManualSize[serviceId] = true;
+        }
+      });
+    }
+  }
+
+  Future<void> _prefetchVehicleTire(Vehicle vehicle) async {
+    String _format(String v) {
+      var s = v.trim();
+      s = s.replaceAll(RegExp(r'\s*/\s*'), '/');
+      s = s.replaceAll(RegExp(r'\s+'), ' ');
+      s = s.replaceAllMapped(
+        RegExp(r'(\d{2,3})/(\d{2})\s*R\s*(\d{2})'),
+        (m) => '${m[1]}/${m[2]} R${m[3]}',
+      );
+      return s;
+    }
+
+    String _clean(String? v) {
+      if (v == null) return '';
+      var s = v.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+      s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return s;
+    }
+
+    try {
+      final ref = await _vehicleService.searchReference(
+        make: _clean(vehicle.make),
+        model: _clean(vehicle.model),
+        variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
+            ? _clean(vehicle.variant)
+            : null,
+      );
+      String? tireSize = (ref?['front_tyres'] ?? ref?['rear_tyres'])
+          ?.toString();
+      tireSize ??= vehicle.frontTyres ?? vehicle.rearTyres;
+      if (tireSize != null && tireSize.isNotEmpty) {
+        final formatted = _format(tireSize);
+        setState(() {
+          _selectedVehicleOEMTire = formatted;
+          for (final sid in _selectedServiceIds) {
+            _tireSizes[sid] = formatted;
+            if (!commonTireSizes.contains(formatted)) {
+              _isManualSize[sid] = true;
+            }
+            if (_tireSizeControllers.containsKey(sid)) {
+              _tireSizeControllers[sid]!.text = formatted;
+            }
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   static const List<String> commonTireSizes = [
     '145/70 R12',
@@ -67,6 +201,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     '165/80 R14',
     '175/65 R14',
     '185/65 R15',
+    '195/60 R16',
     '195/55 R16',
     '205/55 R16',
     '215/60 R16',
@@ -86,8 +221,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     }
 
-    if (widget.initialCategory == 'Tyres') {
-      _activeSubCategory = null; // No default selection for Tyres/Battery
+    if (widget.initialCategory == 'Tyres' ||
+        widget.initialCategory == 'Tyre & Battery') {
+      _activeSubCategory = 'Tyres'; // Default to Tyres
     } else {
       _activeSubCategory = 'All';
     }
@@ -101,6 +237,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           _initialServiceId = service.id;
           _selectedServiceIds = [service.id];
           _currentStep = 0; // Start at vehicle selection step
+
+          // Auto-set subcategory for Tyres flow
+          if (widget.initialCategory == 'Tyres' ||
+              widget.initialCategory == 'Tyre & Battery') {
+            if (service.category?.toLowerCase().contains('battery') == true) {
+              _activeSubCategory = 'Battery';
+            } else {
+              _activeSubCategory = 'Tyres';
+            }
+          }
         });
       }
     });
@@ -110,6 +256,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   void dispose() {
     _razorpay?.clear();
     _notesController.dispose();
+    for (final controller in _tireSizeControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -210,6 +359,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           _allServices = services;
           if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
             _selectedVehicleId = _vehicles.first.id;
+
+            // Auto-fill tire size for the default selected vehicle
+            final vehicle = _vehicles.first;
+            _prefetchVehicleTire(vehicle);
+            for (final serviceId in _selectedServiceIds) {
+              _autoFillTireSize(serviceId, vehicle);
+            }
           }
 
           // Pre-populate location from default saved address
@@ -254,8 +410,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     };
 
     if (tabMapping[widget.initialCategory] == currentIdx) {
-      // If we are on the active tab, and the vehicle list is empty but we haven't checked in a while
-      if (_vehicles.isEmpty && !_loading && _error == null) {
+      // If we are on the active tab, and data is missing but we haven't checked in a while
+      if ((_vehicles.isEmpty || _allServices.isEmpty) &&
+          !_loading &&
+          _error == null) {
         Future.microtask(() => _fetchInitialData());
       }
     }
@@ -561,30 +719,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 _selectedVehicleId = v.id;
 
                 // Pre-fill tire sizes for already selected tire services
-                final vehicleTireSize = v.frontTyres ?? v.rearTyres;
-                if (vehicleTireSize != null && vehicleTireSize.isNotEmpty) {
-                  for (final serviceId in _selectedServiceIds) {
-                    final service = _allServices.firstWhere(
-                      (s) => s.id == serviceId,
-                      orElse: () => _allServices.first,
-                    );
-                    final isTireService =
-                        service.name.toLowerCase().contains('change') ||
-                        service.name.toLowerCase().contains('size');
-
-                    if (isTireService &&
-                        (_tireSizes[serviceId] == null ||
-                            _tireSizes[serviceId]!.isEmpty)) {
-                      _tireSizes[serviceId] = vehicleTireSize;
-
-                      // If the size is not in commonTireSizes, enable manual size mode
-                      if (!commonTireSizes.contains(vehicleTireSize)) {
-                        _isManualSize[serviceId] = true;
-                      }
-                    }
-                  }
+                for (final serviceId in _selectedServiceIds) {
+                  _autoFillTireSize(serviceId, v);
                 }
               });
+              _prefetchVehicleTire(v);
             },
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -631,7 +770,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${v.make} ${v.model}',
+                          '${v.make} ${v.model}${v.variant != null && v.variant!.isNotEmpty ? ' ${v.variant}' : ''}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -683,15 +822,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final Map<String, List<String>> categoryMap = {
       'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
       'Wash': ['Car Wash', 'Wash', 'Detailing'],
-      'Tyres': [
-        'Tyre & Battery',
-        'Tyres',
-        'Battery',
-        'Batteries',
-        'Tyre Service',
-        'Battery Service',
-        'Tires',
-      ],
+      // Keep this aligned with web app logic
+      'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
       'Insurance': ['Insurance'],
       'Other': ['Other', 'Painting', 'Denting', 'Accessories'],
     };
@@ -839,30 +971,28 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
         const SizedBox(height: 16),
         ...(() {
-          // Group services by their logical category if initialCategory is provided
-          final filteredCategories = categoriesToDisplay.where((c) {
+          // If we have initialCategory (tabbed view)
+          if (widget.initialCategory != null) {
+            List<ServiceItem> services;
+
             if (widget.initialCategory == 'Tyres' ||
                 widget.initialCategory == 'Tyre & Battery') {
-              if (_activeSubCategory == 'Tyres') {
-                return c.contains('Tyre') ||
-                    c.contains('Tire') ||
-                    c.contains('Tyre & Battery');
-              }
-              if (_activeSubCategory == 'Battery') {
-                return c.contains('Battery') ||
-                    c.contains('Batteries') ||
-                    c.contains('Tyre & Battery');
-              }
-              // If no sub-category is selected, don't show any services
-              return false;
+              services = _allServices.where((s) {
+                final cat = s.category?.toLowerCase() ?? '';
+                if (_activeSubCategory == 'Tyres') {
+                  return cat.contains('tyre') || cat.contains('tire');
+                } else if (_activeSubCategory == 'Battery') {
+                  return cat.contains('battery');
+                }
+                return false;
+              }).toList();
+            } else {
+              // Non-tyre categories: keep original category grouping behavior
+              final filteredCategories = categoriesToDisplay;
+              services = _allServices
+                  .where((s) => filteredCategories.contains(s.category))
+                  .toList();
             }
-            return true;
-          }).toList();
-
-          if (widget.initialCategory != null) {
-            var services = _allServices
-                .where((s) => filteredCategories.contains(s.category))
-                .toList();
 
             if (_initialServiceId != null) {
               services = services
@@ -870,7 +1000,49 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   .toList();
             }
 
-            if (services.isEmpty) return [const SizedBox.shrink()];
+            if (services.isEmpty) {
+              return [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.search_off_outlined,
+                        size: 48,
+                        color: isDark
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No services found',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try selecting another category or check back later.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ];
+            }
 
             return [
               Column(
@@ -899,29 +1071,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     (v) => v.id == _selectedVehicleId,
                                     orElse: () => _vehicles.first,
                                   );
-                                  final vehicleTireSize =
-                                      vehicle.frontTyres ?? vehicle.rearTyres;
-
-                                  final isTireService =
-                                      service.name.toLowerCase().contains(
-                                        'change',
-                                      ) ||
-                                      service.name.toLowerCase().contains(
-                                        'size',
-                                      );
-
-                                  if (isTireService &&
-                                      vehicleTireSize != null &&
-                                      vehicleTireSize.isNotEmpty) {
-                                    _tireSizes[service.id] = vehicleTireSize;
-
-                                    // If the size is not in commonTireSizes, enable manual size mode
+                                  if (_selectedVehicleOEMTire != null &&
+                                      _selectedVehicleOEMTire!.isNotEmpty) {
+                                    _tireSizes[service.id] =
+                                        _selectedVehicleOEMTire!;
                                     if (!commonTireSizes.contains(
-                                      vehicleTireSize,
+                                      _selectedVehicleOEMTire,
                                     )) {
                                       _isManualSize[service.id] = true;
                                     }
                                   }
+                                  _autoFillTireSize(service.id, vehicle);
                                 }
                               }
                             });
@@ -1084,6 +1244,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 ),
                                 if (_isManualSize[service.id] == true)
                                   TextField(
+                                    controller: _tireSizeControllers
+                                        .putIfAbsent(
+                                          service.id,
+                                          () => TextEditingController(
+                                            text: _tireSizes[service.id] ?? '',
+                                          ),
+                                        ),
                                     onChanged: (val) => setState(
                                       () => _tireSizes[service.id] = val,
                                     ),
@@ -1132,6 +1299,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           }
 
           // Fallback for when no initialCategory is provided (show all with headers)
+          final filteredCategories = categoriesToDisplay;
           return filteredCategories.map((category) {
             var services = _allServices
                 .where((s) => s.category == category)
@@ -1175,6 +1343,31 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                               _selectedServiceIds.remove(service.id);
                             } else {
                               _selectedServiceIds.add(service.id);
+
+                              // Pre-fill tire size if vehicle is selected
+                              if (_selectedVehicleId != null) {
+                                final vehicle = _vehicles.firstWhere(
+                                  (v) => v.id == _selectedVehicleId,
+                                  orElse: () => _vehicles.first,
+                                );
+                                if (_selectedVehicleOEMTire != null &&
+                                    _selectedVehicleOEMTire!.isNotEmpty) {
+                                  _tireSizes[service.id] =
+                                      _selectedVehicleOEMTire!;
+                                  if (!commonTireSizes.contains(
+                                    _selectedVehicleOEMTire,
+                                  )) {
+                                    _isManualSize[service.id] = true;
+                                  }
+                                  if (_tireSizeControllers.containsKey(
+                                    service.id,
+                                  )) {
+                                    _tireSizeControllers[service.id]!.text =
+                                        _selectedVehicleOEMTire!;
+                                  }
+                                }
+                                _autoFillTireSize(service.id, vehicle);
+                              }
                             }
                           });
                         },
@@ -1331,6 +1524,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                               ),
                               if (_isManualSize[service.id] == true)
                                 TextField(
+                                  controller: _tireSizeControllers.putIfAbsent(
+                                    service.id,
+                                    () => TextEditingController(
+                                      text: _tireSizes[service.id] ?? '',
+                                    ),
+                                  ),
                                   onChanged: (val) => setState(
                                     () => _tireSizes[service.id] = val,
                                   ),
@@ -1651,7 +1850,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (selectedVehicle != null)
         _buildSummaryItem(
           'Vehicle',
-          '${selectedVehicle.make} ${selectedVehicle.model} (${selectedVehicle.licensePlate})',
+          '${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.variant != null && selectedVehicle.variant!.isNotEmpty ? ' ${selectedVehicle.variant}' : ''} (${selectedVehicle.licensePlate})',
           Icons.directions_car,
         ),
       if (selectedServices.isNotEmpty)

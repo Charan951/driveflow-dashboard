@@ -17,10 +17,11 @@ export const getVehicleReference = async () => {
 };
 
 export const searchVehicleReference = async (brand_name: string, model: string, variant?: string) => {
-  let url = `/vehicle-reference/search?brand_name=${encodeURIComponent(brand_name)}&model=${encodeURIComponent(model)}`;
-  if (variant) {
-    url += `&variant=${encodeURIComponent(variant)}`;
-  }
+  const b = (brand_name || '').trim();
+  const m = (model || '').trim();
+  const v = (variant || '').trim();
+  if (!b || !m || !v) return null;
+  const url = `/vehicle-reference/search?brand_name=${encodeURIComponent(b)}&model=${encodeURIComponent(m)}&variant=${encodeURIComponent(v)}`;
   const response = await api.get(url);
   return response.data;
 };

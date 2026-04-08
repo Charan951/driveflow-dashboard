@@ -20,6 +20,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
   final _variantController = TextEditingController();
+  final _registrationDateController = TextEditingController();
   final _yearController = TextEditingController(
     text: DateTime.now().year.toString(),
   );
@@ -62,7 +63,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     final model = _modelController.text.trim();
     final variant = _variantController.text.trim();
 
-    if (make.isNotEmpty && model.isNotEmpty) {
+    if (make.isNotEmpty && model.isNotEmpty && variant.isNotEmpty) {
       // Debounce logic could be added here, but for simplicity:
       _fetchReferenceData(make, model, variant);
     }
@@ -167,6 +168,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         year: int.tryParse(_yearController.text) ?? DateTime.now().year,
         type: _type,
         color: _colorController.text.trim(),
+        registrationDate: _registrationDateController.text.trim(),
         fuelType: _fuelType,
         frontTyres: _frontTyresController.text.trim(),
         rearTyres: _rearTyresController.text.trim(),
@@ -279,25 +281,40 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         SizedBox(
           width: double.infinity,
           height: 54,
-          child: ElevatedButton(
-            onPressed: _isFetching ? null : _handleRegNoSubmit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accentPurple,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _isFetching ? null : _handleRegNoSubmit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isFetching
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Next'),
+                ),
               ),
-            ),
-            child: _isFetching
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('Fetch Details'),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Center(
-          child: TextButton(
-            onPressed: () => setState(() => _step = 2),
-            child: const Text('Enter details manually'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _step = 2),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _accentPurple,
+                    side: BorderSide(color: _accentPurple),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('Manual'),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -335,6 +352,14 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             required: false,
           ),
           const SizedBox(height: 16),
+          _buildTextField(
+            'Registration Date (DD-MM-YYYY)',
+            _registrationDateController,
+            'e.g. 15-08-2022',
+            isDark,
+            required: false,
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -358,6 +383,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             ],
           ),
           const SizedBox(height: 24),
+          /* Hiding Technical Specifications as per user request
           const Text(
             'Technical Specifications',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -403,6 +429,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             required: false,
           ),
           const SizedBox(height: 24),
+          */
           const Text(
             'Additional Info',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

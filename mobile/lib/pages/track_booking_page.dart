@@ -1635,7 +1635,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          '${booking.vehicle!.make} ${booking.vehicle!.model}',
+                                          '${booking.vehicle!.make} ${booking.vehicle!.model}${booking.vehicle!.variant != null && booking.vehicle!.variant!.isNotEmpty ? ' ${booking.vehicle!.variant}' : ''}',
                                           style: Theme.of(context)
                                               .textTheme
                                               .bodyMedium
@@ -1660,33 +1660,101 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            const Divider(height: 1),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Total Amount',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                      ),
+                            if (booking.billing != null &&
+                                (booking.billing!.total > 0 ||
+                                    booking.billing!.invoiceNumber !=
+                                        null)) ...[
+                              const SizedBox(height: 12),
+                              const Divider(height: 1),
+                              const SizedBox(height: 12),
+                              _buildCostRow(
+                                'Base Service Amount',
+                                '₹${booking.totalAmount - (booking.billing!.partsTotal ?? 0) - (booking.billing!.labourCost ?? 0) - (booking.billing!.gst ?? 0)}',
+                                isDark,
+                              ),
+                              if ((booking.billing!.partsTotal ?? 0) > 0)
+                                _buildCostRow(
+                                  'Parts Total',
+                                  '₹${booking.billing!.partsTotal}',
+                                  isDark,
                                 ),
-                                Text(
-                                  '₹${booking.calculatedTotal}',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                              if ((booking.billing!.labourCost ?? 0) > 0)
+                                _buildCostRow(
+                                  'Labour Cost',
+                                  '₹${booking.billing!.labourCost}',
+                                  isDark,
                                 ),
-                              ],
-                            ),
+                              if ((booking.billing!.gst ?? 0) > 0)
+                                _buildCostRow(
+                                  'GST',
+                                  '₹${booking.billing!.gst}',
+                                  isDark,
+                                ),
+                              const SizedBox(height: 8),
+                              const Divider(height: 1),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Billed Amount',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black87,
+                                        ),
+                                  ),
+                                  Text(
+                                    '₹${booking.billing!.total}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: const Color(0xFF2563EB),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 12),
+                              const Divider(height: 1),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Amount',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                        ),
+                                  ),
+                                  Text(
+                                    '₹${booking.calculatedTotal}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             if ((isCarWash || isBatteryTire) &&
                                 booking.paymentStatus == 'pending')
                               Container(
@@ -3221,6 +3289,32 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCostRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white60 : Colors.black54,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
             ),
           ),
         ],

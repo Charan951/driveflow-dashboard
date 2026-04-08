@@ -8,15 +8,15 @@ class SocketService {
   private currentRoom: string | null = null;
 
   connect() {
-    if (this.socket?.connected) return;
-
+    const token = sessionStorage.getItem('token');
     if (this.socket) {
-      this.socket.connect();
+      (this.socket as any).auth = { token };
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
       return;
     }
 
-    const token = sessionStorage.getItem('token');
-    
     this.socket = io(SOCKET_URL, {
       transports: ['websocket'],
       autoConnect: true,
@@ -29,6 +29,7 @@ class SocketService {
     });
 
     this.socket.on('connect', () => {
+      (this.socket as any).auth = { token: sessionStorage.getItem('token') };
       if (this.currentRoom) {
         this.socket?.emit('join', this.currentRoom);
       }

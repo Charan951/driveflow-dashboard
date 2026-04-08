@@ -302,7 +302,7 @@ class _InsurancePageState extends State<InsurancePage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${vehicle.year} ${vehicle.make} ${vehicle.model} • ${vehicle.licensePlate}',
+                          '${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.variant != null && vehicle.variant!.isNotEmpty ? ' ${vehicle.variant}' : ''} • ${vehicle.licensePlate}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,

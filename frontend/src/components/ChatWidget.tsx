@@ -138,11 +138,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
         }
 
         // 2. Check if this is a message we sent (matching text and sender) to replace temp
-        const tempIndex = prev.findIndex(m => 
-          m._id.startsWith('temp_') && 
-          m.text === message.text && 
-          m.sender._id === message.sender._id
-        );
+        const tempIndex = prev.findIndex(m => {
+          const isTemp = m._id.startsWith('temp_');
+          const textMatches = m.text.trim() === message.text.trim();
+          const senderMatches = String(m.sender._id) === String(message.sender._id);
+          return isTemp && textMatches && senderMatches;
+        });
 
         if (tempIndex !== -1) {
           const newMessages = [...prev];
@@ -151,7 +152,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
         }
 
         // Only increment unread if not self and chat is closed or minimized
-        const isSelf = message.sender._id === user?._id;
+        const isSelf = String(message.sender._id) === String(user?._id);
         if (!isSelf && (!isOpenRef.current || isMinimizedRef.current)) {
           setUnreadCount(prev => prev + 1);
         }

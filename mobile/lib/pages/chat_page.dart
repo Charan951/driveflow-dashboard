@@ -9,6 +9,12 @@ import '../state/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/env.dart';
 
+const CARZZI_GREETING_MESSAGE = '''Hi 👋 Hope you’re doing well! 
+Welcome to Carzzi Support Chat  🚗 
+Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts  submitted. 
+If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
+Thank you for choosing Carzzi 🙌''';
+
 class ChatPage extends StatefulWidget {
   final Booking booking;
 
@@ -60,12 +66,24 @@ class _ChatPageState extends State<ChatPage> {
       final message = Message.fromJson(Map<String, dynamic>.from(data));
       if (message.bookingId == _bookingId) {
         setState(() {
-          // Check if message already exists (optimistic update)
+          // Check if message already exists (by real ID)
           final index = _messages.indexWhere((m) => m.id == message.id);
           if (index != -1) {
             _messages[index] = message;
           } else {
-            _messages.add(message);
+            // Check if it's an update for an optimistic message
+            final tempIndex = _messages.indexWhere(
+              (m) =>
+                  m.id.startsWith('temp_') &&
+                  m.text == message.text &&
+                  m.sender.id == message.sender.id,
+            );
+
+            if (tempIndex != -1) {
+              _messages[tempIndex] = message; // Replace temp with real
+            } else {
+              _messages.add(message);
+            }
           }
         });
         _scrollToBottom();
@@ -81,6 +99,27 @@ class _ChatPageState extends State<ChatPage> {
           .toList();
       setState(() {
         _messages.clear();
+        // Add system greeting as the first message if list is empty
+        DateTime greetingTime = DateTime.now();
+        try {
+          if (widget.booking.createdAt != null) {
+            greetingTime = DateTime.parse(widget.booking.createdAt!);
+          }
+        } catch (_) {}
+
+        _messages.add(
+          Message(
+            id: 'system_greeting',
+            bookingId: _bookingId,
+            sender: const MessageSender(
+              id: 'carzzi-system-user',
+              name: 'Carzzi',
+              role: 'system',
+            ),
+            text: CARZZI_GREETING_MESSAGE,
+            createdAt: greetingTime,
+          ),
+        );
         _messages.addAll(loadedMessages);
       });
       _scrollToBottom();

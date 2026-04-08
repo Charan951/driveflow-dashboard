@@ -246,6 +246,56 @@ class RevisitDetails {
   }
 }
 
+class BookingBilling {
+  final String? invoiceNumber;
+  final String? invoiceDate;
+  final String? fileUrl;
+  final num total;
+  final num? partsTotal;
+  final num? labourCost;
+  final num? gst;
+  final num? discount;
+
+  const BookingBilling({
+    this.invoiceNumber,
+    this.invoiceDate,
+    this.fileUrl,
+    required this.total,
+    this.partsTotal,
+    this.labourCost,
+    this.gst,
+    this.discount,
+  });
+
+  factory BookingBilling.fromJson(Map<String, dynamic> json) {
+    return BookingBilling(
+      invoiceNumber: json['invoiceNumber']?.toString(),
+      invoiceDate: json['invoiceDate']?.toString(),
+      fileUrl: json['fileUrl']?.toString(),
+      total: json['total'] is num ? (json['total'] as num) : 0,
+      partsTotal: json['partsTotal'] is num
+          ? (json['partsTotal'] as num)
+          : null,
+      labourCost: json['labourCost'] is num
+          ? (json['labourCost'] as num)
+          : null,
+      gst: json['gst'] is num ? (json['gst'] as num) : null,
+      discount: json['discount'] is num ? (json['discount'] as num) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    if (invoiceNumber != null) 'invoiceNumber': invoiceNumber,
+    if (invoiceDate != null) 'invoiceDate': invoiceDate,
+    if (fileUrl != null) 'fileUrl': fileUrl,
+    'total': total,
+    if (partsTotal != null) 'partsTotal': partsTotal,
+    if (labourCost != null) 'labourCost': labourCost,
+    if (gst != null) 'gst': gst,
+    if (discount != null) 'discount': discount,
+  };
+}
+
 class Booking {
   final String id;
   final int? orderNumber;
@@ -282,6 +332,7 @@ class Booking {
   final DelayDetails? delay;
   final RevisitDetails? revisit;
   final List<Map<String, String>> statusHistory;
+  final BookingBilling? billing;
 
   Booking({
     required this.id,
@@ -319,9 +370,13 @@ class Booking {
     this.delay,
     this.revisit,
     this.statusHistory = const [],
+    this.billing,
   });
 
   num get calculatedTotal {
+    if (billing != null && billing!.total > 0) {
+      return billing!.total;
+    }
     num total = 0;
     for (final s in services) {
       total += s.price;
@@ -586,8 +641,15 @@ class Booking {
       }
     }
 
-    final billing = map['billing'];
-    final invoiceUrl = billing is Map ? billing['fileUrl']?.toString() : null;
+    BookingBilling? billing;
+    final b = map['billing'];
+    if (b is Map) {
+      try {
+        final bMap = jsonDecode(jsonEncode(b)) as Map<String, dynamic>;
+        billing = BookingBilling.fromJson(bMap);
+      } catch (_) {}
+    }
+    final invoiceUrl = b is Map ? b['fileUrl']?.toString() : null;
 
     final inspectionObj = map['inspection'];
     final inspectionCompletedAt = inspectionObj is Map
@@ -673,6 +735,7 @@ class Booking {
       delay: delay,
       revisit: revisit,
       statusHistory: statusHistory,
+      billing: billing,
     );
   }
 

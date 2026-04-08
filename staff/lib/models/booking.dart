@@ -139,6 +139,8 @@ class BookingDetail {
   final UserSummary? user;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
+  final BatteryTireData? batteryTire;
+  final RevisitData? revisit;
 
   BookingDetail({
     required this.id,
@@ -160,6 +162,8 @@ class BookingDetail {
     this.user,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
+    this.batteryTire,
+    this.revisit,
   });
 
   static const statusLabels = {
@@ -202,6 +206,8 @@ class BookingDetail {
     UserSummary? user,
     String? inspectionCompletedAt,
     String? qcCompletedAt,
+    BatteryTireData? batteryTire,
+    RevisitData? revisit,
   }) {
     return BookingDetail(
       id: id ?? this.id,
@@ -224,6 +230,8 @@ class BookingDetail {
       inspectionCompletedAt:
           inspectionCompletedAt ?? this.inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt ?? this.qcCompletedAt,
+      batteryTire: batteryTire ?? this.batteryTire,
+      revisit: revisit ?? this.revisit,
     );
   }
 
@@ -337,6 +345,14 @@ class BookingDetail {
           : null,
       qcCompletedAt: getField('qc') is Map
           ? getField('qc')['completedAt']?.toString()
+          : null,
+      batteryTire: getField('batteryTire') is Map
+          ? BatteryTireData.fromJson(
+              Map<String, dynamic>.from(getField('batteryTire')),
+            )
+          : null,
+      revisit: getField('revisit') is Map
+          ? RevisitData.fromJson(Map<String, dynamic>.from(getField('revisit')))
           : null,
     );
   }
@@ -585,6 +601,118 @@ class PartItem {
       name: json['name']?.toString(),
       quantity: json['quantity'] is num ? (json['quantity'] as num) : 0,
       price: json['price'] is num ? (json['price'] as num) : 0,
+    );
+  }
+}
+
+class BatteryTireData {
+  final bool isBatteryTireService;
+  final MerchantApprovalData? merchantApproval;
+  final WarrantyData? warranty;
+
+  BatteryTireData({
+    required this.isBatteryTireService,
+    this.merchantApproval,
+    this.warranty,
+  });
+
+  factory BatteryTireData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return BatteryTireData(isBatteryTireService: false);
+    }
+    return BatteryTireData(
+      isBatteryTireService: json['isBatteryTireService'] == true,
+      merchantApproval: json['merchantApproval'] is Map
+          ? MerchantApprovalData.fromJson(
+              Map<String, dynamic>.from(json['merchantApproval']),
+            )
+          : null,
+      warranty: json['warranty'] is Map
+          ? WarrantyData.fromJson(Map<String, dynamic>.from(json['warranty']))
+          : null,
+    );
+  }
+}
+
+class MerchantApprovalData {
+  final String status;
+  final num? price;
+  final String? image;
+  final String? notes;
+  final String? approvedAt;
+  final String? rejectedAt;
+
+  MerchantApprovalData({
+    required this.status,
+    this.price,
+    this.image,
+    this.notes,
+    this.approvedAt,
+    this.rejectedAt,
+  });
+
+  factory MerchantApprovalData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return MerchantApprovalData(status: 'PENDING');
+    }
+    return MerchantApprovalData(
+      status: json['status']?.toString() ?? 'PENDING',
+      price: json['price'] is num ? (json['price'] as num) : null,
+      image: json['image']?.toString(),
+      notes: json['notes']?.toString(),
+      approvedAt: json['approvedAt']?.toString(),
+      rejectedAt: json['rejectedAt']?.toString(),
+    );
+  }
+}
+
+class WarrantyData {
+  final String? name;
+  final num? price;
+  final int? warrantyMonths;
+  final String? image;
+  final String? addedAt;
+  final dynamic addedBy;
+
+  WarrantyData({
+    this.name,
+    this.price,
+    this.warrantyMonths,
+    this.image,
+    this.addedAt,
+    this.addedBy,
+  });
+
+  factory WarrantyData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return WarrantyData();
+    }
+    return WarrantyData(
+      name: json['name']?.toString(),
+      price: json['price'] is num ? (json['price'] as num) : null,
+      warrantyMonths: json['warrantyMonths'] is num
+          ? (json['warrantyMonths'] as num).toInt()
+          : null,
+      image: json['image']?.toString(),
+      addedAt: json['addedAt']?.toString(),
+      addedBy: json['addedBy'],
+    );
+  }
+}
+
+class RevisitData {
+  final bool isRevisit;
+  final String? originalBookingId;
+  final String? reason;
+
+  RevisitData({this.isRevisit = false, this.originalBookingId, this.reason});
+
+  factory RevisitData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return RevisitData();
+    return RevisitData(
+      isRevisit: json['isRevisit'] == true,
+      originalBookingId: json['originalBookingId']?.toString(),
+      reason: json['reason']?.toString(),
     );
   }
 }

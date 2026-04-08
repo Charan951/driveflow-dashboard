@@ -117,4 +117,40 @@ class BookingService {
   Future<void> createApproval(Map<String, dynamic> data) async {
     await _api.postJson('/approvals', body: data);
   }
+
+  Future<void> batteryTireApproval(
+    String id, {
+    required String status,
+    num? price,
+    String? image,
+    String? notes,
+  }) async {
+    await _api.putJson(
+      '/bookings/$id/battery-tire-approval',
+      body: {
+        'status': status,
+        'price': ?price,
+        'image': ?image,
+        'notes': ?notes,
+      },
+    );
+  }
+
+  Future<void> addWarranty(
+    String id, {
+    required String name,
+    required num price,
+    required int warrantyMonths,
+    String? image,
+  }) async {
+    await _api.putJson(
+      '/bookings/$id/warranty',
+      body: {
+        'name': name,
+        'price': price,
+        'warrantyMonths': warrantyMonths,
+        'image': ?image,
+      },
+    );
+  }
 }
