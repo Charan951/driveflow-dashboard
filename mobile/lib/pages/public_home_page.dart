@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_colors.dart';
 
 class PublicHomePage extends StatelessWidget {
   const PublicHomePage({super.key});
@@ -14,19 +15,70 @@ class PublicHomePage extends StatelessWidget {
           children: [
             const Text('Welcome'),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/services'),
-              child: const Text('Browse Services'),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/services'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Browse Services'),
+              ),
             ),
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/login'),
-              child: const Text('Login'),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/login'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Login'),
+              ),
             ),
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/register'),
-              child: const Text('Register'),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/register'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Register'),
+              ),
             ),
           ],
         ),

@@ -9,7 +9,7 @@ import '../state/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/env.dart';
 
-const CARZZI_GREETING_MESSAGE = '''Hi 👋 Hope you’re doing well! 
+const carzziGreetingMessage = '''Hi 👋 Hope you’re doing well! 
 Welcome to Carzzi Support Chat  🚗 
 Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts  submitted. 
 If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
@@ -116,7 +116,7 @@ class _ChatPageState extends State<ChatPage> {
               name: 'Carzzi',
               role: 'system',
             ),
-            text: CARZZI_GREETING_MESSAGE,
+            text: carzziGreetingMessage,
             createdAt: greetingTime,
           ),
         );
@@ -182,20 +182,15 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _handleApprovalAction(String approvalId, String status) async {
     try {
-      final response = await _api.putJson(
-        '/approvals/$approvalId',
-        body: {'status': status},
-      );
-      if (response != null) {
-        // Reload messages to update UI
-        _socketService.emit('getMessages', {'bookingId': _bookingId});
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Request ${status.toLowerCase()} successfully'),
-            ),
-          );
-        }
+      await _api.putJson('/approvals/$approvalId', body: {'status': status});
+      // Reload messages to update UI
+      _socketService.emit('getMessages', {'bookingId': _bookingId});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Request ${status.toLowerCase()} successfully'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

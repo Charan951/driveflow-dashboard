@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_colors.dart';
 import '../services/vehicle_service.dart';
 import '../models/vehicle.dart';
 
@@ -57,19 +58,28 @@ class _InsurancePageState extends State<InsurancePage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark
+        ? AppColors.backgroundSecondary
+        : Colors.white;
+    final textColor = isDark
+        ? AppColors.textPrimary
+        : AppColors.textPrimaryLight;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Insurance',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
         ),
         elevation: 0,
+        backgroundColor: backgroundColor,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!))
+          ? Center(
+              child: Text(_error!, style: TextStyle(color: textColor)),
+            )
           : _vehiclesWithInsurance.isEmpty
           ? _buildEmptyState(isDark)
           : RefreshIndicator(
@@ -103,14 +113,25 @@ class _InsurancePageState extends State<InsurancePage> {
             ),
           );
         },
-        label: const Text('Get Quote'),
+        label: const Text(
+          'Get Quote',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         icon: const Icon(Icons.shield),
-        backgroundColor: const Color(0xFF2563EB),
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: Colors.white,
       ),
     );
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final textColor = isDark
+        ? AppColors.textPrimary
+        : AppColors.textPrimaryLight;
+    final secondaryTextColor = isDark
+        ? AppColors.textSecondary
+        : AppColors.textSecondaryLight;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -121,44 +142,62 @@ class _InsurancePageState extends State<InsurancePage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: isDark ? Colors.black : Colors.grey.shade100,
+                color: isDark
+                    ? AppColors.backgroundSecondary
+                    : Colors.grey.shade100,
                 shape: BoxShape.circle,
-                border: isDark ? Border.all(color: Colors.grey.shade900) : null,
+                border: isDark
+                    ? Border.all(color: AppColors.borderColor)
+                    : null,
               ),
               child: Icon(
                 Icons.shield_outlined,
                 size: 40,
-                color: Colors.grey.shade500,
+                color: isDark ? AppColors.textMuted : Colors.grey.shade500,
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'No Active Policies',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               "You don't have any active insurance policies linked to your vehicles.",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
+              style: TextStyle(color: secondaryTextColor),
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Get a Quote',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              child: const Text('Get a Quote'),
             ),
           ],
         ),
@@ -174,18 +213,25 @@ class _InsurancePageState extends State<InsurancePage> {
     bool isExpired,
     bool isDark,
   ) {
+    final cardBorderColor = isExpired
+        ? AppColors.error.withAlpha(50)
+        : (isExpiringSoon
+              ? AppColors.warning.withAlpha(50)
+              : (isDark ? AppColors.borderColor : AppColors.borderColorLight));
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isExpired
-              ? Colors.red.withAlpha(50)
-              : (isExpiringSoon
-                    ? Colors.orange.withAlpha(50)
-                    : (isDark ? Colors.grey.shade900 : Colors.grey.shade200)),
-        ),
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 60 : 20),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -194,10 +240,10 @@ class _InsurancePageState extends State<InsurancePage> {
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               decoration: BoxDecoration(
                 color: isExpired
-                    ? Colors.red.withAlpha(20)
-                    : Colors.orange.withAlpha(20),
+                    ? AppColors.error.withAlpha(20)
+                    : AppColors.warning.withAlpha(20),
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
+                  top: Radius.circular(16),
                 ),
               ),
               child: Row(
@@ -205,7 +251,7 @@ class _InsurancePageState extends State<InsurancePage> {
                   Icon(
                     Icons.warning_amber_rounded,
                     size: 16,
-                    color: isExpired ? Colors.red : Colors.orange,
+                    color: isExpired ? AppColors.error : AppColors.warning,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -213,7 +259,7 @@ class _InsurancePageState extends State<InsurancePage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: isExpired ? Colors.red : Colors.orange,
+                      color: isExpired ? AppColors.error : AppColors.warning,
                     ),
                   ),
                 ],
@@ -230,29 +276,35 @@ class _InsurancePageState extends State<InsurancePage> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withAlpha(20),
+                        color: AppColors.primaryBlue.withAlpha(20),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.shield, color: Color(0xFF2563EB)),
+                      child: const Icon(
+                        Icons.shield,
+                        color: AppColors.primaryBlue,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Comprehensive Policy',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : AppColors.textPrimaryLight,
                             ),
                           ),
                           Text(
                             insurance.provider ?? 'Unknown Provider',
                             style: TextStyle(
                               color: isDark
-                                  ? Colors.white
-                                  : Colors.grey.shade600,
+                                  ? AppColors.textSecondary
+                                  : AppColors.textSecondaryLight,
                               fontSize: 14,
                             ),
                           ),
@@ -266,16 +318,16 @@ class _InsurancePageState extends State<InsurancePage> {
                       ),
                       decoration: BoxDecoration(
                         color: insurance.status == 'Active'
-                            ? Colors.green.withAlpha(20)
-                            : Colors.red.withAlpha(20),
+                            ? AppColors.success.withAlpha(20)
+                            : AppColors.error.withAlpha(20),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         insurance.status ?? 'Active',
                         style: TextStyle(
                           color: insurance.status == 'Active'
-                              ? Colors.green
-                              : Colors.red,
+                              ? AppColors.success
+                              : AppColors.error,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -288,24 +340,29 @@ class _InsurancePageState extends State<InsurancePage> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.black.withAlpha(50)
-                        : Colors.grey.shade50,
+                        ? AppColors.backgroundSurface
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.directions_car,
                         size: 16,
-                        color: Colors.grey,
+                        color: isDark
+                            ? AppColors.textMuted
+                            : Colors.grey.shade600,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.variant != null && vehicle.variant!.isNotEmpty ? ' ${vehicle.variant}' : ''} • ${vehicle.licensePlate}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? AppColors.textPrimary
+                                : AppColors.textPrimaryLight,
                           ),
                         ),
                       ),
@@ -337,8 +394,19 @@ class _InsurancePageState extends State<InsurancePage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : AppColors.borderColorLight,
+                      ),
+                      foregroundColor: isDark
+                          ? AppColors.textPrimary
+                          : AppColors.textPrimaryLight,
                     ),
-                    child: const Text('View Details'),
+                    child: const Text(
+                      'View Details',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 if (isExpired || isExpiringSoon) ...[
@@ -348,14 +416,17 @@ class _InsurancePageState extends State<InsurancePage> {
                     child: ElevatedButton(
                       onPressed: () {},
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
+                        backgroundColor: AppColors.primaryBlue,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('Renew Now'),
+                      child: const Text(
+                        'Renew Policy',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -367,22 +438,28 @@ class _InsurancePageState extends State<InsurancePage> {
     );
   }
 
-  Widget _buildInfoItem(String label, String value, bool isDark) {
+  Widget _buildInfoItem(String title, String value, bool isDark) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            title,
             style: TextStyle(
-              color: isDark ? Colors.white : Colors.grey.shade600,
               fontSize: 12,
+              color: isDark ? AppColors.textMuted : AppColors.textMutedLight,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? AppColors.textPrimary
+                  : AppColors.textPrimaryLight,
+            ),
           ),
         ],
       ),

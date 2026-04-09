@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/navigation_provider.dart';
 
+import '../core/app_colors.dart';
+import '../core/app_spacing.dart';
 import '../core/api_client.dart';
+import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
 import '../models/vehicle.dart';
@@ -29,10 +33,12 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
 
   bool _loading = false;
   String? _error;
+  DateTime? _lastLoadedAt;
 
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
+  Booking? _upcomingBookingCached;
 
   @override
   void initState() {
@@ -41,7 +47,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     // Load data after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _load(isInitial: true);
+        _restoreAndLoad();
       }
     });
 
@@ -74,18 +80,105 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     }
   }
 
+  Future<void> _restoreAndLoad() async {
+    await _loadFromCache();
+    await _load(isInitial: true);
+  }
+
+  Future<void> _loadFromCache() async {
+    if (!mounted) return;
+    try {
+      final jsonStr = await AppStorage().getDashboardJson();
+      if (jsonStr == null || jsonStr.isEmpty) return;
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) return;
+      final map = Map<String, dynamic>.from(decoded);
+
+      final vehicles = <Vehicle>[];
+      final v = map['vehicles'];
+      if (v is List) {
+        for (final e in v) {
+          if (e is Map<String, dynamic>) {
+            vehicles.add(Vehicle.fromJson(e));
+          } else if (e is Map) {
+            vehicles.add(Vehicle.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      final bookings = <Booking>[];
+      final b = map['bookings'];
+      if (b is List) {
+        for (final e in b) {
+          if (e is Map<String, dynamic>) {
+            bookings.add(Booking.fromJson(e));
+          } else if (e is Map) {
+            bookings.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      final services = <ServiceItem>[];
+      final s = map['services'];
+      if (s is List) {
+        for (final e in s) {
+          if (e is Map<String, dynamic>) {
+            services.add(ServiceItem.fromJson(e));
+          } else if (e is Map) {
+            services.add(ServiceItem.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      if (!mounted) return;
+      final upcoming = _computeUpcomingBooking(bookings);
+
+      setState(() {
+        _vehicles = vehicles;
+        _bookings = bookings;
+        _services = services;
+        _upcomingBookingCached = upcoming;
+        if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
+          _selectedVehicleId = _vehicles.first.id;
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _persistDashboardState() async {
+    try {
+      final map = {
+        'vehicles': _vehicles.map((v) => v.toJson()).toList(),
+        'bookings': _bookings.map((b) => b.toJson()).toList(),
+        'services': _services.map((s) => s.toJson()).toList(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      await AppStorage().setDashboardJson(jsonEncode(map));
+    } catch (_) {}
+  }
+
   Future<void> _load({bool isInitial = false}) async {
     if (!mounted) return;
 
+    final now = DateTime.now();
+    if (!isInitial &&
+        _lastLoadedAt != null &&
+        now.difference(_lastLoadedAt!) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastLoadedAt = now;
+
     // Only show full loading if it's the initial call or we have no data
     final shouldShowFullLoading =
-        isInitial ||
+        isInitial &&
         (_vehicles.isEmpty && _bookings.isEmpty && _services.isEmpty);
 
-    setState(() {
-      _loading = shouldShowFullLoading;
-      _error = null;
-    });
+    if (shouldShowFullLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final results = await Future.wait<dynamic>([
@@ -95,15 +188,22 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
       ]);
 
       if (mounted) {
+        final vehicles = (results[0] as List<Vehicle>);
+        final bookings = (results[1] as List<Booking>);
+        final services = (results[2] as List<ServiceItem>);
+        final upcoming = _computeUpcomingBooking(bookings);
+
         setState(() {
-          _vehicles = (results[0] as List<Vehicle>);
-          _bookings = (results[1] as List<Booking>);
-          _services = (results[2] as List<ServiceItem>);
+          _vehicles = vehicles;
+          _bookings = bookings;
+          _services = services;
+          _upcomingBookingCached = upcoming;
           if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
             _selectedVehicleId = _vehicles.first.id;
           }
           _loading = false;
         });
+        await _persistDashboardState();
       }
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
@@ -189,7 +289,14 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   }
 
   Booking? _upcomingBooking() {
-    final active = _bookings
+    if (_upcomingBookingCached != null) return _upcomingBookingCached;
+    final computed = _computeUpcomingBooking(_bookings);
+    _upcomingBookingCached = computed;
+    return computed;
+  }
+
+  Booking? _computeUpcomingBooking(List<Booking> source) {
+    final active = source
         .where(
           (b) =>
               b.status != 'DELIVERED' &&
@@ -208,11 +315,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.user;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final rawName = (user?.name ?? '').trim();
-    final firstName = rawName.isEmpty ? '' : rawName.split(' ').first;
 
     return Scaffold(
       extendBody: true,
@@ -243,12 +346,20 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(16, 14, 16, 110 + bottomInset),
               children: [
-                _GreetingHeader(
-                  greeting: _greeting(),
-                  name: firstName,
-                  tagline: 'Track your service status',
+                Selector<AuthProvider, String>(
+                  selector: (_, auth) {
+                    final rawName = (auth.user?.name ?? '').trim();
+                    return rawName.isEmpty ? '' : rawName.split(' ').first;
+                  },
+                  builder: (context, firstName, _) {
+                    return _GreetingHeader(
+                      greeting: _greeting(),
+                      name: firstName,
+                      tagline: 'Track your service status',
+                    );
+                  },
                 ),
-                const SizedBox(height: 8),
+                AppSpacing.verticalSmall,
                 if (_loading && _vehicles.isEmpty && _bookings.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: 32),
@@ -256,21 +367,21 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                   )
                 else if (_error != null && _vehicles.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.only(top: AppSpacing.section),
                     child: Column(
                       children: [
                         Text(
                           'Failed to load dashboard',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: 8),
+                        AppSpacing.verticalSmall,
                         Text(
                           _error!,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: Colors.black54),
                         ),
-                        const SizedBox(height: 12),
+                        AppSpacing.verticalMedium,
                         OutlinedButton(
                           onPressed: _load,
                           child: const Text('Retry'),
@@ -292,11 +403,11 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                       formatTime: (v) => _formatTime(context, v),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  AppSpacing.verticalDefault,
                   if (_vehicles.isEmpty) const _AddVehicleCta(),
-                  const SizedBox(height: 16),
+                  AppSpacing.verticalDefault,
                   _QuickServicesSection(services: _services),
-                  const SizedBox(height: 16),
+                  AppSpacing.verticalDefault,
                   _RecentBookingsSection(
                     bookings: _bookings,
                     statusLabel: _statusLabel,
@@ -319,11 +430,18 @@ class _AddVehicleCta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.edgeInsetsAllDefault,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -331,39 +449,54 @@ class _AddVehicleCta extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFEDE9FE),
+              color: AppColors.backgroundSurface,
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.directions_car_filled_outlined,
-              color: Color(0xFF4F46E5),
+              color: AppColors.primaryBlue,
             ),
           ),
-          const SizedBox(width: 14),
+          AppSpacing.horizontalMedium,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Add your vehicle',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Save a vehicle to get quick bookings and updates.',
-                  style: TextStyle(color: Colors.black54),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          FilledButton(
-            onPressed: () {
-              context.read<NavigationProvider>().setTab(0);
-            },
-            child: const Text('Add Vehicle'),
+          AppSpacing.horizontalMedium,
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ElevatedButton(
+              onPressed: () {
+                context.read<NavigationProvider>().setTab(0);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: AppColors.textPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Add Vehicle'),
+            ),
           ),
         ],
       ),
@@ -442,24 +575,24 @@ class _UpcomingBookingCard extends StatelessWidget {
       final selected = selectedVehicleId == v.id;
       return InkWell(
         onTap: () => onSelectVehicle(v.id),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           width: 98,
-          padding: const EdgeInsets.all(10),
+          padding: AppSpacing.edgeInsetsAllSmall,
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFE0F2FE) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: selected
+                ? AppColors.backgroundSurface
+                : AppColors.backgroundSecondary,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected
-                  ? const Color(0xFF38BDF8)
-                  : const Color(0xFFE5E7EB),
+              color: selected ? AppColors.primaryBlue : AppColors.borderColor,
               width: selected ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 14,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -470,31 +603,28 @@ class _UpcomingBookingCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppColors.backgroundSurface,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.directions_car_filled_outlined,
-                  color: Color(0xFF2563EB),
+                  color: AppColors.primaryBlue,
                   size: 20,
                 ),
               ),
-              const SizedBox(height: 8),
+              AppSpacing.verticalSmall,
               Text(
                 '${v.make} ${v.model}${v.variant != null && v.variant!.isNotEmpty ? ' ${v.variant}' : ''}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 2),
               Text(
                 v.licensePlate,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
@@ -505,20 +635,18 @@ class _UpcomingBookingCard extends StatelessWidget {
     return InkWell(
       onTap: () =>
           Navigator.pushNamed(context, '/track', arguments: booking.id),
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.edgeInsetsAllDefault,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(
-            color: const Color(0xFF93C5FD).withValues(alpha: 0.55),
-          ),
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -534,20 +662,14 @@ class _UpcomingBookingCard extends StatelessWidget {
                     children: [
                       Text(
                         'Service in progress',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF64748B),
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         primaryService,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F172A),
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ],
                   ),
@@ -561,33 +683,27 @@ class _UpcomingBookingCard extends StatelessWidget {
                       CircularProgressIndicator(
                         value: progress,
                         strokeWidth: 6,
-                        backgroundColor: const Color(0xFFE2E8F0),
+                        backgroundColor: AppColors.borderColor,
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF38BDF8),
+                          AppColors.primaryBlue,
                         ),
                       ),
                       Text(
                         '$percent%',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          color: Color(0xFF0F172A),
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            AppSpacing.verticalMedium,
             Container(
               height: 98,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: Colors.white,
-                border: Border.all(
-                  color: const Color(0xFF93C5FD).withValues(alpha: 0.45),
-                ),
+                borderRadius: BorderRadius.circular(16),
+                color: AppColors.backgroundSurface,
+                border: Border.all(color: AppColors.borderColor),
               ),
               child: Stack(
                 children: [
@@ -597,13 +713,16 @@ class _UpcomingBookingCard extends StatelessWidget {
                       widthFactor: 0.44,
                       child: ClipRRect(
                         borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(22),
-                          bottomRight: Radius.circular(22),
+                          topRight: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
                         ),
                         child: Container(
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Color(0xFFE0F2FE), Color(0xFFEDE9FE)],
+                              colors: [
+                                AppColors.primaryBlueSoft,
+                                AppColors.primaryBlue,
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -620,7 +739,7 @@ class _UpcomingBookingCard extends StatelessWidget {
                       child: Icon(
                         Icons.two_wheeler,
                         size: 64,
-                        color: const Color(0xFF38BDF8).withValues(alpha: 0.65),
+                        color: AppColors.primaryBlue.withValues(alpha: 0.65),
                       ),
                     ),
                   ),
@@ -632,7 +751,9 @@ class _UpcomingBookingCard extends StatelessWidget {
                       child: Icon(
                         Icons.directions_car_filled,
                         size: 68,
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.55),
+                        color: AppColors.primaryBlueDark.withValues(
+                          alpha: 0.55,
+                        ),
                       ),
                     ),
                   ),
@@ -648,13 +769,9 @@ class _UpcomingBookingCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.78),
+                            color: AppColors.backgroundPrimary,
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF93C5FD,
-                              ).withValues(alpha: 0.40),
-                            ),
+                            border: Border.all(color: AppColors.borderColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -662,16 +779,12 @@ class _UpcomingBookingCard extends StatelessWidget {
                               const Icon(
                                 Icons.analytics_outlined,
                                 size: 16,
-                                color: Color(0xFF0F172A),
+                                color: AppColors.textPrimary,
                               ),
-                              const SizedBox(width: 6),
+                              AppSpacing.horizontalSmall,
                               Text(
                                 'Status: ${statusLabel(booking.status)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  color: Color(0xFF0F172A),
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
                           ),
@@ -679,11 +792,7 @@ class _UpcomingBookingCard extends StatelessWidget {
                         const Spacer(),
                         Text(
                           '${formatDate(booking.date)} • ${formatTime(booking.date)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF334155),
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -691,7 +800,7 @@ class _UpcomingBookingCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            AppSpacing.verticalMedium,
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -699,30 +808,24 @@ class _UpcomingBookingCard extends StatelessWidget {
                   children: [
                     Text(
                       'Progress',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF64748B),
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(width: 8),
+                    AppSpacing.horizontalSmall,
                     Text(
                       '$percent%',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF0F172A),
-                        fontWeight: FontWeight.w900,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                AppSpacing.verticalSmall,
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 8,
-                    backgroundColor: const Color(0xFFE2E8F0),
+                    backgroundColor: AppColors.borderColor,
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF38BDF8),
+                      AppColors.primaryBlue,
                     ),
                   ),
                 ),
@@ -735,7 +838,7 @@ class _UpcomingBookingCard extends StatelessWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: miniCount,
-                  separatorBuilder: (context, _) => const SizedBox(width: 10),
+                  separatorBuilder: (context, _) => AppSpacing.horizontalSmall,
                   itemBuilder: (context, index) => miniVehicle(vehicles[index]),
                 ),
               ),
@@ -866,9 +969,16 @@ class _RecentBookingsSection extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.backgroundSecondary,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: AppColors.borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
@@ -876,12 +986,12 @@ class _RecentBookingsSection extends StatelessWidget {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEDE9FE),
+                            color: AppColors.backgroundSurface,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Icon(
                             Icons.receipt_long,
-                            color: Color(0xFF4F46E5),
+                            color: AppColors.primaryBlue,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -893,8 +1003,7 @@ class _RecentBookingsSection extends StatelessWidget {
                                 serviceName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 4),
                               if (vehicleLabel.isNotEmpty)
@@ -902,14 +1011,12 @@ class _RecentBookingsSection extends StatelessWidget {
                                   vehicleLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.black54),
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               const SizedBox(height: 6),
                               Text(
                                 '${formatDate(b.date)} • ${formatTime(b.date)}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.black54),
+                                style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
                           ),
@@ -920,19 +1027,20 @@ class _RecentBookingsSection extends StatelessWidget {
                           children: [
                             Text(
                               statusLabel(b.status),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 6),
                             Text(
                               '₹${b.totalAmount}',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.black54),
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
                         const SizedBox(width: 6),
-                        const Icon(Icons.chevron_right),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textMuted,
+                        ),
                       ],
                     ),
                   ),
@@ -969,14 +1077,14 @@ class _VehicleMiniCardState extends State<_VehicleMiniCard> {
         width: 190,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 18,
-              offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -1066,14 +1174,14 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
         width: 118,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 18,
-              offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),

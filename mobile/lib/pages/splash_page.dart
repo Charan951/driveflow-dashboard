@@ -11,43 +11,13 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final AnimationController _bgController;
-  late final Animation<double> _fade;
-  late final Animation<double> _scale;
-  late final Animation<Offset> _slide;
+class _SplashPageState extends State<SplashPage> {
   bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _scale = Tween<double>(
-      begin: 0.92,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
     _bootstrap();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _bgController.dispose();
-    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -59,28 +29,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     // Request notification permissions
     NotificationService().requestPermissions();
 
-    // Wait for at least 800 milliseconds to show splash animation nicely
-    await Future.delayed(const Duration(milliseconds: 800));
-
     // Ensure data is loaded
     await loadMeFuture;
-
-    if (!mounted) {
-      return;
-    }
-    if (_navigated) {
-      return;
-    }
-
-    final navigator = Navigator.of(context);
-
-    if (auth.isAuthenticated) {
-      _navigated = true;
-      navigator.pushReplacementNamed(auth.homeRoute);
-    } else {
-      _navigated = true;
-      navigator.pushReplacementNamed('/login');
-    }
   }
 
   void _onInteract() {
@@ -92,108 +42,76 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0B1220),
       body: GestureDetector(
         onTap: _onInteract,
+        onTapDown: (_) => _onInteract(),
+        onDoubleTap: _onInteract,
+        onLongPress: _onInteract,
+        onPanDown: (_) => _onInteract(),
         behavior: HitTestBehavior.opaque,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _bgController,
-                  builder: (context, _) =>
-                      _SplashBackground(t: _bgController.value),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: FadeTransition(
-                  opacity: _fade,
-                  child: SlideTransition(
-                    position: _slide,
-                    child: ScaleTransition(
-                      scale: _scale,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _bgController,
-                                builder: (context, _) {
-                                  final pulse =
-                                      0.65 +
-                                      0.35 * sin(_bgController.value * pi * 2);
-                                  return Container(
-                                    width: 112,
-                                    height: 112,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.black.withValues(
-                                        alpha: 0.18,
-                                      ),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFF22D3EE,
-                                        ).withValues(alpha: 0.9),
-                                        width: 3,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xFF22D3EE,
-                                          ).withValues(alpha: 0.55 * pulse),
-                                          blurRadius: 30,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(999),
-                                      child: Image.asset(
-                                        'assets/speshway_logo.png',
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 18),
-                              Text(
-                                'SPESHWAY SOLUTIONS',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 2,
-                                      color: Colors.white,
-                                    ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Car Services',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.bodyLarge
-                                    ?.copyWith(color: Colors.white70),
-                              ),
-                              const SizedBox(height: 26),
-                              // Automatic transition, no button needed
-                            ],
-                          ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 112,
+                      height: 112,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: const Color(0xFF22D3EE),
+                          width: 3,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: Image.asset(
+                          'assets/appicon.png',
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'CARZZI CARE',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                            color: Colors.white,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Car Services',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 40),
+                    Text(
+                      'Tap to Continue',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        letterSpacing: 1.2,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

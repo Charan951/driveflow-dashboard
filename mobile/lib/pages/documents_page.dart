@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/app_colors.dart';
 import '../widgets/customer_drawer.dart';
 import '../services/document_service.dart';
 import '../services/vehicle_service.dart';
@@ -33,8 +34,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
     {'id': 'warranty', 'label': 'Warranty'},
   ];
 
-  Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
+  Color get _accentPurple => AppColors.primaryBlue;
+  Color get _accentBlue => AppColors.primaryBlueSoft;
 
   @override
   void initState() {
@@ -161,9 +162,29 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       children: [
                         Text('Error: $_error'),
                         const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _fetchData,
-                          child: const Text('Retry'),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppColors.primaryBlue,
+                                AppColors.primaryBlueDark,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _fetchData,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              foregroundColor: AppColors.textPrimary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Retry'),
+                          ),
                         ),
                       ],
                     ),
@@ -264,8 +285,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Widget _buildDocumentCard(DocumentData doc, bool isDark) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: isDark ? Colors.grey.shade900 : Colors.white,
       child: ListTile(
         leading: Container(
           width: 40,
@@ -276,16 +295,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
           ),
           child: Icon(Icons.description, color: _accentPurple),
         ),
-        title: Text(
-          doc.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
+        title: Text(doc.name, style: Theme.of(context).textTheme.titleMedium),
         subtitle: Text(
           '${doc.type.toUpperCase()} • ${doc.date.split('T')[0]}',
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.white : Colors.black54,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

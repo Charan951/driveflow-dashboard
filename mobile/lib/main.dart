@@ -23,6 +23,7 @@ import 'state/auth_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
+import 'core/app_colors.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -35,6 +36,9 @@ void main() async {
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
   final trackingProvider = TrackingProvider();
+
+  // Precache the logo immediately for a faster splash experience
+  final imageProvider = const AssetImage('assets/appicon.png');
 
   await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
 
@@ -56,6 +60,7 @@ void main() async {
       socketService: socketService,
       notificationService: notificationService,
       trackingProvider: trackingProvider,
+      precachedLogo: imageProvider,
     ),
   );
 }
@@ -90,11 +95,13 @@ class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
 }
 
 class MyApp extends StatelessWidget {
+  static bool _precacheOnce = false;
   final AuthProvider authProvider;
   final ThemeProvider themeProvider;
   final SocketService socketService;
   final NotificationService notificationService;
   final TrackingProvider trackingProvider;
+  final ImageProvider? precachedLogo;
 
   const MyApp({
     super.key,
@@ -103,10 +110,18 @@ class MyApp extends StatelessWidget {
     required this.socketService,
     required this.notificationService,
     required this.trackingProvider,
+    this.precachedLogo,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (precachedLogo != null && !_precacheOnce) {
+      _precacheOnce = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        precacheImage(precachedLogo!, context).catchError((_) {});
+      });
+    }
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authProvider),
@@ -153,38 +168,93 @@ class MyApp extends StatelessWidget {
             darkTheme: ThemeData(
               useMaterial3: true,
               colorScheme: const ColorScheme.dark(
-                primary: Colors.blue,
-                surface: Colors.black,
-                onSurface: Colors.white,
+                primary: AppColors.primaryBlue,
+                onPrimary: AppColors.textPrimary,
+                secondary: AppColors.primaryBlueSoft,
+                onSecondary: AppColors.textPrimary,
+                surface: AppColors.backgroundSecondary,
+                onSurface: AppColors.textPrimary,
+                error: AppColors.error,
+                onError: AppColors.textPrimary,
               ),
-              scaffoldBackgroundColor: Colors.black,
-              textTheme: const TextTheme(
-                displayLarge: TextStyle(color: Colors.white),
-                displayMedium: TextStyle(color: Colors.white),
-                displaySmall: TextStyle(color: Colors.white),
-                headlineLarge: TextStyle(color: Colors.white),
-                headlineMedium: TextStyle(color: Colors.white),
-                headlineSmall: TextStyle(color: Colors.white),
-                titleLarge: TextStyle(color: Colors.white),
-                titleMedium: TextStyle(color: Colors.white),
-                titleSmall: TextStyle(color: Colors.white),
-                bodyLarge: TextStyle(color: Colors.white),
-                bodyMedium: TextStyle(color: Colors.white),
-                bodySmall: TextStyle(color: Colors.white),
-                labelLarge: TextStyle(color: Colors.white),
-                labelMedium: TextStyle(color: Colors.white),
-                labelSmall: TextStyle(color: Colors.white),
-              ),
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.black,
+              scaffoldBackgroundColor: AppColors.backgroundPrimary,
+              appBarTheme: AppBarTheme(
+                backgroundColor: AppColors.backgroundPrimary,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
-                titleTextStyle: TextStyle(
-                  color: Colors.white,
+                titleTextStyle: const TextStyle(
+                  color: AppColors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
-                iconTheme: IconThemeData(color: Colors.white),
+                iconTheme: const IconThemeData(color: AppColors.textPrimary),
+              ),
+              textTheme: const TextTheme(
+                titleLarge: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                titleMedium: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                bodyLarge: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                ),
+                bodyMedium: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                ),
+                displayLarge: TextStyle(color: AppColors.textPrimary),
+                displayMedium: TextStyle(color: AppColors.textPrimary),
+                displaySmall: TextStyle(color: AppColors.textPrimary),
+                headlineLarge: TextStyle(color: AppColors.textPrimary),
+                headlineMedium: TextStyle(color: AppColors.textPrimary),
+                headlineSmall: TextStyle(color: AppColors.textPrimary),
+                titleSmall: TextStyle(color: AppColors.textPrimary),
+                bodySmall: TextStyle(color: AppColors.textPrimary),
+                labelLarge: TextStyle(color: AppColors.textPrimary),
+                labelMedium: TextStyle(color: AppColors.textPrimary),
+                labelSmall: TextStyle(color: AppColors.textPrimary),
+              ),
+              cardTheme: CardThemeData(
+                color: AppColors.backgroundSecondary,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppColors.borderColor),
+                ),
+                margin: EdgeInsets.zero,
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  foregroundColor: AppColors.textPrimary,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: AppColors.primaryBlue.withValues(alpha: 0.15),
+                  elevation: 8,
+                ),
+              ),
+              bottomNavigationBarTheme: BottomNavigationBarThemeData(
+                backgroundColor: AppColors.backgroundSecondary,
+                selectedItemColor: AppColors.primaryBlue,
+                unselectedItemColor: AppColors.textMuted,
+                elevation: 0,
+                type: BottomNavigationBarType.fixed,
+                selectedLabelStyle: const TextStyle(fontSize: 12),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {

@@ -15,7 +15,9 @@ import {
   Loader2,
   Truck,
   Wrench,
-  Shield
+  Shield,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -50,11 +52,24 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const MapController = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
+const MapController = ({ center, destination, zoom, isMaximized }: { center: [number, number]; destination?: [number, number]; zoom: number; isMaximized: boolean }) => {
   const map = useMap();
+  
   useEffect(() => {
-    map.flyTo(center, zoom, { animate: true, duration: 1.0 });
-  }, [map, center, zoom]);
+    if (destination && destination[0] && destination[1]) {
+      const bounds = L.latLngBounds([center, destination]);
+      map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1.0 });
+    } else {
+      map.flyTo(center, zoom, { animate: true, duration: 1.0 });
+    }
+  }, [map, center, destination, zoom]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
+  }, [map, isMaximized]);
+
   return null;
 };
 
@@ -87,6 +102,7 @@ const TrackServicePage: React.FC = () => {
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
+  const [isMapMaximized, setIsMapMaximized] = useState(false);
 
   const isCarWashService = order?.carWash?.isCarWashService || false;
 
@@ -808,13 +824,29 @@ const TrackServicePage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-2xl border border-border overflow-hidden w-full"
+            layout
+            className={`bg-card rounded-2xl border border-border overflow-hidden w-full transition-all duration-500 ease-in-out ${
+              isMapMaximized ? 'lg:col-span-2' : ''
+            }`}
           >
             <div className="p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <h3 className="font-semibold text-sm sm:text-base text-foreground flex items-center gap-2">
-                <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
-                <span>Live Tracking</span>
-              </h3>
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-sm sm:text-base text-foreground flex items-center gap-2">
+                  <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                  <span>Live Tracking</span>
+                </h3>
+                <button
+                  onClick={() => setIsMapMaximized(!isMapMaximized)}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary"
+                  title={isMapMaximized ? "Minimize" : "Maximize"}
+                >
+                  {isMapMaximized ? (
+                    <Minimize2 className="w-4 h-4" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 {eta && (
                   <div className="text-xs text-muted-foreground">
@@ -830,7 +862,9 @@ const TrackServicePage: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="h-48 sm:h-64 w-full relative bg-muted">
+            <div className={`w-full relative bg-muted transition-all duration-500 ease-in-out ${
+              isMapMaximized ? 'h-[500px] sm:h-[600px]' : 'h-48 sm:h-64'
+            }`}>
               {staffLocation ? (
                 <MapContainer
                   center={[staffLocation.lat, staffLocation.lng]}
@@ -838,7 +872,12 @@ const TrackServicePage: React.FC = () => {
                   style={{ height: '100%', width: '100%' }}
                   zoomControl={false}
                 >
-                  <MapController center={[staffLocation.lat, staffLocation.lng]} zoom={16} />
+                  <MapController 
+                    center={[staffLocation.lat, staffLocation.lng]} 
+                    destination={order.location && typeof order.location === 'object' && order.location.lat && order.location.lng ? [order.location.lat, order.location.lng] : undefined}
+                    zoom={16} 
+                    isMaximized={isMapMaximized} 
+                  />
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution="&copy; <a href=&quot;https://www.openstreetmap.org/copyright&quot;>OpenStreetMap</a> contributors"
@@ -1200,7 +1239,7 @@ const TrackServicePage: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                {order.billing?.fileUrl && (
+                {order.billing?.fileUrl && (isCarWashService || isBatteryOrTire || order.paymentStatus === 'paid') && (
                   <button
                     onClick={handleDownloadMerchantInvoice}
                     className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"

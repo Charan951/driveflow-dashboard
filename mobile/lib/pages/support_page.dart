@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import '../core/app_colors.dart';
 import '../services/ticket_service.dart';
 import '../widgets/customer_drawer.dart';
 import '../core/storage.dart';
@@ -763,13 +765,13 @@ class _SupportPageState extends State<SupportPage> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Open':
-        return Colors.blue;
+        return AppColors.primaryBlue;
       case 'In Progress':
-        return Colors.orange;
+        return AppColors.warning;
       case 'Resolved':
-        return Colors.green;
+        return AppColors.success;
       default:
-        return Colors.grey;
+        return AppColors.textMuted;
     }
   }
 

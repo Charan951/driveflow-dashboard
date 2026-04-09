@@ -72,7 +72,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/speshway_logo.png"
+  image_path: "assets/carzzilogo.png"
 
 flutter:
 
@@ -82,7 +82,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/speshway_logo.png
+    - assets/carzzilogo.png
+    - assets/appicon.png
+    
 
   # To add assets to your application, add an assets section, like this:
   # assets:

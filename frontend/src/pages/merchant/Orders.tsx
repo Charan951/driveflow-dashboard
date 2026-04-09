@@ -7,7 +7,7 @@ import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 
 type FilterType = 'all' | 'active' | 'completed' | 'pending-bills';
@@ -27,6 +27,7 @@ const ACTIVE_STATUSES: Booking['status'][] = [
 const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED'];
 
 const Orders: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,7 +166,8 @@ const Orders: React.FC = () => {
               key={booking._id}
               variants={staggerItem}
               whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }}
-              className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col h-full"
+              onClick={() => navigate(`/merchant/order/${booking._id}`)}
+              className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
             >
               <div className="p-5 flex-1 space-y-4">
                 <div className="flex items-start justify-between">
@@ -213,15 +215,6 @@ const Orders: React.FC = () => {
                     )}
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 border-t border-border bg-muted/20">
-                <Link 
-                  to={`/merchant/order/${booking._id}`}
-                  className="block w-full py-2.5 bg-primary text-primary-foreground text-center rounded-xl font-medium hover:bg-primary/90 transition-colors"
-                >
-                  Open Order
-                </Link>
               </div>
             </motion.div>
           ))

@@ -418,7 +418,7 @@ class Booking {
     'DELIVERY': 'Delivery',
   };
 
-  static const PICKUP_FLOW_ORDER = [
+  static const pickupFlowOrder = [
     'CREATED',
     'ASSIGNED',
     'REACHED_CUSTOMER',
@@ -430,7 +430,7 @@ class Booking {
     'DELIVERED',
   ];
 
-  static const CAR_WASH_FLOW_ORDER = [
+  static const carWashFlowOrder = [
     'CREATED',
     'ASSIGNED',
     'REACHED_CUSTOMER',
@@ -439,7 +439,7 @@ class Booking {
     'DELIVERED',
   ];
 
-  static const BATTERY_TIRE_FLOW_ORDER = [
+  static const batteryTireFlowOrder = [
     'CREATED',
     'ASSIGNED',
     'STAFF_REACHED_MERCHANT',
@@ -450,7 +450,7 @@ class Booking {
     'COMPLETED',
   ];
 
-  static const NO_PICKUP_FLOW_ORDER = [
+  static const noPickupFlowOrder = [
     'CREATED',
     'ASSIGNED',
     'ACCEPTED',
@@ -467,7 +467,7 @@ class Booking {
 
   static List<String> getFlowForBooking(Booking? booking) {
     if (booking == null || booking.services.isEmpty) {
-      return PICKUP_FLOW_ORDER;
+      return pickupFlowOrder;
     }
 
     final services = booking.services;
@@ -487,9 +487,9 @@ class Booking {
     });
 
     if (isCarWash) {
-      return CAR_WASH_FLOW_ORDER;
+      return carWashFlowOrder;
     } else if (isBatteryOrTire) {
-      return BATTERY_TIRE_FLOW_ORDER;
+      return batteryTireFlowOrder;
     } else {
       // Determine if it's a pickup service based on category
       const pickupCategories = [
@@ -510,11 +510,11 @@ class Booking {
         (s) => noPickupCategories.contains(s.category),
       );
 
-      if (hasPickupService || (!hasPickupService && !hasNoPickupService)) {
-        return PICKUP_FLOW_ORDER;
-      } else {
-        return NO_PICKUP_FLOW_ORDER;
+      if (hasNoPickupService && !hasPickupService) {
+        return noPickupFlowOrder;
       }
+
+      return pickupFlowOrder;
     }
   }
 

@@ -1,4 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../core/app_colors.dart';
+import '../core/app_styles.dart';
+import '../state/theme_provider.dart';
 
 class PillBottomBar extends StatelessWidget {
   final int selectedIndex;
@@ -12,105 +17,103 @@ class PillBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const inactive = Color(0xFF94A3B8);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.mode == ThemeMode.dark;
 
-    final gradient = isDark
-        ? const LinearGradient(
-            colors: [Colors.black, Colors.black],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
-        : const LinearGradient(
-            colors: [Colors.white, Colors.white],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          );
-
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Colors.grey.withValues(alpha: 0.10);
-
+    final backgroundColor = isDark
+        ? AppColors.backgroundSecondary.withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.8);
+    final borderColor = isDark ? AppColors.borderColor : Colors.grey[200]!;
     final shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.50)
-        : Colors.black.withValues(alpha: 0.08);
+        ? Colors.black.withValues(alpha: 0.4)
+        : Colors.black.withValues(alpha: 0.1);
+    final inactiveColor = isDark ? AppColors.textMuted : Colors.grey.shade400;
 
-    return SizedBox(
-      height: 80,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: shadowColor,
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Expanded(
-                  child: GlassNavItem(
-                    activeIcon: Icons.settings,
-                    inactiveIcon: Icons.settings_outlined,
-                    label: 'Services',
-                    isActive: selectedIndex == 0,
-                    inactiveColor: inactive,
-                    onTap: () => onTap(0),
-                  ),
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          height: 70,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(35),
+            boxShadow: [
+              BoxShadow(
+                color: shadowColor,
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(35),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(35),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
                 ),
-                Expanded(
-                  child: GlassNavItem(
-                    activeIcon: Icons.shield,
-                    inactiveIcon: Icons.shield_outlined,
-                    label: 'Insurance',
-                    isActive: selectedIndex == 1,
-                    inactiveColor: inactive,
-                    onTap: () => onTap(1),
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Expanded(
+                      child: GlassNavItem(
+                        activeIcon: Icons.settings_rounded,
+                        inactiveIcon: Icons.settings_outlined,
+                        label: 'Services',
+                        isActive: selectedIndex == 0,
+                        inactiveColor: inactiveColor,
+                        onTap: () => onTap(0),
+                      ),
+                    ),
+                    Expanded(
+                      child: GlassNavItem(
+                        activeIcon: Icons.shield_rounded,
+                        inactiveIcon: Icons.shield_outlined,
+                        label: 'Insurance',
+                        isActive: selectedIndex == 1,
+                        inactiveColor: inactiveColor,
+                        onTap: () => onTap(1),
+                      ),
+                    ),
+                    const SizedBox(width: 70),
+                    Expanded(
+                      child: GlassNavItem(
+                        activeIcon: Icons.water_drop_rounded,
+                        inactiveIcon: Icons.water_drop_outlined,
+                        label: 'Wash',
+                        isActive: selectedIndex == 3,
+                        inactiveColor: inactiveColor,
+                        onTap: () => onTap(3),
+                      ),
+                    ),
+                    Expanded(
+                      child: GlassNavItem(
+                        activeIcon: Icons.tire_repair_rounded,
+                        inactiveIcon: Icons.tire_repair_outlined,
+                        label: 'Tyres & Battery',
+                        isActive: selectedIndex == 4,
+                        inactiveColor: inactiveColor,
+                        onTap: () => onTap(4),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 72),
-                Expanded(
-                  child: GlassNavItem(
-                    activeIcon: Icons.water_drop,
-                    inactiveIcon: Icons.water_drop_outlined,
-                    label: 'Car Wash',
-                    isActive: selectedIndex == 3,
-                    inactiveColor: inactive,
-                    onTap: () => onTap(3),
-                  ),
-                ),
-                Expanded(
-                  child: GlassNavItem(
-                    activeIcon: Icons.battery_full,
-                    inactiveIcon: Icons.battery_full_outlined,
-                    label: 'Battery/Tyres',
-                    isActive: selectedIndex == 4,
-                    inactiveColor: inactive,
-                    onTap: () => onTap(4),
-                  ),
-                ),
-              ],
-            ),
-            Positioned(
-              top: -20,
-              child: CenterNavAction(
-                isActive: selectedIndex == 2,
-                onTap: () => onTap(2),
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        Positioned(
+          top: -25,
+          child: CenterNavAction(
+            isActive: selectedIndex == 2,
+            onTap: () => onTap(2),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -127,23 +130,17 @@ class CenterNavAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const gradient = LinearGradient(
-      colors: [Color(0xFF22D3EE), Color(0xFF2563EB)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-
     return Container(
-      width: 56,
-      height: 56,
+      width: 60,
+      height: 60,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: gradient,
+        gradient: AppStyles.primaryGradient,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppStyles.primaryBlue.withValues(alpha: 0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -153,7 +150,7 @@ class CenterNavAction extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(999),
           child: const Center(
-            child: Icon(Icons.home_outlined, color: Colors.white, size: 28),
+            child: Icon(Icons.home_rounded, color: Colors.white, size: 30),
           ),
         ),
       ),
@@ -181,45 +178,29 @@ class GlassNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const gradient = LinearGradient(
-      colors: [Color(0xFF22D3EE), Color(0xFF2563EB), Color(0xFF60A5FA)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: const BoxDecoration(color: Colors.transparent),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              child: isActive
-                  ? ShaderMask(
-                      shaderCallback: (bounds) => gradient.createShader(bounds),
-                      child: Icon(
-                        isActive ? activeIcon : inactiveIcon,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    )
-                  : Icon(
-                      isActive ? activeIcon : inactiveIcon,
-                      color: inactiveColor,
-                      size: 22,
-                    ),
-            ),
+            if (isActive)
+              ShaderMask(
+                shaderCallback: (bounds) =>
+                    AppStyles.primaryGradient.createShader(bounds),
+                child: Icon(activeIcon, color: Colors.white, size: 22),
+              )
+            else
+              Icon(inactiveIcon, color: inactiveColor, size: 20),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: isActive ? const Color(0xFF22D3EE) : inactiveColor,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
+                color: isActive ? AppStyles.primaryBlue : inactiveColor,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 9,
               ),
             ),
           ],

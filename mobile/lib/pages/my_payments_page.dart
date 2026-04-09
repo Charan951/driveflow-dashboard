@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
@@ -451,19 +452,41 @@ class _PaymentCardState extends State<_PaymentCard> {
                     ),
                     const Spacer(),
                     if (b.paymentStatus != 'paid' && b.totalAmount > 0)
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/track', arguments: b.id);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: accent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppColors.primaryBlue,
+                              AppColors.primaryBlueDark,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/track',
+                              arguments: b.id,
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: AppColors.textPrimary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Pay Now',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        child: const Text('Pay Now', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),

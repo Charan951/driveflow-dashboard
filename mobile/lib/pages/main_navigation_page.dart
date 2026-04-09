@@ -69,12 +69,9 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         ),
         bottomNavigationBar: Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints.tightFor(height: 80),
-            child: PillBottomBar(
-              selectedIndex: navProvider.selectedIndex,
-              onTap: (index) => navProvider.setTab(index),
-            ),
+          child: PillBottomBar(
+            selectedIndex: navProvider.selectedIndex,
+            onTap: (index) => navProvider.setTab(index),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/app_colors.dart';
 import '../state/navigation_provider.dart';
 import '../state/theme_provider.dart';
 
@@ -135,275 +136,125 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.mode == ThemeMode.dark;
-
-    final topDark = const Color(0xFF020617);
-    final bgGradient = isDark
-        ? LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [topDark, const Color(0xFF020617)],
-          )
-        : const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.white],
-          );
+    final theme = Theme.of(context);
 
     return Drawer(
-      width: 288,
-      child: Container(
-        decoration: BoxDecoration(gradient: bgGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              SizedBox(
-                height: 76,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF3B82F6), Color(0xFF22D3EE)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF3B82F6,
-                              ).withValues(alpha: isDark ? 0.28 : 0.16),
-                              blurRadius: 12,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+      width: 320,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: isDark
+                          ? AppColors.backgroundSurface
+                          : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
                         ),
-                        child: const Icon(
-                          Icons.directions_car_filled,
-                          color: Colors.white,
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Image.asset(
+                          'carzzilogo.png',
+                          fit: BoxFit.contain,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Carzzi',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 22,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
-                                  ),
-                            ),
-                            Text(
-                              'The car care you deserve.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.7)
-                                    : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.10)
-                              : Colors.black.withValues(alpha: 0.04),
-                        ),
-                        child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
-                          ),
-                          tooltip: 'Close',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.white.withValues(alpha: 0.80),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.12)
-                              : Colors.black.withValues(alpha: 0.04),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isDark ? Icons.dark_mode : Icons.light_mode,
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.9)
-                                : const Color(0xFF0F172A),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Dark mode',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : const Color(0xFF0F172A),
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: isDark,
-                            onChanged: (_) => themeProvider.toggleTheme(),
-                          ),
-                        ],
                       ),
                     ),
-                    for (final item in _drawerItems)
-                      _DrawerTile(
-                        icon: item.icon,
-                        label: item.label,
-                        active: _isActive(item.routeName),
-                        onTap: () => _navigate(
-                          context,
-                          routeName: item.routeName,
-                          arguments: item.arguments,
-                        ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: isDark ? AppColors.textPrimary : Colors.black87,
                       ),
-                  ],
-                ),
+                    ),
+                  ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                child: Builder(
-                  builder: (context) {
-                    final isDark =
-                        Theme.of(context).brightness == Brightness.dark;
-                    final primary = scheme.primary;
-                    final secondary = scheme.secondary;
-                    final topColor = isDark
-                        ? Colors.black
-                        : Color.lerp(
-                            primary.withValues(alpha: 0.26),
-                            secondary.withValues(alpha: 0.22),
-                            0.5,
-                          )!;
-                    final bottomColor = isDark
-                        ? Colors.black
-                        : secondary.withValues(alpha: 0.12);
-
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        gradient: LinearGradient(
-                          colors: [topColor, bottomColor],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: isDark
+                          ? AppColors.backgroundSecondary
+                          : Colors.grey[100],
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isDark ? Icons.dark_mode : Icons.light_mode,
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : Colors.black54,
                         ),
-                        border: Border.all(
-                          color: primary.withValues(
-                            alpha: isDark ? 0.22 : 0.28,
-                          ),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primary.withValues(
-                              alpha: isDark ? 0.12 : 0.16,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Dark mode',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : Colors.black87,
                             ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 8),
                           ),
-                        ],
+                        ),
+                        Switch(
+                          value: isDark,
+                          activeThumbColor: AppColors.primaryBlue,
+                          onChanged: (_) => themeProvider.toggleTheme(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final item in _drawerItems)
+                    _DrawerTile(
+                      icon: item.icon,
+                      label: item.label,
+                      active: _isActive(item.routeName),
+                      isDark: isDark,
+                      onTap: () => _navigate(
+                        context,
+                        routeName: item.routeName,
+                        arguments: item.arguments,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                ),
-                                child: Icon(
-                                  Icons.help_outline,
-                                  color: scheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Need Help?',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      "We're here 24/7",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () =>
-                                _navigate(context, routeName: '/support'),
-                            child: const Text('Contact Support'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                    ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -428,86 +279,71 @@ class _DrawerTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final bool isDark;
   final VoidCallback onTap;
 
   const _DrawerTile({
     required this.icon,
     required this.label,
     required this.active,
+    required this.isDark,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               gradient: active
-                  ? LinearGradient(
+                  ? const LinearGradient(
                       colors: [
-                        scheme.primary.withValues(alpha: 0.96),
-                        scheme.primary.withValues(alpha: 0.78),
+                        AppColors.primaryBlue,
+                        AppColors.primaryBlueDark,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     )
                   : null,
-              color: active
-                  ? null
-                  : (isDark
-                        ? Colors.white.withValues(alpha: 0.04)
-                        : Colors.white),
+              color: active ? null : Colors.transparent,
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.25),
+                        color: AppColors.primaryBlue.withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
                     ]
                   : null,
-              border: active
-                  ? null
-                  : Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.04),
-                    ),
             ),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  size: 20,
+                  size: 22,
                   color: active
-                      ? scheme.onPrimary
-                      : (isDark
-                            ? Colors.white.withValues(alpha: 0.80)
-                            : Colors.black54),
+                      ? AppColors.textPrimary
+                      : (isDark ? AppColors.textSecondary : Colors.black54),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      fontWeight: active ? FontWeight.w800 : FontWeight.w600,
                       color: active
-                          ? scheme.onPrimary
-                          : (isDark
-                                ? Colors.white.withValues(alpha: 0.92)
-                                : Colors.black87),
+                          ? AppColors.textPrimary
+                          : (isDark ? AppColors.textSecondary : Colors.black87),
                     ),
                   ),
                 ),

@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = false;
+  static const bool useProduction = true;
+  // MUST stay false for testing with rzp_test keys
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;

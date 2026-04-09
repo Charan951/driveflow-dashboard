@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_colors.dart';
+import '../core/app_spacing.dart';
 import '../core/api_client.dart';
 import '../state/navigation_provider.dart';
 import '../models/vehicle.dart';
@@ -20,9 +22,6 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   bool _loading = true;
   String? _error;
   List<Vehicle> _vehicles = const [];
-
-  Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
 
   @override
   void initState() {
@@ -70,9 +69,8 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
+      backgroundColor: AppColors.backgroundPrimary,
       drawer: const CustomerDrawer(currentRouteName: '/vehicles'),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -80,143 +78,135 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
-                boxShadow: [
-                  BoxShadow(
-                    color: _accentBlue.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+        title: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.defaultPadding),
+          child: Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    color: Colors.white,
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
+              ),
+              AppSpacing.horizontalMedium,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My Vehicles',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    'Manage your garage',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  color: Colors.white,
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'My Vehicles',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _openAddVehicleSheet,
-            icon: const Icon(Icons.add, color: Colors.white),
-            tooltip: 'Add Vehicle',
-          ),
-          IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
-      body: Stack(
-        children: [
-          if (isDark)
-            Container(color: Colors.black)
-          else
-            Container(color: Colors.white),
-          RefreshIndicator(
-            onRefresh: _load,
-            child: _loading
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.only(top: 32),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ],
-                  )
-                : _error != null
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Failed to load vehicles',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton(
-                              onPressed: _load,
-                              child: const Text('Retry'),
-                            ),
-                          ],
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: _loading && _vehicles.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? ListView(
+                padding: AppSpacing.edgeInsetsAllDefault,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.section),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Failed to load vehicles',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                      ),
-                    ],
-                  )
-                : _vehicles.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: Column(
-                          children: [
-                            Text(
-                              'No vehicles added yet',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white),
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton.icon(
-                              onPressed: _openAddVehicleSheet,
-                              icon: const Icon(Icons.add),
-                              label: const Text('Add Vehicle'),
-                            ),
-                          ],
+                        AppSpacing.verticalSmall,
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _vehicles.length,
-                    separatorBuilder: (context, _) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final v = _vehicles[index];
-                      return _VehicleCard(
-                        vehicle: v,
-                        onBookService: () => context
-                            .read<NavigationProvider>()
-                            .setTab(0, arguments: {'openBookHint': true}),
-                      );
-                    },
+                        AppSpacing.verticalMedium,
+                        OutlinedButton(
+                          onPressed: _load,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
-          ),
-        ],
+                ],
+              )
+            : _vehicles.isEmpty
+            ? ListView(
+                padding: AppSpacing.edgeInsetsAllDefault,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.section),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.directions_car_outlined,
+                          size: 64,
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
+                        ),
+                        AppSpacing.verticalMedium,
+                        Text(
+                          'Your garage is empty',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        AppSpacing.verticalSmall,
+                        Text(
+                          'Add your vehicles to get started with services.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        AppSpacing.verticalSection,
+                        ElevatedButton(
+                          onPressed: _openAddVehicleSheet,
+                          child: const Text('Add My First Vehicle'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                padding: AppSpacing.edgeInsetsAllDefault,
+                itemCount: _vehicles.length,
+                separatorBuilder: (context, _) => AppSpacing.verticalMedium,
+                itemBuilder: (context, index) {
+                  final v = _vehicles[index];
+                  return _VehicleCard(
+                    vehicle: v,
+                    onBookService: () => context
+                        .read<NavigationProvider>()
+                        .setTab(0, arguments: {'openBookHint': true}),
+                  );
+                },
+              ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddVehicleSheet,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Vehicle'),
       ),
     );
   }
@@ -267,20 +257,17 @@ class _VehicleCardState extends State<_VehicleCard> {
   Widget build(BuildContext context) {
     final v = widget.vehicle;
     final accent = _accentForType(v.type);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: AppSpacing.edgeInsetsAllDefault,
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
-        ),
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -293,15 +280,15 @@ class _VehicleCardState extends State<_VehicleCard> {
                 widthFactor: 0.20,
                 child: ClipRRect(
                   borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(18),
-                    bottomRight: Radius.circular(18),
+                    topRight: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
                   ),
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          accent.withValues(alpha: 0.15),
-                          accent.withValues(alpha: 0.35),
+                          accent.withValues(alpha: 0.1),
+                          accent.withValues(alpha: 0.2),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -318,18 +305,13 @@ class _VehicleCardState extends State<_VehicleCard> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: RadialGradient(
-                    center: const Alignment(0, -0.2),
-                    colors: [
-                      accent.withValues(alpha: 0.85),
-                      accent.withValues(alpha: 0.25),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.backgroundSurface,
+                  border: Border.all(color: AppColors.borderColor),
                 ),
-                child: Icon(_iconForType(v.type), color: Colors.white),
+                child: Icon(_iconForType(v.type), color: accent),
               ),
-              const SizedBox(width: 12),
+              AppSpacing.horizontalMedium,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,26 +320,25 @@ class _VehicleCardState extends State<_VehicleCard> {
                       '${v.make} ${v.model}${v.variant != null && v.variant!.isNotEmpty ? ' ${v.variant}' : ''}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${v.licensePlate} • ${v.year}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 4),
+                    AppSpacing.verticalSmall,
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        color: accent.withValues(alpha: 0.08),
+                        color: accent.withValues(alpha: 0.1),
+                        border: Border.all(
+                          color: accent.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: Text(
                         _typeLabel(v.type),
@@ -373,7 +354,10 @@ class _VehicleCardState extends State<_VehicleCard> {
               ),
               IconButton(
                 onPressed: widget.onBookService,
-                icon: const Icon(Icons.add_task_outlined),
+                icon: const Icon(
+                  Icons.add_task_outlined,
+                  color: AppColors.primaryBlue,
+                ),
                 tooltip: 'Book Service',
               ),
             ],

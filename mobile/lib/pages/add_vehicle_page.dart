@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/vehicle_service.dart';
+import '../../core/app_colors.dart';
 
 class AddVehiclePage extends StatefulWidget {
   const AddVehiclePage({super.key});
@@ -30,8 +31,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _batteryDetailsController = TextEditingController();
   String _type = 'Car';
   String _fuelType = 'Petrol';
-
-  Color get _accentPurple => const Color(0xFF3B82F6);
 
   @override
   void initState() {
@@ -193,54 +192,70 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF020617) : Colors.white,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         title: const Text('Add Vehicle'),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: isDark ? Colors.white : Colors.black,
+        foregroundColor: AppColors.textPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            _buildStepIndicator(isDark),
+            _buildStepIndicator(),
             const SizedBox(height: 32),
-            if (_step == 1) _buildStep1(isDark) else _buildStep2(isDark),
+            if (_step == 1) _buildStep1() else _buildStep2(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStepIndicator(bool isDark) {
+  Widget _buildStepIndicator() {
     return Row(
       children: [
-        _indicatorCircle(1, _step >= 1, isDark),
+        _indicatorCircle(1, _step >= 1),
         Expanded(
-          child: Divider(color: _step >= 2 ? _accentPurple : Colors.grey),
+          child: Divider(
+            color: _step >= 2 ? AppColors.primaryBlue : AppColors.borderColor,
+            thickness: 2,
+          ),
         ),
-        _indicatorCircle(2, _step >= 2, isDark),
+        _indicatorCircle(2, _step >= 2),
       ],
     );
   }
 
-  Widget _indicatorCircle(int num, bool active, bool isDark) {
+  Widget _indicatorCircle(int num, bool active) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: active ? _accentPurple : Colors.grey.withAlpha(50),
+        gradient: active
+            ? const LinearGradient(
+                colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+              )
+            : null,
+        color: active ? null : AppColors.backgroundSecondary,
+        border: active ? null : Border.all(color: AppColors.borderColor),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: Center(
         child: Text(
           num.toString(),
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: active ? AppColors.textPrimary : AppColors.textSecondary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -248,36 +263,47 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     );
   }
 
-  Widget _buildStep1(bool isDark) {
+  Widget _buildStep1() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Enter Registration Number',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'We will try to fetch your vehicle details automatically.',
-          style: TextStyle(color: Colors.grey),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 32),
         TextField(
           controller: _licensePlateController,
           textCapitalization: TextCapitalization.characters,
+          style: const TextStyle(color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'e.g. MH12AB1234',
+            hintStyle: const TextStyle(color: AppColors.textMuted),
             filled: true,
-            fillColor: isDark
-                ? Colors.white.withAlpha(10)
-                : Colors.grey.shade100,
+            fillColor: AppColors.backgroundSecondary,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: AppColors.borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primaryBlue,
+                width: 2,
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
           height: 54,
@@ -285,18 +311,37 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             children: [
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
-                  onPressed: _isFetching ? null : _handleRegNoSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _accentPurple,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        AppColors.primaryBlue,
+                        AppColors.primaryBlueDark,
+                      ],
                     ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: _isFetching
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Next'),
+                  child: ElevatedButton(
+                    onPressed: _isFetching ? null : _handleRegNoSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: AppColors.textPrimary,
+                    ),
+                    child: _isFetching
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: AppColors.textPrimary,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Next',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -304,8 +349,8 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                 child: OutlinedButton(
                   onPressed: () => setState(() => _step = 2),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _accentPurple,
-                    side: BorderSide(color: _accentPurple),
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.borderColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -321,34 +366,32 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     );
   }
 
-  Widget _buildStep2(bool isDark) {
+  Widget _buildStep2() {
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Confirm Vehicle Details',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 24),
           _buildTextField(
             'Registration Number',
             _licensePlateController,
             'e.g. MH12AB1234',
-            isDark,
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 16),
-          _buildTextField('Brand', _makeController, 'e.g. Toyota', isDark),
+          _buildTextField('Brand', _makeController, 'e.g. Toyota'),
           const SizedBox(height: 16),
-          _buildTextField('Model', _modelController, 'e.g. Camry', isDark),
+          _buildTextField('Model', _modelController, 'e.g. Camry'),
           const SizedBox(height: 16),
           _buildTextField(
             'Variant/Class (Optional)',
             _variantController,
             'e.g. VXI / SUV',
-            isDark,
             required: false,
           ),
           const SizedBox(height: 16),
@@ -356,7 +399,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             'Registration Date (DD-MM-YYYY)',
             _registrationDateController,
             'e.g. 15-08-2022',
-            isDark,
             required: false,
           ),
           const SizedBox(height: 16),
@@ -367,99 +409,61 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                   'Year',
                   _yearController,
                   'e.g. 2022',
-                  isDark,
                   keyboardType: TextInputType.number,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildTextField(
-                  'Color',
-                  _colorController,
-                  'e.g. White',
-                  isDark,
-                ),
+                child: _buildTextField('Color', _colorController, 'e.g. White'),
               ),
             ],
           ),
           const SizedBox(height: 24),
-          /* Hiding Technical Specifications as per user request
-          const Text(
-            'Technical Specifications',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          if (_isFetchingRef)
-            const Padding(
-              padding: EdgeInsets.only(top: 8.0),
-              child: Text(
-                'Auto-filling specs...',
-                style: TextStyle(fontSize: 12, color: Colors.blue),
-              ),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  'Front Tyres',
-                  _frontTyresController,
-                  'e.g. 175/65 R14',
-                  isDark,
-                  required: false,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextField(
-                  'Rear Tyres',
-                  _rearTyresController,
-                  'e.g. 175/65 R14',
-                  isDark,
-                  required: false,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            'Battery Details',
-            _batteryDetailsController,
-            'e.g. 35Ah / 40Ah',
-            isDark,
-            required: false,
-          ),
-          const SizedBox(height: 24),
-          */
-          const Text(
+          Text(
             'Additional Info',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 16),
-          _buildDropdownField(
-            'Fuel Type',
-            _fuelType,
-            ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'],
-            (v) => setState(() => _fuelType = v!),
-            isDark,
-          ),
+          _buildDropdownField('Fuel Type', _fuelType, [
+            'Petrol',
+            'Diesel',
+            'Electric',
+            'Hybrid',
+            'CNG',
+          ], (v) => setState(() => _fuelType = v!)),
           const SizedBox(height: 32),
-          SizedBox(
+          Container(
             width: double.infinity,
             height: 54,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ElevatedButton(
               onPressed: _isLoading ? null : _handleFinalSubmit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _accentPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: AppColors.textPrimary,
               ),
               child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Save Vehicle'),
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: AppColors.textPrimary,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Save Vehicle',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -468,8 +472,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   Widget _buildTextField(
     String label,
     TextEditingController controller,
-    String hint,
-    bool isDark, {
+    String hint, {
     TextInputType? keyboardType,
     bool required = true,
     TextCapitalization textCapitalization = TextCapitalization.none,
@@ -479,25 +482,38 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
+          style: const TextStyle(color: AppColors.textPrimary),
           validator: required
               ? (v) => (v == null || v.isEmpty) ? 'Required' : null
               : null,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppColors.textMuted),
             filled: true,
-            fillColor: isDark ? Colors.black : Colors.grey.shade100,
+            fillColor: AppColors.backgroundSecondary,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: isDark
-                  ? BorderSide(color: Colors.grey.shade900)
-                  : BorderSide.none,
+              borderSide: const BorderSide(color: AppColors.borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primaryBlue,
+                width: 2,
+              ),
             ),
           ),
         ),
@@ -510,28 +526,30 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     String? value,
     List<String> items,
     Function(String?) onChanged,
-    bool isDark,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: isDark ? Colors.black : Colors.grey.shade100,
+            color: AppColors.backgroundSecondary,
             borderRadius: BorderRadius.circular(12),
-            border: isDark ? Border.all(color: Colors.grey.shade900) : null,
+            border: Border.all(color: AppColors.borderColor),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              dropdownColor: isDark ? Colors.black : Colors.white,
+              dropdownColor: AppColors.backgroundSurface,
+              style: const TextStyle(color: AppColors.textPrimary),
               items: items
                   .map((i) => DropdownMenuItem(value: i, child: Text(i)))
                   .toList(),

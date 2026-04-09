@@ -1,5 +1,3 @@
-import 'user.dart';
-
 class Message {
   final String id;
   final String bookingId;

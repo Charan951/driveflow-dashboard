@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/app_colors.dart';
 import '../state/auth_provider.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -81,13 +82,12 @@ class _RegisterPageState extends State<RegisterPage>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
-                    color: Colors.black,
+                    color: AppColors.backgroundSecondary,
                     elevation: 12,
+                    shadowColor: Colors.black.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.14),
-                      ),
+                      side: const BorderSide(color: AppColors.borderColor),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
@@ -101,7 +101,7 @@ class _RegisterPageState extends State<RegisterPage>
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 22),
@@ -144,7 +144,7 @@ class _RegisterPageState extends State<RegisterPage>
                                 _showPassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: Colors.white70,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                             onChanged: () {
@@ -168,7 +168,7 @@ class _RegisterPageState extends State<RegisterPage>
                                 _showPassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: Colors.white70,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                             onChanged: () {
@@ -193,22 +193,22 @@ class _RegisterPageState extends State<RegisterPage>
                           const SizedBox(height: 18),
                           SizedBox(
                             height: 54,
-                            child: DecoratedBox(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFF2563EB),
-                                    Color(0xFF22D3EE),
+                                    AppColors.primaryBlue,
+                                    AppColors.primaryBlueDark,
                                   ],
                                 ),
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(999),
-                                ),
+                                borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Color(0x5522D3EE),
+                                    color: AppColors.primaryBlue.withValues(
+                                      alpha: 0.3,
+                                    ),
                                     blurRadius: 20,
-                                    offset: Offset(0, 10),
+                                    offset: const Offset(0, 10),
                                   ),
                                 ],
                               ),
@@ -308,8 +308,10 @@ class _RegisterPageState extends State<RegisterPage>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
-                                  foregroundColor: Colors.white,
-                                  shape: const StadiumBorder(),
+                                  foregroundColor: AppColors.textPrimary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                 ),
                                 child: _submitting
                                     ? const SizedBox(
@@ -319,7 +321,7 @@ class _RegisterPageState extends State<RegisterPage>
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
+                                                AppColors.textPrimary,
                                               ),
                                         ),
                                       )
@@ -338,7 +340,7 @@ class _RegisterPageState extends State<RegisterPage>
                             Text(
                               _error!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Color(0xFFFF6B6B)),
+                              style: const TextStyle(color: AppColors.error),
                             ),
                           ],
                           const SizedBox(height: 14),
@@ -348,7 +350,9 @@ class _RegisterPageState extends State<RegisterPage>
                             children: [
                               const Text(
                                 'Already have account? ',
-                                style: TextStyle(color: Colors.white70),
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                               GestureDetector(
                                 key: const Key('register_to_login'),
@@ -359,7 +363,7 @@ class _RegisterPageState extends State<RegisterPage>
                                 child: const Text(
                                   'Login',
                                   style: TextStyle(
-                                    color: Color(0xFF22D3EE),
+                                    color: AppColors.primaryBlueSoft,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -379,7 +383,7 @@ class _RegisterPageState extends State<RegisterPage>
                               'By registering, you agree to our Privacy Policy',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.white38,
+                                color: AppColors.textMuted,
                                 fontSize: 11,
                                 decoration: TextDecoration.underline,
                               ),
@@ -411,7 +415,10 @@ class _SplashBackground extends StatelessWidget {
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0B1220), Color(0xFF071B2E)],
+              colors: [
+                AppColors.backgroundPrimary,
+                AppColors.backgroundSecondary,
+              ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -423,10 +430,13 @@ class _SplashBackground extends StatelessWidget {
           child: Container(
             width: 420,
             height: 420,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x4422D3EE), Color(0x00000000)],
+                colors: [
+                  AppColors.primaryBlue.withValues(alpha: 0.15),
+                  Colors.transparent,
+                ],
               ),
             ),
           ),
@@ -437,18 +447,24 @@ class _SplashBackground extends StatelessWidget {
           child: Container(
             width: 520,
             height: 520,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x332563EB), Color(0x00000000)],
+                colors: [
+                  AppColors.primaryBlueDark.withValues(alpha: 0.1),
+                  Colors.transparent,
+                ],
               ),
             ),
           ),
         ),
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xCC0B1220), Color(0xE60B1220)],
+              colors: [
+                AppColors.backgroundPrimary.withValues(alpha: 0.8),
+                AppColors.backgroundPrimary.withValues(alpha: 0.9),
+              ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -476,10 +492,9 @@ class _SplashParticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final glow = Paint()
-      ..color = const Color(0xFF22D3EE).withValues(alpha: 0.20)
+      ..color = AppColors.primaryBlue.withValues(alpha: 0.20)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    final dot = Paint()
-      ..color = const Color(0xFF22D3EE).withValues(alpha: 0.34);
+    final dot = Paint()..color = AppColors.primaryBlue.withValues(alpha: 0.34);
 
     final drift = t * size.height * 0.38;
     for (final p in _points) {
@@ -503,9 +518,13 @@ class _SplashParticlePainter extends CustomPainter {
     final scanY = (t * size.height) % size.height;
     final scan = Rect.fromLTWH(0, scanY - 160, size.width, 320);
     final scanPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0x00000000), Color(0x3322D3EE), Color(0x00000000)],
-        stops: [0, 0.5, 1],
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          AppColors.primaryBlue.withValues(alpha: 0.2),
+          Colors.transparent,
+        ],
+        stops: const [0, 0.5, 1],
       ).createShader(scan);
     canvas.drawRect(scan, scanPaint);
   }
@@ -543,26 +562,26 @@ class _GlassField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       obscureText: obscureText,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textPrimary),
       onChanged: (_) => onChanged?.call(),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: Colors.white),
-        prefixIcon: Icon(prefixIcon, color: Colors.white),
+        hintStyle: const TextStyle(color: AppColors.textMuted),
+        prefixIcon: Icon(prefixIcon, color: AppColors.textSecondary),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.10),
+        fillColor: AppColors.backgroundSurface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+          borderSide: const BorderSide(color: AppColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF22D3EE), width: 2),
+          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
         ),
       ),
     );

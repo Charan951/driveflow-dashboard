@@ -18,6 +18,7 @@ class _SplashPageState extends State<SplashPage>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   late final AnimationController _bgController;
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -40,34 +41,12 @@ class _SplashPageState extends State<SplashPage>
     NotificationService().requestPermissions();
 
     await Future.delayed(const Duration(milliseconds: 600));
-    try {
-      final token = await AppStorage().getToken();
-      if (token == null || token.isEmpty) {
-        _goToLogin();
-        return;
-      }
+  }
 
-      final user = await _authService.getCurrentUser();
-      if (user == null ||
-          (user.role != 'staff' &&
-              user.role != 'admin' &&
-              user.role != 'merchant')) {
-        await _authService.logout();
-        _goToLogin();
-        return;
-      }
-
-      if (!mounted) return;
-      if (user.role == 'merchant') {
-        Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
-      } else {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
-    } catch (_) {
-      await _authService.logout();
-      if (!mounted) return;
-      _goToLogin();
-    }
+  void _onInteract() {
+    if (_navigated) return;
+    _navigated = true;
+    Navigator.of(context).pushReplacementNamed('/login');
   }
 
   void _goToLogin() {
@@ -77,106 +56,113 @@ class _SplashPageState extends State<SplashPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _bgController,
-              builder: (context, _) =>
-                  _SplashBackground(t: _bgController.value),
+      body: GestureDetector(
+        onTap: _onInteract,
+        onTapDown: (_) => _onInteract(),
+        onDoubleTap: _onInteract,
+        onLongPress: _onInteract,
+        onPanDown: (_) => _onInteract(),
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _bgController,
+                builder: (context, _) =>
+                    _SplashBackground(t: _bgController.value),
+              ),
             ),
-          ),
-          SafeArea(
-            child: Center(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) {
-                  return Transform.translate(
-                    offset: Offset(0, (1 - value) * 24),
-                    child: Opacity(opacity: value, child: child),
-                  );
-                },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AnimatedBuilder(
-                      animation: _bgController,
-                      builder: (context, _) {
-                        final pulse =
-                            0.65 + 0.35 * sin(_bgController.value * pi * 2);
-                        return Container(
-                          width: 112,
-                          height: 112,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.18),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF22D3EE,
-                              ).withValues(alpha: 0.9),
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
+            SafeArea(
+              child: Center(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(0, (1 - value) * 24),
+                      child: Opacity(opacity: value, child: child),
+                    );
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _bgController,
+                        builder: (context, _) {
+                          final pulse =
+                              0.65 + 0.35 * sin(_bgController.value * pi * 2);
+                          return Container(
+                            width: 112,
+                            height: 112,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withValues(alpha: 0.18),
+                              border: Border.all(
                                 color: const Color(
                                   0xFF22D3EE,
-                                ).withValues(alpha: 0.55 * pulse),
-                                blurRadius: 30,
-                                spreadRadius: 2,
+                                ).withValues(alpha: 0.9),
+                                width: 3,
                               ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: Image.asset(
-                              'assets/speshway_logo.png',
-                              fit: BoxFit.cover,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF22D3EE,
+                                  ).withValues(alpha: 0.55 * pulse),
+                                  blurRadius: 30,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'SPESHWAY SOLUTIONS',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
-                            color: Colors.white,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Staff Portal',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 26),
-                    SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withValues(alpha: 0.9),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: Image.asset(
+                                'assets/appicon.png',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Carzzi Care',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Staff Portal',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 26),
+                      Text(
+                        'Tap to Continue',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          letterSpacing: 1.2,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
 }
 
 class _SplashBackground extends StatelessWidget {

@@ -11,6 +11,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
@@ -60,6 +61,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   String? _liveName;
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
+  bool _isMapMaximized = false;
   bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
 
@@ -167,7 +169,18 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             // Safely move map if ready
             if (_mapReady) {
               try {
-                _mapController.move(next, 16.0);
+                final loc = _booking?.location;
+                if (loc != null && loc.lat != null && loc.lng != null) {
+                  final dest = LatLng(loc.lat!, loc.lng!);
+                  _mapController.fitCamera(
+                    CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints([next, dest]),
+                      padding: const EdgeInsets.all(50),
+                    ),
+                  );
+                } else {
+                  _mapController.move(next, 16.0);
+                }
               } catch (e) {
                 // Ignore
               }
@@ -293,7 +306,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         final options = {
           'key': razorpayKey,
           'amount': amount,
-          'name': 'Speshway',
+          'name': 'Carzzi',
           if (orderId.isNotEmpty) 'order_id': orderId,
           'description': 'Service Payment',
           'prefill': {
@@ -304,9 +317,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             'wallets': ['paytm', 'phonepe', 'mobikwik', 'freecharge'],
           },
           'timeout': 300, // 5 minutes
-          'upi_link': true,
           'retry': {'enabled': true, 'max_count': 1},
           'theme': {'color': '#2563EB'},
+          'upi': {'flow': 'intent'}, // Force intent flow for UPI
         };
 
         if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {}
@@ -990,23 +1003,24 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   final booking = _booking!;
                   final isCarWash =
                       booking.services.any((s) {
-                        final cat = s.category;
-                        return cat == 'Car Wash' ||
-                            cat == 'Wash' ||
-                            cat == 'Detailing';
+                        final cat = (s.category ?? '').toLowerCase();
+                        return cat.contains('car wash') ||
+                            cat.contains('wash') ||
+                            cat.contains('detailing');
                       }) ||
                       booking.carWash?.isCarWashService == true;
                   final isBatteryTire =
                       booking.services.any((s) {
-                        final cat = s.category;
-                        return cat == 'Battery' ||
-                            cat == 'Tyres' ||
-                            cat == 'Tyre & Battery';
+                        final cat = (s.category ?? '').toLowerCase();
+                        return cat.contains('battery') ||
+                            cat.contains('tyres') ||
+                            cat.contains('tyre') ||
+                            cat.contains('tire');
                       }) ||
                       booking.batteryTire?.isBatteryTireService == true;
                   final isGeneralService = booking.services.any((s) {
                     final cat = (s.category ?? '').toLowerCase();
-                    final name = (s.name ?? '').toLowerCase();
+                    final name = s.name.toLowerCase();
                     return cat == 'periodic' ||
                         cat == 'services' ||
                         name.contains('general service');
@@ -1016,62 +1030,101 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (showLiveTrackingMap) ...[
-                        Container(
-                          height: 260,
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          height: _isMapMaximized ? 500 : 260,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: const Color(0xFFE5E7EB)),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: FlutterMap(
-                              mapController: _mapController,
-                              options: MapOptions(
-                                initialCenter: center,
-                                initialZoom: 13,
-                                onMapReady: () {
-                                  setState(() => _mapReady = true);
-                                },
-                              ),
-                              children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName: Env.userAgent,
-                                  tileProvider:
-                                      CancellableNetworkTileProvider(),
-                                ),
-                                PolylineLayer(
-                                  polylines: [
-                                    if (_routePoints.isNotEmpty)
-                                      Polyline(
-                                        points: _routePoints,
-                                        color: const Color(0xFF2563EB),
-                                        strokeWidth: 4,
-                                      ),
-                                  ],
-                                ),
-                                MarkerLayer(
-                                  markers: [
-                                    if (booking.pickupRequired &&
-                                        _liveLatLng != null)
-                                      Marker(
-                                        point: _liveLatLng!,
-                                        width: 40,
-                                        height: 40,
-                                        child: Transform.rotate(
-                                          angle: _bearingRad,
-                                          child: const Icon(
-                                            Icons.two_wheeler,
-                                            size: 34,
-                                            color: Color(0xFFEF4444),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: FlutterMap(
+                                  mapController: _mapController,
+                                  options: MapOptions(
+                                    initialCenter: center,
+                                    initialZoom: 13,
+                                    onMapReady: () {
+                                      setState(() => _mapReady = true);
+                                    },
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate:
+                                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      userAgentPackageName: Env.userAgent,
+                                      tileProvider:
+                                          CancellableNetworkTileProvider(),
+                                    ),
+                                    PolylineLayer(
+                                      polylines: [
+                                        if (_routePoints.isNotEmpty)
+                                          Polyline(
+                                            points: _routePoints,
+                                            color: const Color(0xFF2563EB),
+                                            strokeWidth: 4,
                                           ),
-                                        ),
-                                      ),
+                                      ],
+                                    ),
+                                    MarkerLayer(
+                                      markers: [
+                                        if (booking.pickupRequired &&
+                                            _liveLatLng != null)
+                                          Marker(
+                                            point: _liveLatLng!,
+                                            width: 40,
+                                            height: 40,
+                                            child: Transform.rotate(
+                                              angle: _bearingRad,
+                                              child: const Icon(
+                                                Icons.two_wheeler,
+                                                size: 34,
+                                                color: Color(0xFFEF4444),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: GestureDetector(
+                                  onTap: () => setState(
+                                    () => _isMapMaximized = !_isMapMaximized,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      _isMapMaximized
+                                          ? Icons.fullscreen_exit
+                                          : Icons.fullscreen,
+                                      size: 20,
+                                      color: const Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1525,7 +1578,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                               booking.id,
                                             );
                                             _load();
-                                            if (mounted) {
+                                            if (context.mounted) {
                                               ScaffoldMessenger.of(
                                                 context,
                                               ).showSnackBar(
@@ -1537,7 +1590,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                               );
                                             }
                                           } catch (e) {
-                                            if (mounted) {
+                                            if (context.mounted) {
                                               ScaffoldMessenger.of(
                                                 context,
                                               ).showSnackBar(
@@ -1872,8 +1925,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ),
                       if ((booking.status == 'OUT_FOR_DELIVERY' ||
                               booking.status == 'SERVICE_COMPLETED' ||
-                              (isCarWash &&
-                                  booking.status == 'CAR_WASH_COMPLETED')) &&
+                              booking.status == 'DELIVERY' ||
+                              booking.status == 'CAR_WASH_COMPLETED') &&
                           booking.deliveryOtp != null &&
                           booking.deliveryOtp!.code.trim().isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -1888,7 +1941,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isCarWash ? 'Completion OTP' : 'Delivery OTP',
+                                (isCarWash || isBatteryTire)
+                                    ? 'Completion OTP'
+                                    : 'Delivery OTP',
                                 style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w700,
@@ -1920,7 +1975,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      isCarWash
+                                      (isCarWash || isBatteryTire)
                                           ? 'Share this code with our staff to confirm service completion.'
                                           : 'Share this code only with our staff at the time of delivery.',
                                       style: Theme.of(context)
@@ -2572,22 +2627,36 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _showReviewDialog,
-                            icon: const Icon(Icons.star),
-                            label: const Text(
-                              'Rate your experience',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.primaryBlue,
+                                  AppColors.primaryBlueDark,
+                                ],
                               ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.amber,
-                              foregroundColor: Colors.black87,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            child: ElevatedButton.icon(
+                              onPressed: _showReviewDialog,
+                              icon: const Icon(Icons.star),
+                              label: const Text(
+                                'Rate your experience',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                foregroundColor: AppColors.textPrimary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ),
@@ -3123,7 +3192,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                         ),
                       ],
-                      if (booking.invoiceUrl != null) ...[
+                      if (booking.invoiceUrl != null &&
+                          (isCarWash ||
+                              isBatteryTire ||
+                              booking.paymentStatus == 'paid')) ...[
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
@@ -3140,7 +3212,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                         : LaunchMode.externalApplication,
                                   );
                                 } else {
-                                  if (mounted) {
+                                  if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
@@ -3155,8 +3227,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             icon: const Icon(Icons.download),
                             label: const Text('Download Invoice'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0F172A),
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.backgroundSurface,
+                              foregroundColor: AppColors.textPrimary,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -3335,11 +3407,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : const Color(0xFFF9FAFB),
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
+          color: isDark ? AppColors.borderColor : Colors.grey.shade200,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3437,9 +3518,7 @@ class _StatusRow extends StatelessWidget {
           height: 20,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isCompleted
-                ? const Color(0xFF22C55E)
-                : const Color(0xFF94A3B8),
+            color: isCompleted ? AppColors.success : AppColors.textMuted,
           ),
           child: Icon(
             isCompleted ? Icons.check : Icons.access_time,

@@ -11,5 +11,6 @@
 -keepattributes *Annotation*
 
 -keepattributes Signature
-
 -keepattributes Exceptions
+
+-optimizations !method/inlining/*

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_colors.dart';
+import '../core/app_spacing.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
@@ -158,26 +160,26 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     switch (status) {
       case 'CREATED':
       case 'ASSIGNED':
-        return const Color(0xFF2563EB);
+        return AppColors.primaryBlue;
       case 'ACCEPTED':
       case 'REACHED_CUSTOMER':
-        return const Color(0xFF0EA5E9);
+        return AppColors.primaryBlueSoft;
       case 'VEHICLE_PICKED':
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
       case 'SERVICE_STARTED':
       case 'SERVICE_IN_PROGRESS':
-        return const Color(0xFF3B82F6);
+        return AppColors.primaryBlue;
       case 'SERVICE_COMPLETED':
       case 'OUT_FOR_DELIVERY':
-        return const Color(0xFFF59E0B);
+        return AppColors.warning;
       case 'DELIVERED':
       case 'COMPLETED':
-        return const Color(0xFF16A34A);
+        return AppColors.success;
       case 'CANCELLED':
-        return const Color(0xFFEF4444);
+        return AppColors.error;
       default:
-        return const Color(0xFF64748B);
+        return AppColors.textMuted;
     }
   }
 
@@ -256,24 +258,24 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 : _error != null
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.edgeInsetsAllDefault,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(top: 24),
+                        padding: const EdgeInsets.only(top: AppSpacing.section),
                         child: Column(
                           children: [
                             Text(
                               'Failed to load bookings',
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            const SizedBox(height: 8),
+                            AppSpacing.verticalSmall,
                             Text(
                               _error!,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: Colors.white),
                             ),
-                            const SizedBox(height: 12),
+                            AppSpacing.verticalMedium,
                             OutlinedButton(
                               onPressed: _load,
                               child: const Text('Retry'),
@@ -286,25 +288,23 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 : _bookings.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.edgeInsetsAllDefault,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
+                      const Padding(
+                        padding: EdgeInsets.only(top: AppSpacing.section),
                         child: Center(
                           child: Text(
                             'No bookings yet',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.white),
+                            style: TextStyle(color: Colors.white),
                           ),
                         ),
                       ),
                     ],
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.edgeInsetsAllDefault,
                     itemCount: _bookings.length,
-                    separatorBuilder: (context, _) =>
-                        const SizedBox(height: 12),
+                    separatorBuilder: (context, _) => AppSpacing.verticalMedium,
                     itemBuilder: (context, index) {
                       final b = _bookings[index];
                       final primaryService = b.services.isNotEmpty
@@ -408,16 +408,14 @@ class _BookingCardState extends State<_BookingCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
-          ),
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 12,
-              offset: const Offset(0, 8),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -473,7 +471,7 @@ class _BookingCardState extends State<_BookingCard> {
                         size: 22,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    AppSpacing.horizontalMedium,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +489,7 @@ class _BookingCardState extends State<_BookingCard> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: AppSpacing.small,
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
@@ -545,7 +543,7 @@ class _BookingCardState extends State<_BookingCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                AppSpacing.verticalSmall,
                 Row(
                   children: [
                     Icon(
@@ -553,7 +551,7 @@ class _BookingCardState extends State<_BookingCard> {
                       size: 16,
                       color: isDark ? Colors.white : Colors.black54,
                     ),
-                    const SizedBox(width: 6),
+                    AppSpacing.horizontalSmall,
                     Text(
                       widget.dateTimeLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -562,7 +560,7 @@ class _BookingCardState extends State<_BookingCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                AppSpacing.verticalSmall,
                 Text(
                   widget.title,
                   maxLines: 1,
@@ -591,7 +589,7 @@ class _BookingCardState extends State<_BookingCard> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
+                AppSpacing.verticalSmall,
                 Row(
                   children: [
                     Text(

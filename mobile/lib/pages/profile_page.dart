@@ -8,6 +8,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:http/http.dart' as http;
 
 import '../models/user.dart';
+import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
@@ -720,16 +721,20 @@ class _AddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.grey[50],
+        color: AppColors.backgroundSecondary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade900 : Colors.grey[200]!,
-        ),
+        border: Border.all(color: AppColors.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [

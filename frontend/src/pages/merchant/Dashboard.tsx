@@ -193,7 +193,8 @@ const Dashboard: React.FC = () => {
                 key={booking._id} 
                 variants={staggerItem}
                 whileHover={{ scale: 1.01, y: -2 }}
-                className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between shadow-sm hover:shadow-card-hover transition-all duration-300"
+                onClick={() => navigate(`/merchant/order/${booking._id}`)}
+                className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between shadow-sm hover:shadow-card-hover transition-all duration-300 cursor-pointer"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -216,14 +217,6 @@ const Dashboard: React.FC = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     Slot: {new Date(booking.date).toLocaleDateString()}
                   </p>
-                </div>
-                <div>
-                  <Link 
-                    to={`/merchant/order/${booking._id}`}
-                    className="inline-flex items-center justify-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    View
-                  </Link>
                 </div>
               </motion.div>
             ))

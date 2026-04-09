@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
+import '../core/app_colors.dart';
+import '../core/app_spacing.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
@@ -39,7 +41,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   List<Booking> _recentBookings = [];
 
   Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color.fromARGB(255, 34, 51, 238);
+  Color get _accentBlue => const Color.fromARGB(255, 105, 115, 226);
   Color get _neonBlue => const Color(0xFF38BDF8);
 
   @override
@@ -82,7 +84,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       try {
         final mapData = jsonDecode(jsonEncode(payload)) as Map<String, dynamic>;
         updated = Booking.fromJson(mapData);
-      } catch (e) {}
+      } catch (e) {
+        debugPrint('Error parsing external update: $e');
+      }
     }
     if (updated == null) {
       _load(isInitial: true);
@@ -404,41 +408,46 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     }
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
+      backgroundColor: isDark ? Colors.black : AppColors.backgroundPrimaryLight,
       drawer: const CustomerDrawer(currentRouteName: '/customer'),
       body: Stack(
         children: [
           if (isDark)
             Container(color: Colors.black)
           else
-            Container(color: Colors.white),
+            Container(color: AppColors.backgroundPrimaryLight),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: AppSpacing.edgeInsetsHorizontalDefault,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.only(bottom: 120),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
+                        AppSpacing.verticalSmall,
                         RepaintBoundary(child: _buildHeader()),
-                        const SizedBox(height: 16),
+                        AppSpacing.verticalDefault,
                         if (_loading &&
                             _vehicles.isEmpty &&
                             _bookings.isEmpty &&
                             _services.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 24, bottom: 8),
+                          const Padding(
+                            padding: EdgeInsets.only(
+                              top: AppSpacing.section,
+                              bottom: AppSpacing.small,
+                            ),
                             child: Center(
                               child: SizedBox(
                                 width: 28,
                                 height: 28,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.6,
-                                  valueColor: AlwaysStoppedAnimation(_neonBlue),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Color(0xFF38BDF8),
+                                  ),
                                 ),
                               ),
                             ),
@@ -448,17 +457,20 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             _bookings.isEmpty &&
                             _services.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(top: 24, bottom: 8),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.section,
+                              bottom: AppSpacing.small,
+                            ),
                             child: _FrostedCard(
                               borderRadius: 20,
-                              padding: const EdgeInsets.all(16),
+                              padding: AppSpacing.edgeInsetsAllDefault,
                               child: Row(
                                 children: [
                                   Icon(
                                     Icons.warning_amber_rounded,
                                     color: Colors.amberAccent.shade200,
                                   ),
-                                  const SizedBox(width: 12),
+                                  AppSpacing.horizontalMedium,
                                   Expanded(
                                     child: Text(
                                       'Unable to load your dashboard.\nPlease check your internet connection and try again.',
@@ -472,7 +484,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                           ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  AppSpacing.horizontalSmall,
                                   TextButton(
                                     onPressed: () => _load(isInitial: true),
                                     child: const Text('Retry'),
@@ -481,11 +493,11 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                               ),
                             ),
                           ),
-                        const SizedBox(height: 16),
+                        AppSpacing.verticalDefault,
                         RepaintBoundary(child: _buildUpcomingServiceCard()),
-                        const SizedBox(height: 24),
+                        AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildQuickServices()),
-                        const SizedBox(height: 24),
+                        AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildRecentServices()),
                       ],
                     ),
@@ -508,25 +520,28 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
     return Row(
       children: [
-        _FrostedCard(
-          borderRadius: 16,
-          padding: EdgeInsets.zero,
-          child: IconButton(
-            icon: const Icon(Icons.menu),
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
+        _AnimatedDashboardCard(
+          onTap: () => Scaffold.of(context).openDrawer(),
+          child: _FrostedCard(
+            borderRadius: 12,
+            padding: EdgeInsets.zero,
+            child: IconButton(
+              icon: const Icon(Icons.menu),
+              color: isDark ? Colors.white : AppColors.textPrimaryLight,
+              tooltip: 'Menu',
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
         ),
-        const SizedBox(width: 14),
+        AppSpacing.horizontalMedium,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Speshway VehicleCare',
+                'Carzzi VehicleCare',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textMutedLight,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
                 ),
@@ -535,7 +550,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               Text(
                 firstName.isNotEmpty ? '$greeting, $firstName' : greeting,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textPrimaryLight,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
                 ),
@@ -560,15 +575,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             Text(
               'No upcoming service',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : AppColors.textPrimaryLight,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 8),
+            AppSpacing.verticalSmall,
             Text(
               'Book a service to keep your vehicle in top condition.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF64748B),
+                color: isDark ? Colors.white : AppColors.textSecondaryLight,
               ),
             ),
             const SizedBox(height: 20),
@@ -610,7 +625,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               Text(
                 'Ongoing Service',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textPrimaryLight,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -620,30 +635,26 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _neonBlue.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _neonBlue.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
+                  color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  _statusLabel(booking.status).toUpperCase(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _neonBlue,
+                child: const Text(
+                  'IN PROGRESS',
+                  style: TextStyle(
+                    color: Color(0xFF4A90E2),
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    fontSize: 9,
                     letterSpacing: 0.5,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          AppSpacing.verticalSmall,
           Text(
             primaryService,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              color: isDark ? Colors.white : AppColors.textPrimaryLight,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -651,36 +662,40 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           Text(
             vehicleLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isDark ? Colors.white : const Color(0xFF64748B),
+              color: isDark ? Colors.white : AppColors.textSecondaryLight,
             ),
           ),
-          const SizedBox(height: 16),
+          AppSpacing.verticalDefault,
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.access_time_filled_rounded,
-                color: _neonBlue,
+                color: Color(0xFF4A90E2),
                 size: 18,
               ),
-              const SizedBox(width: 8),
+              AppSpacing.horizontalSmall,
               Text(
                 '$dateLabel • $timeLabel',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textPrimaryLight,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          AppSpacing.verticalMedium,
           Row(
             children: [
-              Icon(Icons.location_on_rounded, color: _neonBlue, size: 18),
-              const SizedBox(width: 8),
+              const Icon(
+                Icons.location_on_rounded,
+                color: Color(0xFF4A90E2),
+                size: 18,
+              ),
+              AppSpacing.horizontalSmall,
               Expanded(
                 child: Text(
                   locationLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark ? Colors.white : const Color(0xFF64748B),
+                    color: isDark ? Colors.white : AppColors.textSecondaryLight,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -750,27 +765,26 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         Text(
           'Quick Services',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        AppSpacing.verticalMedium,
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: items.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.7,
+            mainAxisSpacing: AppSpacing.medium,
+            crossAxisSpacing: AppSpacing.medium,
+            childAspectRatio: 0.62,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
             final theme = Theme.of(context);
             final category = item.category?.trim();
-            return InkWell(
-              borderRadius: BorderRadius.circular(18),
+            return _AnimatedDashboardCard(
               onTap: item.source == null
                   ? null
                   : () {
@@ -799,33 +813,33 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       nav.navigateTo(route, arguments: source);
                     },
               child: _FrostedCard(
-                borderRadius: 18,
+                borderRadius: 16,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 12,
+                  horizontal: AppSpacing.small,
+                  vertical: AppSpacing.medium,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Category badge area with fixed height to ensure icons align
+                    // Category badge area
                     SizedBox(
                       height: 20,
                       child: (category != null && category.isNotEmpty)
                           ? Center(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: AppSpacing.small,
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  gradient: LinearGradient(
-                                    begin: const Alignment(-1, 0),
-                                    end: const Alignment(1, 0),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
                                     colors: [
-                                      _accentPurple.withValues(alpha: 0.9),
-                                      _accentBlue.withValues(alpha: 0.9),
+                                      Color(0xFF4A90E2),
+                                      Color(0xFF6C63FF),
                                     ],
                                   ),
                                 ),
@@ -846,24 +860,22 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.2),
-                          colors: [
-                            _accentBlue.withValues(alpha: 0.9),
-                            _accentPurple.withValues(alpha: 0.4),
-                          ],
-                        ),
                       ),
                       child: Center(
-                        child: Icon(item.icon, size: 20, color: Colors.white),
+                        child: Icon(
+                          item.icon,
+                          size: 22,
+                          color: AppColors.primaryBlue,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Label area with fixed height for 2 lines to ensure prices align
+                    // Label area
                     SizedBox(
                       height: 32,
                       child: Center(
@@ -872,7 +884,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark
                                 ? Colors.white
-                                : const Color(0xFF0F172A),
+                                : AppColors.textPrimaryLight,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             height: 1.2,
@@ -890,7 +902,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
                               ? Colors.white
-                              : const Color(0xFF0F172A),
+                              : AppColors.textPrimaryLight,
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                         ),
@@ -916,17 +928,17 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         Text(
           'Recent Services',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
-        const SizedBox(height: 14),
+        AppSpacing.verticalMedium,
         if (items.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: AppSpacing.edgeInsetsVerticalDefault,
             child: _FrostedCard(
-              borderRadius: 20,
+              borderRadius: 16,
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
@@ -934,16 +946,16 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     Icons.info_rounded,
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.7)
-                        : const Color(0xFF0F172A),
+                        : AppColors.textPrimaryLight,
                   ),
-                  const SizedBox(width: 14),
+                  AppSpacing.horizontalMedium,
                   Expanded(
                     child: Text(
                       'No recent services yet. Your history will appear here.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.8)
-                            : const Color(0xFF64748B),
+                            : AppColors.textSecondaryLight,
                         height: 1.4,
                       ),
                     ),
@@ -975,28 +987,36 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   b.status == 'DELIVERED' || b.status == 'COMPLETED';
               final statusColor = isDelivered
                   ? const Color(0xFF4ADE80)
-                  : const Color(0xFF38BDF8);
+                  : const Color(0xFF4A90E2);
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
+                padding: const EdgeInsets.only(bottom: AppSpacing.medium),
+                child: _AnimatedDashboardCard(
                   onTap: () =>
                       Navigator.pushNamed(context, '/track', arguments: b.id),
-                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
-                      vertical: 16,
+                      vertical: AppSpacing.defaultPadding,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(
-                        0xFF0A0A0A,
-                      ), // Solid dark background for the card
-                      borderRadius: BorderRadius.circular(20),
+                      color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.shade200,
                         width: 1,
                       ),
+                      boxShadow: isDark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                     child: Row(
                       children: [
@@ -1008,7 +1028,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 serviceName,
                                 style: Theme.of(context).textTheme.bodyLarge
                                     ?.copyWith(
-                                      color: Colors.white,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.textPrimaryLight,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15,
                                     ),
@@ -1019,33 +1041,47 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                   vehicleLabel,
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.6,
-                                        ),
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.6,
+                                              )
+                                            : AppColors.textSecondaryLight,
                                         fontSize: 11,
                                         letterSpacing: 0.2,
                                       ),
                                 ),
                               ],
                               const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle_rounded,
-                                    size: 14,
-                                    color: statusColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    statusText,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: statusColor,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12,
-                                        ),
-                                  ),
-                                ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.small,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isDelivered
+                                          ? Icons.check_circle_rounded
+                                          : Icons.access_time_filled_rounded,
+                                      size: 13,
+                                      color: statusColor,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -1057,7 +1093,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                               priceLabel,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: Colors.white,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.textPrimaryLight,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 16,
                                   ),
@@ -1067,7 +1105,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                               _formatDate(context, b.date),
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.5),
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : AppColors.textMutedLight,
                                     fontSize: 11,
                                   ),
                             ),
@@ -1081,6 +1121,54 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             }).toList(),
           ),
       ],
+    );
+  }
+}
+
+class _AnimatedDashboardCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _AnimatedDashboardCard({required this.child, this.onTap});
+
+  @override
+  State<_AnimatedDashboardCard> createState() => _AnimatedDashboardCardState();
+}
+
+class _AnimatedDashboardCardState extends State<_AnimatedDashboardCard> {
+  double _scale = 1.0;
+
+  void _onTapDown(TapDownDetails details) {
+    if (widget.onTap != null) {
+      setState(() => _scale = 0.97);
+    }
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    if (widget.onTap != null) {
+      setState(() => _scale = 1.0);
+    }
+  }
+
+  void _onTapCancel() {
+    if (widget.onTap != null) {
+      setState(() => _scale = 1.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -1110,8 +1198,8 @@ class _FrostedCard extends StatelessWidget {
 
   const _FrostedCard({
     required this.child,
-    this.borderRadius = 20,
-    this.padding = const EdgeInsets.all(12),
+    this.borderRadius = 16,
+    this.padding = AppSpacing.edgeInsetsAllMedium,
   });
 
   @override
@@ -1120,19 +1208,17 @@ class _FrostedCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white.withValues(alpha: 0.9),
+        color: isDark ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: isDark
-              ? Colors.grey.shade900
-              : const Color(0xFFE2E8F0).withValues(alpha: 0.6),
+          color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
           width: 1,
         ),
         boxShadow: isDark
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1152,29 +1238,42 @@ class _NeonBorderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderRadius = BorderRadius.circular(26);
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          border: Border.all(
-            color: neonColor.withValues(alpha: isDark ? 0.5 : 0.35),
-            width: 1.2,
-          ),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [Colors.black, Colors.black]
-                : [
-                    Colors.white.withValues(alpha: 0.9),
-                    Colors.white.withValues(alpha: 0.6),
-                  ],
-          ),
+    final borderRadius = BorderRadius.circular(16);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        color: isDark ? Colors.black : Colors.white,
+        border: Border.all(
+          color: isDark
+              ? neonColor.withValues(alpha: 0.5)
+              : Colors.grey.shade200,
+          width: 1,
         ),
-        child: child,
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [Colors.black, Colors.black]
+                  : [Colors.white, Colors.white],
+            ),
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -1197,18 +1296,28 @@ class _NeonButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: DecoratedBox(
+      child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          gradient: LinearGradient(colors: [purple, blue]),
+          borderRadius: BorderRadius.circular(30),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A90E2), Color(0xFF6C63FF)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A90E2).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               color: Colors.white,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
         ),
