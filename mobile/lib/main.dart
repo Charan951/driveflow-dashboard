@@ -340,8 +340,28 @@ class _TabRedirect extends StatelessWidget {
   }
 }
 
-class RootGate extends StatelessWidget {
+class RootGate extends StatefulWidget {
   const RootGate({super.key});
+
+  @override
+  State<RootGate> createState() => _RootGateState();
+}
+
+class _RootGateState extends State<RootGate> {
+  bool _splashDelayComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 3 seconds delay for splash screen when authenticated
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _splashDelayComplete = true;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -349,10 +369,14 @@ class RootGate extends StatelessWidget {
 
     // Wait until initialization is complete
     if (!auth.isInitialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const SplashPage();
     }
 
+    // If authenticated, show home pages only after 3 seconds splash delay
     if (auth.isAuthenticated) {
+      if (!_splashDelayComplete) {
+        return const SplashPage();
+      }
       final role = auth.user?.role;
       if (role == 'merchant') return const MerchantHomePage();
       if (role == 'staff') return const StaffHomePage();
@@ -360,6 +384,7 @@ class RootGate extends StatelessWidget {
       return const MainNavigationPage();
     }
 
+    // If not authenticated, always show SplashPage (it will handle navigation to login)
     return const SplashPage();
   }
 }

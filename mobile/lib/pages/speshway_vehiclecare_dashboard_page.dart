@@ -778,7 +778,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             crossAxisCount: 4,
             mainAxisSpacing: AppSpacing.medium,
             crossAxisSpacing: AppSpacing.medium,
-            childAspectRatio: 0.62,
+            childAspectRatio: 0.58,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
@@ -815,21 +815,21 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               child: _FrostedCard(
                 borderRadius: 16,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.small,
-                  vertical: AppSpacing.medium,
+                  horizontal: 6,
+                  vertical: AppSpacing.small,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Category badge area
+                    // Category badge area - fixed height to keep icons aligned
                     SizedBox(
-                      height: 20,
+                      height: 18,
                       child: (category != null && category.isNotEmpty)
                           ? Center(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.small,
+                                  horizontal: 8,
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
@@ -847,7 +847,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                   category.toUpperCase(),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: Colors.white,
-                                    fontSize: 7,
+                                    fontSize: 7.5,
                                     letterSpacing: 0.5,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -860,8 +860,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: AppColors.primaryBlue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
@@ -869,15 +869,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       child: Center(
                         child: Icon(
                           item.icon,
-                          size: 22,
+                          size: 18,
                           color: AppColors.primaryBlue,
                         ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Label area
+                    // Label area - fixed height to keep prices aligned
                     SizedBox(
-                      height: 32,
+                      height: 34,
                       child: Center(
                         child: Text(
                           item.label,
@@ -885,7 +885,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             color: isDark
                                 ? Colors.white
                                 : AppColors.textPrimaryLight,
-                            fontSize: 10.5,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
                             height: 1.2,
                           ),
@@ -896,18 +896,22 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       ),
                     ),
                     const Spacer(),
-                    if (item.price != null && item.price! > 0) ...[
-                      Text(
-                        _formatPrice(item.price!),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? Colors.white
-                              : AppColors.textPrimaryLight,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
+                    // Price area - fixed height to keep layout consistent
+                    SizedBox(
+                      height: 16,
+                      child: (item.price != null && item.price! > 0)
+                          ? Text(
+                              _formatPrice(item.price!),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimaryLight,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                   ],
                 ),
               ),

@@ -11,6 +11,7 @@ import '../models/user.dart';
 import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../state/auth_provider.dart';
+import '../state/theme_provider.dart';
 import '../widgets/customer_drawer.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -36,9 +37,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.mode == ThemeMode.dark;
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
@@ -213,6 +216,54 @@ class _ProfilePageState extends State<ProfilePage> {
                                 _deletePaymentMethod(context, user, p),
                           ),
                         ),
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: isDark
+                              ? Colors.black
+                              : const Color(0xFFF9FAFB),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.grey.shade900
+                                : const Color(0xFFE5E7EB),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isDark ? Icons.dark_mode : Icons.light_mode,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Dark mode',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: isDark,
+                              activeColor: _accentPurple,
+                              onChanged: (_) => themeProvider.toggleTheme(),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
                         onPressed: () async {

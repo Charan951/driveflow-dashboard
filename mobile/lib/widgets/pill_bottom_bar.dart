@@ -92,9 +92,9 @@ class PillBottomBar extends StatelessWidget {
                     ),
                     Expanded(
                       child: GlassNavItem(
-                        activeIcon: Icons.tire_repair_rounded,
-                        inactiveIcon: Icons.tire_repair_outlined,
-                        label: 'Tyres & Battery',
+                        activeIcon: Icons.battery_charging_full_rounded,
+                        inactiveIcon: Icons.battery_charging_full_outlined,
+                        label: 'Tyre & Battery',
                         isActive: selectedIndex == 4,
                         inactiveColor: inactiveColor,
                         onTap: () => onTap(4),
@@ -181,30 +181,29 @@ class GlassNavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
-      child: Container(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isActive)
-              ShaderMask(
-                shaderCallback: (bounds) =>
-                    AppStyles.primaryGradient.createShader(bounds),
-                child: Icon(activeIcon, color: Colors.white, size: 22),
-              )
-            else
-              Icon(inactiveIcon, color: inactiveColor, size: 20),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? AppStyles.primaryBlue : inactiveColor,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 9,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (isActive)
+            ShaderMask(
+              shaderCallback: (bounds) =>
+                  AppStyles.primaryGradient.createShader(bounds),
+              child: Icon(activeIcon, color: Colors.white, size: 22),
+            )
+          else
+            Icon(inactiveIcon, color: inactiveColor, size: 20),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isActive ? AppStyles.primaryBlue : inactiveColor,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 9,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

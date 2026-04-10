@@ -160,7 +160,7 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                           : Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
+                          color: Colors.black.withValues(alpha: 0.12),
                           blurRadius: 12,
                           offset: const Offset(0, 6),
                         ),
@@ -195,50 +195,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 children: [
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: isDark
-                          ? AppColors.backgroundSecondary
-                          : Colors.grey[100],
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.borderColor
-                            : Colors.grey[300]!,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isDark ? Icons.dark_mode : Icons.light_mode,
-                          color: isDark
-                              ? AppColors.textSecondary
-                              : Colors.black54,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Dark mode',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: isDark
-                                  ? AppColors.textPrimary
-                                  : Colors.black87,
-                            ),
-                          ),
-                        ),
-                        Switch(
-                          value: isDark,
-                          activeThumbColor: AppColors.primaryBlue,
-                          onChanged: (_) => themeProvider.toggleTheme(),
-                        ),
-                      ],
-                    ),
-                  ),
                   for (final item in _drawerItems)
                     _DrawerTile(
                       icon: item.icon,

@@ -428,8 +428,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       backgroundColor: AppStyles.softBackground,
       appBar: AppBar(
         title: Text(
-          widget.initialCategory == 'Tyres'
-              ? 'Book Tyres & Battery'
+          widget.initialCategory == 'Tyres' ||
+                  widget.initialCategory == 'Tyre & Battery'
+              ? 'Book Tyre & Battery'
               : widget.initialCategory != null &&
                     widget.initialCategory != 'Services'
               ? 'Book ${widget.initialCategory}'
@@ -715,7 +716,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ),
           ),
 
-        // Category-specific tabs for Tyres & Battery
+        // Category-specific tabs for Tyre & Battery
         if (widget.initialCategory == 'Tyres' ||
             widget.initialCategory == 'Tyre & Battery')
           Padding(

@@ -6,6 +6,11 @@ class AppColors {
   static const Color primaryBlueDark = Color(0xFF2563EB);
   static const Color primaryBlueSoft = Color(0xFF60A5FA);
 
+  // Cinematic/Splash Colors
+  static const Color cinematicOrange = Color(0xFFFF6A00);
+  static const Color splashDeepBlack = Color(0xFF0F0F0F);
+  static const Color splashDarkGray = Color(0xFF1A1A1A);
+
   // Background Colors
   static const Color backgroundPrimary = Color(0xFF0D0D0D); // Scaffold (Dark)
   static const Color backgroundSecondary = Color(0xFF121212); // Cards (Dark)
