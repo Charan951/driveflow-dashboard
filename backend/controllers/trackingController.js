@@ -256,6 +256,22 @@ export const updateVehicleLocation = async (req, res) => {
       }
 
       await vehicle.save();
+
+      // Emit liveLocation event for real-time map update
+      try {
+        const io = getIO();
+        io.to('admin').emit('liveLocation', {
+          vehicleId: vehicle._id,
+          licensePlate: vehicle.licensePlate,
+          lat: vehicle.location.lat,
+          lng: vehicle.location.lng,
+          status: vehicle.status,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err) {
+        
+      }
+
       res.json({ message: 'Vehicle location updated' });
     } else {
       res.status(404).json({ message: 'Vehicle not found' });

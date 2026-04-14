@@ -76,6 +76,19 @@ class SocketService extends ValueNotifier<String?> {
       }
     });
 
+    _socket!.on('user_role_updated', (data) {
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          // Notify listeners about role update with the data payload
+          value = 'role_updated:${jsonEncode(mapData)}';
+          notifyListeners();
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+
     _socket!.on('bookingUpdated', (data) {
       value = 'booking_updated';
 
@@ -157,6 +170,34 @@ class SocketService extends ValueNotifier<String?> {
             title: 'Booking Cancelled',
             body: 'Booking #$orderNum has been cancelled.',
             payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+          );
+        } catch (e) {
+          // Ignore
+        }
+      }
+      notifyListeners();
+    });
+
+    _socket!.on('newApproval', (data) {
+      value = 'new_approval';
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final type = (mapData['type'] ?? '').toString();
+          final title = type == 'PartReplacement'
+              ? 'New Part Approval'
+              : 'New Approval Request';
+          final body = type == 'PartReplacement'
+              ? 'A new part replacement requires your approval.'
+              : 'A new request requires your approval.';
+
+          NotificationService().showLocalNotification(
+            title: title,
+            body: body,
+            payload: jsonEncode({
+              'type': 'approval',
+              'bookingId': (mapData['relatedId'] ?? '').toString(),
+            }),
           );
         } catch (e) {
           // Ignore

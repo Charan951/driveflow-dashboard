@@ -267,6 +267,21 @@ export const addVehicle = async (req, res) => {
     });
 
     const createdVehicle = await vehicle.save();
+
+    // Emit vehicle created event
+    try {
+      const io = (await import('../socket.js')).getIO();
+      const payload = {
+        vehicleId: createdVehicle._id,
+        userId: createdVehicle.user,
+        licensePlate: createdVehicle.licensePlate
+      };
+      io.to('admin').emit('vehicleCreated', payload);
+      io.to(`user_${createdVehicle.user}`).emit('vehicleCreated', payload);
+    } catch (err) {
+      
+    }
+
     res.status(201).json(createdVehicle);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -284,7 +299,24 @@ export const deleteVehicle = async (req, res) => {
       if (vehicle.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
         return res.status(401).json({ message: 'Not authorized' });
       }
+      const vehicleId = vehicle._id;
+      const userId = vehicle.user;
+
       await vehicle.deleteOne();
+
+      // Emit vehicle deleted event
+      try {
+        const io = (await import('../socket.js')).getIO();
+        const payload = {
+          vehicleId,
+          userId
+        };
+        io.to('admin').emit('vehicleDeleted', payload);
+        io.to(`user_${userId}`).emit('vehicleDeleted', payload);
+      } catch (err) {
+        
+      }
+
       res.json({ message: 'Vehicle removed' });
     } else {
       res.status(404).json({ message: 'Vehicle not found' });

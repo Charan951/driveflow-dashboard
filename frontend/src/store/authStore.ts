@@ -12,6 +12,7 @@ interface User {
   avatar?: string;
   role: UserRole;
   subRole?: UserSubRole;
+  status?: string;
   category?: string[];
   isShopOpen?: boolean;
   address?: string;
@@ -58,9 +59,13 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, isAuthenticated: false, role: null });
       },
       updateUser: (data) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...data } : null,
-        })),
+        set((state) => {
+          const updatedUser = state.user ? { ...state.user, ...data } : null;
+          return {
+            user: updatedUser,
+            role: data.role !== undefined ? data.role : state.role,
+          };
+        }),
     }),
     {
       name: 'auth-storage',

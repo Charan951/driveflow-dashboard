@@ -191,10 +191,37 @@ class StaffTrackingService {
 
   Future<void> _startPositionStream() async {
     await _positionSub?.cancel();
-    final settings = LocationSettings(
-      accuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
-      distanceFilter: 0,
-    );
+    late final LocationSettings settings;
+    if (kIsWeb) {
+      settings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+      );
+    } else if (Platform.isAndroid) {
+      settings = AndroidSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "Staff live tracking is active",
+          notificationTitle: "Live Tracking",
+          enableWakeLock: true,
+        ),
+      );
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      settings = AppleSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+      );
+    } else {
+      settings = const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+      );
+    }
+
     _positionSub = Geolocator.getPositionStream(
       locationSettings: settings,
     ).listen(_handlePosition, onError: (_) {});
@@ -239,8 +266,8 @@ class StaffTrackingService {
     }
 
     final socket = _socket;
-    // Live tracking via socket - every 10 seconds for real-time accuracy
-    if (socket != null && nowMs - _lastSocketMs > 10000) {
+    // Live tracking via socket - every 1 second for real-time accuracy
+    if (socket != null && nowMs - _lastSocketMs > 1000) {
       final payload = <String, dynamic>{
         'lat': position.latitude,
         'lng': position.longitude,
@@ -258,8 +285,8 @@ class StaffTrackingService {
       }
     }
 
-    // Persistent update via REST - every 10 seconds as a fallback
-    if (nowMs - _lastRestMs > 10000) {
+    // Persistent update via REST - every 1 second as a fallback
+    if (nowMs - _lastRestMs > 1000) {
       final body = <String, dynamic>{
         'lat': position.latitude,
         'lng': position.longitude,

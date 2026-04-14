@@ -52,6 +52,7 @@ dependencies:
   cached_network_image: ^3.4.1
   flutter_map_cancellable_tile_provider: ^2.0.0
   lottie: ^3.1.2
+  flutter_background_service: ^5.1.0
 
 dev_dependencies:
   flutter_test:

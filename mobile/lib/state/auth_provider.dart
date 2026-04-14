@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../main.dart'; // import rootNavigatorKey
 import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/user.dart';
@@ -14,6 +16,58 @@ class AuthProvider extends ChangeNotifier {
   bool loading = false;
   bool _isInitialized = false;
   String? lastError;
+
+  AuthProvider() {
+    SocketService().addListener(_onSocketEvent);
+  }
+
+  @override
+  void dispose() {
+    SocketService().removeListener(_onSocketEvent);
+    super.dispose();
+  }
+
+  void _onSocketEvent() {
+    final event = SocketService().value;
+    if (event != null && event.startsWith('role_updated:')) {
+      try {
+        final payloadStr = event.substring('role_updated:'.length);
+        final data = jsonDecode(payloadStr) as Map<String, dynamic>;
+        if (user != null) {
+          final updatedUser = User.fromJson({
+            ...user!.toJson(),
+            'role': data['role'] ?? user!.role,
+            'subRole': data['subRole'] ?? user!.subRole,
+          });
+          user = updatedUser;
+          AppStorage().setUserJson(jsonEncode(updatedUser.toJson()));
+          notifyListeners();
+
+          if (rootNavigatorKey.currentContext != null) {
+            final role = updatedUser.role?.toLowerCase();
+            if (role == 'merchant') {
+              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                '/merchant',
+                (route) => false,
+              );
+            } else if (role == 'staff') {
+              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                '/staff',
+                (route) => false,
+              );
+            } else {
+              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                '/main',
+                (route) => false,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+  }
 
   bool get isAuthenticated => user != null;
   bool get isInitialized => _isInitialized;
@@ -132,6 +186,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
+    // Clear old session before login
+    await logout();
+
     loading = true;
     lastError = null;
     notifyListeners();
@@ -168,6 +225,9 @@ class AuthProvider extends ChangeNotifier {
     String password, {
     String? phone,
   }) async {
+    // Clear old session before register
+    await logout();
+
     loading = true;
     lastError = null;
     notifyListeners();

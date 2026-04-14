@@ -70,12 +70,32 @@ Future<void> _onStart(ServiceInstance service) async {
   int lastRestMs = 0;
 
   // Listen to position updates for continuous tracking
-  Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.best,
-      distanceFilter: 0, // Update for every meter
-    ),
-  ).listen((Position pos) async {
+  final locationSettings = Platform.isAndroid
+      ? AndroidSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+          intervalDuration: const Duration(seconds: 1),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationText: "Continuous background tracking enabled.",
+            notificationTitle: "Staff Tracking Active",
+            enableWakeLock: true,
+          ),
+        )
+      : Platform.isIOS || Platform.isMacOS
+      ? AppleSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+          showBackgroundLocationIndicator: true,
+        )
+      : const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        );
+
+  Geolocator.getPositionStream(locationSettings: locationSettings).listen((
+    Position pos,
+  ) async {
     final now = DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
 
@@ -104,8 +124,8 @@ Future<void> _onStart(ServiceInstance service) async {
       payload['bookingId'] = bookingId;
     }
 
-    // 1. Live update via Socket (Throttle to 10 seconds for real-time responsiveness)
-    if (nowMs - lastSocketMs > 10000) {
+    // 1. Live update via Socket (Throttle to 1 second for real-time responsiveness)
+    if (nowMs - lastSocketMs > 1000) {
       if (socket != null) {
         if (socket!.connected) {
           socket!.emit('location', payload);
@@ -119,8 +139,8 @@ Future<void> _onStart(ServiceInstance service) async {
       }
     }
 
-    // 2. Persistent update via REST (Throttle to 10 seconds as a fallback)
-    if (nowMs - lastRestMs > 10000) {
+    // 2. Persistent update via REST (Throttle to 1 second as a fallback)
+    if (nowMs - lastRestMs > 1000) {
       try {
         await api.putJson(
           ApiEndpoints.trackingUser,

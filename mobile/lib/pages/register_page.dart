@@ -381,8 +381,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               const SizedBox(height: 12),
                               GestureDetector(
                                 onTap: () async {
-                                  const url =
-                                      'https://car.speshwayhrms.com/privacy';
+                                  const url = 'https://carzzi.com/privacy';
                                   if (await canLaunchUrl(Uri.parse(url))) {
                                     await launchUrl(Uri.parse(url));
                                   }

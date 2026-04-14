@@ -47,6 +47,18 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     // Listen for common update events
+    _socket!.on('user_role_updated', (data) {
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          value = 'role_updated:${jsonEncode(mapData)}';
+          notifyListeners();
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+
     _socket!.on('bookingUpdated', (data) {
       value = 'booking_updated';
       if (data != null && data is Map) {

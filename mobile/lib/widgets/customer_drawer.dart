@@ -127,7 +127,7 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     _DrawerItem(
       icon: Icons.privacy_tip_outlined,
       label: 'Privacy Policy',
-      routeName: 'url:https://car.speshwayhrms.com/privacy',
+      routeName: 'url:https://carzzi.com/privacy',
     ),
   ];
 

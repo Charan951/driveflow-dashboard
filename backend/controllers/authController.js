@@ -3,12 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendEmail } from '../utils/emailService.js';
 import admin from '../config/firebase.js';
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
-};
+import generateToken from '../utils/generateToken.js';
 
 export const registerUser = async (req, res) => {
   const { name, email, password, role, phone } = req.body;

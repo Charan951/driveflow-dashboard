@@ -1287,15 +1287,26 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ],
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.black : Colors.white,
-                          borderRadius: BorderRadius.circular(14),
+                          color: isDark
+                              ? const Color(0xFF1E1E1E)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade200,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.2)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1507,13 +1518,24 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.black : Colors.white,
+                          color: isDark
+                              ? const Color(0xFF1E1E1E)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade200,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.2)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1531,81 +1553,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                         ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ),
-                                if (booking.status == 'CREATED' ||
-                                    booking.status == 'ASSIGNED')
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: TextButton(
-                                      onPressed: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Cancel Booking'),
-                                            content: const Text(
-                                              'Are you sure you want to cancel this booking?',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(
-                                                  context,
-                                                  false,
-                                                ),
-                                                child: const Text('No'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(
-                                                  context,
-                                                  true,
-                                                ),
-                                                child: const Text(
-                                                  'Yes, Cancel',
-                                                  style: TextStyle(
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-
-                                        if (confirm == true) {
-                                          try {
-                                            await _service.cancelBooking(
-                                              booking.id,
-                                            );
-                                            _load();
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Booking cancelled successfully',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Failed to cancel booking: $e',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      },
-                                      child: const Text(
-                                        'Cancel',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
-                                  ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
@@ -3397,17 +3344,17 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? AppColors.borderColor : Colors.grey.shade200,
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.4)
+                ? Colors.black.withValues(alpha: 0.2)
                 : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -3417,18 +3364,36 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: const Color(0xFF4F46E5)),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF2D2D2D)
+                      : const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: const Color(0xFF4F46E5)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (name != null) ...[
+          if (name != null || subtitle != null) ...[
+            const SizedBox(height: 16),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+            ),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -3436,34 +3401,44 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                      if (name != null)
+                        Text(
+                          name,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
                         ),
-                      ),
-                      if (phone != null)
+                      if (phone != null) ...[
+                        const SizedBox(height: 4),
                         Text(
                           phone,
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: isDark ? Colors.white70 : Colors.black54,
                               ),
                         ),
+                      ],
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: isDark ? Colors.white54 : Colors.black45,
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                Row(children: actions),
+                if (actions.isNotEmpty)
+                  Row(mainAxisSize: MainAxisSize.min, children: actions),
               ],
             ),
-          ] else if (subtitle != null)
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+          ],
         ],
       ),
     );
@@ -3475,12 +3450,16 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     required Color bgColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-        child: Icon(icon, size: 18, color: color),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+          child: Icon(icon, size: 22, color: color),
+        ),
       ),
     );
   }

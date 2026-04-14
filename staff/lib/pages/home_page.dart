@@ -281,7 +281,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
             label: 'Privacy Policy',
             selected: false,
             onTap: () async {
-              const url = 'https://car.speshwayhrms.com/privacy';
+              const url = 'https://carzzi.com/privacy';
               if (await canLaunchUrl(Uri.parse(url))) {
                 await launchUrl(Uri.parse(url));
               }

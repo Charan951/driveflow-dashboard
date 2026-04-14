@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert' as dart_convert;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'core/storage.dart';
 import 'services/background_tracking.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
@@ -32,6 +34,58 @@ void main() async {
 
   // Initialize Notifications
   await NotificationService().initialize();
+
+  // Global socket listener for role updates
+  SocketService().addListener(() {
+    final event = SocketService().value;
+    if (event != null && event.startsWith('role_updated:')) {
+      try {
+        final payloadStr = event.substring('role_updated:'.length);
+        final data =
+            dart_convert.jsonDecode(payloadStr) as Map<String, dynamic>;
+
+        AppStorage().getUserJson().then((jsonStr) {
+          if (jsonStr != null && jsonStr.isNotEmpty) {
+            final userMap =
+                dart_convert.jsonDecode(jsonStr) as Map<String, dynamic>;
+            userMap['role'] = data['role'] ?? userMap['role'];
+            userMap['subRole'] = data['subRole'] ?? userMap['subRole'];
+            userMap['status'] = data['status'] ?? userMap['status'];
+
+            AppStorage().setUserJson(dart_convert.jsonEncode(userMap)).then((
+              _,
+            ) {
+              // Optionally navigate based on new role
+              if (rootNavigatorKey.currentContext != null) {
+                final role = userMap['role']?.toString().toLowerCase();
+                if (role == 'merchant') {
+                  rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    '/merchant-dashboard',
+                    (route) => false,
+                  );
+                } else if (role == 'staff') {
+                  rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    '/home',
+                    (route) => false,
+                  );
+                } else {
+                  // Fallback or customer logout
+                  AppStorage().clearToken();
+                  AppStorage().clearUser();
+                  rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
+                }
+              }
+            });
+          }
+        });
+      } catch (e) {
+        // Ignore
+      }
+    }
+  });
 
   runApp(const StaffApp());
 }

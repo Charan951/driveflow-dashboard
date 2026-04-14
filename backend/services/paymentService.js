@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import Payment from '../models/Payment.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import { emitBookingUpdate } from '../controllers/bookingController.js';
 
 class PaymentService {
   constructor() {
@@ -138,6 +139,17 @@ class PaymentService {
           booking.merchantEarnings = payment.amount - booking.platformFee;
           
           await booking.save();
+          
+          // Emit socket update
+          const populated = await Booking.findById(booking._id)
+            .populate('user', 'id name email phone')
+            .populate('vehicle')
+            .populate('services')
+            .populate('merchant', 'name email phone location')
+            .populate('pickupDriver', 'name email phone')
+            .populate('technician', 'name email phone')
+            .populate('carWash.staffAssigned', 'name email phone');
+          emitBookingUpdate(populated);
         }
       }
 
@@ -184,7 +196,19 @@ class PaymentService {
       booking.merchantEarnings = tempData.totalAmount - booking.platformFee;
 
       await booking.save();
-      return booking;
+      
+      // Emit socket update
+      const populated = await Booking.findById(booking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('merchant', 'name email phone location')
+        .populate('pickupDriver', 'name email phone')
+        .populate('technician', 'name email phone')
+        .populate('carWash.staffAssigned', 'name email phone');
+      emitBookingUpdate(populated);
+      
+      return populated;
     } catch (error) {
       console.error('Error creating booking from temp data:', error);
       throw error;

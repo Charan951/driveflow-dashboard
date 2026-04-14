@@ -72,10 +72,11 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
 
   void _onSocketUpdate() {
     final event = context.read<SocketService>().value;
-    // Reload data if a booking was created, updated or cancelled
+    // Reload data if a booking was created, updated or cancelled, or new approval
     if ((event == 'booking_created' ||
             event == 'booking_updated' ||
-            event == 'booking_cancelled') &&
+            event == 'booking_cancelled' ||
+            event == 'new_approval') &&
         mounted) {
       _load();
     }

@@ -44,7 +44,7 @@ class _SplashPageState extends State<SplashPage> {
       await Future.delayed(const Duration(milliseconds: 1000));
       if (mounted && !_navigated) {
         _navigated = true;
-        final role = user.role?.toLowerCase();
+        final role = user.role.toLowerCase();
         if (role == 'merchant') {
           Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
         } else {
@@ -57,7 +57,7 @@ class _SplashPageState extends State<SplashPage> {
   void _onInteract() async {
     if (_navigated) return;
     final user = await _authService.getCurrentUser();
-    if (user == null) {
+    if (mounted && user == null) {
       _navigated = true;
       Navigator.of(context).pushReplacementNamed('/login');
     }

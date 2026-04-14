@@ -684,9 +684,46 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Select Vehicle',
-          style: AppStyles.headingStyle.copyWith(fontSize: 18),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Select Vehicle',
+              style: AppStyles.headingStyle.copyWith(fontSize: 18),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/add-vehicle',
+              ).then((_) => _fetchInitialData()),
+              icon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppStyles.primaryBlue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add,
+                  color: AppStyles.primaryBlue,
+                  size: 14,
+                ),
+              ),
+              label: const Text(
+                'Add Another Vehicle',
+                style: TextStyle(
+                  color: AppStyles.primaryBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ..._vehicles.map(
@@ -702,56 +739,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               });
               _prefetchVehicleTire(v);
             },
-          ),
-        ),
-        const SizedBox(height: 16),
-        InkWell(
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/add-vehicle',
-          ).then((_) => _fetchInitialData()),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.backgroundSecondary
-                  : AppStyles.lightBlueTint.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.borderColor
-                    : AppStyles.primaryBlue.withValues(alpha: 0.2),
-                style: BorderStyle.solid,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppStyles.primaryBlue.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    color: AppStyles.primaryBlue,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Add Another Vehicle',
-                  style: TextStyle(
-                    color: AppStyles.primaryBlue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ],

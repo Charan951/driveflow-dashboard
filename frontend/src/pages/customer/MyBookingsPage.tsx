@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '../../services/bookingService';
 import { reviewService } from '../../services/reviewService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '../../services/approvalService';
+import { socketService } from '../../services/socket';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -74,6 +75,20 @@ const MyBookingsPage = () => {
 
   useEffect(() => {
     fetchData();
+
+    // Listen for socket updates
+    socketService.connect();
+    socketService.on('bookingUpdated', (data: any) => {
+      fetchData();
+    });
+    socketService.on('newApproval', (data: any) => {
+      fetchData();
+    });
+
+    return () => {
+      socketService.off('bookingUpdated');
+      socketService.off('newApproval');
+    };
   }, []);
 
   const fetchData = async () => {

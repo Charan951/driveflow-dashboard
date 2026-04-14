@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '../../services/bookingService';
+import { socketService } from '../../services/socket';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -20,6 +21,16 @@ const MyPaymentsPage = () => {
 
   useEffect(() => {
     fetchPayments();
+
+    // Listen for socket updates
+    socketService.connect();
+    socketService.on('bookingUpdated', () => {
+      fetchPayments();
+    });
+
+    return () => {
+      socketService.off('bookingUpdated');
+    };
   }, []);
 
   const fetchPayments = async () => {

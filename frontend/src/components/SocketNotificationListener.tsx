@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/appStore';
 const SocketNotificationListener = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { user, role: userRole } = useAuthStore();
+  const { user, role: userRole, updateUser } = useAuthStore();
   const { addNotification } = useAppStore();
 
   useEffect(() => {
@@ -21,32 +21,41 @@ const SocketNotificationListener = () => {
     socketService.on('connect', () => {
       if (userRole === 'admin') {
         socketService.joinRoom('admin');
+      } else if (userRole === 'merchant') {
+        socketService.joinRoom('merchant');
+      } else if (userRole === 'staff') {
+        socketService.joinRoom('staff');
       }
       socketService.joinRoom(`user_${user._id}`);
     });
 
-    // Only join immediately if already connected to avoid duplicate join messages
+    // Also join immediately if already connected to avoid duplicate join messages
     // but the 'connect' listener above handles the re-connection logic
     const isConnected = socketService.isConnected();
     if (isConnected) {
       if (userRole === 'admin') {
         socketService.joinRoom('admin');
+      } else if (userRole === 'merchant') {
+        socketService.joinRoom('merchant');
+      } else if (userRole === 'staff') {
+        socketService.joinRoom('staff');
       }
       socketService.joinRoom(`user_${user._id}`);
     }
 
     const handleNotification = (data: any) => {
+      if (!data) return;
       // Add to local store
       addNotification({
-        title: data.title,
-        message: data.body || data.message,
+        title: data.title || 'New Notification',
+        message: data.body || data.message || '',
         type: data.type === 'error' ? 'error' : data.type === 'success' ? 'success' : data.type === 'warning' ? 'warning' : 'info',
       });
 
       // Show toast if it's not a booking update (which has its own toast)
       if (data.type !== 'order') {
-        toast.info(data.title, {
-          description: data.body || data.message,
+        toast.info(data.title || 'New Notification', {
+          description: data.body || data.message || '',
         });
       }
       
@@ -55,6 +64,7 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingUpdate = (data: any) => {
+      if (!data || !data._id) return;
       // Refresh relevant queries
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['booking', data._id] });
@@ -63,7 +73,7 @@ const SocketNotificationListener = () => {
 
       // Show notification
       const orderNum = data.orderNumber || data._id.toString().slice(-6).toUpperCase();
-      const status = data.status.replace(/_/g, ' ');
+      const status = (data.status || 'updated').replace(/_/g, ' ');
       
       toast.info(`Booking Updated`, {
         description: `Booking #${orderNum} status is now ${status}`,
@@ -84,6 +94,7 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingCreated = (data: any) => {
+      if (!data || !data._id) return;
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
@@ -106,6 +117,7 @@ const SocketNotificationListener = () => {
     };
 
     const handleBookingCancelled = (data: any) => {
+      if (!data || !data._id) return;
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
@@ -127,18 +139,136 @@ const SocketNotificationListener = () => {
       });
     };
 
+    const handleRoleUpdated = (data: any) => {
+      if (data && data.role) {
+        updateUser({ role: data.role, subRole: data.subRole, status: data.status });
+        toast.success(`Role Updated`, {
+          description: `Your account role has been updated to ${data.role}.`,
+        });
+        
+        // Optionally redirect based on the new role
+        if (data.role === 'merchant') {
+          navigate('/merchant/dashboard');
+        } else if (data.role === 'staff') {
+          navigate('/staff/dashboard');
+        } else if (data.role === 'customer') {
+          navigate('/dashboard');
+        }
+      }
+    };
+
+    const handleNewApproval = (data: any) => {
+      if (!data || !data.relatedId) return;
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', data.relatedId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      toast.info(`New Approval Request`, {
+        description: `A new ${data.type || 'request'} requires your approval.`,
+        action: {
+          label: 'View',
+          onClick: () => {
+            if (userRole === 'customer') {
+              navigate(`/track/${data.relatedId}`);
+            } else if (userRole === 'admin') {
+              navigate(`/admin/approvals`);
+            }
+          },
+        },
+      });
+    };
+
+    const handleUserUpdated = (data: any) => {
+      if (!data || !data.userId) return;
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', data.userId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      // If the current user was updated, we might want to refresh their local profile too
+      if (user?._id === data.userId) {
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
+      }
+    };
+
+    const handleVehicleCreated = (data: any) => {
+      if (!data) return;
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      if (userRole === 'admin') {
+        toast.info('New Vehicle Added', {
+          description: `Vehicle ${data.licensePlate || ''} has been registered.`
+        });
+      }
+    };
+
+    const handleVehicleDeleted = (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+
+    const handleLiveLocation = (data: any) => {
+      if (!data) return;
+      // For real-time map updates, we update the tracking query cache directly
+      // but only if we are an admin or merchant who might be watching the map
+      if (userRole === 'admin' || userRole === 'merchant') {
+        queryClient.setQueryData(['tracking'], (prev: any) => {
+          if (!prev) return prev;
+          
+          // Logic similar to AdminTrackingPage but simplified for global sync
+          const newStaff = (prev.staff || []).map((s: any) => {
+            if (s._id === data.userId) {
+              return { 
+                ...s, 
+                isOnline: true,
+                location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+              };
+            }
+            return s;
+          });
+
+          const newVehicles = (prev.vehicles || []).map((v: any) => {
+            if (v._id === data.vehicleId || (v.user?._id === data.userId)) {
+              return { 
+                ...v, 
+                location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+              };
+            }
+            return v;
+          });
+
+          return { ...prev, staff: newStaff, vehicles: newVehicles, timestamp: new Date().toISOString() };
+        });
+      }
+    };
+
     socketService.on('notification', handleNotification);
     socketService.on('bookingUpdated', handleBookingUpdate);
     socketService.on('bookingCreated', handleBookingCreated);
     socketService.on('bookingCancelled', handleBookingCancelled);
+    socketService.on('user_role_updated', handleRoleUpdated);
+    socketService.on('newApproval', handleNewApproval);
+    socketService.on('userUpdated', handleUserUpdated);
+    socketService.on('vehicleCreated', handleVehicleCreated);
+    socketService.on('vehicleDeleted', handleVehicleDeleted);
+    socketService.on('liveLocation', handleLiveLocation);
 
     return () => {
+      socketService.off('connect');
       socketService.off('notification', handleNotification);
       socketService.off('bookingUpdated', handleBookingUpdate);
       socketService.off('bookingCreated', handleBookingCreated);
       socketService.off('bookingCancelled', handleBookingCancelled);
+      socketService.off('user_role_updated', handleRoleUpdated);
+      socketService.off('newApproval', handleNewApproval);
+      socketService.off('userUpdated', handleUserUpdated);
+      socketService.off('vehicleCreated', handleVehicleCreated);
+      socketService.off('vehicleDeleted', handleVehicleDeleted);
+      socketService.off('liveLocation', handleLiveLocation);
     };
-  }, [queryClient, user, userRole, navigate, addNotification]);
+  }, [queryClient, user, userRole, navigate, addNotification, updateUser]);
 
   return null; // This component doesn't render anything
 };

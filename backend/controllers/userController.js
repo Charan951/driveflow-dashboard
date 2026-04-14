@@ -150,6 +150,24 @@ export const updateUserProfile = async (req, res) => {
 
       const updatedUser = await user.save();
 
+      // Emit user updated event
+      try {
+        const io = getIO();
+        const updatePayload = {
+          userId: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          phone: updatedUser.phone,
+          location: updatedUser.location
+        };
+        
+        io.to('admin').emit('userUpdated', updatePayload);
+        io.to(`user_${updatedUser._id}`).emit('userUpdated', updatePayload);
+      } catch (err) {
+        
+      }
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -276,6 +294,20 @@ export const updateUserRole = async (req, res) => {
       if (subRole !== undefined) user.subRole = subRole;
       if (status) user.status = status;
       const updatedUser = await user.save();
+
+      // Emit socket event for real-time role update
+      try {
+        const io = getIO();
+        io.to(`user_${updatedUser._id}`).emit('user_role_updated', {
+          _id: updatedUser._id,
+          role: updatedUser.role,
+          subRole: updatedUser.subRole,
+          status: updatedUser.status
+        });
+      } catch (err) {
+        console.error('Socket emit error on role update:', err);
+      }
+
       res.json(updatedUser);
     } else {
       res.status(404).json({ message: 'User not found' });
