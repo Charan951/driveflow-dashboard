@@ -134,7 +134,7 @@ const PublicNavbar: React.FC = () => {
           <Link 
             to="/" 
             className="flex items-center gap-2">
-            <div className="w-50 h-12 flex items-center justify-center">
+            <div className="w-70 h-16 flex items-center justify-center mt-4 md:mt-3">
               <img
                 src="/carzzilogo.png"
                 alt="Carzzi"
@@ -263,7 +263,7 @@ const PublicNavbar: React.FC = () => {
                   <img
                       src="/speshway-logo.png"
                       alt="Carzzi"
-                      className="w-8 h-8 rounded-lg object-cover"
+                      className="w-10 h-10 rounded-lg object-cover mt-1"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';

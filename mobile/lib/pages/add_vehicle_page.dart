@@ -173,6 +173,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         rearTyres: _rearTyresController.text.trim(),
         batteryDetails: _batteryDetailsController.text.trim(),
       );
+      _service.clearCache();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vehicle added successfully!')),

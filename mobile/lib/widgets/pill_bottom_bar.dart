@@ -29,91 +29,95 @@ class PillBottomBar extends StatelessWidget {
         : Colors.black.withValues(alpha: 0.1);
     final inactiveColor = isDark ? AppColors.textMuted : Colors.grey.shade400;
 
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 70,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(35),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(35),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: backgroundColor,
-                  borderRadius: BorderRadius.circular(35),
-                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
+    return RepaintBoundary(
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 70,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(35),
+              boxShadow: [
+                BoxShadow(
+                  color: shadowColor,
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Expanded(
-                      child: GlassNavItem(
-                        activeIcon: Icons.settings_rounded,
-                        inactiveIcon: Icons.settings_outlined,
-                        label: 'Services',
-                        isActive: selectedIndex == 0,
-                        inactiveColor: inactiveColor,
-                        onTap: () => onTap(0),
-                      ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(35),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(35),
+                    border: Border.all(
+                      color: borderColor.withValues(alpha: 0.5),
                     ),
-                    Expanded(
-                      child: GlassNavItem(
-                        activeIcon: Icons.shield_rounded,
-                        inactiveIcon: Icons.shield_outlined,
-                        label: 'Insurance',
-                        isActive: selectedIndex == 1,
-                        inactiveColor: inactiveColor,
-                        onTap: () => onTap(1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Expanded(
+                        child: GlassNavItem(
+                          activeIcon: Icons.settings_rounded,
+                          inactiveIcon: Icons.settings_outlined,
+                          label: 'Services',
+                          isActive: selectedIndex == 0,
+                          inactiveColor: inactiveColor,
+                          onTap: () => onTap(0),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 70),
-                    Expanded(
-                      child: GlassNavItem(
-                        activeIcon: Icons.water_drop_rounded,
-                        inactiveIcon: Icons.water_drop_outlined,
-                        label: 'Wash',
-                        isActive: selectedIndex == 3,
-                        inactiveColor: inactiveColor,
-                        onTap: () => onTap(3),
+                      Expanded(
+                        child: GlassNavItem(
+                          activeIcon: Icons.shield_rounded,
+                          inactiveIcon: Icons.shield_outlined,
+                          label: 'Insurance',
+                          isActive: selectedIndex == 1,
+                          inactiveColor: inactiveColor,
+                          onTap: () => onTap(1),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: GlassNavItem(
-                        activeIcon: Icons.battery_charging_full_rounded,
-                        inactiveIcon: Icons.battery_charging_full_outlined,
-                        label: 'Tyre & Battery',
-                        isActive: selectedIndex == 4,
-                        inactiveColor: inactiveColor,
-                        onTap: () => onTap(4),
+                      const SizedBox(width: 70),
+                      Expanded(
+                        child: GlassNavItem(
+                          activeIcon: Icons.water_drop_rounded,
+                          inactiveIcon: Icons.water_drop_outlined,
+                          label: 'Wash',
+                          isActive: selectedIndex == 3,
+                          inactiveColor: inactiveColor,
+                          onTap: () => onTap(3),
+                        ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: GlassNavItem(
+                          activeIcon: Icons.battery_charging_full_rounded,
+                          inactiveIcon: Icons.battery_charging_full_outlined,
+                          label: 'Tyre & Battery',
+                          isActive: selectedIndex == 4,
+                          inactiveColor: inactiveColor,
+                          onTap: () => onTap(4),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: -25,
-          child: CenterNavAction(
-            isActive: selectedIndex == 2,
-            onTap: () => onTap(2),
+          Positioned(
+            top: -25,
+            child: CenterNavAction(
+              isActive: selectedIndex == 2,
+              onTap: () => onTap(2),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

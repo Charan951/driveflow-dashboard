@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img src="/carzzilogo.png" alt="Carzzi Logo" className="w-15 h-15" />
+              <img src="/footer.png" alt="Carzzi Logo" className="w-15 h-15" />
               
             </div>
             <p className="text-sm text-muted-foreground">

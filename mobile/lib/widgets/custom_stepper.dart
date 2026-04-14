@@ -19,14 +19,11 @@ class CustomStepper extends StatelessWidget {
         ? AppColors.textPrimary
         : AppColors.textPrimaryLight;
     final mutedColor = isDark ? AppColors.textMuted : AppColors.textMutedLight;
-    final backgroundColor = isDark
-        ? AppColors.backgroundSecondary
-        : Colors.white;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [AppStyles.cardShadow],
       ),
@@ -118,12 +115,7 @@ class CustomStepper extends StatelessWidget {
                             ? Colors.grey.shade800
                             : Colors.grey.shade200,
                         gradient: isCompleted
-                            ? const LinearGradient(
-                                colors: [
-                                  AppStyles.primaryBlue,
-                                  AppStyles.primaryPurple,
-                                ],
-                              )
+                            ? AppStyles.primaryGradient
                             : null,
                       ),
                     ),

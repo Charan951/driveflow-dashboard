@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
+import '../core/app_styles.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
@@ -15,7 +16,6 @@ import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
-import '../widgets/customer_drawer.dart';
 
 class CarzziDashboard extends StatefulWidget {
   const CarzziDashboard({super.key});
@@ -33,6 +33,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   bool _loading = false;
   String? _error;
   DateTime? _lastLoadedAt;
+  bool _isShowingNoVehicleDialog = false;
 
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
@@ -157,6 +158,18 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _recentBookings = recent;
         _loading = false;
       });
+
+      // Show add vehicle popup if no vehicles found and not seen yet
+      if (vehicles.isEmpty && !_isShowingNoVehicleDialog) {
+        final hasSeen = await AppStorage().getHasSeenNoVehicleModal();
+        if (!hasSeen && mounted) {
+          setState(() => _isShowingNoVehicleDialog = true);
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _showNoVehicleDialog();
+          });
+        }
+      }
+
       await _persistDashboardState();
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
@@ -176,6 +189,172 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _loading = false;
       });
     }
+  }
+
+  void _showBookServiceDialog() {
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nav = context.read<NavigationProvider>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        title: Text(
+          'Select Service Category',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CategoryTile(
+              icon: Icons.settings_suggest_outlined,
+              title: 'services',
+              subtitle: 'General maintenance & repairs',
+              color: AppColors.primaryBlue,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(0);
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
+              icon: Icons.local_car_wash_outlined,
+              title: 'Car Wash',
+              subtitle: 'Premium cleaning services',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(3);
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
+              icon: Icons.battery_charging_full_outlined,
+              title: 'Battery/tyres',
+              subtitle: 'Replacement & maintenance',
+              color: Colors.orange,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(4);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNoVehicleDialog() {
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Add Your First Vehicle',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                AppStorage().setHasSeenNoVehicleModal(true);
+                if (mounted) {
+                  setState(() => _isShowingNoVehicleDialog = false);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Text(
+                'Skip',
+                style: TextStyle(color: isDark ? Colors.white60 : Colors.grey),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Please add a vehicle to start booking services and track maintenance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.directions_car,
+                size: 40,
+                color: AppColors.primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No vehicles found',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                AppStorage().setHasSeenNoVehicleModal(true);
+                if (mounted) {
+                  setState(() => _isShowingNoVehicleDialog = false);
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamed('/add-vehicle');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Add Vehicle',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _greeting() {
@@ -399,8 +578,11 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Auto-refresh logic when navigated to from booking flow
-    final nav = context.watch<NavigationProvider>();
-    if (nav.shouldRefreshDashboard) {
+    final shouldRefresh = context.select<NavigationProvider, bool>(
+      (n) => n.shouldRefreshDashboard,
+    );
+    if (shouldRefresh) {
+      final nav = context.read<NavigationProvider>();
       nav.consumeRefresh();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _load(isInitial: true),
@@ -409,7 +591,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : AppColors.backgroundPrimaryLight,
-      drawer: const CustomerDrawer(currentRouteName: '/customer'),
       body: Stack(
         children: [
           if (isDark)
@@ -423,6 +604,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 child: Padding(
                   padding: AppSpacing.edgeInsetsHorizontalDefault,
                   child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 120),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,7 +694,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   }
 
   Widget _buildHeader() {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.read<AuthProvider>();
     final rawName = (auth.user?.name ?? '').trim();
     final firstName = rawName.isEmpty ? '' : rawName.split(' ').first;
     final greeting = _greeting();
@@ -593,9 +775,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 label: 'Book Service',
                 purple: _accentPurple,
                 blue: _accentBlue,
-                onTap: () {
-                  Navigator.pushNamed(context, '/services');
-                },
+                onTap: _showBookServiceDialog,
               ),
             ),
           ],
@@ -792,7 +972,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       final source = item.source!;
                       final cat = (source.category ?? '').trim();
 
-                      String route = '/services'; // Default
+                      String route = '/services';
 
                       if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
                         route = '/car-wash';
@@ -822,7 +1002,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Category badge area - fixed height to keep icons aligned
                     SizedBox(
                       height: 18,
                       child: (category != null && category.isNotEmpty)
@@ -834,14 +1013,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      Color(0xFF4A90E2),
-                                      Color(0xFF6C63FF),
-                                    ],
-                                  ),
+                                  gradient: AppStyles.primaryGradient,
                                 ),
                                 child: Text(
                                   category.toUpperCase(),
@@ -875,12 +1047,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Label area - fixed height to keep prices aligned
                     SizedBox(
                       height: 34,
                       child: Center(
                         child: Text(
-                          item.label,
+                          (category?.toUpperCase() == 'WASH' ||
+                                  category?.toUpperCase() == 'CAR WASH' ||
+                                  category?.toUpperCase() == 'DETAILING')
+                              ? item.label.replaceFirst(' (', '\n(')
+                              : item.label,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark
                                 ? Colors.white
@@ -890,13 +1065,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             height: 1.2,
                           ),
                           textAlign: TextAlign.center,
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
                     const Spacer(),
-                    // Price area - fixed height to keep layout consistent
                     SizedBox(
                       height: 16,
                       child: (item.price != null && item.price! > 0)
@@ -1303,12 +1477,10 @@ class _NeonButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4A90E2), Color(0xFF6C63FF)],
-          ),
+          gradient: AppStyles.primaryGradient,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4A90E2).withValues(alpha: 0.3),
+              color: AppColors.primaryBlue.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1324,6 +1496,81 @@ class _NeonButton extends StatelessWidget {
               letterSpacing: 0.5,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _CategoryTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: isDark ? Colors.white30 : Colors.grey.shade400,
+            ),
+          ],
         ),
       ),
     );

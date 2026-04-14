@@ -186,155 +186,180 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      drawer: const CustomerDrawer(currentRouteName: '/bookings'),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
-                boxShadow: [
-                  BoxShadow(
-                    color: _accentBlue.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/customer', (route) => false);
+      },
+      child: Scaffold(
+        backgroundColor: isDark
+            ? AppColors.backgroundPrimary
+            : AppColors.backgroundPrimaryLight,
+        drawer: const CustomerDrawer(currentRouteName: '/bookings'),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
                   ),
-                ],
-              ),
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  color: Colors.white,
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    color: Colors.white,
+                    tooltip: 'Menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'My Bookings',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
+              const SizedBox(width: 12),
+              Text(
+                'My Bookings',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isDark
+                      ? AppColors.textPrimary
+                      : AppColors.textPrimaryLight,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              onPressed: _load,
+              icon: Icon(
+                Icons.refresh,
+                color: isDark
+                    ? AppColors.textPrimary
+                    : AppColors.textPrimaryLight,
+              ),
+              tooltip: 'Refresh',
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          if (isDark)
-            Container(color: Colors.black)
-          else
-            Container(color: Colors.white),
-          RefreshIndicator(
-            onRefresh: _load,
-            child: _loading
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.only(top: 32),
-                        child: Center(child: CircularProgressIndicator()),
+        body: RefreshIndicator(
+          onRefresh: _load,
+          child: _loading
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.only(top: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ],
+                )
+              : _error != null
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: AppSpacing.edgeInsetsAllDefault,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.section),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Failed to load bookings',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: isDark
+                                      ? AppColors.textPrimary
+                                      : AppColors.textPrimaryLight,
+                                ),
+                          ),
+                          AppSpacing.verticalSmall,
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? AppColors.textSecondary
+                                      : AppColors.textSecondaryLight,
+                                ),
+                          ),
+                          AppSpacing.verticalMedium,
+                          OutlinedButton(
+                            onPressed: _load,
+                            child: const Text('Retry'),
+                          ),
+                        ],
                       ),
-                    ],
-                  )
-                : _error != null
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: AppSpacing.edgeInsetsAllDefault,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.section),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Failed to load bookings',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            AppSpacing.verticalSmall,
-                            Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.white),
-                            ),
-                            AppSpacing.verticalMedium,
-                            OutlinedButton(
-                              onPressed: _load,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : _bookings.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: AppSpacing.edgeInsetsAllDefault,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: AppSpacing.section),
-                        child: Center(
-                          child: Text(
-                            'No bookings yet',
-                            style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                )
+              : _bookings.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: AppSpacing.edgeInsetsAllDefault,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.section),
+                      child: Center(
+                        child: Text(
+                          'No bookings yet',
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                       ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: AppSpacing.edgeInsetsAllDefault,
-                    itemCount: _bookings.length,
-                    separatorBuilder: (context, _) => AppSpacing.verticalMedium,
-                    itemBuilder: (context, index) {
-                      final b = _bookings[index];
-                      final primaryService = b.services.isNotEmpty
-                          ? b.services.first
-                          : null;
-                      return _BookingCard(
-                        id: b.id,
-                        orderNumber: b.orderNumber,
-                        dateTimeLabel: _formatDateTime(context, b.date),
-                        title: primaryService?.name ?? 'Service',
-                        categoryLabel: primaryService?.category,
-                        subtitle: b.vehicle != null
-                            ? '${b.vehicle!.make} ${b.vehicle!.model}${b.vehicle!.variant != null && b.vehicle!.variant!.isNotEmpty ? ' ${b.vehicle!.variant}' : ''} • ${b.vehicle!.licensePlate}'
-                            : null,
-                        extra: b.services.length > 1
-                            ? '+${b.services.length - 1} more'
-                            : null,
-                        amount: b.totalAmount,
-                        statusLabel: _statusLabel(b.status),
-                        statusColor: _statusColor(b.status),
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/track',
-                          arguments: b.id,
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                    ),
+                  ],
+                )
+              : ListView.separated(
+                  padding: AppSpacing.edgeInsetsAllDefault,
+                  itemCount: _bookings.length,
+                  separatorBuilder: (context, _) => AppSpacing.verticalMedium,
+                  itemBuilder: (context, index) {
+                    final b = _bookings[index];
+                    final primaryService = b.services.isNotEmpty
+                        ? b.services.first
+                        : null;
+                    return _BookingCard(
+                      id: b.id,
+                      orderNumber: b.orderNumber,
+                      dateTimeLabel: _formatDateTime(context, b.date),
+                      title: primaryService?.name ?? 'Service',
+                      categoryLabel: primaryService?.category,
+                      subtitle: b.vehicle != null
+                          ? '${b.vehicle!.make} ${b.vehicle!.model}${b.vehicle!.variant != null && b.vehicle!.variant!.isNotEmpty ? ' ${b.vehicle!.variant}' : ''} • ${b.vehicle!.licensePlate}'
+                          : null,
+                      extra: b.services.length > 1
+                          ? '+${b.services.length - 1} more'
+                          : null,
+                      amount: b.totalAmount,
+                      statusLabel: _statusLabel(b.status),
+                      statusColor: _statusColor(b.status),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/track',
+                        arguments: b.id,
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -408,12 +433,18 @@ class _BookingCardState extends State<_BookingCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.backgroundSecondary,
+          color: isDark
+              ? AppColors.backgroundSecondary
+              : AppColors.backgroundSecondaryLight,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderColor),
+          border: Border.all(
+            color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.05),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -481,7 +512,12 @@ class _BookingCardState extends State<_BookingCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark
+                                      ? AppColors.textPrimary
+                                      : AppColors.textPrimaryLight,
+                                ),
                           ),
                           if (widget.categoryLabel != null &&
                               widget.categoryLabel!.trim().isNotEmpty)
@@ -549,13 +585,17 @@ class _BookingCardState extends State<_BookingCard> {
                     Icon(
                       Icons.schedule,
                       size: 16,
-                      color: isDark ? Colors.white : Colors.black54,
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
                     ),
                     AppSpacing.horizontalSmall,
                     Text(
                       widget.dateTimeLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white : Colors.black54,
+                        color: isDark
+                            ? AppColors.textSecondary
+                            : AppColors.textSecondaryLight,
                       ),
                     ),
                   ],
@@ -565,9 +605,12 @@ class _BookingCardState extends State<_BookingCard> {
                   widget.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDark
+                        ? AppColors.textPrimary
+                        : AppColors.textPrimaryLight,
+                  ),
                 ),
                 if (widget.subtitle != null) ...[
                   const SizedBox(height: 4),
@@ -576,7 +619,9 @@ class _BookingCardState extends State<_BookingCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white : Colors.black54,
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
                     ),
                   ),
                 ],
@@ -585,7 +630,9 @@ class _BookingCardState extends State<_BookingCard> {
                   Text(
                     widget.extra!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white : Colors.black45,
+                      color: isDark
+                          ? AppColors.textMuted
+                          : AppColors.textMutedLight,
                     ),
                   ),
                 ],
@@ -596,6 +643,9 @@ class _BookingCardState extends State<_BookingCard> {
                       '₹${widget.amount}',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
+                        color: isDark
+                            ? AppColors.textPrimary
+                            : AppColors.textPrimaryLight,
                       ),
                     ),
                     const Spacer(),
@@ -629,7 +679,9 @@ class _BookingCardState extends State<_BookingCard> {
                       ),
                     Icon(
                       Icons.chevron_right,
-                      color: isDark ? Colors.white60 : Colors.black38,
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
                     ),
                   ],
                 ),

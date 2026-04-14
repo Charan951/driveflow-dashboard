@@ -39,6 +39,7 @@ class BookServiceFlowPage extends StatefulWidget {
 class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   int _currentStep = 0;
   bool _loading = false;
+  bool _hasAttemptedFetch = false;
   String? _error;
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
@@ -88,6 +89,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     const overrides = {'tata|nexon|xe': '195/60 R16'};
+
+    if (_allServices.isEmpty) return;
 
     final service = _allServices.firstWhere(
       (s) => s.id == serviceId,
@@ -236,30 +239,54 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     // Check for arguments from NavigationProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final nav = context.read<NavigationProvider>();
-      if (nav.arguments != null && nav.arguments is ServiceItem) {
-        final service = nav.arguments as ServiceItem;
-        setState(() {
-          _initialServiceId = service.id;
-          _selectedServiceIds = [service.id];
-          _currentStep = 0; // Start at vehicle selection step
-
-          // Auto-set subcategory for Tyres flow
-          if (widget.initialCategory == 'Tyres' ||
-              widget.initialCategory == 'Tyre & Battery') {
-            if (service.category?.toLowerCase().contains('battery') == true) {
-              _activeSubCategory = 'Battery';
-            } else {
-              _activeSubCategory = 'Tyres';
-            }
-          }
-        });
-      }
+      _checkArguments();
+      context.read<NavigationProvider>().addListener(_onNavChanged);
     });
+  }
+
+  void _onNavChanged() {
+    if (!mounted) return;
+    final nav = context.read<NavigationProvider>();
+    final Map<String, int> tabMapping = {
+      'Periodic': 0,
+      'Insurance': 1,
+      'Wash': 3,
+      'Tyres': 4,
+    };
+    if (tabMapping[widget.initialCategory] == nav.selectedIndex) {
+      _checkArguments();
+    }
+  }
+
+  void _checkArguments() {
+    if (!mounted) return;
+    final nav = context.read<NavigationProvider>();
+    if (nav.arguments != null && nav.arguments is ServiceItem) {
+      final service = nav.arguments as ServiceItem;
+      setState(() {
+        _initialServiceId = service.id;
+        _selectedServiceIds = [service.id];
+        _currentStep = 0; // Start at vehicle selection step
+
+        // Auto-set subcategory for Tyres flow
+        if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Tyre & Battery') {
+          if (service.category?.toLowerCase().contains('battery') == true) {
+            _activeSubCategory = 'Battery';
+          } else {
+            _activeSubCategory = 'Tyres';
+          }
+        }
+      });
+      nav.clearArguments();
+    }
   }
 
   @override
   void dispose() {
+    try {
+      context.read<NavigationProvider>().removeListener(_onNavChanged);
+    } catch (_) {}
     _razorpay?.clear();
     _notesController.dispose();
     for (final controller in _tireSizeControllers.values) {
@@ -344,16 +371,22 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     super.didUpdateWidget(oldWidget);
   }
 
-  Future<void> _fetchInitialData() async {
+  Future<void> _fetchInitialData({bool forceRefresh = false}) async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+
+    // Only show full loading if we have no data yet
+    final isFirstLoad = _vehicles.isEmpty && _allServices.isEmpty;
+    if (isFirstLoad || forceRefresh) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
     try {
       final results = await Future.wait([
-        _vehicleService.listMyVehicles(),
-        _catalogService.listServices(),
+        _vehicleService.listMyVehicles(forceRefresh: forceRefresh),
+        _catalogService.listServices(forceRefresh: forceRefresh),
       ]);
 
       final List<Vehicle> vehicles = results[0] as List<Vehicle>;
@@ -363,6 +396,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         setState(() {
           _vehicles = List<Vehicle>.from(vehicles);
           _allServices = services;
+          _hasAttemptedFetch = true;
           if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
             _selectedVehicleId = _vehicles.first.id;
 
@@ -395,6 +429,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         setState(() {
           _error = e.toString();
           _loading = false;
+          _hasAttemptedFetch = true;
         });
       }
     }
@@ -406,6 +441,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
     final currentIdx = nav.selectedIndex;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Check if this page's tab is active and if we should refresh
     final Map<String, int> tabMapping = {
@@ -416,61 +452,104 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     };
 
     if (tabMapping[widget.initialCategory] == currentIdx) {
-      // If we are on the active tab, and data is missing but we haven't checked in a while
+      // If we are on the active tab, and data is missing and we haven't tried fetching yet
       if ((_vehicles.isEmpty || _allServices.isEmpty) &&
           !_loading &&
+          !_hasAttemptedFetch &&
           _error == null) {
         Future.microtask(() => _fetchInitialData());
       }
     }
 
-    return Scaffold(
-      backgroundColor: AppStyles.softBackground,
-      appBar: AppBar(
-        title: Text(
-          widget.initialCategory == 'Tyres' ||
-                  widget.initialCategory == 'Tyre & Battery'
-              ? 'Book Tyre & Battery'
-              : widget.initialCategory != null &&
-                    widget.initialCategory != 'Services'
-              ? 'Book ${widget.initialCategory}'
-              : 'Book a Service',
-          style: AppStyles.headingStyle,
+    return PopScope(
+      canPop: _currentStep == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
+        backgroundColor: isDark
+            ? AppColors.backgroundPrimary
+            : AppStyles.softBackground,
+        appBar: AppBar(
+          title: Text(
+            widget.initialCategory == 'Tyres' ||
+                    widget.initialCategory == 'Tyre & Battery'
+                ? 'Book Tyre & Battery'
+                : widget.initialCategory != null &&
+                      widget.initialCategory != 'Services'
+                ? 'Book ${widget.initialCategory}'
+                : 'Book a Service',
+            style: AppStyles.headingStyle.copyWith(
+              color: isDark ? AppColors.textPrimary : const Color(0xFF222222),
+            ),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(
+            color: isDark ? AppColors.textPrimary : Colors.black,
+          ),
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 200),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CustomStepper(steps: _steps, currentStep: _currentStep),
-                        const SizedBox(height: 32),
-                        _buildStepContent(),
-                      ],
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Stack(
+                children: [
+                  Positioned.fill(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 200),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RepaintBoundary(
+                            child: CustomStepper(
+                              steps: _steps,
+                              currentStep: _currentStep,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          RepaintBoundary(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 400),
+                              switchInCurve: Curves.easeOutQuart,
+                              switchOutCurve: Curves.easeInQuart,
+                              transitionBuilder:
+                                  (Widget child, Animation<double> animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0.05, 0),
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                              child: KeyedSubtree(
+                                key: ValueKey(_currentStep),
+                                child: _buildStepContent(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Positioned(
-                  bottom: 120, // Adjusted for the new PillBottomBar height
-                  left: 20,
-                  right: 20,
-                  child: _buildBottomButtons(),
-                ),
-              ],
-            ),
+                  Positioned(
+                    bottom: 120, // Adjusted for the new PillBottomBar height
+                    left: 20,
+                    right: 20,
+                    child: RepaintBoundary(child: _buildBottomButtons()),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
   Widget _buildBottomButtons() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         if (_currentStep > 0) ...[
@@ -482,14 +561,20 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: BorderSide(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                  ),
                 ),
-                backgroundColor: Colors.white,
+                backgroundColor: isDark
+                    ? AppColors.backgroundSecondary
+                    : Colors.white,
               ),
-              child: const Text(
+              child: Text(
                 'Back',
                 style: TextStyle(
-                  color: Color(0xFF555555),
+                  color: isDark
+                      ? AppColors.textPrimary
+                      : const Color(0xFF555555),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -630,10 +715,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              color: AppStyles.lightBlueTint.withValues(alpha: 0.5),
+              color: isDark
+                  ? AppColors.backgroundSecondary
+                  : AppStyles.lightBlueTint.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppStyles.primaryBlue.withValues(alpha: 0.2),
+                color: isDark
+                    ? AppColors.borderColor
+                    : AppStyles.primaryBlue.withValues(alpha: 0.2),
                 style: BorderStyle.solid,
               ),
             ),
@@ -700,12 +789,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Quick Service Selection',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: isDark ? AppColors.textMuted : Colors.grey.shade600,
                   ),
                 ),
                 TextButton(
@@ -739,10 +828,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _activeSubCategory == 'Tyres'
                           ? AppColors.primaryBlue
-                          : AppColors.backgroundSurface,
+                          : (isDark
+                                ? AppColors.backgroundSurface
+                                : Colors.grey.shade100),
                       foregroundColor: _activeSubCategory == 'Tyres'
                           ? AppColors.textPrimary
-                          : AppColors.textSecondary,
+                          : (isDark
+                                ? AppColors.textSecondary
+                                : Colors.grey.shade700),
                     ),
                   ),
                 ),
@@ -763,10 +856,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _activeSubCategory == 'Battery'
                           ? AppColors.primaryBlue
-                          : AppColors.backgroundSurface,
+                          : (isDark
+                                ? AppColors.backgroundSurface
+                                : Colors.grey.shade100),
                       foregroundColor: _activeSubCategory == 'Battery'
                           ? AppColors.textPrimary
-                          : AppColors.textSecondary,
+                          : (isDark
+                                ? AppColors.textSecondary
+                                : Colors.grey.shade700),
                     ),
                   ),
                 ),
@@ -810,7 +907,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 ),
               ],
@@ -882,8 +979,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         style: TextStyle(
                           fontSize: 14,
                           color: isDark
-                              ? Colors.grey.shade500
-                              : Colors.grey.shade500,
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                         ),
                       ),
                     ],

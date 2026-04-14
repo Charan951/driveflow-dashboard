@@ -183,8 +183,8 @@ class SocketService extends ValueNotifier<String?> {
             body: (mapData['message'] ?? mapData['body'] ?? '').toString(),
             payload: mapData['payload'] != null
                 ? (mapData['payload'] is String
-                    ? mapData['payload'] as String
-                    : jsonEncode(mapData['payload']))
+                      ? mapData['payload'] as String
+                      : jsonEncode(mapData['payload']))
                 : null,
           );
         } catch (e) {

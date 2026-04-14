@@ -7,7 +7,6 @@ import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/track_booking_page.dart';
 import 'pages/my_payments_page.dart';
-import 'pages/documents_page.dart';
 import 'pages/support_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/main_navigation_page.dart';
@@ -38,7 +37,7 @@ void main() async {
   final trackingProvider = TrackingProvider();
 
   // Precache the logo immediately for a faster splash experience
-  final imageProvider = const AssetImage('assets/appicon.png');
+  final imageProvider = const AssetImage('assets/carzzilogo_padded.png');
 
   await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
 
@@ -65,8 +64,8 @@ void main() async {
   );
 }
 
-class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
-  const NoAnimationPageTransitionsBuilder();
+class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
+  const SmoothPageTransitionsBuilder();
 
   @override
   Widget buildTransitions<T>(
@@ -76,21 +75,11 @@ class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // Keep animations for splash, register, and login
-    final name = route.settings.name;
-    if (name == '/splash' ||
-        name == '/login' ||
-        name == '/register' ||
-        name == '/') {
-      return FadeUpwardsPageTransitionsBuilder().buildTransitions(
-        route,
-        context,
-        animation,
-        secondaryAnimation,
-        child,
-      );
-    }
-    return child;
+    // A fast but smooth fade transition for all pages
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+      child: child,
+    );
   }
 }
 
@@ -140,28 +129,28 @@ class MyApp extends StatelessWidget {
             title: 'Carzzi',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
-            themeAnimationDuration: Duration.zero,
+            themeAnimationDuration: const Duration(milliseconds: 200),
             builder: (context, child) {
               return child ?? const SizedBox.shrink();
             },
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
+                seedColor: AppColors.primaryBlue,
                 brightness: Brightness.light,
               ),
-              scaffoldBackgroundColor: Colors.white,
+              scaffoldBackgroundColor: AppColors.backgroundPrimaryLight,
               appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.white,
-                surfaceTintColor: Colors.white,
+                backgroundColor: AppColors.backgroundPrimaryLight,
+                surfaceTintColor: AppColors.backgroundPrimaryLight,
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.android: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.linux: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.macOS: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.windows: SmoothPageTransitionsBuilder(),
                 },
               ),
             ),
@@ -258,11 +247,11 @@ class MyApp extends StatelessWidget {
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
-                  TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
-                  TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+                  TargetPlatform.android: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.linux: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.macOS: SmoothPageTransitionsBuilder(),
+                  TargetPlatform.windows: SmoothPageTransitionsBuilder(),
                 },
               ),
             ),
@@ -280,7 +269,6 @@ class MyApp extends StatelessWidget {
               '/add-vehicle': (_) => const AddVehiclePage(),
               '/notifications': (_) => const NotificationsPage(),
               '/insurance': (_) => const _TabRedirect(index: 1),
-              '/documents': (_) => const DocumentsPage(),
               '/support': (_) => const SupportPage(),
               '/profile': (_) => const ProfilePage(),
               '/car-wash': (_) => const _TabRedirect(index: 3),
@@ -353,8 +341,8 @@ class _RootGateState extends State<RootGate> {
   @override
   void initState() {
     super.initState();
-    // 3 seconds delay for splash screen when authenticated
-    Future.delayed(const Duration(seconds: 3), () {
+    // 2 seconds delay for splash screen when authenticated
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
           _splashDelayComplete = true;

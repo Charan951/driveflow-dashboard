@@ -9,6 +9,7 @@ class AppStorage {
   static const _userKey = 'auth_user';
   static const _themeModeKey = 'theme_mode';
   static const _dashboardKey = 'dashboard_state';
+  static const _hasSeenNoVehicleModalKey = 'has_seen_no_vehicle_modal';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -18,6 +19,34 @@ class AppStorage {
     ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
+
+  Future<void> setHasSeenNoVehicleModal(bool value) async {
+    try {
+      await _storage.write(
+        key: _hasSeenNoVehicleModalKey,
+        value: value.toString(),
+      );
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  Future<bool> getHasSeenNoVehicleModal() async {
+    try {
+      final val = await _storage.read(key: _hasSeenNoVehicleModalKey);
+      return val == 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> clearHasSeenNoVehicleModal() async {
+    try {
+      await _storage.delete(key: _hasSeenNoVehicleModalKey);
+    } catch (e) {
+      // Silent catch
+    }
+  }
 
   Future<void> setToken(String token) async {
     try {

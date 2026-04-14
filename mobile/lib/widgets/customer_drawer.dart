@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_colors.dart';
+import '../core/app_styles.dart';
 import '../state/navigation_provider.dart';
 import '../state/theme_provider.dart';
 
@@ -53,15 +54,21 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
         routeName,
         arguments: arguments as Map<String, dynamic>?,
       );
-      if (ModalRoute.of(context)?.settings.name != '/customer') {
+      if (widget.currentRouteName != '/customer') {
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/customer', (route) => false);
       }
     } else {
-      Navigator.of(
-        context,
-      ).pushReplacementNamed(routeName, arguments: arguments);
+      // If we are on the dashboard, push the new route so we can come back
+      if (widget.currentRouteName == '/customer') {
+        Navigator.of(context).pushNamed(routeName, arguments: arguments);
+      } else {
+        // If we are already on a non-dashboard page, replace it
+        Navigator.of(
+          context,
+        ).pushReplacementNamed(routeName, arguments: arguments);
+      }
     }
   }
 
@@ -88,11 +95,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     ),
     _DrawerItem(
       icon: Icons.settings_suggest_outlined,
-      label: 'Services',
-      routeName: '/services',
-    ),
-    _DrawerItem(
-      icon: Icons.add_task_outlined,
       label: 'Book Service',
       routeName: '/services',
       arguments: {'openBookHint': true},
@@ -111,11 +113,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       icon: Icons.shield_outlined,
       label: 'Insurance',
       routeName: '/insurance',
-    ),
-    _DrawerItem(
-      icon: Icons.description_outlined,
-      label: 'Documents',
-      routeName: '/documents',
     ),
     _DrawerItem(
       icon: Icons.support_agent_outlined,
@@ -138,79 +135,46 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.mode == ThemeMode.dark;
-    final theme = Theme.of(context);
 
     return Drawer(
       width: 320,
       backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: isDark
-                          ? AppColors.backgroundSurface
-                          : Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Image.asset(
-                          'carzzilogo.png',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: isDark ? AppColors.textPrimary : Colors.black87,
-                      ),
-                    ),
-                  ),
-                ],
+        child: RepaintBoundary(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 8,
+                ),
+                child: Image.asset(
+                  'assets/carzzilogo.png',
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                children: [
-                  for (final item in _drawerItems)
-                    _DrawerTile(
-                      icon: item.icon,
-                      label: item.label,
-                      active: _isActive(item.routeName),
-                      isDark: isDark,
-                      onTap: () => _navigate(
-                        context,
-                        routeName: item.routeName,
-                        arguments: item.arguments,
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  children: [
+                    for (final item in _drawerItems)
+                      _DrawerTile(
+                        icon: item.icon,
+                        label: item.label,
+                        active: _isActive(item.routeName),
+                        isDark: isDark,
+                        onTap: () => _navigate(
+                          context,
+                          routeName: item.routeName,
+                          arguments: item.arguments,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -260,16 +224,7 @@ class _DrawerTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              gradient: active
-                  ? const LinearGradient(
-                      colors: [
-                        AppColors.primaryBlue,
-                        AppColors.primaryBlueDark,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
+              gradient: active ? AppStyles.primaryGradient : null,
               color: active ? null : Colors.transparent,
               boxShadow: active
                   ? [

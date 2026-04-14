@@ -109,124 +109,133 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      drawer: CustomerDrawer(currentRouteName: routeName),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/customer', (route) => false);
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        drawer: CustomerDrawer(currentRouteName: routeName),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              Builder(
+                builder: (context) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: [_accentPurple, _accentBlue],
                     ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.menu),
-                  color: Colors.white,
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _accentBlue.withValues(alpha: 0.4),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.menu),
+                    color: Colors.white,
+                    tooltip: 'Menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
+              Text(
+                'My Payments',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              tooltip: 'Refresh',
             ),
-            const SizedBox(width: 12),
-            Text(
-              'My Payments',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
+          ],
+        ),
+        body: Stack(
+          children: [
+            if (isDark)
+              Container(color: Colors.black)
+            else
+              Container(color: Colors.white),
+            RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Failed to load payments',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: _load,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_payments.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Center(
+                        child: Text(
+                          'No payments found',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    for (final b in _payments)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PaymentCard(
+                          booking: b,
+                          dateLabel: _formatDateTime(context, b.date),
+                        ),
+                      ),
+                  ],
+                ],
               ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          if (isDark)
-            Container(color: Colors.black)
-          else
-            Container(color: Colors.white),
-          RefreshIndicator(
-            onRefresh: _load,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (_loading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 32),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Failed to load payments',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.white70),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (_payments.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Center(
-                      child: Text(
-                        'No payments found',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                      ),
-                    ),
-                  )
-                else ...[
-                  for (final b in _payments)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PaymentCard(
-                        booking: b,
-                        dateLabel: _formatDateTime(context, b.date),
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

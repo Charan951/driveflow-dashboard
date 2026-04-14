@@ -17,6 +17,10 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage>
     with WidgetsBindingObserver {
+  DateTime? _lastBackPress;
+  PageController? _pageController;
+  NavigationProvider? _navProvider;
+
   final List<Widget> _pages = const [
     BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
     BookServiceFlowPage(
@@ -32,10 +36,28 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Use a default index of 2 or get it from provider
+    _navProvider = context.read<NavigationProvider>();
+    _pageController = PageController(initialPage: _navProvider!.selectedIndex);
+    _navProvider!.addListener(_onNavChanged);
+  }
+
+  void _onNavChanged() {
+    if (_pageController != null &&
+        _pageController!.hasClients &&
+        _pageController!.page?.round() != _navProvider!.selectedIndex) {
+      _pageController!.animateToPage(
+        _navProvider!.selectedIndex,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutQuart,
+      );
+    }
   }
 
   @override
   void dispose() {
+    _navProvider?.removeListener(_onNavChanged);
+    _pageController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -50,28 +72,55 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   Widget build(BuildContext context) {
-    final navProvider = context.watch<NavigationProvider>();
+    final selectedIndex = context.select<NavigationProvider, int>(
+      (n) => n.selectedIndex,
+    );
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+
+        // 1. If not on the Home tab (index 2), go to Home first
+        if (selectedIndex != 2) {
+          _navProvider?.setTab(2);
+          return;
+        }
+
+        // 2. If on the Home tab, handle double back to exit
+        final now = DateTime.now();
+        if (_lastBackPress == null ||
+            now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+          _lastBackPress = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Press back again to exit'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
         SystemNavigator.pop();
       },
       child: Scaffold(
         extendBody: true,
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
-        body: Stack(
-          children: [
-            IndexedStack(index: navProvider.selectedIndex, children: _pages),
-          ],
+        body: PageView(
+          controller: _pageController,
+          physics: const NeverScrollableScrollPhysics(),
+          onPageChanged: (index) {
+            if (index != _navProvider?.selectedIndex) {
+              _navProvider?.setTab(index);
+            }
+          },
+          children: _pages,
         ),
         bottomNavigationBar: Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
           child: PillBottomBar(
-            selectedIndex: navProvider.selectedIndex,
-            onTap: (index) => navProvider.setTab(index),
+            selectedIndex: selectedIndex,
+            onTap: (index) => _navProvider?.setTab(index),
           ),
         ),
       ),

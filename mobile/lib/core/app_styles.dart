@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 
 class AppStyles {
   // Colors
-  static const Color softBackground = Color(0xFFF8F9FB);
+  static const Color softBackground = Color(0xFFFFFFFF);
   static const Color lightBlueTint = Color(0xFFEAF2FF);
-  static const Color primaryBlue = Color(0xFF4A90E2);
-  static const Color primaryPurple = Color(0xFF6C63FF);
+  static const Color primaryBlue = Color(0xFF146EEC);
+  static const Color primaryBlueSoft = Color(0xFF4D95F9);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryBlue, primaryPurple],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    begin: Alignment(0.00, 0.50),
+    end: Alignment(1.00, 0.50),
+    colors: [primaryBlue, primaryBlueSoft, primaryBlue],
   );
 
   // Text Styles
   static const TextStyle headingStyle = TextStyle(
     fontWeight: FontWeight.bold,
     fontSize: 20,
-    color: Color(0xFF222222),
+    color: primaryBlue,
     fontFamily: 'Inter', // Assuming standard font or similar
   );
 

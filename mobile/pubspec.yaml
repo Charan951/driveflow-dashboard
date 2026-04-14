@@ -73,18 +73,15 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/carzzilogo.png"
+  remove_alpha_ios: true
+  image_path: "assets/carzzilogo_padded.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/carzzilogo_padded.png"
 
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
-
   assets:
-    - assets/carzzilogo.png
-    - assets/appicon.png
+    - assets/
     
 
   # To add assets to your application, add an assets section, like this:

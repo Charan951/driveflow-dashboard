@@ -12,6 +12,7 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage> {
   bool _navigated = false;
+  bool _isMovingUp = false;
 
   @override
   void initState() {
@@ -30,6 +31,16 @@ class _SplashPageState extends State<SplashPage> {
 
     // Ensure data is loaded
     await loadMeFuture;
+
+    if (mounted && auth.isAuthenticated) {
+      // Small delay before moving up for better visual flow
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (mounted) {
+        setState(() {
+          _isMovingUp = true;
+        });
+      }
+    }
   }
 
   void _onInteract() {
@@ -53,42 +64,16 @@ class _SplashPageState extends State<SplashPage> {
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            // Premium background with orange glow
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF0F0F0F), // Deep black
-                    Color(0xFF1A1A1A), // Dark gray
-                  ],
-                ),
-              ),
-            ),
-            // Soft cinematic orange glow at center
-            Center(
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(
-                        0xFFFF6A00,
-                      ).withValues(alpha: 0.15), // Cinematic orange glow
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.7],
-                  ),
-                ),
-              ),
-            ),
-            // Logo with micro-animation
-            Center(
+            // Black background
+            Container(color: Colors.black),
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 1500),
+              curve: Curves.easeInOutQuart,
+              alignment: _isMovingUp
+                  ? const Alignment(0, -0.9)
+                  : Alignment.center,
               child: TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 500),
+                duration: const Duration(milliseconds: 800),
                 tween: Tween(begin: 0.0, end: 1.0),
                 curve: Curves.easeOut, // Smooth premium finish
                 builder: (context, value, child) {
@@ -105,9 +90,8 @@ class _SplashPageState extends State<SplashPage> {
                   child: Padding(
                     padding: const EdgeInsets.all(48.0),
                     child: Image.asset(
-                      'assets/appicon.png',
+                      'assets/splashscreen.png',
                       width: 180,
-                      color: Colors.white, // White logo as requested
                       fit: BoxFit.contain,
                     ),
                   ),

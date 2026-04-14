@@ -7,6 +7,7 @@ class CatalogService {
 
   static List<ServiceItem>? _cachedServices;
   static DateTime? _lastFetchAt;
+  static Future<List<ServiceItem>>? _activeFetch;
   static const Duration _cacheDuration = Duration(minutes: 5);
 
   Future<List<ServiceItem>> listServices({
@@ -16,6 +17,8 @@ class CatalogService {
     String? vehicleType,
   }) async {
     final now = DateTime.now();
+
+    // Use cache if available and not forced
     if (!forceRefresh &&
         isQuickService == null &&
         category == null &&
@@ -26,6 +29,30 @@ class CatalogService {
       return _cachedServices!;
     }
 
+    // Return active fetch if one is already in progress
+    if (_activeFetch != null && !forceRefresh) {
+      return _activeFetch!;
+    }
+
+    _activeFetch = _doFetch(
+      forceRefresh,
+      isQuickService,
+      category,
+      vehicleType,
+    );
+    try {
+      return await _activeFetch!;
+    } finally {
+      _activeFetch = null;
+    }
+  }
+
+  Future<List<ServiceItem>> _doFetch(
+    bool forceRefresh,
+    bool? isQuickService,
+    String? category,
+    String? vehicleType,
+  ) async {
     final items = <ServiceItem>[];
     String url = ApiEndpoints.services;
     final List<String> params = [];
@@ -48,8 +75,13 @@ class CatalogService {
         }
       }
     }
-    _cachedServices = items;
-    _lastFetchAt = now;
+
+    // Only cache full service list
+    if (isQuickService == null && category == null && vehicleType == null) {
+      _cachedServices = items;
+      _lastFetchAt = DateTime.now();
+    }
+
     return items;
   }
 }

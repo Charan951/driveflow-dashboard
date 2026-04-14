@@ -5,7 +5,36 @@ import '../models/vehicle.dart';
 class VehicleService {
   final ApiClient _api = ApiClient();
 
-  Future<List<Vehicle>> listMyVehicles() async {
+  static List<Vehicle>? _cachedVehicles;
+  static DateTime? _lastFetchAt;
+  static Future<List<Vehicle>>? _activeFetch;
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
+  Future<List<Vehicle>> listMyVehicles({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+
+    // Check cache
+    if (!forceRefresh &&
+        _cachedVehicles != null &&
+        _lastFetchAt != null &&
+        now.difference(_lastFetchAt!) < _cacheDuration) {
+      return _cachedVehicles!;
+    }
+
+    // Return active fetch if one is in progress
+    if (_activeFetch != null && !forceRefresh) {
+      return _activeFetch!;
+    }
+
+    _activeFetch = _doFetch(forceRefresh);
+    try {
+      return await _activeFetch!;
+    } finally {
+      _activeFetch = null;
+    }
+  }
+
+  Future<List<Vehicle>> _doFetch(bool forceRefresh) async {
     final res = await _api.getAny(ApiEndpoints.vehicles);
     final items = <Vehicle>[];
     if (res is List) {
@@ -17,7 +46,14 @@ class VehicleService {
         }
       }
     }
+    _cachedVehicles = items;
+    _lastFetchAt = DateTime.now();
     return items;
+  }
+
+  void clearCache() {
+    _cachedVehicles = null;
+    _lastFetchAt = null;
   }
 
   Future<Vehicle> addVehicle({

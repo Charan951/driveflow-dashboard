@@ -1289,9 +1289,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.black
-                              : const Color(0xFFF9FAFB),
+                          color: isDark ? Colors.black : Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isDark
@@ -1509,9 +1507,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.black
-                              : const Color(0xFFF9FAFB),
+                          color: isDark ? Colors.black : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
@@ -2481,9 +2477,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.black
-                                : const Color(0xFFF9FAFB),
+                            color: isDark ? Colors.black : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isDark
@@ -2832,9 +2826,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.black
-                                    : const Color(0xFFF9FAFB),
+                                color: isDark ? Colors.black : Colors.white,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: isDark
@@ -3113,9 +3105,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.black
-                                : const Color(0xFFF9FAFB),
+                            color: isDark ? Colors.black : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isDark

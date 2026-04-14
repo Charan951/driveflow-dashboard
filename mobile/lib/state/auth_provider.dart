@@ -146,6 +146,7 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
+        await AppStorage().clearHasSeenNoVehicleModal();
         SocketService().init(user);
         NotificationService().syncToken();
         loading = false;
@@ -180,6 +181,7 @@ class AuthProvider extends ChangeNotifier {
             await AppStorage().setUserJson(jsonEncode(user!.toJson()));
           }
         }
+        await AppStorage().clearHasSeenNoVehicleModal();
         SocketService().init(user);
         NotificationService().syncToken();
         loading = false;
@@ -202,6 +204,7 @@ class AuthProvider extends ChangeNotifier {
       await _auth.logout();
       SocketService().disconnect();
       await AppStorage().clearDashboard();
+      await AppStorage().clearHasSeenNoVehicleModal();
       user = null;
       lastError = null;
     } finally {

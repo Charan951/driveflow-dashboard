@@ -43,253 +43,465 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = auth.user;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      drawer: const CustomerDrawer(currentRouteName: '/profile'),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
-                boxShadow: [
-                  BoxShadow(
-                    color: _accentBlue.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/customer', (route) => false);
+      },
+      child: Scaffold(
+        backgroundColor: isDark
+            ? AppColors.backgroundPrimary
+            : AppColors.backgroundPrimaryLight,
+        drawer: const CustomerDrawer(currentRouteName: '/profile'),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          titleSpacing: 16,
+          title: Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [_accentPurple, _accentBlue],
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentBlue.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu, size: 20),
+                    color: Colors.white,
+                    tooltip: 'Menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
               ),
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  color: Colors.white,
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+              const SizedBox(width: 12),
+              Text(
+                'Profile',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        body: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RepaintBoundary(
+                      child: _buildProfileHeader(context, user, isDark),
+                    ),
+                    const SizedBox(height: 28),
+                    RepaintBoundary(
+                      child: _buildStatsRow(context, user, isDark),
+                    ),
+                    const SizedBox(height: 32),
+                    _SectionHeader(
+                      title: 'Saved Addresses',
+                      icon: Icons.map_rounded,
+                      onAdd: () => _addAddress(context, user),
+                    ),
+                    const SizedBox(height: 12),
+                    RepaintBoundary(
+                      child: Column(
+                        children: [
+                          if (user?.addresses.isEmpty ?? true)
+                            const _EmptyState(
+                              icon: Icons.location_off_rounded,
+                              message: 'No saved addresses yet',
+                            )
+                          else
+                            ...user!.addresses.map(
+                              (a) => _AddressCard(
+                                address: a,
+                                onDelete: () =>
+                                    _deleteAddress(context, user, a),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    _SectionHeader(
+                      title: 'Payment Methods',
+                      icon: Icons.payments_rounded,
+                      onAdd: () => _addPaymentMethod(context, user),
+                    ),
+                    const SizedBox(height: 12),
+                    RepaintBoundary(
+                      child: Column(
+                        children: [
+                          if (user?.paymentMethods.isEmpty ?? true)
+                            const _EmptyState(
+                              icon: Icons.credit_card_off_rounded,
+                              message: 'No saved payment methods yet',
+                            )
+                          else
+                            ...user!.paymentMethods.map(
+                              (p) => _PaymentCard(
+                                method: p,
+                                onDelete: () =>
+                                    _deletePaymentMethod(context, user, p),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Text(
+                      'Settings & Preferences',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    RepaintBoundary(
+                      child: _buildSettingsItem(
+                        context: context,
+                        isDark: isDark,
+                        icon: isDark
+                            ? Icons.dark_mode_rounded
+                            : Icons.light_mode_rounded,
+                        title: 'Appearance',
+                        subtitle: isDark ? 'Dark Mode' : 'Light Mode',
+                        trailing: Switch(
+                          value: isDark,
+                          activeThumbColor: Colors.white,
+                          activeTrackColor: _accentPurple,
+                          onChanged: (_) => themeProvider.toggleTheme(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildLogoutButton(context),
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Profile',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-      body: Stack(
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context, User? user, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundSecondaryLight,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          if (isDark)
-            Container(color: Colors.black)
-          else
-            Container(color: Colors.white),
-          SingleChildScrollView(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.black
-                              : const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                gradient: RadialGradient(
-                                  center: const Alignment(0, -0.2),
-                                  colors: [
-                                    _accentPurple.withValues(alpha: 0.85),
-                                    _accentPurple.withValues(alpha: 0.25),
-                                  ],
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.person_outline,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user?.name ?? 'User',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w900),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    user?.email ?? '',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: isDark
-                                              ? Colors.white
-                                              : Colors.black54,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => _editProfile(context, user),
-                              icon: const Icon(Icons.edit_outlined),
-                              color: _accentPurple,
-                            ),
-                          ],
-                        ),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+            ),
+            child: CircleAvatar(
+              radius: 35,
+              backgroundColor: isDark ? Colors.black : Colors.white,
+              child: user?.avatar != null
+                  ? ClipOval(child: Image.network(user!.avatar!))
+                  : Text(
+                      (user?.name.isNotEmpty ?? false)
+                          ? user!.name[0].toUpperCase()
+                          : 'U',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
-                      const SizedBox(height: 24),
-                      _SectionHeader(
-                        title: 'Saved Addresses',
-                        onAdd: () => _addAddress(context, user),
-                      ),
-                      const SizedBox(height: 12),
-                      if (user?.addresses.isEmpty ?? true)
-                        _EmptyState(
-                          icon: Icons.map_outlined,
-                          message: 'No saved addresses yet',
-                        )
-                      else
-                        ...user!.addresses.map(
-                          (a) => _AddressCard(
-                            address: a,
-                            onDelete: () => _deleteAddress(context, user, a),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      _SectionHeader(
-                        title: 'Payment Methods',
-                        onAdd: () => _addPaymentMethod(context, user),
-                      ),
-                      const SizedBox(height: 12),
-                      if (user?.paymentMethods.isEmpty ?? true)
-                        _EmptyState(
-                          icon: Icons.payment_outlined,
-                          message: 'No saved payment methods yet',
-                        )
-                      else
-                        ...user!.paymentMethods.map(
-                          (p) => _PaymentCard(
-                            method: p,
-                            onDelete: () =>
-                                _deletePaymentMethod(context, user, p),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: isDark
-                              ? Colors.black
-                              : const Color(0xFFF9FAFB),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isDark ? Icons.dark_mode : Icons.light_mode,
-                              color: isDark ? Colors.white70 : Colors.black54,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Dark mode',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: isDark ? Colors.white : Colors.black87,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Switch(
-                              value: isDark,
-                              activeColor: _accentPurple,
-                              onChanged: (_) => themeProvider.toggleTheme(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: () async {
-                          await context.read<AuthProvider>().logout();
-                          if (!context.mounted) return;
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/login',
-                            (route) => false,
-                          );
-                        },
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Logout'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red.withValues(alpha: 0.1),
-                          foregroundColor: Colors.red,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
+                    ),
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.name ?? 'Guest User',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user?.email ?? 'Sign in to sync data',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+                if (user?.role != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _accentPurple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _accentPurple.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Text(
+                      user!.role!.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: _accentPurple,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _editProfile(context, user),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _accentPurple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.edit_note_rounded,
+                  color: _accentPurple,
+                  size: 24,
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(BuildContext context, User? user, bool isDark) {
+    return Row(
+      children: [
+        _buildStatItem(
+          context,
+          'Addresses',
+          user?.addresses.length.toString() ?? '0',
+          Icons.location_on_rounded,
+          isDark,
+        ),
+        const SizedBox(width: 12),
+        _buildStatItem(
+          context,
+          'Payments',
+          user?.paymentMethods.length.toString() ?? '0',
+          Icons.account_balance_wallet_rounded,
+          isDark,
+        ),
+        const SizedBox(width: 12),
+        _buildStatItem(
+          context,
+          'Vehicles',
+          '3', // Mocked for now
+          Icons.directions_car_rounded,
+          isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    bool isDark,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppColors.backgroundSecondary
+              : AppColors.backgroundSecondaryLight,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: _accentPurple, size: 22),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? Colors.white38 : Colors.black38,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem({
+    required BuildContext context,
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundSecondaryLight,
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.white : Colors.black).withValues(
+                alpha: 0.05,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: isDark ? Colors.white70 : Colors.black87,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: FilledButton.icon(
+        onPressed: () async {
+          await context.read<AuthProvider>().logout();
+          if (!context.mounted) return;
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login',
+            (route) => false,
+          );
+        },
+        icon: const Icon(Icons.logout_rounded, size: 20),
+        label: const Text(
+          'Logout Account',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.red.withValues(alpha: 0.1),
+          foregroundColor: Colors.red,
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.red.withValues(alpha: 0.2)),
+          ),
+          elevation: 0,
+        ),
       ),
     );
   }
@@ -742,22 +954,66 @@ class _ProfilePageState extends State<ProfilePage> {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
+  final IconData icon;
   final VoidCallback onAdd;
 
-  const _SectionHeader({required this.title, required this.onAdd});
+  const _SectionHeader({
+    required this.title,
+    required this.icon,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Icon(icon, size: 20, color: isDark ? Colors.white70 : Colors.black54),
+        const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            letterSpacing: -0.3,
+          ),
         ),
-        IconButton(
-          onPressed: onAdd,
-          icon: const Icon(Icons.add_circle_outline),
+        const Spacer(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onAdd,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (isDark ? Colors.white : Colors.black).withValues(
+                  alpha: 0.05,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Add',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -770,45 +1026,109 @@ class _AddressCard extends StatelessWidget {
 
   const _AddressCard({required this.address, required this.onDelete});
 
+  IconData _getIcon() {
+    switch (address.label.toLowerCase()) {
+      case 'home':
+        return Icons.home_rounded;
+      case 'work':
+        return Icons.work_rounded;
+      default:
+        return Icons.location_on_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.backgroundSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderColor),
+        color: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundSecondaryLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on_outlined, color: Colors.blue),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(_getIcon(), color: Colors.blue, size: 22),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  address.label,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Text(
+                      address.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (address.isDefault) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'DEFAULT',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+                const SizedBox(height: 4),
                 Text(
                   address.address,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.red.withValues(alpha: 0.7),
+              size: 20,
+            ),
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),
@@ -822,49 +1142,123 @@ class _PaymentCard extends StatelessWidget {
 
   const _PaymentCard({required this.method, required this.onDelete});
 
+  IconData _getIcon() {
+    switch (method.type.toLowerCase()) {
+      case 'card':
+        return Icons.credit_card_rounded;
+      case 'upi':
+        return Icons.qr_code_rounded;
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
+      default:
+        return Icons.payments_rounded;
+    }
+  }
+
+  Color _getColor() {
+    switch (method.type.toLowerCase()) {
+      case 'card':
+        return Colors.purple;
+      case 'upi':
+        return Colors.orange;
+      case 'wallet':
+        return Colors.teal;
+      default:
+        return Colors.green;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
+        color: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundSecondaryLight,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.grey.shade900 : Colors.grey[200]!,
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(
-            method.type == 'card'
-                ? Icons.credit_card
-                : (method.type == 'upi'
-                      ? Icons.account_balance
-                      : Icons.account_balance_wallet),
-            color: Colors.green,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _getColor().withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(_getIcon(), color: _getColor(), size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  method.label,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Text(
+                      method.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (method.isDefault) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'DEFAULT',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (method.details != null)
+                if (method.details != null) ...[
+                  const SizedBox(height: 4),
                   Text(
                     method.details!,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
                   ),
+                ],
               ],
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.red.withValues(alpha: 0.7),
+              size: 20,
+            ),
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),
@@ -882,28 +1276,39 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.grey.shade900 : Colors.grey[100]!,
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
           style: BorderStyle.solid,
         ),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            size: 32,
-            color: isDark ? Colors.white24 : Colors.grey[300],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.white : Colors.black).withValues(
+                alpha: 0.04,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 40,
+              color: isDark ? Colors.white12 : Colors.black12,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
             message,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark ? Colors.white : Colors.black54,
-              fontSize: 13,
+              color: isDark ? Colors.white38 : Colors.black38,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -1,12 +1,8 @@
 import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-
-import '../core/storage.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
-import '../models/user.dart';
+import '../core/app_colors.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -15,38 +11,37 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
+class _SplashPageState extends State<SplashPage> {
   final AuthService _authService = AuthService();
-  late final AnimationController _bgController;
   bool _navigated = false;
+  bool _isMovingUp = false;
 
   @override
   void initState() {
     super.initState();
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
-    unawaited(_bootstrap());
-  }
-
-  @override
-  void dispose() {
-    _bgController.dispose();
-    super.dispose();
+    _bootstrap();
   }
 
   Future<void> _bootstrap() async {
     // Request notification permissions
     NotificationService().requestPermissions();
 
+    // Small initial delay for splash feel
     await Future.delayed(const Duration(milliseconds: 600));
 
     final user = await _authService.getCurrentUser();
-    if (user != null) {
-      // If authenticated, wait 3 seconds (total) and go to home page
-      await Future.delayed(const Duration(milliseconds: 2400));
+
+    if (mounted && user != null) {
+      // Small delay before moving up for better visual flow
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (mounted) {
+        setState(() {
+          _isMovingUp = true;
+        });
+      }
+
+      // Wait a bit more before navigating
+      await Future.delayed(const Duration(milliseconds: 1000));
       if (mounted && !_navigated) {
         _navigated = true;
         final role = user.role?.toLowerCase();
@@ -68,14 +63,9 @@ class _SplashPageState extends State<SplashPage>
     }
   }
 
-  void _goToLogin() {
-    Navigator.of(context).pushReplacementNamed('/login');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: GestureDetector(
         onTap: _onInteract,
         onTapDown: (_) => _onInteract(),
@@ -83,33 +73,74 @@ class _SplashPageState extends State<SplashPage>
         onLongPress: _onInteract,
         onPanDown: (_) => _onInteract(),
         behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 700),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) {
-              return Opacity(opacity: value, child: child);
-            },
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Padding(
-                padding: const EdgeInsets.all(48.0),
-                child: Image.asset(
-                  'assets/appicon.png',
-                  width: 220,
-                  fit: BoxFit.fitWidth,
+        child: Stack(
+          children: [
+            // Premium background with orange glow (from mobile)
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.splashDeepBlack, // Deep black
+                    AppColors.splashDarkGray, // Dark gray
+                  ],
                 ),
               ),
             ),
-          ),
+            // Soft cinematic orange glow at center (from mobile)
+            Center(
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.cinematicOrange.withValues(alpha: 0.15),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.7],
+                  ),
+                ),
+              ),
+            ),
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 1500),
+              curve: Curves.easeInOutQuart,
+              alignment: _isMovingUp
+                  ? const Alignment(0, -0.9)
+                  : Alignment.center,
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 800),
+                tween: Tween(begin: 0.0, end: 1.0),
+                curve: Curves.easeOut, // Smooth premium finish
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 0.9 + (0.1 * value), // Scale: 0.9 -> 1.0
+                    child: Opacity(
+                      opacity: value, // Fade: 0 -> 1
+                      child: child,
+                    ),
+                  );
+                },
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Padding(
+                    padding: const EdgeInsets.all(48.0),
+                    child: Image.asset(
+                      'assets/appicon.png',
+                      width: 180,
+                      color: Colors.white, // White logo as in mobile
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
-
-
-    }
-  ]
 }
