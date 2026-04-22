@@ -112,6 +112,7 @@ const AdminTrackingPage: React.FC = () => {
       lat: number;
       lng: number;
       timestamp: string;
+      updatedAt?: string;
       isOnline?: boolean;
       isShopOpen?: boolean;
       lastSeen?: string;
