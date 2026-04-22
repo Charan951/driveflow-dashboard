@@ -69,11 +69,20 @@ class NotificationService {
   NotificationService._internal();
 
   final ApiClient _api = ApiClient();
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  FirebaseMessaging? _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+
+  Future<FirebaseMessaging> _getMessaging() async {
+    if (_messaging != null) return _messaging!;
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    }
+    _messaging = FirebaseMessaging.instance;
+    return _messaging!;
+  }
 
   Future<void> initialize() async {
     if (kIsWeb) {
@@ -113,13 +122,13 @@ class NotificationService {
 
     // 3. Set up FCM listeners
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    final messaging = await _getMessaging();
 
-    await FirebaseMessaging.instance
-        .setForegroundNotificationPresentationOptions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+    await messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -132,27 +141,29 @@ class NotificationService {
     });
 
     // Handle initial message if app was terminated
-    RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+    RemoteMessage? initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
       _handleNotificationClick(jsonEncode(initialMessage.data));
     }
 
     // 4. Token Management (Listeners only, actual sync happens in syncToken)
-    _setupTokenListeners();
+    await _setupTokenListeners();
 
     _initialized = true;
   }
 
   Future<void> requestPermissions() async {
     if (kIsWeb) return;
-    await PlatformUtils.requestMobilePermissions(_messaging);
+    final messaging = await _getMessaging();
+    await PlatformUtils.requestMobilePermissions(messaging);
   }
 
-  void _setupTokenListeners() {
+  Future<void> _setupTokenListeners() async {
     if (kIsWeb) return;
+    final messaging = await _getMessaging();
 
     // Listen for token refresh
-    _messaging.onTokenRefresh.listen((newToken) {
+    messaging.onTokenRefresh.listen((newToken) {
       syncToken();
     });
   }
@@ -160,7 +171,8 @@ class NotificationService {
   Future<void> syncToken() async {
     if (kIsWeb) return;
     try {
-      final token = await _messaging.getToken();
+      final messaging = await _getMessaging();
+      final token = await messaging.getToken();
       if (token == null) return;
 
       String deviceType = PlatformUtils.deviceType;
@@ -170,8 +182,8 @@ class NotificationService {
       );
 
       // Subscribe to topics
-      await _messaging.subscribeToTopic('all_users');
-      await _messaging.subscribeToTopic('customers');
+      await messaging.subscribeToTopic('all_users');
+      await messaging.subscribeToTopic('customers');
     } catch (e) {
       // Ignore
     }

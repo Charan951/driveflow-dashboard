@@ -84,61 +84,134 @@ void onStart(ServiceInstance service) async {
 }
 
 void main() async {
-  try {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
 
-    // 1. Initialize Firebase first
+  final authProvider = AuthProvider();
+  final themeProvider = ThemeProvider();
+  final trackingProvider = TrackingProvider();
+  final socketService = SocketService();
+  socketService.setTrackingProvider(trackingProvider);
+  final notificationService = NotificationService();
+
+  // Mount UI first so iOS doesn't stay on a blank launch screen.
+  runApp(
+    MyApp(
+      authProvider: authProvider,
+      themeProvider: themeProvider,
+      socketService: socketService,
+      notificationService: notificationService,
+      trackingProvider: trackingProvider,
+      precachedLogo: const AssetImage('assets/carzzilogo_padded.png'),
+    ),
+  );
+
+  unawaited(
+    _bootstrapApp(
+      authProvider: authProvider,
+      themeProvider: themeProvider,
+      trackingProvider: trackingProvider,
+      socketService: socketService,
+      notificationService: notificationService,
+    ),
+  );
+}
+
+Future<void> _bootstrapApp({
+  required AuthProvider authProvider,
+  required ThemeProvider themeProvider,
+  required TrackingProvider trackingProvider,
+  required SocketService socketService,
+  required NotificationService notificationService,
+}) async {
+  try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 15));
+  } catch (e, stack) {
+    debugPrint('Firebase init failed: $e');
+    debugPrint(stack.toString());
+  }
 
-    final authProvider = AuthProvider();
-    final themeProvider = ThemeProvider();
-    final trackingProvider = TrackingProvider();
+  try {
+    await Future.wait([
+      authProvider.loadMe().timeout(const Duration(seconds: 15)),
+      themeProvider.loadThemeMode().timeout(const Duration(seconds: 10)),
+    ]);
+  } catch (e, stack) {
+    debugPrint('Initial state load failed: $e');
+    debugPrint(stack.toString());
+  }
 
-    // 2. Load basic state
-    await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
+  try {
+    await notificationService.initialize().timeout(const Duration(seconds: 15));
+  } catch (e, stack) {
+    debugPrint('Notification init failed: $e');
+    debugPrint(stack.toString());
+  }
 
-    // 3. Initialize Services
-    final socketService = SocketService();
-    socketService.setTrackingProvider(trackingProvider);
-
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-
-    // 4. Initialize Background Service (After notification channels are created)
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      try {
-        await initializeBackgroundService();
-      } catch (e) {
-        debugPrint('Failed to start background service: $e');
-      }
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await initializeBackgroundService().timeout(const Duration(seconds: 15));
+    } catch (e) {
+      debugPrint('Failed to start background service: $e');
     }
+  }
 
-    if (authProvider.isAuthenticated) {
-      socketService.init(authProvider.user);
-      notificationService.syncToken();
-      trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
-    }
+  if (authProvider.isAuthenticated) {
+    socketService.init(authProvider.user);
+    unawaited(notificationService.syncToken());
+    trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
+  }
+}
 
-    // Precache the logo
-    final imageProvider = const AssetImage('assets/carzzilogo_padded.png');
+class StartupErrorApp extends StatelessWidget {
+  final String error;
 
-    runApp(
-      MyApp(
-        authProvider: authProvider,
-        themeProvider: themeProvider,
-        socketService: socketService,
-        notificationService: notificationService,
-        trackingProvider: trackingProvider,
-        precachedLogo: imageProvider,
+  const StartupErrorApp({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Startup failed',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Check debug console for stack trace.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      error,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
-  } catch (e, stack) {
-    debugPrint('CRITICAL INITIALIZATION ERROR: $e');
-    debugPrint(stack.toString());
-    // Still try to run the app so user doesn't just see a black screen
-    // but they might see errors later.
   }
 }
 

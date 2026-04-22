@@ -53,6 +53,12 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
       if (mounted) {
         setState(() => _isMovingUp = true);
       }
+    } else {
+      // Route guests automatically so splash is not a dead end.
+      await Future.delayed(const Duration(milliseconds: 900));
+      if (!mounted || _navigated) return;
+      _navigated = true;
+      Navigator.of(context).pushReplacementNamed('/login');
     }
   }
 
