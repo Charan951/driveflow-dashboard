@@ -208,6 +208,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           final updated = Booking.fromJson(mapData);
           if (updated.id == _bookingId) {
             setState(() => _booking = updated);
+            _fetchPendingApprovals(); // Refresh approvals too
             if (updated.status == 'DELIVERED' ||
                 updated.status == 'COMPLETED') {
               _fetchReviewsStatus(updated.id);
@@ -218,11 +219,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         }
       }
     });
+
+    _socketService.on('newApproval', (data) {
+      if (!mounted) return;
+      _fetchPendingApprovals();
+    });
   }
 
   void _onSocketUpdate() {
     if (_loading || _bookingId == null) return;
-    _load();
+    final event = _socketService.value;
+    if (event != null &&
+        (event.contains('sync:booking') || event.contains('sync:approval'))) {
+      _load();
+    }
   }
 
   @override
@@ -396,6 +406,174 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _showConfirmDeliveryDialog() async {
+    final booking = _booking;
+    if (booking == null || booking.id.isEmpty) return;
+
+    final otpController = TextEditingController();
+    final isBatteryOrTireService =
+        booking.services.any((s) {
+          final cat = (s.category ?? '').toLowerCase();
+          return cat.contains('battery') ||
+              cat.contains('tyres') ||
+              cat.contains('tyre') ||
+              cat.contains('tire');
+        }) ||
+        booking.batteryTire?.isBatteryTireService == true;
+
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Confirm Delivery',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter the 4-digit OTP shared by our staff to confirm your service completion.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Enter OTP',
+                  counterText: '',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF2563EB),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.pop(context, otpController.text.trim()),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Confirm',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (result == null || result.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the OTP to confirm delivery'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (result.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid 4-digit OTP'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await _service.verifyDeliveryOtp(booking.id, result);
+
+      final finalStatus = isBatteryOrTireService ? 'COMPLETED' : 'DELIVERED';
+      await _service.updateBookingStatus(booking.id, finalStatus);
+
+      if (mounted) {
+        Navigator.pop(context);
+
+        final updatedBooking = await _service.getBooking(booking.id);
+        if (!mounted) return;
+        setState(() {
+          _booking = updatedBooking;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Delivery confirmed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        if (mounted && !_hasMerchantReview && !_hasPlatformReview) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            _showReviewDialog();
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to confirm delivery: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _showReviewDialog() async {
@@ -890,6 +1068,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         booking.paymentStatus != 'paid') {
       return 'Waiting for payment';
     }
+    if (status == 'SERVICE_COMPLETED') {
+      return 'Payment awaiting to dispatch vehicle. Service is completed.';
+    }
 
     return Booking.getStatusLabel(status);
   }
@@ -947,12 +1128,27 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 'On Hold',
               ].contains(booking.status.toUpperCase())
           ? FloatingActionButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatPage(booking: booking),
-                ),
-              ),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => DraggableScrollableSheet(
+                    initialChildSize: 0.8,
+                    minChildSize: 0.5,
+                    maxChildSize: 0.95,
+                    builder: (_, scrollController) => Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                      ),
+                      child: ChatPage(booking: booking),
+                    ),
+                  ),
+                );
+              },
               backgroundColor: const Color(0xFF2563EB),
               child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
             )
@@ -1869,7 +2065,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       if ((booking.status == 'OUT_FOR_DELIVERY' ||
                               booking.status == 'SERVICE_COMPLETED' ||
                               booking.status == 'DELIVERY' ||
-                              booking.status == 'CAR_WASH_COMPLETED') &&
+                              booking.status == 'CAR_WASH_COMPLETED' ||
+                              booking.status == 'CAR_WASH_STARTED' ||
+                              booking.status == 'SERVICE_STARTED' ||
+                              booking.status == 'INSTALLATION') &&
                           booking.deliveryOtp != null &&
                           booking.deliveryOtp!.code.trim().isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -1932,6 +2131,29 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => _showConfirmDeliveryDialog(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Confirm Receipt',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ],

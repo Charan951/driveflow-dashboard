@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Get all users (with optional filtering)
 // @route   GET /api/users
@@ -81,7 +82,12 @@ export const deleteUser = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (user) {
+      const userId = user._id;
       await user.deleteOne();
+      
+      // Global Real-time Sync
+      emitEntitySync('user', 'deleted', { _id: userId });
+      
       res.json({ message: 'User removed' });
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -164,6 +170,9 @@ export const updateUserProfile = async (req, res) => {
         
         io.to('admin').emit('userUpdated', updatePayload);
         io.to(`user_${updatedUser._id}`).emit('userUpdated', updatePayload);
+        
+        // Global Real-time Sync
+        emitEntitySync('user', 'updated', updatedUser);
       } catch (err) {
         
       }
@@ -304,6 +313,9 @@ export const updateUserRole = async (req, res) => {
           subRole: updatedUser.subRole,
           status: updatedUser.status
         });
+        
+        // Global Real-time Sync
+        emitEntitySync('user', 'updated', updatedUser);
       } catch (err) {
         console.error('Socket emit error on role update:', err);
       }

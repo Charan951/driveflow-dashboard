@@ -1,16 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 
 import '../core/env.dart';
 import '../core/api_client.dart';
+import '../core/storage.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
 import '../services/socket_service.dart';
+import 'chat_page.dart';
 
 class StaffOrderDetailPage extends StatefulWidget {
   const StaffOrderDetailPage({super.key});
@@ -65,7 +69,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
 
   void _onSocketUpdate() {
     final event = _socketService.value;
-    if (event == 'booking_updated' || event == 'booking_cancelled') {
+    if (event == null) return;
+
+    if (event.startsWith('booking_updated') ||
+        event.startsWith('booking_cancelled') ||
+        event.startsWith('new_approval') ||
+        event.startsWith('notification') ||
+        event.startsWith('sync:booking:updated') ||
+        event.startsWith('sync:approval:updated')) {
       if (_loading || _booking == null) return;
       _load(_booking!.id);
     }
@@ -105,24 +116,64 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       });
       _socketService.joinRoom('booking_$id');
       _tracking.setActiveBookingId(booking.id);
-      if (booking.status == 'ACCEPTED' &&
-          booking.location?.lat != null &&
-          booking.location?.lng != null) {
-        _tracking.setAutoStatusTarget(
-          lat: booking.location!.lat,
-          lng: booking.location!.lng,
-          status: 'REACHED_CUSTOMER',
-        );
-      } else if (booking.status == 'VEHICLE_PICKED' &&
-          booking.merchantLocation?.lat != null &&
-          booking.merchantLocation?.lng != null) {
-        _tracking.setAutoStatusTarget(
-          lat: booking.merchantLocation!.lat,
-          lng: booking.merchantLocation!.lng,
-          status: 'REACHED_MERCHANT',
-        );
+
+      // Automatic status target logic based on specialized flows
+      final isCarWash = booking.carWash?.isCarWashService == true;
+      final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
+
+      if (isBatteryTire) {
+        if (booking.status == 'ASSIGNED' &&
+            booking.merchantLocation?.lat != null &&
+            booking.merchantLocation?.lng != null) {
+          _tracking.setAutoStatusTarget(
+            lat: booking.merchantLocation!.lat,
+            lng: booking.merchantLocation!.lng,
+            status: 'STAFF_REACHED_MERCHANT',
+          );
+        } else if (booking.status == 'PICKUP_BATTERY_TIRE' &&
+            booking.location?.lat != null &&
+            booking.location?.lng != null) {
+          _tracking.setAutoStatusTarget(
+            lat: booking.location!.lat,
+            lng: booking.location!.lng,
+            status: 'REACHED_CUSTOMER',
+          );
+        } else {
+          _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
+        }
+      } else if (isCarWash) {
+        if (booking.status == 'ASSIGNED' &&
+            booking.location?.lat != null &&
+            booking.location?.lng != null) {
+          _tracking.setAutoStatusTarget(
+            lat: booking.location!.lat,
+            lng: booking.location!.lng,
+            status: 'REACHED_CUSTOMER',
+          );
+        } else {
+          _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
+        }
       } else {
-        _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
+        // Standard pickup flow
+        if (booking.status == 'ACCEPTED' || booking.status == 'ASSIGNED') {
+          if (booking.location?.lat != null && booking.location?.lng != null) {
+            _tracking.setAutoStatusTarget(
+              lat: booking.location!.lat,
+              lng: booking.location!.lng,
+              status: 'REACHED_CUSTOMER',
+            );
+          }
+        } else if (booking.status == 'VEHICLE_PICKED' &&
+            booking.merchantLocation?.lat != null &&
+            booking.merchantLocation?.lng != null) {
+          _tracking.setAutoStatusTarget(
+            lat: booking.merchantLocation!.lat,
+            lng: booking.merchantLocation!.lng,
+            status: 'REACHED_MERCHANT',
+          );
+        } else {
+          _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -288,6 +339,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       await _load(
         booking.id,
       ); // Reload to get full updated object with all fields
+
+      if (['CAR_WASH_STARTED', 'INSTALLATION'].contains(status)) {
+        _showChatDialog(booking);
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -545,29 +600,83 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Order Details')),
+        body: Center(child: Text(_error!)),
+      );
+    }
     final booking = _booking;
+    if (booking == null) {
+      return const Scaffold(body: Center(child: Text('Order not found')));
+    }
+
+    final String orderNum =
+        booking.orderNumber?.toString() ??
+        booking.id.substring(booking.id.length - 6).toUpperCase();
+
     final staffPos = _staffLatLng();
-    final destPos = booking != null ? _destinationLatLng(booking) : null;
+    final destPos = _destinationLatLng(booking);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          booking?.vehicleName ?? 'Order Detail',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        centerTitle: false,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Order #$orderNum',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Row(
+              children: [
+                Text(
+                  DateFormat(
+                    'dd MMM yyyy',
+                  ).format(DateTime.parse(booking.date)),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '•',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  booking.status.replaceAll('_', ' '),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF7C3AED),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(child: Text(_error!))
-          : booking == null
-          ? const Center(child: Text('Booking not found'))
+      body: booking == null
+          ? const SizedBox.shrink()
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildStatusControl(booking),
+                  const SizedBox(height: 16),
+                  _buildStatusTimeline(booking),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -803,144 +912,403 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: Wrap(
-                      key: ValueKey(booking.status),
-                      spacing: 8,
-                      runSpacing: 8,
+                ],
+              ),
+            ),
+      floatingActionButton:
+          _booking != null &&
+              [
+                'ASSIGNED',
+                'ACCEPTED',
+                'REACHED_CUSTOMER',
+                'VEHICLE_PICKED',
+                'REACHED_MERCHANT',
+                'SERVICE_STARTED',
+                'CAR_WASH_STARTED',
+                'INSTALLATION',
+                'On Hold',
+                'SERVICE_COMPLETED',
+                'OUT_FOR_DELIVERY',
+                'STAFF_REACHED_MERCHANT',
+                'PICKUP_BATTERY_TIRE',
+                'DELIVERY',
+              ].contains(_booking!.status)
+          ? FloatingActionButton(
+              onPressed: () => _showChatDialog(_booking!),
+              backgroundColor: const Color(0xFF7C3AED),
+              child: const Icon(Icons.chat_bubble, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildStatusControl(BookingDetail booking) {
+    final isCarWash = booking.carWash?.isCarWashService == true;
+    final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
+
+    List<Widget> actions = [];
+
+    if (isBatteryTire) {
+      if (booking.status == 'ASSIGNED') {
+        actions.add(
+          _statusButton('STAFF_REACHED_MERCHANT', 'Reached Merchant'),
+        );
+      } else if (booking.status == 'STAFF_REACHED_MERCHANT') {
+        actions.add(_statusButton('PICKUP_BATTERY_TIRE', 'Pickup Part'));
+      } else if (booking.status == 'PICKUP_BATTERY_TIRE') {
+        actions.add(_statusButton('REACHED_CUSTOMER', 'Reached Customer'));
+      } else if (booking.status == 'REACHED_CUSTOMER') {
+        actions.add(_statusButton('INSTALLATION', 'Start Installation'));
+      } else if (booking.status == 'INSTALLATION') {
+        actions.add(_statusButton('DELIVERY', 'Out for Delivery'));
+      } else if (booking.status == 'DELIVERY') {
+        actions.add(_statusButton('COMPLETED', 'Mark Completed'));
+      }
+    } else if (isCarWash) {
+      if (booking.status == 'ASSIGNED' || booking.status == 'ACCEPTED') {
+        actions.add(_statusButton('REACHED_CUSTOMER', 'Reached Customer'));
+      } else if (booking.status == 'REACHED_CUSTOMER') {
+        actions.add(_statusButton('CAR_WASH_STARTED', 'Start Car Wash'));
+      } else if (booking.status == 'CAR_WASH_STARTED') {
+        actions.add(_statusButton('CAR_WASH_COMPLETED', 'Complete Car Wash'));
+      } else if (booking.status == 'CAR_WASH_COMPLETED') {
+        actions.add(_statusButton('DELIVERED', 'Mark Delivered'));
+      }
+    } else {
+      if (booking.status == 'ASSIGNED' || booking.status == 'ACCEPTED') {
+        actions.add(_statusButton('REACHED_CUSTOMER', 'Reached Customer'));
+      } else if (booking.status == 'REACHED_CUSTOMER') {
+        actions.add(_statusButton('VEHICLE_PICKED', 'Vehicle Picked'));
+        actions.add(const SizedBox(width: 12));
+        actions.add(_photoUploadButton(booking));
+      } else if (booking.status == 'VEHICLE_PICKED') {
+        actions.add(_statusButton('REACHED_MERCHANT', 'Reached Garage'));
+      } else if (booking.status == 'SERVICE_COMPLETED') {
+        actions.add(_statusButton('OUT_FOR_DELIVERY', 'Out for Delivery'));
+      } else if (booking.status == 'OUT_FOR_DELIVERY') {
+        actions.add(_statusButton('DELIVERED', 'Mark Delivered'));
+      }
+    }
+
+    // Always add directions button if it makes sense for current status
+    final canShowDirections =
+        booking.status != 'DELIVERED' &&
+        booking.status != 'COMPLETED' &&
+        booking.status != 'CAR_WASH_COMPLETED' &&
+        booking.status != 'SERVICE_COMPLETED';
+
+    if (actions.isEmpty && !canShowDirections) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (actions.isNotEmpty)
+            Row(
+              children: [
+                ...actions.map((w) => w is SizedBox ? w : Expanded(child: w)),
+              ],
+            ),
+          if (canShowDirections && actions.isNotEmpty)
+            const SizedBox(height: 12),
+          if (canShowDirections)
+            SizedBox(width: double.infinity, child: _directionsButton(booking)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusTimeline(BookingDetail booking) {
+    final bool isBattery = booking.batteryTire?.isBatteryTireService == true;
+    final bool isCarWash = booking.carWash?.isCarWashService == true;
+
+    List<String> flow = [
+      'CREATED',
+      'ASSIGNED',
+      'REACHED_CUSTOMER',
+      'VEHICLE_PICKED',
+      'REACHED_MERCHANT',
+      'SERVICE_STARTED',
+      'SERVICE_COMPLETED',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+    ];
+
+    if (isCarWash) {
+      flow = [
+        'CREATED',
+        'ASSIGNED',
+        'REACHED_CUSTOMER',
+        'CAR_WASH_STARTED',
+        'CAR_WASH_COMPLETED',
+        'DELIVERED',
+      ];
+    } else if (isBattery) {
+      flow = [
+        'CREATED',
+        'ASSIGNED',
+        'STAFF_REACHED_MERCHANT',
+        'PICKUP_BATTERY_TIRE',
+        'REACHED_CUSTOMER',
+        'INSTALLATION',
+        'DELIVERY',
+        'COMPLETED',
+      ];
+    }
+
+    final int currentIndex = flow.indexOf(booking.status.toUpperCase());
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.show_chart, size: 20, color: Color(0xFF7C3AED)),
+              const SizedBox(width: 8),
+              const Text(
+                'Status & Workflow',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'STEP ${currentIndex + 1}/${flow.length}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: flow.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final String status = entry.value;
+                final bool isCompleted = index <= currentIndex;
+                final bool isActive = index == currentIndex;
+                final bool isLast = index == flow.length - 1;
+
+                return Row(
+                  children: [
+                    Column(
                       children: [
-                        if (booking.status == 'ASSIGNED' ||
-                            booking.status == 'ACCEPTED')
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton(
-                              onPressed: _updatingStatus
-                                  ? null
-                                  : () => _updateStatus('REACHED_CUSTOMER'),
-                              child: const Text('Reached Location'),
-                            ),
-                          )
-                        else if (booking.status == 'REACHED_CUSTOMER') ...[
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton(
-                              onPressed: _updatingStatus
-                                  ? null
-                                  : () => _updateStatus('VEHICLE_PICKED'),
-                              child: const Text('Vehicle Picked'),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isCompleted
+                                ? const Color(0xFF10B981)
+                                : (isActive
+                                      ? const Color(0xFF7C3AED)
+                                      : const Color(0xFFF3F4F6)),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isActive
+                                  ? const Color(
+                                      0xFF7C3AED,
+                                    ).withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              width: 4,
                             ),
                           ),
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton.tonal(
-                              onPressed: _uploadingPhotos
-                                  ? null
-                                  : _showPrePickupPhotoOptions,
-                              child: Text(
-                                _uploadingPhotos
-                                    ? 'Uploading...'
-                                    : (booking.prePickupPhotos.length >= 4
-                                          ? 'Photos Captured'
-                                          : 'Capture 4 Photos'),
-                              ),
-                            ),
-                          ),
-                        ] else if (booking.status == 'VEHICLE_PICKED')
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton(
-                              onPressed: _updatingStatus
-                                  ? null
-                                  : () => _updateStatus('REACHED_MERCHANT'),
-                              child: const Text('Reached Garage'),
-                            ),
-                          )
-                        else if (booking.status == 'REACHED_MERCHANT' ||
-                            booking.status == 'VEHICLE_AT_MERCHANT' ||
-                            booking.status == 'SERVICE_STARTED')
-                          Text(
-                            booking.status == 'REACHED_MERCHANT'
-                                ? 'Waiting for handover from merchant'
-                                : (booking.status == 'VEHICLE_AT_MERCHANT'
-                                      ? 'Vehicle handover completed. Servicing will start soon.'
-                                      : 'Vehicle is currently being serviced.'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF6B7280),
-                            ),
-                          )
-                        else if (booking.status == 'SERVICE_COMPLETED') ...[
-                          if (booking.paymentStatus != 'paid')
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(8),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: const Color(0xFFF59E0B),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.warning_amber_rounded,
+                          child: Center(
+                            child: isCompleted
+                                ? const Icon(
+                                    Icons.check,
                                     size: 16,
-                                    color: Color(0xFFB45309),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Waiting for Customer Payment (₹${booking.totalAmount ?? '0'})',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: const Color(0xFF92400E),
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                    color: Colors.white,
+                                  )
+                                : Text(
+                                    '${index + 1}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive
+                                          ? Colors.white
+                                          : const Color(0xFF9CA3AF),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton(
-                              onPressed:
-                                  _updatingStatus ||
-                                      booking.paymentStatus != 'paid'
-                                  ? null
-                                  : () => _updateStatus('OUT_FOR_DELIVERY'),
-                              child: const Text('Out for Delivery'),
-                            ),
                           ),
-                        ] else if (booking.status == 'OUT_FOR_DELIVERY')
-                          SizedBox(
-                            height: 44,
-                            child: FilledButton(
-                              onPressed: _updatingStatus
-                                  ? null
-                                  : () => _updateStatus('DELIVERED'),
-                              child: const Text('Mark Delivered'),
-                            ),
-                          ),
+                        ),
+                        const SizedBox(height: 8),
                         SizedBox(
-                          height: 44,
-                          child: FilledButton.icon(
-                            onPressed: () => _openDirections(booking),
-                            icon: const Icon(Icons.directions, size: 20),
-                            label: const Text('Get Directions'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1D4ED8),
+                          width: 80,
+                          child: Text(
+                            BookingDetail.getStatusLabel(status),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: isActive
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: isCompleted || isActive
+                                  ? const Color(0xFF111827)
+                                  : const Color(0xFF9CA3AF),
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
+                    if (!isLast)
+                      Container(
+                        width: 40,
+                        height: 2,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        color: isCompleted
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                  ],
+                );
+              }).toList(),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusButton(String status, String label) {
+    return SizedBox(
+      height: 54,
+      child: FilledButton(
+        onPressed: _updatingStatus ? null : () => _updateStatus(status),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF7C3AED),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 0,
+        ),
+        child: _updatingStatus
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _photoUploadButton(BookingDetail booking) {
+    return SizedBox(
+      height: 54,
+      child: FilledButton.tonal(
+        onPressed: _uploadingPhotos ? null : _showPrePickupPhotoOptions,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFF5F3FF),
+          foregroundColor: const Color(0xFF7C3AED),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          side: const BorderSide(color: Color(0xFFEDE9FE), width: 1.5),
+        ),
+        child: _uploadingPhotos
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF7C3AED),
+                ),
+              )
+            : Text(
+                booking.prePickupPhotos.length >= 4
+                    ? 'Photos Done'
+                    : 'Capture 4 Photos',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _directionsButton(BookingDetail booking) {
+    return SizedBox(
+      height: 50,
+      child: FilledButton.icon(
+        onPressed: () => _openDirections(booking),
+        icon: const Icon(Icons.directions_outlined, size: 22),
+        label: const Text(
+          'Get Directions',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF1E293B),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  void _showChatDialog(BookingDetail booking) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StaffChatPage(
+          bookingId: booking.id,
+          orderNumber:
+              booking.orderNumber?.toString() ??
+              booking.id.substring(booking.id.length - 6).toUpperCase(),
+        ),
+      ),
     );
   }
 }

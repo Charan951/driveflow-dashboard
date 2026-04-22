@@ -24,7 +24,12 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   Future<void> init([User? user]) async {
-    if (_socket != null) return;
+    // If user is provided, we should re-initialize if needed to ensure token is sent
+    if (user != null) {
+      disconnect();
+    } else if (_socket != null) {
+      return;
+    }
 
     if (user != null && _trackingProvider != null) {
       _trackingProvider!.init(user.role, user.id);
@@ -43,8 +48,20 @@ class SocketService extends ValueNotifier<String?> {
           .build(),
     );
 
-    _socket!.onConnect((_) {
+    _socket!.onConnect((_) async {
       _isConnected = true;
+
+      // Join mandatory rooms
+      final userId = await AppStorage().getUserId();
+      final role = await AppStorage().getUserRole();
+
+      if (userId != null) {
+        joinRoom('user_$userId');
+      }
+      if (role != null) {
+        joinRoom(role.toLowerCase());
+      }
+
       if (_trackingProvider?.activeBooking != null) {
         joinRoom('booking_${_trackingProvider!.activeBooking!.id}');
       }
@@ -243,6 +260,28 @@ class SocketService extends ValueNotifier<String?> {
         payload: jsonEncode({'type': 'support'}),
       );
       notifyListeners();
+    });
+
+    _socket!.on('global:sync', (data) {
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final entity = (mapData['entity'] ?? '').toString();
+          final action = (mapData['action'] ?? '').toString();
+
+          // Update the value to notify listeners of a specific entity sync
+          value = 'sync:$entity:$action';
+          notifyListeners();
+
+          // Show notification for important creations
+          if (action == 'created' &&
+              (entity == 'booking' || entity == 'ticket')) {
+            // Already handled by specific events, but this is a fallback
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
     });
   }
 

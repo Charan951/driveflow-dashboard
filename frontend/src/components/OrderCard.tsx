@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Clock } from 'lucide-react';
+import { ChevronRight, Clock, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardHover } from '@/animations/variants';
 
@@ -19,6 +19,8 @@ interface OrderCardProps {
   price?: number;
   onClick?: () => void;
   className?: string;
+  rating?: number;
+  onRate?: (rating: number) => void;
 }
 
 const statusColors: Record<string, { bg: string; text: string; label: string }> = {
@@ -26,6 +28,7 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
   confirmed: { bg: 'bg-primary/10', text: 'text-primary', label: 'Confirmed' },
   in_transit: { bg: 'bg-accent/10', text: 'text-accent', label: 'In Transit' },
   in_progress: { bg: 'bg-accent/10', text: 'text-accent', label: 'In Progress' },
+  awaiting_payment: { bg: 'bg-warning/10', text: 'text-warning', label: ' Service is completed. Payment awaiting to dispatch vehicle. ' },
   completed: { bg: 'bg-success/10', text: 'text-success', label: 'Completed' },
   cancelled: { bg: 'bg-destructive/10', text: 'text-destructive', label: 'Cancelled' },
 };
@@ -41,8 +44,17 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
   price,
   onClick,
   className,
+  rating = 0,
+  onRate,
 }) => {
   const statusStyle = statusColors[status] || statusColors.pending;
+
+  const handleRate = (e: React.MouseEvent, value: number) => {
+    e.stopPropagation();
+    if (onRate) {
+      onRate(value);
+    }
+  };
 
   return (
     <motion.div
@@ -72,6 +84,37 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
       <p className="text-sm text-muted-foreground mb-4">
         {vehicle.make} {vehicle.model} • {vehicle.licensePlate}
       </p>
+
+      {status === 'completed' && (
+        <div className="flex items-center gap-1 mb-4" onClick={(e) => e.stopPropagation()}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              onClick={(e) => handleRate(e, star)}
+              className="focus:outline-none transition-transform hover:scale-110"
+            >
+              <Star
+                className={cn(
+                  "w-5 h-5",
+                  star <= rating 
+                    ? "fill-yellow-400 text-yellow-400" 
+                    : "text-muted-foreground/30"
+                )}
+              />
+            </button>
+          ))}
+          {rating > 0 && (
+            <span className="text-xs font-medium text-muted-foreground ml-1">
+              {rating}.0
+            </span>
+          )}
+          {rating === 0 && (
+            <span className="text-xs text-muted-foreground ml-1">
+              Rate your service
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

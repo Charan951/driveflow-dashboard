@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Car, Upload, ChevronRight } from 'lucide-react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import VehicleCard from '@/components/VehicleCard';
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 
 const AddVehiclePage: React.FC = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -346,31 +348,29 @@ const AddVehiclePage: React.FC = () => {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          className="space-y-4"
         >
           {vehicles.map((vehicle) => (
-            <motion.div key={vehicle._id} variants={staggerItem}>
+            <motion.div key={vehicle._id} variants={staggerItem} className="w-full">
               <VehicleCard
                 id={vehicle._id}
                 make={vehicle.make}
                 model={vehicle.model}
                 year={vehicle.year}
                 licensePlate={vehicle.licensePlate}
+                variant={vehicle.variant}
                 image={vehicle.image}
                 nextService={vehicle.nextService}
                 status={vehicle.status}
                 onDelete={() => handleDeleteVehicle(vehicle._id)}
-                onClick={() => {
-                  setSelectedVehicleForDetail(vehicle);
-                  setIsDetailModalOpen(true);
-                }}
+                onClick={() => navigate(`/vehicles/${vehicle._id}`)}
               />
             </motion.div>
           ))}
-          <motion.div variants={staggerItem}>
+          <motion.div variants={staggerItem} className="w-full">
             <button
               onClick={() => setShowForm(true)}
-              className="w-full h-full min-h-[200px] sm:min-h-[230px] flex flex-col items-center justify-center bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
+              className="w-full flex flex-col items-center justify-center p-6 bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
             >
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                 <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />

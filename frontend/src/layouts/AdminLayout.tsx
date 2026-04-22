@@ -10,7 +10,6 @@ import {
   Map, 
   DollarSign, 
   FileText, 
-  Shield, 
   Package, 
   Headphones, 
   Star, 
@@ -21,7 +20,8 @@ import {
   X,
   Menu,
   Bell,
-  Home
+  Home,
+  Layout
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -30,23 +30,22 @@ import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Users, label: 'Customers', path: '/admin/customers' },
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
-  { icon: UserCog, label: 'Staff', path: '/admin/staff' },
-  { icon: Store, label: 'Merchants', path: '/admin/merchants' },
-  { icon: Map, label: 'Live Tracking', path: '/admin/tracking' },
   { icon: DollarSign, label: 'Payments', path: '/admin/payments' },
-  { icon: FileText, label: 'Documents', path: '/admin/documents' },
-  { icon: Shield, label: 'Insurance', path: '/admin/insurance' },
-  { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },
-  { icon: Package, label: 'Services', path: '/admin/services' },
+  { icon: Map, label: 'Mapping', path: '/admin/tracking' },
+  { icon: Users, label: 'Customers', path: '/admin/customers' },
+  { icon: Store, label: 'Merchants', path: '/admin/merchants' },
+  { icon: UserCog, label: 'Staff', path: '/admin/staff' },
   { icon: Headphones, label: 'Support', path: '/admin/support' },
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },
-  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
+  { icon: Package, label: 'Quick services', path: '/admin/services' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
-  { icon: LayoutDashboard, label: 'Hero Images', path: '/admin/hero-images' },
-  { icon: Settings, label: 'Settings', path: '/admin/settings' },
+  { icon: Layout, label: 'Edit website', path: '/admin/hero-images' },
+  { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },
+  { icon: FileText, label: 'Documents', path: '/admin/documents' },
+  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
+  { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 const adminBottomNavItems: NavItem[] = [
@@ -71,6 +70,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     logout();
     navigate('/login', { replace: true });
   };
+
+  const currentMenuItem = adminMenuItems.find(item => item.path === location.pathname);
+  const pageTitle = currentMenuItem ? currentMenuItem.label : 'Dashboard';
 
   return (
     <div className="min-h-screen flex w-full max-w-full bg-background">
@@ -165,7 +167,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-base lg:text-lg font-semibold truncate">Dashboard</h1>
+            <h1 className="text-base lg:text-lg font-semibold truncate">{pageTitle}</h1>
           </div>
           
           <div className="flex items-center shrink-0 ml-2">

@@ -20,7 +20,8 @@ class DefaultFirebaseOptions {
       // TODO: Add your web configuration here
       return const FirebaseOptions(
         apiKey: 'AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ',
-        appId: '1:879267203995:web:REPLACE_WITH_YOUR_WEB_APP_ID',
+        appId:
+            '1:879267203995:web:8f4d521df251253536ef3e', // Using android one for now as placeholder
         messagingSenderId: '879267203995',
         projectId: 'speshway-3d072',
         authDomain: 'speshway-3d072.firebaseapp.com',
@@ -63,8 +64,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ',
-    appId: '1:879267203995:ios:REPLACE_WITH_YOUR_IOS_APP_ID',
+    apiKey: 'AIzaSyDCXnjFQQGnFihTiqeUSLG8_HvmWWWHG7k',
+    appId: '1:879267203995:ios:ac9b25d302aa5f5836ef3e',
     messagingSenderId: '879267203995',
     projectId: 'speshway-3d072',
     storageBucket: 'speshway-3d072.firebasestorage.app',

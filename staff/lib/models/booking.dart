@@ -137,10 +137,14 @@ class BookingDetail {
   final BillingData? billing;
   final List<PartItem> parts;
   final UserSummary? user;
+  final UserSummary? merchant;
   final String? inspectionCompletedAt;
   final String? qcCompletedAt;
   final BatteryTireData? batteryTire;
+  final CarWashData? carWash;
   final RevisitData? revisit;
+  final DelayData? delay;
+  final String? notes;
 
   BookingDetail({
     required this.id,
@@ -160,10 +164,14 @@ class BookingDetail {
     this.billing,
     this.parts = const [],
     this.user,
+    this.merchant,
     this.inspectionCompletedAt,
     this.qcCompletedAt,
     this.batteryTire,
+    this.carWash,
     this.revisit,
+    this.delay,
+    this.notes,
   });
 
   static const statusLabels = {
@@ -175,11 +183,18 @@ class BookingDetail {
     'REACHED_MERCHANT': 'Reached Merchant',
     'VEHICLE_AT_MERCHANT': 'At Merchant',
     'SERVICE_STARTED': 'Service Started',
-    'SERVICE_COMPLETED': 'Service Completed',
+    'SERVICE_COMPLETED': ' Service is completed.',
     'OUT_FOR_DELIVERY': 'Out for Delivery',
     'DELIVERED': 'Delivered',
     'CANCELLED': 'Cancelled',
     'COMPLETED': 'Completed',
+    'CAR_WASH_STARTED': 'Car Wash Started',
+    'CAR_WASH_COMPLETED': 'Car Wash Completed',
+    'STAFF_REACHED_MERCHANT': 'Reached Merchant',
+    'PICKUP_BATTERY_TIRE': 'Pickup Part',
+    'INSTALLATION': 'Installation',
+    'DELIVERY': 'Delivery',
+    'ON HOLD': 'On Hold',
   };
 
   static String getStatusLabel(String status) {
@@ -204,10 +219,14 @@ class BookingDetail {
     BillingData? billing,
     List<PartItem>? parts,
     UserSummary? user,
+    UserSummary? merchant,
     String? inspectionCompletedAt,
     String? qcCompletedAt,
     BatteryTireData? batteryTire,
+    CarWashData? carWash,
     RevisitData? revisit,
+    DelayData? delay,
+    String? notes,
   }) {
     return BookingDetail(
       id: id ?? this.id,
@@ -227,11 +246,15 @@ class BookingDetail {
       billing: billing ?? this.billing,
       parts: parts ?? this.parts,
       user: user ?? this.user,
+      merchant: merchant ?? this.merchant,
       inspectionCompletedAt:
           inspectionCompletedAt ?? this.inspectionCompletedAt,
       qcCompletedAt: qcCompletedAt ?? this.qcCompletedAt,
       batteryTire: batteryTire ?? this.batteryTire,
+      carWash: carWash ?? this.carWash,
       revisit: revisit ?? this.revisit,
+      delay: delay ?? this.delay,
+      notes: notes ?? this.notes,
     );
   }
 
@@ -299,6 +322,23 @@ class BookingDetail {
         (getField('prePickupPhotos') as List?)?.whereType<String>().toList() ??
         [];
 
+    final inspectionMap = getField('inspection');
+    InspectionData? inspection;
+    if (inspectionMap is Map) {
+      inspection = InspectionData.fromJson(
+        Map<String, dynamic>.from(inspectionMap),
+      );
+      final inspPhotos = inspectionMap['photos'];
+      if (inspPhotos is List) {
+        for (final p in inspPhotos) {
+          final pStr = p?.toString();
+          if (pStr != null && !photos.contains(pStr)) {
+            photos.add(pStr);
+          }
+        }
+      }
+    }
+
     return BookingDetail(
       id: (getField('id') ?? getField('_id') ?? '').toString(),
       orderNumber: getField('orderNumber') is num
@@ -315,11 +355,7 @@ class BookingDetail {
           ? (getField('totalAmount') as num)
           : null,
       pickupRequired: getField('pickupRequired') as bool? ?? true,
-      inspection: getField('inspection') is Map
-          ? InspectionData.fromJson(
-              Map<String, dynamic>.from(getField('inspection')),
-            )
-          : null,
+      inspection: inspection,
       qc: getField('qc') is Map
           ? QCData.fromJson(Map<String, dynamic>.from(getField('qc')))
           : null,
@@ -340,9 +376,12 @@ class BookingDetail {
       user: getField('user') is Map
           ? UserSummary.fromJson(Map<String, dynamic>.from(getField('user')))
           : null,
-      inspectionCompletedAt: getField('inspection') is Map
-          ? getField('inspection')['completedAt']?.toString()
+      merchant: getField('merchant') is Map
+          ? UserSummary.fromJson(
+              Map<String, dynamic>.from(getField('merchant')),
+            )
           : null,
+      inspectionCompletedAt: inspection?.completedAt,
       qcCompletedAt: getField('qc') is Map
           ? getField('qc')['completedAt']?.toString()
           : null,
@@ -351,9 +390,77 @@ class BookingDetail {
               Map<String, dynamic>.from(getField('batteryTire')),
             )
           : null,
+      carWash: getField('carWash') is Map
+          ? CarWashData.fromJson(Map<String, dynamic>.from(getField('carWash')))
+          : null,
       revisit: getField('revisit') is Map
           ? RevisitData.fromJson(Map<String, dynamic>.from(getField('revisit')))
           : null,
+      delay: getField('delay') is Map
+          ? DelayData.fromJson(Map<String, dynamic>.from(getField('delay')))
+          : null,
+      notes: getField('notes')?.toString(),
+    );
+  }
+}
+
+class DelayData {
+  final bool isDelayed;
+  final String? reason;
+  final String? note;
+  final String? startTime;
+  final String? previousStatus;
+
+  DelayData({
+    required this.isDelayed,
+    this.reason,
+    this.note,
+    this.startTime,
+    this.previousStatus,
+  });
+
+  factory DelayData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return DelayData(isDelayed: false);
+    return DelayData(
+      isDelayed: json['isDelayed'] == true,
+      reason: json['reason']?.toString(),
+      note: json['note']?.toString(),
+      startTime: json['startTime']?.toString(),
+      previousStatus: json['previousStatus']?.toString(),
+    );
+  }
+}
+
+class CarWashData {
+  final bool isCarWashService;
+  final String? staffAssigned;
+  final List<String> beforeWashPhotos;
+  final List<String> afterWashPhotos;
+  final String? washStartedAt;
+  final String? washCompletedAt;
+
+  CarWashData({
+    required this.isCarWashService,
+    this.staffAssigned,
+    this.beforeWashPhotos = const [],
+    this.afterWashPhotos = const [],
+    this.washStartedAt,
+    this.washCompletedAt,
+  });
+
+  factory CarWashData.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return CarWashData(isCarWashService: false);
+    return CarWashData(
+      isCarWashService: json['isCarWashService'] == true,
+      staffAssigned: json['staffAssigned']?.toString(),
+      beforeWashPhotos:
+          (json['beforeWashPhotos'] as List?)?.whereType<String>().toList() ??
+          [],
+      afterWashPhotos:
+          (json['afterWashPhotos'] as List?)?.whereType<String>().toList() ??
+          [],
+      washStartedAt: json['washStartedAt']?.toString(),
+      washCompletedAt: json['washCompletedAt']?.toString(),
     );
   }
 }
@@ -426,6 +533,9 @@ class AdditionalPart {
   final String? approvalStatus;
   final String? image;
   final String? oldImage;
+  final bool? addedDuringService;
+  final bool? fromInspection;
+  final String? inspectionPartId;
 
   AdditionalPart({
     required this.name,
@@ -435,6 +545,9 @@ class AdditionalPart {
     this.approvalStatus,
     this.image,
     this.oldImage,
+    this.addedDuringService,
+    this.fromInspection,
+    this.inspectionPartId,
   });
 
   factory AdditionalPart.fromJson(Map<String, dynamic>? json) {
@@ -449,6 +562,9 @@ class AdditionalPart {
       approvalStatus: json['approvalStatus']?.toString(),
       image: json['image']?.toString(),
       oldImage: json['oldImage']?.toString(),
+      addedDuringService: json['addedDuringService'] as bool?,
+      fromInspection: json['fromInspection'] as bool?,
+      inspectionPartId: json['inspectionPartId']?.toString(),
     );
   }
 
@@ -461,6 +577,9 @@ class AdditionalPart {
       'approvalStatus': approvalStatus,
       'image': image,
       'oldImage': oldImage,
+      'addedDuringService': addedDuringService,
+      'fromInspection': fromInspection,
+      'inspectionPartId': inspectionPartId,
     };
   }
 }
@@ -527,6 +646,7 @@ class ServiceExecutionData {
   final List<String> duringPhotos;
   final List<String> afterPhotos;
   final String? notes;
+  final List<AdditionalPart> serviceParts;
 
   ServiceExecutionData({
     this.jobStartTime,
@@ -535,6 +655,7 @@ class ServiceExecutionData {
     this.duringPhotos = const [],
     this.afterPhotos = const [],
     this.notes,
+    this.serviceParts = const [],
   });
 
   factory ServiceExecutionData.fromJson(Map<String, dynamic>? json) {
@@ -549,6 +670,12 @@ class ServiceExecutionData {
       afterPhotos:
           (json['afterPhotos'] as List?)?.whereType<String>().toList() ?? [],
       notes: json['notes']?.toString(),
+      serviceParts:
+          (json['serviceParts'] as List?)
+              ?.whereType<Map>()
+              .map((p) => AdditionalPart.fromJson(Map<String, dynamic>.from(p)))
+              .toList() ??
+          [],
     );
   }
 }

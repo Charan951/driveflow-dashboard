@@ -19,6 +19,7 @@ import {
   Clock
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import VehicleHealthIndicators from '@/components/VehicleHealthIndicators';
 
 const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -204,7 +205,22 @@ const VehicleDetailPage: React.FC = () => {
                   Live Tracking
                 </div>
               </TabsTrigger>
+              <TabsTrigger 
+                value="health"
+                className="px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+              >
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Vehicle Health
+                </div>
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="health" className="space-y-4">
+               <div className="flex justify-center py-4">
+                  <VehicleHealthIndicators healthIndicators={vehicle.healthIndicators} />
+               </div>
+            </TabsContent>
 
             <TabsContent value="history" className="space-y-4">
               {bookings.length === 0 ? (

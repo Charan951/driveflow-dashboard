@@ -143,12 +143,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'SERVICE_IN_PROGRESS':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
-        return 'Ready';
+        return 'Service is completed.';
       case 'OUT_FOR_DELIVERY':
         return 'Out for Delivery';
       case 'DELIVERED':
+        return 'Vehicle Delivered';
       case 'COMPLETED':
-        return 'Delivered';
+        return 'Service Completed';
       case 'CANCELLED':
         return 'Cancelled';
       default:

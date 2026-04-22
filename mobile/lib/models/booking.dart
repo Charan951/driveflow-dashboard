@@ -311,6 +311,7 @@ class Booking {
   final BookingLocation? merchantLocation;
   final String? merchantName;
   final String? merchantPhone;
+  final Map<String, dynamic>? merchant;
   final DeliveryOtp? deliveryOtp;
   final List<String> prePickupPhotos;
   final List<String> beforeServicePhotos;
@@ -349,6 +350,7 @@ class Booking {
     this.merchantLocation,
     this.merchantName,
     this.merchantPhone,
+    this.merchant,
     this.deliveryOtp,
     this.prePickupPhotos = const [],
     this.beforeServicePhotos = const [],
@@ -401,10 +403,10 @@ class Booking {
     'REACHED_MERCHANT': 'Reached Merchant',
     'VEHICLE_AT_MERCHANT': 'At Garage',
     'SERVICE_STARTED': 'Servicing',
-    'SERVICE_COMPLETED': 'Ready',
+    'SERVICE_COMPLETED': ' Service is completed.',
     'OUT_FOR_DELIVERY': 'Out for Delivery',
     'DELIVERED': 'Delivered',
-    'COMPLETED': 'Delivered',
+    'COMPLETED': 'Service Completed',
     'CANCELLED': 'Cancelled',
     'MERCHANT_INSPECTION': 'Inspecting',
     'PENDING_APPROVAL': 'Waiting for Approval',
@@ -557,10 +559,12 @@ class Booking {
     BookingLocation? merchantLocation;
     String? merchantName;
     String? merchantPhone;
+    Map<String, dynamic>? merchant;
     final m = map['merchant'];
     if (m is Map) {
       try {
         final mm = jsonDecode(jsonEncode(m)) as Map<String, dynamic>;
+        merchant = mm;
         final mLoc = mm['location'];
         if (mLoc is Map) {
           try {
@@ -578,6 +582,8 @@ class Booking {
             ? phoneStr
             : null;
       } catch (_) {}
+    } else if (m is String && m.isNotEmpty) {
+      merchant = {'_id': m};
     }
 
     DeliveryOtp? deliveryOtp;
@@ -590,6 +596,12 @@ class Booking {
     }
 
     final prePickupPhotos = <String>[];
+    if (map['prePickupPhotos'] is List) {
+      for (final p in map['prePickupPhotos']) {
+        if (p != null) prePickupPhotos.add(p.toString());
+      }
+    }
+
     final beforeServicePhotos = <String>[];
     final duringServicePhotos = <String>[];
     final postServicePhotos = <String>[];
@@ -604,7 +616,9 @@ class Booking {
       final inspPhotos = inspectionMap['photos'];
       if (inspPhotos is List) {
         for (final p in inspPhotos) {
-          if (p != null) prePickupPhotos.add(p.toString());
+          if (p != null && !prePickupPhotos.contains(p.toString())) {
+            prePickupPhotos.add(p.toString());
+          }
         }
       }
     }
@@ -714,6 +728,7 @@ class Booking {
       merchantLocation: merchantLocation,
       merchantName: merchantName,
       merchantPhone: merchantPhone,
+      merchant: merchant,
       deliveryOtp: deliveryOtp,
       prePickupPhotos: prePickupPhotos,
       beforeServicePhotos: beforeServicePhotos,

@@ -19,14 +19,28 @@ export const initSocket = (server) => {
     : [];
   
   // Add defaults if not in .env
+  if (!allowed.includes('http://localhost:8080')) {
+    allowed.push('http://localhost:8080');
+  }
+  if (!allowed.includes('http://127.0.0.1:8080')) {
+    allowed.push('http://127.0.0.1:8080');
+  }
   if (!allowed.includes('https://car.speshwayhrms.com')) {
     allowed.push('https://car.speshwayhrms.com');
   }
   if (!allowed.includes('https://carb.speshwayhrms.com')) {
     allowed.push('https://carb.speshwayhrms.com');
   }
+  if (!allowed.includes('https://api.carzzi.com')) {
+    allowed.push('https://api.carzzi.com');
+  }
+  if (!allowed.includes('https://carzzi.com')) {
+    allowed.push('https://carzzi.com');
+  }
 
   io = new Server(server, {
+    pingTimeout: 60000,
+    pingInterval: 25000,
     cors: {
       origin: (origin, callback) => {
         // 1. Allow requests with no origin (like mobile apps or curl requests)
@@ -81,21 +95,40 @@ export const initSocket = (server) => {
   });
 
   io.on('connection', (socket) => {
-    
+    const transport = socket.conn.transport.name; // websocket or polling
+    console.log(`[Socket] New connection: ${socket.id} (IP: ${socket.handshake.address}, Transport: ${transport})`);
 
-    // Automatically join user room if authenticated
+    socket.on('error', (err) => {
+      console.error(`[Socket Error] from client ${socket.id}:`, err);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log(`[Socket Disconnected] client ${socket.id}: ${reason}`);
+    });
+
     if (socket.user) {
-      socket.join(`user_${socket.user._id}`);
-      
+      const userId = socket.user._id.toString();
+      const userRole = socket.user.role?.toLowerCase();
+
+      // Join private user room
+      socket.join(`user_${userId}`);
+      console.log(`[Socket] User ${userId} (${userRole}) joined their private room.`);
+
+      // Automatically join role-based rooms
+      if (userRole) {
+        socket.join(userRole);
+        console.log(`[Socket] User ${userId} joined global role room: ${userRole}`);
+      }
     }
 
     // Join a specific room
     socket.on('join', (room) => {
-      console.log(`Socket ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
+      if (!room) return;
+      console.log(`[Socket] ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
       
       // Security check for admin room
       if (room === 'admin') {
-        if (socket.user?.role !== 'admin') {
+        if (socket.user?.role?.toLowerCase() !== 'admin') {
           console.warn(`Unauthorized admin room join attempt from user ${socket.user?._id} with role ${socket.user?.role}`);
           return;
         }
@@ -103,6 +136,25 @@ export const initSocket = (server) => {
       }
       
       socket.join(room);
+
+      // Join role-specific sub-room for chat isolation
+      if (typeof room === 'string' && room.startsWith('booking_') && socket.user) {
+        const userRole = socket.user.role?.toLowerCase();
+        if (userRole === 'customer') {
+          socket.join(`${room}_customer`);
+        } else if (userRole === 'merchant') {
+          // Merchants join both rooms to talk to customers and staff
+          socket.join(`${room}_customer`);
+          socket.join(`${room}_merchant`);
+        } else if (userRole === 'staff') {
+          // Drivers/technicians join both internal merchant room and general booking room
+          socket.join(`${room}_merchant`);
+          socket.join(`${room}_customer`); // Allow staff to see customer chat too
+        } else if (userRole === 'admin') {
+          socket.join(`${room}_customer`);
+          socket.join(`${room}_merchant`);
+        }
+      }
       
       (async () => {
         try {
@@ -128,9 +180,13 @@ export const initSocket = (server) => {
             }
           } else if (room === 'admin') {
             const staffList = await User.find({
-              role: 'staff',
+              $or: [
+                { role: 'staff' },
+                { role: 'admin', isOnline: true }
+              ],
+              status: { $ne: 'Inactive' },
               'location.lat': { $exists: true }
-            }).select('name role location').lean();
+            }).select('name role subRole location isOnline lastSeen').lean();
             for (const s of staffList) {
               const lat = s?.location?.lat;
               const lng = s?.location?.lng;
@@ -138,10 +194,14 @@ export const initSocket = (server) => {
                 socket.emit('liveLocation', {
                   userId: s._id,
                   role: s.role || 'staff',
+                  subRole: s.subRole,
                   name: s.name,
                   lat,
                   lng,
-                  updatedAt: s?.location?.updatedAt || new Date()
+                  isOnline: s.isOnline !== false,
+                  lastSeen: s.lastSeen,
+                  updatedAt: s?.location?.updatedAt || new Date(),
+                  timestamp: s?.location?.updatedAt || new Date().toISOString() // Both for compatibility
                 });
               }
             }
@@ -167,17 +227,19 @@ export const initSocket = (server) => {
       const now = Date.now();
 
       // Update isOnline status and location in DB
-      // This acts as a heartbeat for staff/merchants and ensures accuracy on refresh
       try {
+        // Fetch fresh user to avoid overwriting newer location data from REST with stale socket.user.location
+        const freshUser = await User.findById(socket.user._id);
+        if (!freshUser) return;
+
         const updateData = { 
           isOnline: true, 
           lastSeen: now 
         };
 
-        // If lat/lng provided, also update persistent location fields
         if (typeof data.lat === 'number' && typeof data.lng === 'number') {
           updateData.location = {
-            ...socket.user.location,
+            ...freshUser.location,
             lat: data.lat,
             lng: data.lng,
             updatedAt: now
@@ -190,8 +252,13 @@ export const initSocket = (server) => {
 
         await User.findByIdAndUpdate(socket.user._id, updateData);
         
+        // Update local socket.user cache
+        socket.user.isOnline = true;
+        socket.user.lastSeen = now;
+        if (updateData.location) socket.user.location = updateData.location;
+
         // Emit status update to admin if online status just changed or after a while
-        if (!socket.user.isOnline || (socket.user.lastSeen && now - socket.user.lastSeen > 60000)) {
+        if (!freshUser.isOnline || (freshUser.lastSeen && now - freshUser.lastSeen > 60000)) {
           io.to('admin').emit('userStatusUpdate', {
             userId: socket.user._id,
             isOnline: true,
@@ -205,10 +272,12 @@ export const initSocket = (server) => {
       // Broadcast to 'admin' room
       io.to('admin').emit('liveLocation', {
         ...data,
-        userId: socket.user._id, // Ensure trusted ID
+        userId: socket.user._id,
         role: socket.user.role,
+        subRole: socket.user.subRole,
         name: socket.user.name,
-        isOnline: true // Add isOnline flag
+        isOnline: true,
+        timestamp: new Date().toISOString() // Ensure timestamp is sent
       });
 
       // Derive effective bookingId:
@@ -301,14 +370,35 @@ export const initSocket = (server) => {
 
     // Handle chat messages
     socket.on('sendMessage', async (data) => {
-      if (!socket.user || !data.bookingId || !data.text) return;
+      if (!socket.user || !data.bookingId) return;
+      if (!data.text && !data.approval) return; // Must have either text or approval
 
       try {
         const messageData = {
           bookingId: data.bookingId,
           sender: socket.user._id,
-          text: data.text,
+          text: data.text || (data.approval ? `Approval required for part: ${data.approval.partName}` : ''),
         };
+
+        // Default recipientRole to isolate chats if not provided
+        if (!data.recipientRole) {
+          const userRole = socket.user.role?.toLowerCase();
+          if (userRole === 'customer') {
+            // Customer messages should be visible to everyone (merchant, staff, admin)
+            messageData.recipientRole = 'all';
+          } else if (userRole === 'merchant') {
+            // Merchants default to talking to customers and staff
+            messageData.recipientRole = 'all';
+          } else if (userRole === 'staff') {
+            // Staff (drivers/technicians) talk to merchants/admins, 
+            // but let's make it 'all' so customers can also see their updates
+            messageData.recipientRole = 'all';
+          } else {
+            messageData.recipientRole = 'all';
+          }
+        } else {
+          messageData.recipientRole = data.recipientRole;
+        }
 
         if (data.type) messageData.type = data.type;
         if (data.approval) {
@@ -320,31 +410,32 @@ export const initSocket = (server) => {
         }
 
         const message = new Message(messageData);
-
         await message.save();
 
         const populatedMessage = await message.populate('sender', '_id name role');
-
-        io.to(`booking_${data.bookingId}`).emit('receiveMessage', populatedMessage.toObject());
+        emitChatMessage(data.bookingId, populatedMessage);
       } catch (e) {
         console.error('Error sending message:', e);
       }
     });
 
     socket.on('getMessages', async (data) => {
-      if (!data.bookingId) return;
+      if (!socket.user || !data.bookingId) return;
 
       try {
         const query = { bookingId: data.bookingId };
         
         // Filter out messages not meant for the current user's role
         if (socket.user) {
-          if (socket.user.role === 'merchant' || socket.user.role === 'staff') {
-            // Merchants and staff should not see customer-only messages
-            // This also includes messages with no recipientRole (backwards compatibility)
+          const userRole = socket.user.role?.toLowerCase();
+          if (userRole === 'merchant') {
+            // Merchants see messages to customers AND staff
+            query.recipientRole = { $in: ['all', 'customer', 'merchant', undefined, null] };
+          } else if (userRole === 'staff') {
+            // Drivers only see internal merchant-targeted messages
             query.recipientRole = { $in: ['all', 'merchant', undefined, null] };
-          } else if (socket.user.role === 'customer') {
-            // Customers should not see merchant-only messages (if any)
+          } else if (userRole === 'customer') {
+            // Customers only see customer-targeted messages
             query.recipientRole = { $in: ['all', 'customer', undefined, null] };
           }
           // Admin can see everything (default query)
@@ -354,7 +445,18 @@ export const initSocket = (server) => {
           .populate('sender', 'name role')
           .sort({ createdAt: 1 });
 
-        socket.emit('loadMessages', messages);
+        // Ensure all messages have string IDs
+        const formattedMessages = messages.map(m => {
+          const obj = m.toObject();
+          if (obj._id) obj._id = obj._id.toString();
+          if (obj.bookingId) obj.bookingId = obj.bookingId.toString();
+          if (obj.sender && obj.sender._id) {
+            obj.sender._id = obj.sender._id.toString();
+          }
+          return obj;
+        });
+
+        socket.emit('loadMessages', formattedMessages);
       } catch (e) {
         console.error('Error loading messages:', e);
       }
@@ -366,6 +468,36 @@ export const initSocket = (server) => {
   });
 
   return io;
+};
+
+export const emitChatMessage = (bookingId, message) => {
+  if (!io) return;
+  
+  // Ensure we have a plain object with string IDs
+  const msgObj = (typeof message.toObject === 'function') ? message.toObject() : message;
+  if (msgObj._id) msgObj._id = msgObj._id.toString();
+  if (msgObj.bookingId) msgObj.bookingId = msgObj.bookingId.toString();
+  if (msgObj.sender && msgObj.sender._id) {
+    msgObj.sender._id = msgObj.sender._id.toString();
+  }
+
+  const roomBase = `booking_${bookingId.toString()}`;
+
+  // Ensure admins always get messages for monitoring
+  io.to('admin').emit('receiveMessage', msgObj);
+
+  if (!msgObj.recipientRole || msgObj.recipientRole === 'all') {
+    io.to(roomBase).emit('receiveMessage', msgObj);
+    // Also notify global rooms for merchants and staff if appropriate
+    io.to('merchant').emit('receiveMessage', msgObj);
+    io.to('staff').emit('receiveMessage', msgObj);
+  } else {
+    // Emit to specific sub-room
+    io.to(`${roomBase}_${msgObj.recipientRole}`).emit('receiveMessage', msgObj);
+    
+    // Also notify global role room
+    io.to(msgObj.recipientRole).emit('receiveMessage', msgObj);
+  }
 };
 
 export const getIO = () => {

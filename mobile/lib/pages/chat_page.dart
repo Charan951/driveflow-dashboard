@@ -6,13 +6,12 @@ import '../models/booking.dart';
 import '../models/message.dart';
 import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../core/env.dart';
+import '../core/app_colors.dart';
 
-const carzziGreetingMessage = '''Hi 👋 Hope you’re doing well! 
-Welcome to Carzzi Support Chat  🚗 
-Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts  submitted. 
-If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
+const carzziGreetingMessage = '''Hi 👋 Hope you're doing well!
+Welcome to Carzzi Support Chat  🚗
+Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts submitted.
+If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we're here to help you!
 Thank you for choosing Carzzi 🙌''';
 
 class ChatPage extends StatefulWidget {
@@ -25,22 +24,22 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  late final TextEditingController _messageController;
+  late final ScrollController _scrollController;
   final List<Message> _messages = [];
   final ApiClient _api = ApiClient();
-  late SocketService _socketService;
-  late String _bookingId;
+  late final SocketService _socketService;
+  late final String _bookingId;
+  bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
     _bookingId = widget.booking.id;
+    _messageController = TextEditingController();
+    _scrollController = ScrollController();
     _socketService = SocketService();
-
     _setupSocketListeners();
-
-    // Join room and request existing messages
     _socketService.joinRoom('booking_$_bookingId');
     _socketService.emit('getMessages', {'bookingId': _bookingId});
   }
@@ -53,7 +52,6 @@ class _ChatPageState extends State<ChatPage> {
 
   void _handleNewApproval(dynamic data) {
     if (!mounted) return;
-    // When a new approval is received via socket, request messages again to get the approval message
     _socketService.emit('getMessages', {'bookingId': _bookingId});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('New approval request received')),
@@ -66,21 +64,18 @@ class _ChatPageState extends State<ChatPage> {
       final message = Message.fromJson(Map<String, dynamic>.from(data));
       if (message.bookingId == _bookingId) {
         setState(() {
-          // Check if message already exists (by real ID)
           final index = _messages.indexWhere((m) => m.id == message.id);
           if (index != -1) {
             _messages[index] = message;
           } else {
-            // Check if it's an update for an optimistic message
             final tempIndex = _messages.indexWhere(
               (m) =>
                   m.id.startsWith('temp_') &&
                   m.text == message.text &&
                   m.sender.id == message.sender.id,
             );
-
             if (tempIndex != -1) {
-              _messages[tempIndex] = message; // Replace temp with real
+              _messages[tempIndex] = message;
             } else {
               _messages.add(message);
             }
@@ -97,16 +92,12 @@ class _ChatPageState extends State<ChatPage> {
       final List<Message> loadedMessages = data
           .map((m) => Message.fromJson(Map<String, dynamic>.from(m)))
           .toList();
+      final greetingTime = widget.booking.createdAt != null
+          ? DateTime.tryParse(widget.booking.createdAt!) ?? DateTime.now()
+          : DateTime.now();
+
       setState(() {
         _messages.clear();
-        // Add system greeting as the first message if list is empty
-        DateTime greetingTime = DateTime.now();
-        try {
-          if (widget.booking.createdAt != null) {
-            greetingTime = DateTime.parse(widget.booking.createdAt!);
-          }
-        } catch (_) {}
-
         _messages.add(
           Message(
             id: 'system_greeting',
@@ -140,15 +131,14 @@ class _ChatPageState extends State<ChatPage> {
 
   void _sendMessage() {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isSending) return;
 
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
 
-    // Emit message to socket
+    _isSending = true;
     _socketService.emit('sendMessage', {'bookingId': _bookingId, 'text': text});
 
-    // Optimistically add message
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final newMessage = Message(
       id: tempId,
@@ -168,6 +158,7 @@ class _ChatPageState extends State<ChatPage> {
 
     _messageController.clear();
     _scrollToBottom();
+    _isSending = false;
   }
 
   @override
@@ -183,7 +174,6 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _handleApprovalAction(String approvalId, String status) async {
     try {
       await _api.putJson('/approvals/$approvalId', body: {'status': status});
-      // Reload messages to update UI
       _socketService.emit('getMessages', {'bookingId': _bookingId});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -201,74 +191,117 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  String? _resolveImageUrl(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-    if (raw.startsWith('/')) return '${Env.baseUrl}$raw';
-    return '${Env.baseUrl}/$raw';
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        child: Column(
           children: [
-            const Text(
-              'Service Chat',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            _buildHeader(),
+            Expanded(
+              child: _messages.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isSelf = message.sender.id == user?.id;
+                        return _buildMessageBubble(message, isSelf);
+                      },
+                    ),
             ),
-            Text(
-              'Order #${widget.booking.orderNumber ?? widget.booking.id.substring(widget.booking.id.length - 6).toUpperCase()}',
-              style: const TextStyle(fontSize: 12),
-            ),
+            _buildMessageInput(),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.message_outlined,
-                          size: 64,
-                          color: Colors.grey.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Start a conversation',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isSelf = message.sender.id == user?.id;
+    );
+  }
 
-                      return _buildMessageBubble(message, isSelf, isDark);
-                    },
-                  ),
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          _buildMessageInput(isDark),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryPurple.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(Icons.support_agent, color: AppColors.primaryPurple),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Support Chat',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
+                ),
+                Text(
+                  'Order #${(widget.booking.orderNumber?.toString() ?? widget.booking.id.substring(widget.booking.id.length - 6)).toUpperCase()}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(Message message, bool isSelf, bool isDark) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          const Text('No messages yet', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(Message message, bool isSelf) {
+    final isSystemMessage = message.sender.role == 'system';
+
+    if (isSystemMessage) {
+      return _buildSystemMessage(message);
+    }
+
     return Align(
       alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
@@ -276,84 +309,43 @@ class _ChatPageState extends State<ChatPage> {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
+          if (!isSelf && message.sender.name != 'Carzzi')
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 4),
+              child: Text(
+                message.sender.name,
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ),
           Container(
             margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
             decoration: BoxDecoration(
-              color: isSelf
-                  ? const Color(0xFF2563EB)
-                  : (isDark ? const Color(0xFF1E293B) : Colors.white),
-              borderRadius: BorderRadius.circular(20).copyWith(
-                bottomRight: isSelf
-                    ? const Radius.circular(4)
-                    : const Radius.circular(20),
-                bottomLeft: isSelf
-                    ? const Radius.circular(20)
-                    : const Radius.circular(4),
+              color: isSelf ? AppColors.primaryPurple : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: isSelf ? const Radius.circular(16) : Radius.zero,
+                bottomRight: isSelf ? Radius.zero : const Radius.circular(16),
               ),
-              boxShadow: [
-                if (!isSelf)
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-              ],
-              border: !isSelf
-                  ? Border.all(
-                      color: isDark
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade200,
-                    )
-                  : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!isSelf)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF22C55E),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          message.sender.name,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 Text(
                   message.text,
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.4,
-                    color: isSelf
-                        ? Colors.white
-                        : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                    color: isSelf ? Colors.white : Colors.black87,
                   ),
                 ),
                 if (message.type == 'approval' && message.approval != null)
-                  _buildApprovalCard(message.approval!, isSelf, isDark),
+                  _buildApprovalCard(message.approval!, isSelf),
                 const SizedBox(height: 6),
                 Align(
                   alignment: Alignment.centerRight,
@@ -375,154 +367,153 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildApprovalCard(ApprovalInfo approval, bool isSelf, bool isDark) {
-    final bool isPending = approval.status == 'pending';
-    final bool isApproved = approval.status == 'approved';
-    final String? imageUrl = _resolveImageUrl(approval.image);
-    final user = context.read<AuthProvider>().user;
-
+  Widget _buildSystemMessage(Message message) {
     return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black26 : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.primaryPurple.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isPending
-              ? Colors.amber.withValues(alpha: 0.5)
-              : (isApproved
-                    ? Colors.green.withValues(alpha: 0.5)
-                    : Colors.red.withValues(alpha: 0.5)),
-          width: 1.5,
+          color: AppColors.primaryPurple.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (imageUrl != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  height: 130, // Smaller fixed height
-                  placeholder: (context, url) => Container(
-                    height: 130,
-                    color: isDark ? Colors.black45 : Colors.grey.shade100,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    height: 100,
-                    color: isDark ? Colors.black45 : Colors.grey.shade100,
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
-                  ),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: AppColors.primaryPurple,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                message.sender.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryPurple,
                 ),
               ),
-            ),
-          Text(
-            approval.partName ?? 'Additional Part',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Amount: ₹${approval.amount}',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white70 : Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (isPending &&
-              !isSelf &&
-              user?.role == 'customer' &&
-              approval.approvalId != null)
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        _handleApprovalAction(approval.approvalId!, 'Approved'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Approve',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        _handleApprovalAction(approval.approvalId!, 'Rejected'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Reject',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                Icon(
-                  isApproved ? Icons.check_circle : Icons.cancel,
-                  size: 14,
-                  color: isApproved ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  approval.status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isApproved ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 8),
+          Text(message.text, style: const TextStyle(fontSize: 13, height: 1.5)),
         ],
       ),
     );
   }
 
-  Widget _buildMessageInput(bool isDark) {
+  Widget _buildApprovalCard(ApprovalInfo approval, bool isSelf) {
+    final isPending = approval.status == 'pending';
+    final bool isApproved = approval.status == 'approved';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isPending
+              ? Colors.orange.withValues(alpha: 0.5)
+              : (isApproved
+                    ? Colors.green.withValues(alpha: 0.5)
+                    : Colors.red.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isPending
+                    ? Icons.pending_actions
+                    : (isApproved ? Icons.check_circle : Icons.cancel),
+                color: isPending
+                    ? Colors.orange
+                    : (isApproved ? Colors.green : Colors.red),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Part Approval - ${approval.status.toUpperCase()}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isPending
+                      ? Colors.orange
+                      : (isApproved ? Colors.green : Colors.red),
+                ),
+              ),
+            ],
+          ),
+          if (approval.partName != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Part: ${approval.partName}',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+          if (approval.amount != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Price: ₹${approval.amount}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+          if (isPending && !isSelf) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _handleApprovalAction(
+                      approval.approvalId ?? '',
+                      'rejected',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleApprovalAction(
+                      approval.approvalId ?? '',
+                      'approved',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        16,
         8,
-        16,
-        8 + MediaQuery.of(context).viewPadding.bottom,
+        8,
+        8,
+        MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
-          ),
-        ),
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
         children: [
@@ -531,27 +522,31 @@ class _ChatPageState extends State<ChatPage> {
               controller: _messageController,
               decoration: InputDecoration(
                 hintText: 'Type a message...',
+                hintStyle: TextStyle(color: Colors.grey.shade500),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                fillColor: Colors.grey.shade100,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                  horizontal: 20,
+                  vertical: 12,
                 ),
               ),
-              maxLines: null,
-              textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            onPressed: _sendMessage,
-            icon: const Icon(Icons.send),
-            color: const Color(0xFF2563EB),
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.primaryPurple,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: _sendMessage,
+            ),
           ),
         ],
       ),

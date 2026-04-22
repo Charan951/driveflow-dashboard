@@ -47,9 +47,14 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
   void _onSocketUpdate() {
     final event = _socketService.value;
-    if (event == 'booking_created' ||
-        event == 'booking_updated' ||
-        event == 'booking_cancelled') {
+    if (event == null) return;
+
+    if (event.startsWith('booking_created') ||
+        event.startsWith('booking_updated') ||
+        event.startsWith('booking_cancelled') ||
+        event.startsWith('notification') ||
+        event.contains('sync:booking') ||
+        event.contains('sync:approval')) {
       if (_isLoading) return;
       _loadData();
     }

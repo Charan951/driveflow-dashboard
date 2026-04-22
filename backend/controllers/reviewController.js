@@ -1,5 +1,6 @@
 import Review from '../models/Review.js';
 import Booking from '../models/Booking.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Get public reviews
 // @route   GET /api/reviews/public
@@ -52,6 +53,10 @@ export const createReview = async (req, res) => {
     });
 
     const createdReview = await review.save();
+    
+    // Global Real-time Sync
+    emitEntitySync('review', 'created', createdReview);
+    
     res.status(201).json(createdReview);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -94,6 +99,20 @@ export const getTargetReviews = async (req, res) => {
   }
 };
 
+// @desc    Get current user reviews
+// @route   GET /api/reviews/myreviews
+// @access  Private
+export const getMyReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({ reviewer: req.user._id })
+      .populate('target', 'name')
+      .sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Delete a review
 // @route   DELETE /api/reviews/:id
 // @access  Private/Admin
@@ -102,7 +121,12 @@ export const deleteReview = async (req, res) => {
     const review = await Review.findById(req.params.id);
 
     if (review) {
+      const reviewId = review._id;
       await review.deleteOne();
+      
+      // Global Real-time Sync
+      emitEntitySync('review', 'deleted', { _id: reviewId });
+      
       res.json({ message: 'Review removed' });
     } else {
       res.status(404).json({ message: 'Review not found' });
@@ -127,6 +151,10 @@ export const updateReviewStatus = async (req, res) => {
     if (isVisible !== undefined) review.isVisible = isVisible;
 
     const updatedReview = await review.save();
+    
+    // Global Real-time Sync
+    emitEntitySync('review', 'updated', updatedReview);
+    
     res.json(updatedReview);
   } catch (error) {
     res.status(400).json({ message: error.message });

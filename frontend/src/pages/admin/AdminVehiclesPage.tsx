@@ -113,58 +113,14 @@ const AdminVehiclesPage: React.FC = () => {
       {isLoading ? (
         <div className="text-center py-12">Loading vehicles...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="space-y-4">
           {filteredVehicles.map((vehicle) => (
-            <div 
-              key={vehicle._id} 
-              className="group relative bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md transition-all cursor-pointer"
-              onClick={() => navigate(`/admin/vehicles/${vehicle._id}`)}
-            >
-              <div className="aspect-video bg-muted relative overflow-hidden">
-                {vehicle.image ? (
-                  <img 
-                    src={vehicle.image} 
-                    alt={`${vehicle.make} ${vehicle.model}`} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-secondary/30">
-                    <Car className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                )}
-                <div className="absolute top-3 right-3">
-                  <span className={`px-2 py-1 rounded-md text-xs font-medium backdrop-blur-sm ${getStatusColor(vehicle.status)}`}>
-                    {vehicle.status || 'Idle'}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-semibold text-lg">{vehicle.make} {vehicle.model}</h3>
-                    <p className="text-sm text-muted-foreground font-mono">{vehicle.licensePlate}</p>
-                  </div>
-                  <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
-                    {vehicle.year}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="w-4 h-4" />
-                    <span className="truncate">
-                      {typeof vehicle.user === 'object' ? vehicle.user?.name : 'Unknown Owner'}
-                    </span>
-                  </div>
-                  {vehicle.nextService && (
-                    <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-500">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Service due: {new Date(vehicle.nextService).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div key={vehicle._id} className="w-full">
+              <VehicleCard 
+                id={vehicle._id}
+                {...vehicle}
+                onClick={() => navigate(`/admin/vehicles/${vehicle._id}`)}
+              />
             </div>
           ))}
           

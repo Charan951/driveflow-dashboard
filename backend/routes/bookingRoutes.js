@@ -31,8 +31,8 @@ router.route('/')
   .get(protect, merchant, getAllBookings);
 
 router.route('/mybookings').get(protect, getMyBookings);
-router.route('/user/:userId').get(protect, merchant, getUserBookings);
-router.route('/vehicle/:vehicleId').get(protect, merchant, getVehicleBookings);
+router.route('/user/:userId').get(protect, getUserBookings);
+router.route('/vehicle/:vehicleId').get(protect, getVehicleBookings);
 router.route('/merchant/:merchantId').get(protect, merchant, getMerchantBookings);
 
 // Car wash specific routes

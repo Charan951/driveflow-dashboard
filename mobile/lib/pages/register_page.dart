@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,15 +13,52 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
-  final _phoneController = TextEditingController();
+class _RegisterPageState extends State<RegisterPage>
+    with SingleTickerProviderStateMixin {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _confirmController;
+  late final TextEditingController _phoneController;
   bool _submitting = false;
   String? _error;
   bool _showPassword = false;
+  late final AnimationController _animationController;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    _confirmController = TextEditingController();
+    _phoneController = TextEditingController();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+        );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    _phoneController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
 
   bool _isValidEmail(String value) {
     final v = value.trim();
@@ -31,14 +69,85 @@ class _RegisterPageState extends State<RegisterPage> {
     return value.replaceAll(RegExp(r'[^0-9]'), '');
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
-    _phoneController.dispose();
-    super.dispose();
+  void _clearError() {
+    if (_error != null) setState(() => _error = null);
+  }
+
+  bool _validatePassword(String pass) {
+    final hasLen = pass.length >= 8;
+    final hasNum = RegExp(r'\d').hasMatch(pass);
+    final hasUpper = RegExp(r'[A-Z]').hasMatch(pass);
+    return hasLen && hasNum && hasUpper;
+  }
+
+  Future<void> _handleRegister() async {
+    if (_submitting) return;
+
+    FocusScope.of(context).unfocus();
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final pass = _passwordController.text;
+    final confirm = _confirmController.text;
+    final phone = _phoneController.text.trim();
+
+    if (name.isEmpty) {
+      setState(() => _error = 'Full name is required');
+      return;
+    }
+    if (email.isEmpty) {
+      setState(() => _error = 'Email is required');
+      return;
+    }
+    if (!_isValidEmail(email)) {
+      setState(() => _error = 'Enter a valid email address');
+      return;
+    }
+    if (phone.isNotEmpty) {
+      final digits = _digitsOnly(phone);
+      if (digits.length < 10) {
+        setState(() => _error = 'Enter a valid phone number');
+        return;
+      }
+    }
+    if (!_validatePassword(pass)) {
+      setState(
+        () => _error = 'Password must be 8+ chars with uppercase and number',
+      );
+      return;
+    }
+    if (pass != confirm) {
+      setState(() => _error = 'Passwords do not match');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final ok = await auth.register(name, email, pass, phone: phone);
+      if (!mounted) return;
+      if (ok) {
+        Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+      } else {
+        setState(() => _error = auth.lastError ?? 'Registration failed');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Registration error: $e\n$stackTrace');
+      setState(() => _error = 'An unexpected error occurred');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    const url = 'https://carzzi.com/privacy';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -46,9 +155,9 @@ class _RegisterPageState extends State<RegisterPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Premium background with orange glow
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -58,7 +167,6 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
           ),
-          // Soft cinematic orange glow at center
           Center(
             child: Container(
               width: 400,
@@ -76,331 +184,256 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Logo
-                      Image.asset(
-                        'assets/appicon.png',
-                        width: 100,
-                        color: Colors.white,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(height: 24),
-                      Card(
-                        color: AppColors.backgroundSecondary.withValues(
-                          alpha: 0.9,
-                        ),
-                        elevation: 8,
-                        shadowColor: Colors.black.withValues(alpha: 0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.05),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Center(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            'assets/appicon.png',
+                            width: 100,
+                            color: Colors.white,
+                            fit: BoxFit.contain,
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'Create Account',
-                                key: const Key('register_title'),
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
+                          const SizedBox(height: 24),
+                          Card(
+                            color: AppColors.backgroundSecondary.withValues(
+                              alpha: 0.9,
+                            ),
+                            elevation: 8,
+                            shadowColor: Colors.black.withValues(alpha: 0.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.05),
                               ),
-                              const SizedBox(height: 32),
-                              _GlassField(
-                                controller: _nameController,
-                                hintText: 'Full Name',
-                                textInputAction: TextInputAction.next,
-                                prefixIcon: Icons.person_outline,
-                                onChanged: () {
-                                  if (_error != null) {
-                                    setState(() => _error = null);
-                                  }
-                                },
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                32,
+                                24,
+                                24,
                               ),
-                              const SizedBox(height: 16),
-                              _GlassField(
-                                controller: _emailController,
-                                hintText: 'Email',
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                prefixIcon: Icons.mail_outline,
-                                onChanged: () {
-                                  if (_error != null) {
-                                    setState(() => _error = null);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              _GlassField(
-                                controller: _passwordController,
-                                hintText: 'Password',
-                                textInputAction: TextInputAction.next,
-                                prefixIcon: Icons.lock_outline,
-                                obscureText: !_showPassword,
-                                suffix: IconButton(
-                                  onPressed: () => setState(
-                                    () => _showPassword = !_showPassword,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'Create Account',
+                                    key: const Key('register_title'),
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.headlineSmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
                                   ),
-                                  icon: Icon(
-                                    _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.white38,
-                                    size: 20,
+                                  const SizedBox(height: 32),
+                                  _GlassField(
+                                    controller: _nameController,
+                                    hintText: 'Full Name',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.person_outline,
+                                    onChanged: (_) => _clearError(),
                                   ),
-                                ),
-                                onChanged: () {
-                                  if (_error != null) {
-                                    setState(() => _error = null);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              _GlassField(
-                                controller: _confirmController,
-                                hintText: 'Confirm Password',
-                                textInputAction: TextInputAction.next,
-                                prefixIcon: Icons.lock_outline,
-                                obscureText: !_showPassword,
-                                suffix: IconButton(
-                                  onPressed: () => setState(
-                                    () => _showPassword = !_showPassword,
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _emailController,
+                                    hintText: 'Email',
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.mail_outline,
+                                    onChanged: (_) => _clearError(),
                                   ),
-                                  icon: Icon(
-                                    _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.white38,
-                                    size: 20,
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _passwordController,
+                                    hintText: 'Password',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.lock_outline,
+                                    obscureText: !_showPassword,
+                                    suffix: IconButton(
+                                      onPressed: () => setState(
+                                        () => _showPassword = !_showPassword,
+                                      ),
+                                      icon: Icon(
+                                        _showPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.white38,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    onChanged: (_) => _clearError(),
                                   ),
-                                ),
-                                onChanged: () {
-                                  if (_error != null) {
-                                    setState(() => _error = null);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              _GlassField(
-                                controller: _phoneController,
-                                hintText: 'Mobile Number',
-                                keyboardType: TextInputType.phone,
-                                textInputAction: TextInputAction.done,
-                                prefixIcon: Icons.phone_outlined,
-                                onChanged: () {
-                                  if (_error != null) {
-                                    setState(() => _error = null);
-                                  }
-                                },
-                              ),
-                              if (_error != null) ...[
-                                const SizedBox(height: 16),
-                                Text(
-                                  _error!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
-                                    fontSize: 13,
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _confirmController,
+                                    hintText: 'Confirm Password',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.lock_outline,
+                                    obscureText: !_showPassword,
+                                    suffix: IconButton(
+                                      onPressed: () => setState(
+                                        () => _showPassword = !_showPassword,
+                                      ),
+                                      icon: Icon(
+                                        _showPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.white38,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    onChanged: (_) => _clearError(),
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                              const SizedBox(height: 32),
-                              SizedBox(
-                                height: 56,
-                                child: ElevatedButton(
-                                  onPressed: _submitting
-                                      ? null
-                                      : () async {
-                                          FocusScope.of(context).unfocus();
-                                          final name = _nameController.text
-                                              .trim();
-                                          final email = _emailController.text
-                                              .trim();
-                                          final pass = _passwordController.text;
-                                          final confirm =
-                                              _confirmController.text;
-                                          final phone = _phoneController.text
-                                              .trim();
-
-                                          if (name.isEmpty) {
-                                            setState(
-                                              () => _error =
-                                                  'Full name is required',
-                                            );
-                                            return;
-                                          }
-                                          if (email.isEmpty) {
-                                            setState(
-                                              () =>
-                                                  _error = 'Email is required',
-                                            );
-                                            return;
-                                          }
-                                          if (!_isValidEmail(email)) {
-                                            setState(
-                                              () => _error =
-                                                  'Enter a valid email address',
-                                            );
-                                            return;
-                                          }
-                                          if (phone.isNotEmpty) {
-                                            final digits = _digitsOnly(phone);
-                                            if (digits.length < 10) {
-                                              setState(
-                                                () => _error =
-                                                    'Enter a valid phone number',
-                                              );
-                                              return;
-                                            }
-                                          }
-
-                                          final hasLen = pass.length >= 8;
-                                          final hasNum = RegExp(
-                                            r'\d',
-                                          ).hasMatch(pass);
-                                          final hasUpper = RegExp(
-                                            r'[A-Z]',
-                                          ).hasMatch(pass);
-                                          if (!hasLen || !hasNum || !hasUpper) {
-                                            setState(
-                                              () => _error =
-                                                  'Password does not meet requirements',
-                                            );
-                                            return;
-                                          }
-                                          if (pass != confirm) {
-                                            setState(
-                                              () => _error =
-                                                  'Passwords do not match',
-                                            );
-                                            return;
-                                          }
-                                          setState(() {
-                                            _submitting = true;
-                                            _error = null;
-                                          });
-                                          final navigator = Navigator.of(
-                                            context,
-                                          );
-                                          final auth = context
-                                              .read<AuthProvider>();
-                                          final ok = await auth.register(
-                                            name,
-                                            email,
-                                            pass,
-                                            phone: phone,
-                                          );
-                                          if (!mounted) return;
-                                          if (ok) {
-                                            navigator.pushReplacementNamed(
-                                              auth.homeRoute,
-                                            );
-                                          } else {
-                                            setState(() {
-                                              _error =
-                                                  auth.lastError ??
-                                                  'Registration failed';
-                                            });
-                                          }
-                                          setState(() => _submitting = false);
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.cinematicOrange,
-                                    foregroundColor: Colors.white,
-                                    elevation: 4,
-                                    shadowColor: AppColors.cinematicOrange
-                                        .withValues(alpha: 0.4),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _phoneController,
+                                    hintText: 'Mobile Number (optional)',
+                                    keyboardType: TextInputType.phone,
+                                    textInputAction: TextInputAction.done,
+                                    prefixIcon: Icons.phone_outlined,
+                                    onChanged: (_) => _clearError(),
+                                    onSubmitted: (_) => _handleRegister(),
+                                  ),
+                                  if (_error != null) ...[
+                                    const SizedBox(height: 16),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline,
+                                            color: AppColors.error,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _error!,
+                                              style: const TextStyle(
+                                                color: AppColors.error,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 32),
+                                  SizedBox(
+                                    height: 56,
+                                    child: ElevatedButton(
+                                      onPressed: _submitting
+                                          ? null
+                                          : _handleRegister,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.cinematicOrange,
+                                        foregroundColor: Colors.white,
+                                        elevation: 4,
+                                        shadowColor: AppColors.cinematicOrange
+                                            .withValues(alpha: 0.4),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        disabledBackgroundColor: AppColors
+                                            .cinematicOrange
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                      child: _submitting
+                                          ? const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : const Text(
+                                              'Register',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1,
+                                              ),
+                                            ),
                                     ),
                                   ),
-                                  child: _submitting
-                                      ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Register',
+                                  const SizedBox(height: 24),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Text(
+                                        "Already have an account? ",
+                                        style: TextStyle(color: Colors.white60),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pushReplacementNamed(
+                                              context,
+                                              '/login',
+                                            ),
+                                        child: const Text(
+                                          'Login',
                                           style: TextStyle(
-                                            fontSize: 16,
+                                            color: AppColors.cinematicOrange,
                                             fontWeight: FontWeight.bold,
-                                            letterSpacing: 1,
                                           ),
                                         ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    "Already have an account? ",
-                                    style: TextStyle(color: Colors.white60),
+                                      ),
+                                    ],
                                   ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pushReplacementNamed(
-                                          context,
-                                          '/login',
-                                        ),
+                                  const SizedBox(height: 12),
+                                  GestureDetector(
+                                    onTap: _openPrivacyPolicy,
                                     child: const Text(
-                                      'Login',
+                                      'By registering, you agree to our Privacy Policy',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: AppColors.cinematicOrange,
-                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white38,
+                                        fontSize: 11,
+                                        decoration: TextDecoration.underline,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              GestureDetector(
-                                onTap: () async {
-                                  const url = 'https://carzzi.com/privacy';
-                                  if (await canLaunchUrl(Uri.parse(url))) {
-                                    await launchUrl(Uri.parse(url));
-                                  }
-                                },
-                                child: const Text(
-                                  'By registering, you agree to our Privacy Policy',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 11,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -420,7 +453,8 @@ class _GlassField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final Widget? suffix;
-  final VoidCallback? onChanged;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
 
   const _GlassField({
     required this.controller,
@@ -431,6 +465,7 @@ class _GlassField extends StatelessWidget {
     this.textInputAction,
     this.suffix,
     this.onChanged,
+    this.onSubmitted,
   });
 
   @override
@@ -440,8 +475,15 @@ class _GlassField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
-      onChanged: (_) => onChanged?.call(),
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
       style: const TextStyle(color: Colors.white),
+      inputFormatters: [
+        if (keyboardType == TextInputType.emailAddress)
+          FilteringTextInputFormatter.deny(RegExp(r'\s')),
+        if (keyboardType == TextInputType.phone)
+          FilteringTextInputFormatter.digitsOnly,
+      ],
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
@@ -471,6 +513,10 @@ class _GlassField extends StatelessWidget {
             color: AppColors.cinematicOrange,
             width: 1.5,
           ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
       ),
     );

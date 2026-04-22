@@ -62,6 +62,7 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
 
   if (service is AndroidServiceInstance) {
@@ -83,46 +84,62 @@ void onStart(ServiceInstance service) async {
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // 1. Initialize Firebase first
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  // Initialize Background Service
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    await initializeBackgroundService();
+    final authProvider = AuthProvider();
+    final themeProvider = ThemeProvider();
+    final trackingProvider = TrackingProvider();
+
+    // 2. Load basic state
+    await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
+
+    // 3. Initialize Services
+    final socketService = SocketService();
+    socketService.setTrackingProvider(trackingProvider);
+
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+
+    // 4. Initialize Background Service (After notification channels are created)
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        await initializeBackgroundService();
+      } catch (e) {
+        debugPrint('Failed to start background service: $e');
+      }
+    }
+
+    if (authProvider.isAuthenticated) {
+      socketService.init(authProvider.user);
+      notificationService.syncToken();
+      trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
+    }
+
+    // Precache the logo
+    final imageProvider = const AssetImage('assets/carzzilogo_padded.png');
+
+    runApp(
+      MyApp(
+        authProvider: authProvider,
+        themeProvider: themeProvider,
+        socketService: socketService,
+        notificationService: notificationService,
+        trackingProvider: trackingProvider,
+        precachedLogo: imageProvider,
+      ),
+    );
+  } catch (e, stack) {
+    debugPrint('CRITICAL INITIALIZATION ERROR: $e');
+    debugPrint(stack.toString());
+    // Still try to run the app so user doesn't just see a black screen
+    // but they might see errors later.
   }
-
-  final authProvider = AuthProvider();
-  final themeProvider = ThemeProvider();
-  final trackingProvider = TrackingProvider();
-
-  // Precache the logo immediately for a faster splash experience
-  final imageProvider = const AssetImage('assets/carzzilogo_padded.png');
-
-  await Future.wait([authProvider.loadMe(), themeProvider.loadThemeMode()]);
-
-  final socketService = SocketService();
-  socketService.setTrackingProvider(trackingProvider);
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-
-  if (authProvider.isAuthenticated) {
-    socketService.init(authProvider.user);
-    notificationService.syncToken();
-    trackingProvider.init(authProvider.user?.role, authProvider.user?.id);
-  }
-
-  runApp(
-    MyApp(
-      authProvider: authProvider,
-      themeProvider: themeProvider,
-      socketService: socketService,
-      notificationService: notificationService,
-      trackingProvider: trackingProvider,
-      precachedLogo: imageProvider,
-    ),
-  );
 }
 
 class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {

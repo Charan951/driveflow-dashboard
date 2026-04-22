@@ -51,10 +51,10 @@ export const admin = (req, res, next) => {
 
 export const merchant = (req, res, next) => {
   const role = req.user?.role?.toLowerCase();
-  if (req.user && (role === 'merchant' || role === 'admin')) {
+  if (req.user && (role === 'merchant' || role === 'admin' || role === 'staff')) {
     return next();
   } else {
-    return res.status(403).json({ message: 'Access denied. Merchant role required.' });
+    return res.status(403).json({ message: 'Access denied. Merchant or Staff role required.' });
   }
 };
 

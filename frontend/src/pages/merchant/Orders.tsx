@@ -52,21 +52,34 @@ const Orders: React.FC = () => {
 
     // Socket Setup
     socketService.connect();
-    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
-       setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
-    });
+    const bookingUpdatedHandler = (updatedBooking: Booking) => {
+      setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
+    };
 
-    socketService.on('bookingCreated', (newBooking: Booking) => {
-       // Only add if it's assigned to this merchant (checked in backend, but just in case)
-       setBookings(prev => {
-         if (prev.some(b => b._id === newBooking._id)) return prev;
-         return [newBooking, ...prev];
-       });
-    });
+    const bookingCreatedHandler = (newBooking: Booking) => {
+      setBookings(prev => {
+        if (prev.some(b => b._id === newBooking._id)) return prev;
+        return [newBooking, ...prev];
+      });
+    };
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'booking' && action) {
+        fetchBookings();
+      }
+    };
+
+    socketService.on('bookingUpdated', bookingUpdatedHandler);
+    socketService.on('bookingCreated', bookingCreatedHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
-        socketService.off('bookingUpdated');
-        socketService.off('bookingCreated');
+        socketService.off('bookingUpdated', bookingUpdatedHandler);
+        socketService.off('bookingCreated', bookingCreatedHandler);
+        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 

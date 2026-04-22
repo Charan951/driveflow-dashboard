@@ -208,7 +208,7 @@ const AdminUserDetailPage: React.FC = () => {
                   <p className="text-muted-foreground">This user hasn't added any vehicles yet.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {vehicles.map(vehicle => (
                     <VehicleCard 
                       key={vehicle._id} 

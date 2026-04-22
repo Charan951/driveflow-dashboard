@@ -20,6 +20,7 @@ class Vehicle {
   final String? frontTyres;
   final String? rearTyres;
   final String? batteryDetails;
+  final Map<String, dynamic>? healthIndicators;
 
   Vehicle({
     required this.id,
@@ -43,6 +44,7 @@ class Vehicle {
     this.frontTyres,
     this.rearTyres,
     this.batteryDetails,
+    this.healthIndicators,
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
@@ -63,6 +65,9 @@ class Vehicle {
       frontTyres: json['frontTyres']?.toString(),
       rearTyres: json['rearTyres']?.toString(),
       batteryDetails: json['batteryDetails']?.toString(),
+      healthIndicators: json['healthIndicators'] is Map
+          ? Map<String, dynamic>.from(json['healthIndicators'])
+          : null,
       lastService: json['lastService'] != null
           ? DateTime.tryParse(json['lastService'].toString())
           : null,

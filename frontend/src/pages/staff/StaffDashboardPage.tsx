@@ -25,21 +25,33 @@ const StaffDashboardPage: React.FC = () => {
 
     // Socket Setup
     socketService.connect();
-    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
-        // If it's relevant to this staff, refresh data
-        const staffId = (useAuthStore.getState().user as any)?._id;
-        const isAssignedToMe = (updatedBooking.pickupDriver && (
-          (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
-          (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
-        ));
+    const bookingUpdatedHandler = (updatedBooking: Booking) => {
+      const staffId = (useAuthStore.getState().user as any)?._id;
+      const isAssignedToMe = (updatedBooking.pickupDriver && (
+        (typeof updatedBooking.pickupDriver === 'string' && updatedBooking.pickupDriver === staffId) ||
+        (typeof updatedBooking.pickupDriver === 'object' && updatedBooking.pickupDriver._id === staffId)
+      ));
 
-        if (isAssignedToMe || bookings.some(b => b._id === updatedBooking._id)) {
-          fetchData();
-        }
-    });
+      if (isAssignedToMe || bookings.some(b => b._id === updatedBooking._id)) {
+        fetchData();
+      }
+    };
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'booking' && action) {
+        fetchData();
+      }
+    };
+
+    socketService.on('bookingUpdated', bookingUpdatedHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
-      socketService.off('bookingUpdated');
+      socketService.off('bookingUpdated', bookingUpdatedHandler);
+      socketService.off('global:sync', globalSyncHandler);
     };
   }, [bookings.length]);
 
@@ -157,6 +169,8 @@ const StaffDashboardPage: React.FC = () => {
                         </div>
                         <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{STATUS_LABELS[order.status] || order.status}</span>
                       </div>
+
+
                       
                       <div className="space-y-2 mb-4">
                         {Array.isArray(order.services) &&

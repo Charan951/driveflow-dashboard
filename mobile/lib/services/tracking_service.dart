@@ -134,8 +134,8 @@ class TrackingService {
       body: {
         'lat': lat,
         'lng': lng,
-        'address': ?address,
-        'bookingId': ?bookingId,
+        'address': address,
+        'bookingId': bookingId,
       },
     );
   }

@@ -9,6 +9,8 @@ import { initSocket } from './socket.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
+import Review from './models/Review.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +39,7 @@ import settingRoutes from './routes/settingRoutes.js';
 dotenv.config();
 
 const app = express();
-// Force nodemon restart for payment validation changes
+// Force nodemon restart for review route changes
 const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);
@@ -50,6 +52,12 @@ const allowedOrigins = process.env.FRONTEND_URLS
   : [];
 
 // Add some defaults
+if (!allowedOrigins.includes('http://localhost:8080')) {
+  allowedOrigins.push('http://localhost:8080');
+}
+if (!allowedOrigins.includes('http://127.0.0.1:8080')) {
+  allowedOrigins.push('http://127.0.0.1:8080');
+}
 if (!allowedOrigins.includes('https://car.speshwayhrms.com')) {
   allowedOrigins.push('https://car.speshwayhrms.com');
 }
@@ -59,8 +67,8 @@ if (!allowedOrigins.includes('https://carb.speshwayhrms.com')) {
 if (!allowedOrigins.includes('https://api.carzzi.com')) {
   allowedOrigins.push('https://api.carzzi.com');
 }
-if (!allowedOrigins.includes('https://carzzi.com/')) {
-  allowedOrigins.push('https://carzzi.com/');
+if (!allowedOrigins.includes('https://carzzi.com')) {
+  allowedOrigins.push('https://carzzi.com');
 }
 
 
@@ -136,6 +144,25 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/reviews', reviewRoutes);
+// Direct implementation of getMyReviews to bypass any router issues
+app.get('/api/reviews/my', async (req, res) => {
+  try {
+    // We need to verify token manually here since we are bypassing the router's protect middleware
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const reviews = await Review.find({ reviewer: decoded.id })
+      .populate('target', 'name email role')
+      .sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+app.get('/api/reviews/my-test', (req, res) => res.json({ message: 'direct route working' }));
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/roles', roleRoutes);
@@ -147,7 +174,13 @@ app.use('/api/vehicle-reference', vehicleReferenceRoutes);
 
 // API health check
 app.get('/api/health', (_, res) => {
-  res.send('DriveFlow API is running')
+  res.send('Carzzi API is running')
+});
+
+// Catch-all for unmatched /api routes
+app.use('/api', (req, res) => {
+  logger.info(`Unmatched API route: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ message: `Route ${req.originalUrl} not found` });
 });
 
 // Serve frontend static files - ONLY if dist exists

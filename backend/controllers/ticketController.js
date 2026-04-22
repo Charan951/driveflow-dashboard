@@ -1,5 +1,6 @@
 import Ticket from '../models/Ticket.js';
 import { getIO } from '../socket.js';
+import { emitEntitySync } from '../utils/syncService.js';
 import { sendPushToRole, sendPushToUser } from '../utils/pushService.js';
 
 // @desc    Get all tickets (Admin/Support)
@@ -39,6 +40,9 @@ export const createTicket = async (req, res) => {
 
     const createdTicket = await ticket.save();
     const populatedTicket = await Ticket.findById(createdTicket._id).populate('messages.sender', 'name role');
+    
+    // Global Real-time Sync
+    emitEntitySync('ticket', 'created', populatedTicket);
     
     // Emit socket event
     try {
@@ -114,6 +118,10 @@ export const updateTicket = async (req, res) => {
       ticket.assignedTo = req.body.assignedTo || ticket.assignedTo;
 
       const updatedTicket = await ticket.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('ticket', 'updated', updatedTicket);
+      
       res.json(updatedTicket);
     } else {
       res.status(404).json({ message: 'Ticket not found' });
@@ -149,6 +157,9 @@ export const addMessage = async (req, res) => {
 
       await ticket.save();
       const populatedTicket = await Ticket.findById(ticket._id).populate('messages.sender', 'name role');
+
+      // Global Real-time Sync
+      emitEntitySync('ticket', 'updated', populatedTicket);
 
       // Emit socket event
       try {

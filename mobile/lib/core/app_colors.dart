@@ -5,6 +5,7 @@ class AppColors {
   static const Color primaryBlue = Color.fromARGB(255, 50, 126, 232);
   static const Color primaryBlueDark = Color.fromARGB(255, 93, 136, 230);
   static const Color primaryBlueSoft = Color(0xFF4D95F9);
+  static const Color primaryPurple = Color(0xFF7C3AED);
 
   // Cinematic/Splash Colors
   static const Color cinematicOrange = Color(0xFFFF6A00);

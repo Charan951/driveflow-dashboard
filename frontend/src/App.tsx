@@ -89,6 +89,7 @@ const InsurancePage = lazyRetry(() => import("./pages/customer/InsurancePage"));
 const DocumentsPage = lazyRetry(() => import("./pages/customer/DocumentsPage"));
 const ProfilePage = lazyRetry(() => import("./pages/customer/ProfilePage"));
 const SupportPage = lazyRetry(() => import("./pages/customer/SupportPage"));
+const CustomerVehicleDetailPage = lazyRetry(() => import("./pages/customer/VehicleDetailPage"));
 
 // Staff Pages
 const StaffDashboardPage = lazyRetry(() => import("./pages/staff/StaffDashboardPage"));
@@ -185,6 +186,7 @@ const App = () => (
               <Route path="/payments" element={<MyPaymentsPage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/add-vehicle" element={<AddVehiclePage />} />
+              <Route path="/vehicles/:id" element={<CustomerVehicleDetailPage />} />
               <Route path="/dashboard/services" element={<ServicesPage />} />
               <Route path="/book-service" element={<BookServicePage />} />
               <Route path="/track/:id" element={<TrackServicePage />} />

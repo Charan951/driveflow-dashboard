@@ -225,7 +225,9 @@ const BookingDetailPage: React.FC = () => {
       }
     });
 
-    socketService.on('liveLocation', (data: { userId: string; lat: number; lng: number; timestamp: string }) => {
+    socketService.on('liveLocation', (data: { userId: string; lat: number; lng: number; timestamp?: string; updatedAt?: string }) => {
+      const timestamp = data.timestamp || data.updatedAt;
+      
       // Update merchant locations
       setMerchants(prev => prev.map(m => {
         if (m._id === data.userId) {
@@ -236,7 +238,7 @@ const BookingDetailPage: React.FC = () => {
               ...m.location,
               lat: data.lat,
               lng: data.lng,
-              updatedAt: data.timestamp
+              updatedAt: timestamp
             }
           };
         }
@@ -253,7 +255,7 @@ const BookingDetailPage: React.FC = () => {
               ...d.location,
               lat: data.lat,
               lng: data.lng,
-              updatedAt: data.timestamp
+              updatedAt: timestamp
             }
           };
         }
@@ -270,7 +272,7 @@ const BookingDetailPage: React.FC = () => {
               ...s.location,
               lat: data.lat,
               lng: data.lng,
-              updatedAt: data.timestamp
+              updatedAt: timestamp
             }
           };
         }
@@ -383,6 +385,7 @@ const BookingDetailPage: React.FC = () => {
             <span className={`px-3 py-1 rounded-full text-xs font-medium 
               ${booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
                 booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
+                booking.status === 'CREATED' ? 'bg-red-100 text-red-800' :
                 'bg-blue-100 text-blue-800'}`}>
               {booking.status}
             </span>
@@ -446,6 +449,7 @@ const BookingDetailPage: React.FC = () => {
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                         prevBooking.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
                         prevBooking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                        prevBooking.status === 'CREATED' ? 'bg-red-100 text-red-700' :
                         'bg-blue-100 text-blue-700'
                       }`}>
                         {prevBooking.status}

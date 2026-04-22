@@ -15,18 +15,14 @@ class MainNavigationPage extends StatefulWidget {
   State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _MainNavigationPageState extends State<MainNavigationPage>
-    with WidgetsBindingObserver {
+class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBindingObserver {
   DateTime? _lastBackPress;
   PageController? _pageController;
   NavigationProvider? _navProvider;
 
   final List<Widget> _pages = const [
     BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
-    BookServiceFlowPage(
-      key: ValueKey('insurance'),
-      initialCategory: 'Insurance',
-    ),
+    BookServiceFlowPage(key: ValueKey('insurance'), initialCategory: 'Insurance'),
     CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
     BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
@@ -36,10 +32,17 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Use a default index of 2 or get it from provider
     _navProvider = context.read<NavigationProvider>();
     _pageController = PageController(initialPage: _navProvider!.selectedIndex);
     _navProvider!.addListener(_onNavChanged);
+  }
+
+  @override
+  void dispose() {
+    _navProvider?.removeListener(_onNavChanged);
+    _pageController?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _onNavChanged() {
@@ -55,53 +58,49 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   }
 
   @override
-  void dispose() {
-    _navProvider?.removeListener(_onNavChanged);
-    _pageController?.dispose();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Re-initialize socket if needed when app comes back to foreground
       SocketService().init();
     }
   }
 
+  Future<bool> _onWillPop() async {
+    final selectedIndex = context.select<NavigationProvider, int>((n) => n.selectedIndex);
+
+    if (selectedIndex != 2) {
+      _navProvider?.setTab(2);
+      return false;
+    }
+
+    final now = DateTime.now();
+    if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+      _lastBackPress = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+    await SystemNavigator.pop();
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = context.select<NavigationProvider, int>(
-      (n) => n.selectedIndex,
-    );
+    final selectedIndex = context.select<NavigationProvider, int>((n) => n.selectedIndex);
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-
-        // 1. If not on the Home tab (index 2), go to Home first
-        if (selectedIndex != 2) {
-          _navProvider?.setTab(2);
-          return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
         }
-
-        // 2. If on the Home tab, handle double back to exit
-        final now = DateTime.now();
-        if (_lastBackPress == null ||
-            now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
-          _lastBackPress = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Press back again to exit'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-          return;
-        }
-        SystemNavigator.pop();
       },
       child: Scaffold(
         extendBody: true,

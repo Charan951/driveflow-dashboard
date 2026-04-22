@@ -1,4 +1,5 @@
 import Vehicle from '../models/Vehicle.js';
+import { emitEntitySync } from '../utils/syncService.js';
 import axios from 'axios';
 
 // ... (existing imports)
@@ -9,19 +10,30 @@ import axios from 'axios';
 export const getAllVehicles = async (req, res) => {
   try {
     const vehicles = await Vehicle.find({}).populate('user', 'name email phone');
+    vehicles.forEach(v => v.calculateHealth());
     res.json(vehicles);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get vehicle by ID (Admin)
+// @desc    Get vehicle by ID
 // @route   GET /api/vehicles/:id
-// @access  Private/Admin
+// @access  Private
 export const getVehicleById = async (req, res) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id).populate('user', 'name email phone');
     if (vehicle) {
+      // Check if user is authorized: owner, admin, merchant, or staff
+      const isOwner = vehicle.user?._id?.toString() === req.user._id.toString() || 
+                      vehicle.user?.toString() === req.user._id.toString();
+      const isElevated = ['admin', 'merchant', 'staff'].includes(req.user.role?.toLowerCase());
+      
+      if (!isOwner && !isElevated) {
+        return res.status(403).json({ message: 'Not authorized to view this vehicle' });
+      }
+
+      vehicle.calculateHealth();
       res.json(vehicle);
     } else {
       res.status(404).json({ message: 'Vehicle not found' });
@@ -31,12 +43,23 @@ export const getVehicleById = async (req, res) => {
   }
 };
 
-// @desc    Get vehicles by user ID (Admin)
+// @desc    Get vehicles by user ID
 // @route   GET /api/vehicles/user/:userId
-// @access  Private/Admin
+// @access  Private
 export const getUserVehicles = async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({ user: req.params.userId });
+    const userId = req.params.userId;
+    
+    // Check authorization: Owner, Admin, Merchant, or Staff
+    const isOwner = userId === req.user._id.toString();
+    const isElevated = ['admin', 'merchant', 'staff'].includes(req.user.role?.toLowerCase());
+    
+    if (!isOwner && !isElevated) {
+      return res.status(403).json({ message: 'Not authorized to view these vehicles' });
+    }
+
+    const vehicles = await Vehicle.find({ user: userId });
+    vehicles.forEach(v => v.calculateHealth());
     res.json(vehicles);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -49,6 +72,7 @@ export const getUserVehicles = async (req, res) => {
 export const getVehicles = async (req, res) => {
   try {
     const vehicles = await Vehicle.find({ user: req.user._id });
+    vehicles.forEach(v => v.calculateHealth());
     res.json(vehicles);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -278,6 +302,9 @@ export const addVehicle = async (req, res) => {
       };
       io.to('admin').emit('vehicleCreated', payload);
       io.to(`user_${createdVehicle.user}`).emit('vehicleCreated', payload);
+      
+      // Global Real-time Sync
+      emitEntitySync('vehicle', 'created', createdVehicle);
     } catch (err) {
       
     }
@@ -313,11 +340,75 @@ export const deleteVehicle = async (req, res) => {
         };
         io.to('admin').emit('vehicleDeleted', payload);
         io.to(`user_${userId}`).emit('vehicleDeleted', payload);
+        
+        // Global Real-time Sync
+        emitEntitySync('vehicle', 'deleted', { _id: vehicleId, userId });
       } catch (err) {
         
       }
 
       res.json({ message: 'Vehicle removed' });
+    } else {
+      res.status(404).json({ message: 'Vehicle not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update vehicle health indicators
+// @route   PUT /api/vehicles/:id/health
+// @access  Private (Admin/Merchant)
+export const updateVehicleHealth = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+
+    if (vehicle) {
+      // Check if user is merchant or admin
+      if (req.user.role !== 'admin' && req.user.role !== 'merchant') {
+        return res.status(401).json({ message: 'Not authorized. Only Admin or Merchant can update health stats.' });
+      }
+
+      const { healthIndicators } = req.body;
+      if (healthIndicators) {
+        if (!vehicle.healthIndicators) {
+          vehicle.healthIndicators = {};
+        }
+
+        const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
+        keys.forEach(key => {
+          if (healthIndicators[key] !== undefined) {
+            const indicator = healthIndicators[key];
+            const existing = vehicle.healthIndicators[key] || {};
+            
+            // If newValue is 0, we treat it as a service reset
+            // If it's not 0, we update it but maybe it's just a manual adjustment
+            const newValue = typeof indicator === 'object' ? (indicator.value ?? 0) : indicator;
+            const isReset = newValue === 0;
+
+            vehicle.healthIndicators[key] = {
+              value: newValue,
+              lastUpdated: Date.now(),
+              // Only update lastServiceDate/Km if it's a reset or it was never set
+              lastServiceDate: isReset || !existing.lastServiceDate ? Date.now() : existing.lastServiceDate,
+              lastServiceKm: isReset || !existing.lastServiceDate ? (vehicle.mileage || 0) : (existing.lastServiceKm || 0),
+              fixedKm: typeof indicator === 'object' ? (indicator.fixedKm ?? existing.fixedKm ?? 0) : (existing.fixedKm ?? 0),
+              fixedDays: typeof indicator === 'object' ? (indicator.fixedDays ?? existing.fixedDays ?? 0) : (existing.fixedDays ?? 0)
+            };
+          }
+        });
+
+        // Mark modified to ensure Mongoose saves the nested object
+        vehicle.markModified('healthIndicators');
+        const updatedVehicle = await vehicle.save();
+        
+        // Emit sync event
+        emitEntitySync('vehicle', 'updated', updatedVehicle);
+        
+        res.json(updatedVehicle);
+      } else {
+        res.status(400).json({ message: 'No health indicators provided' });
+      }
     } else {
       res.status(404).json({ message: 'Vehicle not found' });
     }

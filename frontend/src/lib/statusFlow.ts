@@ -50,7 +50,7 @@ export const STATUS_LABELS: Record<BookingStatus, string> = {
   VEHICLE_PICKED: 'Vehicle Picked',
   REACHED_MERCHANT: 'Reached Merchant',
   SERVICE_STARTED: 'Service Started',
-  SERVICE_COMPLETED: 'Service Completed',
+  SERVICE_COMPLETED: 'Service is completed',
   OUT_FOR_DELIVERY: 'Out for Delivery',
   DELIVERED: 'Delivered',
   COMPLETED: 'Completed',

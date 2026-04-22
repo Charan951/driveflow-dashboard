@@ -15,14 +15,28 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/',
     server: {
-      host: "::",
+      host: "localhost",
       port: 8080,
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       },
       proxy: {
-        '/uploads': env.VITE_API_URL || 'http://localhost:5000',
-        '/api': env.VITE_API_URL || 'http://localhost:5000'
+        '/uploads': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/api': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/socket.io': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          ws: true,
+          changeOrigin: true,
+          secure: false,
+        }
       },
       hmr: {
         overlay: false,

@@ -41,10 +41,16 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
 
   void _onSocketUpdate() {
     final event = _socketService.value;
-    if (event == 'booking_created' ||
-        event == 'booking_updated' ||
-        event == 'booking_cancelled' ||
-        event == 'user_status_update') {
+    if (event == null) return;
+
+    if (event.startsWith('booking_created') ||
+        event.startsWith('booking_updated') ||
+        event.startsWith('booking_cancelled') ||
+        event.startsWith('notification') ||
+        event.startsWith('user_status_update') ||
+        event.contains('sync:booking') ||
+        event.contains('sync:approval') ||
+        event.contains('sync:payment')) {
       // If we're already loading, skip
       if (_isLoading) return;
       _init(); // Refresh data on socket event
@@ -216,9 +222,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
               const SizedBox(height: 32),
               Text(
                 'Quick Actions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               _buildActionCard(

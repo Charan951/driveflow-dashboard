@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppStorage {
@@ -13,9 +14,7 @@ class AppStorage {
       encryptedSharedPreferences: true,
       resetOnError: true,
     ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock,
-    ),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
   Future<void> setToken(String token) async {
@@ -41,5 +40,26 @@ class AppStorage {
   Future<void> clearUser() async {
     await _storage.delete(key: _userKey);
   }
-}
 
+  Future<String?> getUserId() async {
+    final userJson = await getUserJson();
+    if (userJson == null) return null;
+    try {
+      final user = jsonDecode(userJson);
+      return (user['_id'] ?? user['id'])?.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<String?> getUserRole() async {
+    final userJson = await getUserJson();
+    if (userJson == null) return null;
+    try {
+      final user = jsonDecode(userJson);
+      return user['role']?.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+}

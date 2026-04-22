@@ -895,6 +895,8 @@ const StaffOrderPage: React.FC = () => {
         <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
           <h3 className="font-medium text-sm sm:text-base">Order Actions</h3>
 
+
+
           <div className="space-y-3">
             {isWaitingForPayment && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-start gap-2">
@@ -963,10 +965,14 @@ const StaffOrderPage: React.FC = () => {
                   return 'Upload Photos';
                 } else {
                   if (isPrePickupPhase) {
+                    const prePickupLabels = ['Front', 'Right', 'Back', 'Left'];
+                    const photoCount = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos.length : 0;
+                    const currentLabel = photoCount < 4 ? prePickupLabels[photoCount] : 'Upload Photos';
+                    
                     return isUploadingPrePickup ? 'Uploading...' : (
                       <>
-                        <span className="hidden sm:inline">Upload Vehicle Photos</span>
-                        <span className="sm:hidden">Upload</span>
+                        <span className="hidden sm:inline">{photoCount < 4 ? `Upload ${currentLabel} Photo` : 'Upload Photos'}</span>
+                        <span className="sm:hidden">{currentLabel}</span>
                       </>
                     );
                   }

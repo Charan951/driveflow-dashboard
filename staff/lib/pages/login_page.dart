@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/socket_service.dart';
 
 class StaffLoginPage extends StatefulWidget {
   const StaffLoginPage({super.key});
@@ -56,6 +57,10 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
     try {
       final user = await _authService.login(email: email, password: password);
       if (!mounted) return;
+
+      // Re-initialize socket with the new token after login
+      await SocketService().reconnect();
+
       if (user.role == 'merchant') {
         Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
       } else {

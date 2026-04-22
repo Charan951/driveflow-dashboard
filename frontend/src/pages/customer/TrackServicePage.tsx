@@ -38,6 +38,7 @@ import { getETA, ETAResponse } from '@/services/trackingService';
 import { routingService } from '@/services/routingService';
 import { SmoothMarker } from '@/components/SmoothMarker';
 import * as turf from '@turf/turf';
+import { Vehicle } from '@/services/vehicleService';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -1395,7 +1396,8 @@ const TrackServicePage: React.FC = () => {
         </motion.div>
       )}
 
-      {(order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY' || (order.status === 'CAR_WASH_COMPLETED' && order.deliveryOtp?.code) || (order.status === 'DELIVERY' && order.deliveryOtp?.code)) && !deliveryConfirmed && (
+      {((order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') || 
+        (order.deliveryOtp?.code && ['CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'DELIVERY', 'INSTALLATION', 'SERVICE_STARTED'].includes(order.status))) && !deliveryConfirmed && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1403,16 +1405,23 @@ const TrackServicePage: React.FC = () => {
           className="bg-card rounded-2xl border border-border p-6 text-center"
         >
           <h2 className="text-xl font-bold text-foreground mb-2">
-            {isCarWashService ? 'Car Wash Completed' : 'Vehicle Ready'}
+            {isCarWashService 
+              ? (order.status === 'CAR_WASH_STARTED' ? 'Car Wash in Progress' : 'Car Wash Completed')
+              : (order.status === 'SERVICE_COMPLETED' ? 'Payment awaiting to dispatch vehicle' : 
+                 order.status === 'SERVICE_STARTED' ? 'Service in Progress' :
+                 order.status === 'INSTALLATION' ? 'Installation in Progress' : 'Vehicle Ready')
+            }
           </h2>
           <p className="text-muted-foreground mb-3">
             {isCarWashService 
-              ? 'Your car wash service is completed and ready for confirmation.' 
-              : 'Your vehicle is ready for pickup/delivery.'
+              ? (order.status === 'CAR_WASH_STARTED' ? 'Your car wash service is in progress.' : 'Your car wash service is completed and ready for confirmation.')
+              : (order.status === 'SERVICE_COMPLETED' ? 'Please complete the payment to proceed with vehicle dispatch.' : 
+                 order.status === 'SERVICE_STARTED' ? 'Your service is in progress.' :
+                 order.status === 'INSTALLATION' ? 'Your installation is in progress.' : 'Your vehicle is ready for pickup/delivery.')
             }
           </p>
           
-          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY') && (
+          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY' || order.status === 'CAR_WASH_STARTED' || order.status === 'SERVICE_STARTED' || order.status === 'INSTALLATION') && (
             <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-primary/80">
                 {isCarWashService ? 'Completion OTP' : 'Delivery OTP'}

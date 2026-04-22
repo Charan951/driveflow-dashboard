@@ -3,9 +3,9 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("com.google.gms.google-services") // Google Services plugin
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services") // Apply Google Services plugin last
 }
 
 android {
@@ -26,8 +26,8 @@ android {
     defaultConfig {
         applicationId = "com.speshway.app"
         // Initial Play Store Release: 1.0.0 (Build 1)
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 23
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

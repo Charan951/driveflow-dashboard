@@ -140,9 +140,9 @@ export const updateUserLocation = async (req, res) => {
     if (user) {
       // Preserve existing location data if not provided
       user.location = {
-        ...user.location, // Spread existing
-        lat: lat || user.location?.lat,
-        lng: lng || user.location?.lng,
+        ...user.location,
+        lat: typeof lat === 'number' ? lat : user.location?.lat,
+        lng: typeof lng === 'number' ? lng : user.location?.lng,
         address: address || user.location?.address,
         updatedAt: Date.now()
       };

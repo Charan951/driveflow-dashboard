@@ -28,6 +28,13 @@ export interface Vehicle {
         expiryDate: string;
         status: string;
     };
+    healthIndicators?: {
+        generalService?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+        brakePads?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+        tires?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+        battery?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+        wiperBlade?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+    };
 }
 
 export const vehicleService = {
@@ -65,6 +72,10 @@ export const vehicleService = {
     },
     getVehicleRCDetails: async (vehicleNumber: string) => {
         const response = await api.post('/vehicles/rc-details', { vehicle_number: vehicleNumber });
+        return response.data;
+    },
+    updateVehicleHealth: async (id: string, healthIndicators: Record<string, any>) => {
+        const response = await api.put(`/vehicles/${id}/health`, { healthIndicators });
         return response.data;
     },
 };

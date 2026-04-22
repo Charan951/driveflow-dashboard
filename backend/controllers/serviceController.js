@@ -1,4 +1,5 @@
 import Service from '../models/Service.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Get all services
 // @route   GET /api/services
@@ -72,6 +73,10 @@ export const createService = async (req, res) => {
     });
 
     const createdService = await service.save();
+    
+    // Global Real-time Sync
+    emitEntitySync('service', 'created', createdService);
+    
     res.status(201).json(createdService);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -124,6 +129,10 @@ export const updateService = async (req, res) => {
       }
 
       const updatedService = await service.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('service', 'updated', updatedService);
+      
       res.json(updatedService);
     } else {
       res.status(404).json({ message: 'Service not found' });
@@ -141,7 +150,12 @@ export const deleteService = async (req, res) => {
     const service = await Service.findById(req.params.id);
 
     if (service) {
+      const serviceId = service._id;
       await service.deleteOne();
+      
+      // Global Real-time Sync
+      emitEntitySync('service', 'deleted', { _id: serviceId });
+      
       res.json({ message: 'Service removed' });
     } else {
       res.status(404).json({ message: 'Service not found' });

@@ -165,7 +165,7 @@ const AdminHeroImagesPage = () => {
     <div className="max-w-6xl mx-auto p-4 lg:p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Hero Image Management</h1>
+          <h1 className="text-3xl font-bold text-foreground">Edit website</h1>
           <p className="text-muted-foreground mt-1">Manage slides and hero banners across your application</p>
         </div>
         <button

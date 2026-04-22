@@ -12,13 +12,16 @@ class SocketService extends ValueNotifier<String?> {
 
   io.Socket? _socket;
   bool _isConnected = false;
+  String? _currentBookingRoom;
 
   bool get isConnected => _isConnected;
 
   Future<void> init() async {
-    if (_socket != null) return;
-
     final token = await AppStorage().getToken();
+
+    if (_socket != null) {
+      return;
+    }
 
     // Create socket instance
     _socket = io.io(
@@ -31,8 +34,24 @@ class SocketService extends ValueNotifier<String?> {
           .build(),
     );
 
-    _socket!.onConnect((_) {
+    _socket!.onConnect((_) async {
       _isConnected = true;
+
+      // Join mandatory rooms
+      final userId = await AppStorage().getUserId();
+      final role = await AppStorage().getUserRole();
+
+      if (userId != null) {
+        joinRoom('user_$userId');
+      }
+      if (role != null) {
+        joinRoom(role.toLowerCase());
+      }
+
+      if (_currentBookingRoom != null) {
+        joinRoom(_currentBookingRoom!);
+      }
+
       notifyListeners();
     });
 
@@ -60,7 +79,7 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('bookingUpdated', (data) {
-      value = 'booking_updated';
+      value = 'booking_updated:${DateTime.now().millisecondsSinceEpoch}';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -81,7 +100,7 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('bookingCreated', (data) {
-      value = 'booking_created';
+      value = 'booking_created:${DateTime.now().millisecondsSinceEpoch}';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -101,7 +120,7 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('bookingCancelled', (data) {
-      value = 'booking_cancelled';
+      value = 'booking_cancelled:${DateTime.now().millisecondsSinceEpoch}';
       if (data != null && data is Map) {
         final bookingId = (data['_id'] ?? '').toString();
         final orderNum =
@@ -121,7 +140,7 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('notification', (data) {
-      value = 'notification';
+      value = 'notification:${DateTime.now().millisecondsSinceEpoch}';
       if (data != null && data is Map) {
         NotificationService().showLocalNotification(
           title: (data['title'] ?? 'Notification').toString(),
@@ -137,18 +156,45 @@ class SocketService extends ValueNotifier<String?> {
     });
 
     _socket!.on('userStatusUpdate', (data) {
-      value = 'user_status_update';
+      value = 'user_status_update:${DateTime.now().millisecondsSinceEpoch}';
       notifyListeners();
     });
 
     _socket!.on('ticketUpdated', (data) {
-      value = 'ticket_updated';
+      value = 'ticket_updated:${DateTime.now().millisecondsSinceEpoch}';
       NotificationService().showLocalNotification(
         title: 'Support Ticket Updated',
         body: 'A support ticket has been updated.',
         payload: jsonEncode({'type': 'support'}),
       );
       notifyListeners();
+    });
+
+    _socket!.on('receiveMessage', (data) {
+      value = 'receive_message:${jsonEncode(data)}';
+      notifyListeners();
+    });
+
+    _socket!.on('loadMessages', (data) {
+      value = 'load_messages:${jsonEncode(data)}';
+      notifyListeners();
+    });
+
+    _socket!.on('global:sync', (data) {
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final entity = (mapData['entity'] ?? '').toString();
+          final action = (mapData['action'] ?? '').toString();
+
+          // Update the value to notify listeners of a specific entity sync
+          value =
+              'sync:$entity:$action:${DateTime.now().millisecondsSinceEpoch}';
+          notifyListeners();
+        } catch (e) {
+          // Ignore
+        }
+      }
     });
   }
 
@@ -170,10 +216,16 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   void joinRoom(String room) {
+    if (room.startsWith('booking_')) {
+      _currentBookingRoom = room;
+    }
     emit('join', room);
   }
 
   void leaveRoom(String room) {
+    if (_currentBookingRoom == room) {
+      _currentBookingRoom = null;
+    }
     emit('leave', room);
   }
 

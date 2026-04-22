@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Camera, Save, Plus, Trash2, CreditCard, Home, Car } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, updateUser } = useAuthStore();
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -349,10 +351,7 @@ const ProfilePage: React.FC = () => {
                   id={v._id} 
                   {...v} 
                   compact 
-                  onClick={() => {
-                    setSelectedVehicleForDetail(v);
-                    setIsDetailModalOpen(true);
-                  }} 
+                  onClick={() => navigate(`/vehicles/${v._id}`)} 
                 />
               ))
           ) : (

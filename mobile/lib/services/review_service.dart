@@ -4,23 +4,17 @@ class ReviewService {
   final ApiClient _api = ApiClient();
 
   Future<List<Map<String, dynamic>>> getBookingReviews(String bookingId) async {
-    final res = await _api.getAny('/reviews/all');
+    final res = await _api.getAny('/reviews/booking/$bookingId');
     if (res is List) {
-      final items = <Map<String, dynamic>>[];
-      for (final e in res) {
-        if (e is Map) {
-          final map = e is Map<String, dynamic>
-              ? e
-              : Map<String, dynamic>.from(e);
-          final bId = map['booking'];
-          if (bId is String && bId == bookingId) {
-            items.add(map);
-          } else if (bId is Map && bId['_id'] == bookingId) {
-            items.add(map);
-          }
-        }
-      }
-      return items;
+      return res.map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getMyReviews() async {
+    final res = await _api.getAny('/reviews/myreviews');
+    if (res is List) {
+      return res.map((e) => Map<String, dynamic>.from(e)).toList();
     }
     return [];
   }

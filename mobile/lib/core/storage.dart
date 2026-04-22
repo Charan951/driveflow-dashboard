@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppStorage {
@@ -93,6 +94,28 @@ class AppStorage {
       await _storage.delete(key: _userKey);
     } catch (e) {
       // Silent catch
+    }
+  }
+
+  Future<String?> getUserId() async {
+    final userJson = await getUserJson();
+    if (userJson == null) return null;
+    try {
+      final user = jsonDecode(userJson);
+      return (user['_id'] ?? user['id'])?.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<String?> getUserRole() async {
+    final userJson = await getUserJson();
+    if (userJson == null) return null;
+    try {
+      final user = jsonDecode(userJson);
+      return user['role']?.toString();
+    } catch (e) {
+      return null;
     }
   }
 

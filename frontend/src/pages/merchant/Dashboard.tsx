@@ -51,17 +51,31 @@ const Dashboard: React.FC = () => {
 
     // Socket Setup
     socketService.connect();
-    socketService.on('bookingUpdated', () => {
-       fetchData();
-    });
+    const bookingUpdatedHandler = () => {
+      fetchData();
+    };
 
-    socketService.on('bookingCreated', () => {
-       fetchData();
-    });
+    const bookingCreatedHandler = () => {
+      fetchData();
+    };
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'booking' && action) {
+        fetchData();
+      }
+    };
+
+    socketService.on('bookingUpdated', bookingUpdatedHandler);
+    socketService.on('bookingCreated', bookingCreatedHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
-        socketService.off('bookingUpdated');
-        socketService.off('bookingCreated');
+        socketService.off('bookingUpdated', bookingUpdatedHandler);
+        socketService.off('bookingCreated', bookingCreatedHandler);
+        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 

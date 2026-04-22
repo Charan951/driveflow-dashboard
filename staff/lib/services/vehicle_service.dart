@@ -8,6 +8,7 @@ class Vehicle {
   final String? year;
   final String? color;
   final String? ownerName;
+  final Map<String, dynamic>? healthIndicators;
 
   Vehicle({
     required this.id,
@@ -17,6 +18,7 @@ class Vehicle {
     this.year,
     this.color,
     this.ownerName,
+    this.healthIndicators,
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,9 @@ class Vehicle {
       year: json['year']?.toString(),
       color: json['color']?.toString(),
       ownerName: json['user'] is Map ? json['user']['name'] : null,
+      healthIndicators: json['healthIndicators'] is Map
+          ? Map<String, dynamic>.from(json['healthIndicators'])
+          : null,
     );
   }
 }

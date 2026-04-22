@@ -1,8 +1,9 @@
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
-import { getIO } from '../socket.js';
+import { getIO, emitChatMessage } from '../socket.js';
 import { emitBookingUpdate } from './bookingController.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 import { sendPushToUser } from '../utils/pushService.js';
 
@@ -90,7 +91,7 @@ export const createApproval = async (req, res) => {
 
     // Notify customer
     if (relatedModel === 'Booking') {
-      const booking = await Booking.findById(relatedId).populate('user');
+      const booking = await Booking.findById(relatedId).populate('user merchant');
       if (booking && booking.user) {
         const io = getIO();
         const userId = booking.user._id.toString();
@@ -99,6 +100,25 @@ export const createApproval = async (req, res) => {
         io.to(`user_${userId}`).emit('newApproval', createdApproval);
         // Also emit to booking room if anyone is watching
         io.to(`booking_${relatedId}`).emit('newApproval', createdApproval);
+        // Also emit to admin and merchant rooms
+        io.to('admin').emit('newApproval', createdApproval);
+        if (booking.merchant) {
+          const merchantId = booking.merchant._id.toString();
+          io.to(`user_${merchantId}`).emit('newApproval', createdApproval);
+          io.to('merchant').emit('newApproval', createdApproval);
+        }
+
+        // Also emit bookingUpdated to trigger a full refresh on clients
+        const fullBooking = await Booking.findById(relatedId)
+          .populate('user', 'id name email phone')
+          .populate('vehicle')
+          .populate('services')
+          .populate('merchant', 'name email phone location')
+          .populate('pickupDriver', 'name email phone')
+          .populate('technician', 'name email phone');
+        if (fullBooking) {
+            emitBookingUpdate(fullBooking);
+        }
 
         // Create a chat message for this approval
         const chatMessage = new Message({
@@ -106,6 +126,7 @@ export const createApproval = async (req, res) => {
           sender: req.user._id,
           text: `Approval required for part: ${data.name || 'Unnamed Additional Part'} - Amount: ₹${Number(data.price) * Number(data.quantity || 1)}`,
           type: 'approval',
+          recipientRole: 'all', // Explicitly set to all so it reflects everywhere
           approval: {
             partName: data.name || 'Unnamed Additional Part',
             amount: Number(data.price) * Number(data.quantity || 1),
@@ -116,7 +137,7 @@ export const createApproval = async (req, res) => {
         });
         await chatMessage.save();
         const populatedChatMessage = await chatMessage.populate('sender', '_id name role');
-        io.to(`booking_${relatedId}`).emit('receiveMessage', populatedChatMessage);
+        emitChatMessage(relatedId, populatedChatMessage);
 
         // Send push notification
         const orderNum = booking.orderNumber || relatedId.toString().slice(-6).toUpperCase();
@@ -138,6 +159,9 @@ export const createApproval = async (req, res) => {
           },
           'order'
         );
+        
+        // Global Real-time Sync
+        emitEntitySync('approval', 'created', createdApproval);
       }
     }
 
@@ -198,9 +222,8 @@ export const updateApprovalStatus = async (req, res) => {
         if (chatMessage) {
             chatMessage.approval.status = status.toLowerCase();
             await chatMessage.save();
-            const io = getIO();
             const populated = await chatMessage.populate('sender', '_id name role');
-            io.to(`booking_${approval.relatedId}`).emit('receiveMessage', populated.toObject());
+            emitChatMessage(approval.relatedId, populated);
         }
     } catch (err) {
         console.error('Error updating chat message for approval:', err);
@@ -388,6 +411,10 @@ export const updateApprovalStatus = async (req, res) => {
     }
 
     const updatedApproval = await approval.save();
+    
+    // Global Real-time Sync
+    emitEntitySync('approval', 'updated', updatedApproval);
+    
     res.json(updatedApproval);
   } catch (error) {
     res.status(500).json({ message: error.message });

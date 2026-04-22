@@ -217,13 +217,15 @@ const SocketNotificationListener = () => {
         queryClient.setQueryData(['tracking'], (prev: any) => {
           if (!prev) return prev;
           
+          const timestamp = data.timestamp || data.updatedAt;
+
           // Logic similar to AdminTrackingPage but simplified for global sync
           const newStaff = (prev.staff || []).map((s: any) => {
             if (s._id === data.userId) {
               return { 
                 ...s, 
                 isOnline: true,
-                location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+                location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: timestamp } 
               };
             }
             return s;
@@ -233,7 +235,7 @@ const SocketNotificationListener = () => {
             if (v._id === data.vehicleId || (v.user?._id === data.userId)) {
               return { 
                 ...v, 
-                location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+                location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: timestamp } 
               };
             }
             return v;
@@ -241,6 +243,37 @@ const SocketNotificationListener = () => {
 
           return { ...prev, staff: newStaff, vehicles: newVehicles, timestamp: new Date().toISOString() };
         });
+      }
+    };
+
+    const handleGlobalSync = (data: any) => {
+      if (!data) return;
+      const entityRaw = (data as any).entity;
+      const actionRaw = (data as any).action;
+      const entity = typeof entityRaw === 'string' ? entityRaw.toLowerCase() : '';
+      const action = typeof actionRaw === 'string' ? actionRaw.toLowerCase() : '';
+
+      if (!entity || !action) return;
+
+      if (entity === 'booking') {
+        queryClient.invalidateQueries({ queryKey: ['bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      } else if (entity === 'ticket') {
+        queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      } else if (entity === 'vehicle') {
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+        queryClient.invalidateQueries({ queryKey: ['tracking'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      } else if (entity === 'user') {
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      } else if (entity === 'approval') {
+        queryClient.invalidateQueries({ queryKey: ['approvals'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      } else if (entity === 'payment') {
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
     };
 
@@ -254,6 +287,7 @@ const SocketNotificationListener = () => {
     socketService.on('vehicleCreated', handleVehicleCreated);
     socketService.on('vehicleDeleted', handleVehicleDeleted);
     socketService.on('liveLocation', handleLiveLocation);
+    socketService.on('global:sync', handleGlobalSync);
 
     return () => {
       socketService.off('connect');
@@ -267,6 +301,7 @@ const SocketNotificationListener = () => {
       socketService.off('vehicleCreated', handleVehicleCreated);
       socketService.off('vehicleDeleted', handleVehicleDeleted);
       socketService.off('liveLocation', handleLiveLocation);
+      socketService.off('global:sync', handleGlobalSync);
     };
   }, [queryClient, user, userRole, navigate, addNotification, updateUser]);
 

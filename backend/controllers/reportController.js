@@ -4,6 +4,7 @@ import Vehicle from '../models/Vehicle.js';
 import Service from '../models/Service.js';
 import Product from '../models/Product.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
+import Ticket from '../models/Ticket.js';
 
 // @desc    Get dashboard summary stats
 // @route   GET /api/reports/dashboard
@@ -26,12 +27,13 @@ export const getDashboardStats = async (req, res) => {
       waitingDelivery,
       pendingBills,
       pendingApprovals,
+      openTickets,
     ] = await Promise.all([
       User.countDocuments({ role: 'customer' }),
       Vehicle.countDocuments(),
       Booking.countDocuments(),
       Booking.countDocuments({ createdAt: { $gte: today } }),
-      Booking.countDocuments({ status: 'Pending' }),
+      Booking.countDocuments({ status: { $in: ['CREATED', 'ASSIGNED', 'Pending'] } }),
       Booking.aggregate([
         { $match: { paymentStatus: 'paid', createdAt: { $gte: today } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
@@ -42,6 +44,7 @@ export const getDashboardStats = async (req, res) => {
       Booking.countDocuments({ status: 'SERVICE_COMPLETED' }),
       Booking.countDocuments({ paymentStatus: 'pending', status: { $ne: 'CANCELLED' } }),
       ApprovalRequest.countDocuments({ status: 'Pending', type: { $ne: 'UserRegistration' } }),
+      Ticket.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
     ]);
 
     res.json({
@@ -57,6 +60,7 @@ export const getDashboardStats = async (req, res) => {
       waitingDelivery,
       pendingBills,
       pendingApprovals,
+      openTickets,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

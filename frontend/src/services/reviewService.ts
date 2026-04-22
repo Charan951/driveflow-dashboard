@@ -12,10 +12,11 @@ export interface Review {
     _id: string;
     name: string;
   };
-  target: {
+  target?: {
     _id: string;
     name: string;
   };
+  booking?: string | { _id: string }; // Add booking property
 }
 
 export interface ReviewData {
@@ -59,6 +60,11 @@ export const reviewService = {
 
   getBookingReviews: async (bookingId: string): Promise<Review[]> => {
     const response = await api.get(`/reviews/booking/${bookingId}`);
+    return response.data;
+  },
+
+  getMyReviews: async (): Promise<Review[]> => {
+    const response = await api.get('/reviews/my');
     return response.data;
   },
 };

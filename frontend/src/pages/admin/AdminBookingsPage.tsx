@@ -47,25 +47,41 @@ const AdminBookingsPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    socketService.on('bookingUpdated', (updatedBooking: Booking) => {
-       setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
-    });
+    const bookingUpdatedHandler = (updatedBooking: Booking) => {
+      setBookings(prev => prev.map(b => b._id === updatedBooking._id ? updatedBooking : b));
+    };
 
-    socketService.on('bookingCreated', (newBooking: Booking) => {
-       setBookings(prev => [newBooking, ...prev]);
-       toast.success('New Booking Received!', {
-         description: `Order #${newBooking.orderNumber} has been created.`,
-         action: {
-           label: 'View',
-           onClick: () => navigate(`/admin/bookings/${newBooking._id}`)
-         }
-       });
-    });
+    const bookingCreatedHandler = (newBooking: Booking) => {
+      setBookings(prev => [newBooking, ...prev]);
+      toast.success('New Booking Received!', {
+        description: `Order #${newBooking.orderNumber} has been created.`,
+        action: {
+          label: 'View',
+          onClick: () => navigate(`/admin/bookings/${newBooking._id}`)
+        }
+      });
+    };
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'booking') {
+        if (action === 'created' || action === 'updated' || action === 'deleted' || action === 'cancelled') {
+          fetchBookings();
+        }
+      }
+    };
+
+    socketService.on('bookingUpdated', bookingUpdatedHandler);
+    socketService.on('bookingCreated', bookingCreatedHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.leaveRoom('admin');
-        socketService.off('bookingUpdated');
-        socketService.off('bookingCreated');
+        socketService.off('bookingUpdated', bookingUpdatedHandler);
+        socketService.off('bookingCreated', bookingCreatedHandler);
+        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -129,7 +145,7 @@ const AdminBookingsPage: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      'CREATED': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'CREATED': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
       'ASSIGNED': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       'ACCEPTED': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
       'REACHED_CUSTOMER': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
@@ -220,7 +236,11 @@ const AdminBookingsPage: React.FC = () => {
                   {filteredBookings.map((booking) => (
                     <tr 
                       key={booking._id} 
-                      className="hover:bg-muted/30 transition-colors cursor-pointer"
+                      className={`${
+                        booking.status === 'CREATED' 
+                          ? 'bg-red-50/50 hover:bg-red-100/50 dark:bg-red-950/10 dark:hover:bg-red-900/20' 
+                          : 'hover:bg-muted/30'
+                      } transition-colors cursor-pointer`}
                       onClick={() => navigate(`/admin/bookings/${booking._id}`)}
                     >
                       <td className="p-3">
@@ -317,7 +337,11 @@ const AdminBookingsPage: React.FC = () => {
             {filteredBookings.map((booking) => (
               <div 
                 key={booking._id} 
-                className="bg-card p-4 rounded-xl border border-border shadow-sm active:scale-[0.98] transition-all"
+                className={`${
+                  booking.status === 'CREATED' 
+                    ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' 
+                    : 'bg-card border-border'
+                } p-4 rounded-xl border shadow-sm active:scale-[0.98] transition-all`}
                 onClick={() => navigate(`/admin/bookings/${booking._id}`)}
               >
                 <div className="flex justify-between items-start mb-3">

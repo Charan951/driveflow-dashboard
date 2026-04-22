@@ -4,6 +4,7 @@ import {
   getAllReviews,
   getTargetReviews,
   getBookingReviews,
+  getMyReviews,
   deleteReview,
   getPublicReviews,
   updateReviewStatus,
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.get('/public', getPublicReviews);
 router.post('/', protect, createReview);
+router.get('/myreviews', protect, getMyReviews);
 router.get('/all', protect, admin, getAllReviews);
 router.get('/booking/:bookingId', protect, getBookingReviews);
 router.get('/target/:targetId', protect, getTargetReviews);

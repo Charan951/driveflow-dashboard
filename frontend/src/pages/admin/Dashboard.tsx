@@ -23,6 +23,9 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
     todaysBookings: 0,
     revenueToday: 0,
+    openTickets: 0,
+    pendingBills: 0,
+    pendingBookings: 0,
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,10 +49,22 @@ const AdminDashboard: React.FC = () => {
       fetchData();
     };
 
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'booking' || entity === 'ticket') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchData();
+        }
+      }
+    };
+
     socketService.on('bookingUpdated', refreshHandler);
     socketService.on('bookingCreated', newBookingHandler);
     socketService.on('ticketUpdated', refreshHandler);
     socketService.on('ticketCreated', refreshHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.leaveRoom('admin');
@@ -57,6 +72,7 @@ const AdminDashboard: React.FC = () => {
         socketService.off('bookingCreated', newBookingHandler);
         socketService.off('ticketUpdated', refreshHandler);
         socketService.off('ticketCreated', refreshHandler);
+        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -70,6 +86,9 @@ const AdminDashboard: React.FC = () => {
       setStats({
         todaysBookings: dashboardStats.todaysBookings || 0,
         revenueToday: dashboardStats.revenueToday || 0,
+        openTickets: dashboardStats.openTickets || 0,
+        pendingBills: dashboardStats.pendingBills || 0,
+        pendingBookings: dashboardStats.pendingBookings || 0,
       });
 
       // Get latest 5 bookings
@@ -101,6 +120,7 @@ const AdminDashboard: React.FC = () => {
       lightColor: 'bg-blue-50',
       textColor: 'text-blue-600',
       path: '/admin/payments',
+      count: stats.pendingBills,
     },
     {
       title: 'Pending Bookings',
@@ -110,6 +130,7 @@ const AdminDashboard: React.FC = () => {
       lightColor: 'bg-purple-50',
       textColor: 'text-purple-600',
       path: '/admin/bookings?status=CREATED',
+      count: stats.pendingBookings,
     },
     {
       title: 'Live Tracking',
@@ -146,6 +167,7 @@ const AdminDashboard: React.FC = () => {
       lightColor: 'bg-rose-50',
       textColor: 'text-rose-600',
       path: '/admin/support',
+      count: stats.openTickets,
     },
   ];
 
@@ -200,8 +222,13 @@ const AdminDashboard: React.FC = () => {
               onClick={() => navigate(action.path)}
               className="bg-card border border-border rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md transition-all group overflow-hidden relative flex flex-col items-center text-center"
             >
-              <div className={`w-12 h-12 rounded-2xl ${action.color} text-white flex items-center justify-center mb-3 shadow-lg group-hover:rotate-6 transition-transform duration-300`}>
+              <div className={`w-12 h-12 rounded-2xl ${action.color} text-white flex items-center justify-center mb-3 shadow-lg group-hover:rotate-6 transition-transform duration-300 relative`}>
                 {action.icon}
+                {action.count !== undefined && action.count > 0 && (
+                  <span className={`absolute -top-2 -right-2 bg-white ${action.textColor || 'text-rose-600'} text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-border animate-in zoom-in duration-300`}>
+                    {action.count}
+                  </span>
+                )}
               </div>
               
               <h3 className="font-bold text-xs sm:text-sm text-foreground">
@@ -233,7 +260,11 @@ const AdminDashboard: React.FC = () => {
                 key={booking._id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card p-4 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                className={`${
+                  booking.status === 'CREATED' 
+                    ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' 
+                    : 'bg-card border-border'
+                } p-4 rounded-xl border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer`}
                 onClick={() => navigate(`/admin/bookings/${booking._id}`)}
               >
                 <div className="flex items-center gap-4">
@@ -244,7 +275,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="font-semibold flex items-center gap-2">
                       <span>Order #{booking.orderNumber || 'N/A'}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                        booking.status === 'CREATED' ? 'bg-blue-100 text-blue-700' :
+                        booking.status === 'CREATED' ? 'bg-red-100 text-red-700' :
                         booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                         'bg-green-100 text-green-700'
                       }`}>

@@ -41,6 +41,7 @@ import StatusControlPanel from '../../components/merchant/StatusControlPanel';
 import InspectionPanel from '../../components/merchant/InspectionPanel';
 import WarrantyPanel from '../../components/merchant/WarrantyPanel';
 import QCPanel from '../../components/merchant/QCPanel';
+import VehicleHealthPanel from '../../components/merchant/VehicleHealthPanel';
 import BillUploadPanel from '../../components/merchant/BillUploadPanel';
 import MediaUploadPanel from '../../components/merchant/MediaUploadPanel';
 
@@ -84,17 +85,41 @@ const OrderDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isInitialTabSet, setIsInitialTabSet] = useState(false);
 
-  const fetchBooking = useCallback(async () => {
+  const fetchBooking = useCallback(async (sourceTab?: string) => {
     if (!id) return;
     try {
       const data = await bookingService.getBookingById(id);
+      
+      // If payment is completed, go back to home page for merchant
+      if (data.paymentStatus === 'paid' && 
+          ['SERVICE_COMPLETED', 'CAR_WASH_COMPLETED', 'COMPLETED', 'DELIVERED'].includes(data.status)) {
+        toast.success('Payment completed. Returning to home page.');
+        navigate('/');
+        return;
+      }
+
       const previousQCStatus = booking?.qc?.completedAt;
       const newQCStatus = data.qc?.completedAt;
       
+      const previousStatus = booking?.status;
+      const newStatus = data.status;
+      
       setBooking(data);
       
+      // Auto-switch to Inspection tab when status changes to SERVICE_STARTED (only for non-battery/tire services)
+      if (previousStatus !== 'SERVICE_STARTED' && newStatus === 'SERVICE_STARTED' && !data.batteryTire?.isBatteryTireService) {
+        setActiveTab('inspection');
+      }
+      // Auto-switch to Service tab when Inspection is completed
+      else if (data.inspection?.completedAt && activeTab !== 'service' && activeTab !== 'qc') {
+        setActiveTab('service');
+      }
+      // Auto-switch to QC tab when Service data is saved
+      else if (sourceTab === 'service') {
+        setActiveTab('qc');
+      }
       // Auto-switch to Billing tab when QC is completed (only for non-battery/tire services)
-      if (!previousQCStatus && newQCStatus && !data.batteryTire?.isBatteryTireService) {
+      else if (!previousQCStatus && newQCStatus && !data.batteryTire?.isBatteryTireService) {
         setActiveTab('billing');
       }
       
@@ -119,7 +144,7 @@ const OrderDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, booking?.qc?.completedAt, isInitialTabSet]);
+  }, [id, navigate, booking?.qc?.completedAt, booking?.status, isInitialTabSet]);
 
   const handleQCUpdate = useCallback(async () => {
     await fetchBooking();
@@ -215,7 +240,7 @@ const OrderDetail: React.FC = () => {
                 ? 'grid-cols-1' 
                 : (booking.batteryTire?.isBatteryTireService 
                     ? 'grid-cols-2' 
-                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5')
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6')
             }`}>
                 <TabsTrigger 
                     value="overview" 
@@ -257,6 +282,14 @@ const OrderDetail: React.FC = () => {
                             className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             QC Check
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="health"
+                            disabled={!booking.inspection?.completedAt}
+                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
+                        >
+                            Health
                         </TabsTrigger>
                         <TabsTrigger 
                             value="billing"
@@ -486,7 +519,7 @@ const OrderDetail: React.FC = () => {
             {/* Service Tab */}
             {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
                 <TabsContent value="service" className="space-y-6 mt-8">
-                    <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={fetchBooking} />
+                    <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={() => fetchBooking('service')} />
                 </TabsContent>
             )}
 
@@ -494,6 +527,13 @@ const OrderDetail: React.FC = () => {
             {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
                 <TabsContent value="qc" className="space-y-6 mt-8">
                     <QCPanel booking={booking} onUpdate={handleQCUpdate} />
+                </TabsContent>
+            )}
+
+            {/* Health Tab */}
+            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+                <TabsContent value="health" className="mt-8">
+                    <VehicleHealthPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 

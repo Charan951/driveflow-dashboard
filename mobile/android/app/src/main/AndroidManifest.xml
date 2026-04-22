@@ -13,7 +13,7 @@
     <application
         android:label="Carzzi"
         android:name="${applicationName}"
-        android:usesCleartextTraffic="false"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

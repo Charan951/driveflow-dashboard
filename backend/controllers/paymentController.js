@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Payment from '../models/Payment.js';
 import crypto from 'crypto';
 import { emitBookingUpdate } from './bookingController.js';
+import { emitEntitySync } from '../utils/syncService.js';
 import { sendPushToUser } from '../utils/pushService.js';
 import paymentService from '../services/paymentService.js';
 import { logAudit } from './auditController.js';
@@ -239,6 +240,9 @@ export const verifyPayment = async (req, res) => {
       details: { paymentId: razorpay_payment_id, bookingId },
       ipAddress: req.ip
     });
+
+    // Real-time Sync for payment entity
+    emitEntitySync('payment', 'updated', payment);
 
     res.json({
       success: true,

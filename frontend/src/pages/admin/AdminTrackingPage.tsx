@@ -129,36 +129,50 @@ const AdminTrackingPage: React.FC = () => {
        queryClient.setQueryData(['tracking'], (prev: LiveData | undefined) => {
          if (!prev) return prev;
          
+         let found = false;
          const newStaff = prev.staff.map(s => {
            if (s._id === data.userId) {
-             return { 
+             found = true;
+             const updated = { 
                ...s, 
                isOnline: true,
-               location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+               location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } 
              };
+             // Keep selected item in sync
+             if (selectedItem?._id === data.userId) setSelectedItem(updated as any);
+             return updated;
            }
            return s;
          });
 
          const newMerchants = prev.merchants ? prev.merchants.map(m => {
            if (m._id === data.userId) {
-             return { 
+             found = true;
+             const updated = { 
                ...m, 
                isOnline: true,
-               location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } 
+               location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } 
              };
+             if (selectedItem?._id === data.userId) setSelectedItem(updated as any);
+             return updated;
            }
            return m;
          }) : [];
 
          const newVehicles = prev.vehicles.map(v => {
            const userId = typeof v.user === 'object' ? v.user?._id : v.user;
-           if (userId === data.userId) { // Assuming vehicle linked to user
-             return { ...v, location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp } };
+           if (v._id === data.userId || userId === data.userId) {
+             found = true;
+             const updated = { ...v, location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } };
+             if (selectedItem?._id === data.userId || selectedItem?._id === v._id) setSelectedItem(updated as any);
+             return updated;
            }
            return v;
          });
 
+         // If not found in existing list and it's a staff member, we could potentially add it, 
+         // but we'd need the full user object. For now, just ensure existing ones update exactly.
+         
          return { staff: newStaff, vehicles: newVehicles, merchants: newMerchants, timestamp: new Date().toISOString() };
        });
     });
@@ -520,7 +534,7 @@ const AdminTrackingPage: React.FC = () => {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Navigation className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-            Live Operations Panel
+            Mapping
           </h1>
           <p className="hidden sm:block text-xs md:text-sm text-gray-500 dark:text-gray-400">Real-time tracking of staff and vehicles</p>
         </div>

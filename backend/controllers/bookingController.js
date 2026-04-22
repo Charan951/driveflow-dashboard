@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
-import { getIO } from '../socket.js';
+import { getIO, emitChatMessage } from '../socket.js';
+import { emitEntitySync } from '../utils/syncService.js';
 import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
@@ -58,6 +59,9 @@ export const emitBookingUpdate = (booking) => {
       io.to(room).emit('bookingUpdated', booking);
       io.to(room).emit('bookingCreated', booking); // Also emit bookingCreated for compatibility
     });
+
+    // Global Real-time Sync
+    emitEntitySync('booking', booking.status === 'CREATED' ? 'created' : 'updated', booking);
   } catch (err) {
     // Error handling
   }
@@ -333,12 +337,22 @@ export const getMyBookings = async (req, res) => {
   }
 };
 
-// @desc    Get bookings by user ID (Admin)
+// @desc    Get bookings by user ID
 // @route   GET /api/bookings/user/:userId
-// @access  Private/Admin
+// @access  Private
 export const getUserBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ user: req.params.userId })
+    const userId = req.params.userId;
+    
+    // Check authorization: Owner, Admin, Merchant, or Staff
+    const isOwner = userId === req.user._id.toString();
+    const isElevated = ['admin', 'merchant', 'staff'].includes(req.user.role?.toLowerCase());
+    
+    if (!isOwner && !isElevated) {
+      return res.status(403).json({ message: 'Not authorized to view these bookings' });
+    }
+
+    const bookings = await Booking.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('vehicle')
@@ -350,12 +364,26 @@ export const getUserBookings = async (req, res) => {
   }
 };
 
-// @desc    Get bookings by vehicle ID (Admin)
+// @desc    Get bookings by vehicle ID
 // @route   GET /api/bookings/vehicle/:vehicleId
-// @access  Private/Admin
+// @access  Private
 export const getVehicleBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ vehicle: req.params.vehicleId })
+    const vehicleId = req.params.vehicleId;
+    
+    // Check authorization: Admin, Merchant, Staff, or Vehicle Owner
+    const isElevated = ['admin', 'merchant', 'staff'].includes(req.user.role?.toLowerCase());
+    
+    if (!isElevated) {
+      // If not elevated, check if they own the vehicle
+      const Vehicle = (await import('../models/Vehicle.js')).default;
+      const vehicle = await Vehicle.findById(vehicleId);
+      if (!vehicle || vehicle.user.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to view bookings for this vehicle' });
+      }
+    }
+
+    const bookings = await Booking.find({ vehicle: vehicleId })
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('user', 'id name email')
@@ -846,7 +874,7 @@ Thank you for choosing Carzzi 🙌`;
               await greetingMessage.save();
               
               const populatedGreeting = await greetingMessage.populate('sender', '_id name role');
-              getIO().to(`booking_${savedBooking._id.toString()}`).emit('receiveMessage', populatedGreeting.toObject());
+              emitChatMessage(savedBooking._id, populatedGreeting);
             }
 
             // Only send status-specific message if it's the first time entering this status
@@ -872,7 +900,7 @@ Thank you for choosing Carzzi 🙌`;
                 await statusMessage.save();
                 
                 const populatedStatus = await statusMessage.populate('sender', '_id name role');
-                getIO().to(`booking_${savedBooking._id.toString()}`).emit('receiveMessage', populatedStatus.toObject());
+                emitChatMessage(savedBooking._id, populatedStatus);
               }
             }
           }
@@ -1000,7 +1028,7 @@ export const updateMessageApprovalStatus = async (req, res) => {
 
     const populatedMessage = await message.populate('sender', '_id name role');
 
-    getIO().to(`booking_${message.bookingId}`).emit('receiveMessage', populatedMessage);
+    emitChatMessage(message.bookingId, populatedMessage);
 
     res.json(populatedMessage);
   } catch (error) {
@@ -1100,22 +1128,27 @@ export const updateBookingDetails = async (req, res) => {
       if (prePickupPhotos) booking.prePickupPhotos = prePickupPhotos;
       
       if (inspection) {
+        if (!booking.inspection) booking.inspection = {};
         Object.assign(booking.inspection, inspection);
         booking.markModified('inspection');
       }
       if (delay) {
+        if (!booking.delay) booking.delay = {};
         Object.assign(booking.delay, delay);
         booking.markModified('delay');
       }
       if (serviceExecution) {
+        if (!booking.serviceExecution) booking.serviceExecution = {};
         Object.assign(booking.serviceExecution, serviceExecution);
         booking.markModified('serviceExecution');
       }
       if (qc) {
+        if (!booking.qc) booking.qc = {};
         Object.assign(booking.qc, qc);
         booking.markModified('qc');
       }
       if (billing) {
+        if (!booking.billing) booking.billing = {};
         Object.assign(booking.billing, billing);
         if (billing.total) {
           booking.totalAmount = billing.total;
@@ -1128,6 +1161,7 @@ export const updateBookingDetails = async (req, res) => {
         }
       }
       if (revisit) {
+        if (!booking.revisit) booking.revisit = {};
         Object.assign(booking.revisit, revisit);
         booking.markModified('revisit');
       }
@@ -1165,6 +1199,7 @@ export const updateBookingDetails = async (req, res) => {
 
       // Emit socket event for real-time updates
       emitBookingUpdate(populated);
+      emitEntitySync('booking', 'updated', populated);
 
       const bookingIdStr = String(populated._id);
       // Notify customer of significant changes (e.g., billing update)
@@ -1227,6 +1262,7 @@ export const uploadCarWashBeforePhotos = async (req, res) => {
       .populate('carWash.staffAssigned', 'name email phone');
 
     emitBookingUpdate(populated);
+    emitEntitySync('booking', 'updated', populated);
 
     res.json({ message: 'Before wash photos uploaded successfully', booking: populated });
   } catch (error) {
@@ -1333,6 +1369,7 @@ export const uploadCarWashAfterPhotos = async (req, res) => {
       .populate('carWash.staffAssigned', 'name email phone');
 
     emitBookingUpdate(populated);
+    emitEntitySync('booking', 'updated', populated);
 
     res.json({ message: 'After wash photos uploaded successfully', booking: populated });
   } catch (error) {

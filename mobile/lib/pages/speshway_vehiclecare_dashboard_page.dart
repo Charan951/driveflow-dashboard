@@ -14,6 +14,7 @@ import '../services/booking_service.dart';
 import '../services/catalog_service.dart';
 import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
+import '../services/review_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 
@@ -29,6 +30,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   final _catalogService = CatalogService();
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
+  final _reviewService = ReviewService();
 
   bool _loading = false;
   String? _error;
@@ -38,6 +40,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
+  List<Map<String, dynamic>> _reviews = [];
   Booking? _upcomingBookingCached;
   List<Booking> _recentBookings = [];
 
@@ -140,12 +143,14 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _vehicleService.listMyVehicles(),
         _bookingService.listMyBookings(),
         _catalogService.listServices(isQuickService: true),
+        _reviewService.getMyReviews(),
       ]);
 
       if (!mounted) return;
       final vehicles = (results[0] as List<Vehicle>);
       final bookings = (results[1] as List<Booking>);
       final services = (results[2] as List<ServiceItem>);
+      final reviews = (results[3] as List<Map<String, dynamic>>);
 
       final upcoming = _computeUpcomingBooking(bookings);
       final recent = _computeRecentBookings(bookings, upcoming);
@@ -154,6 +159,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _vehicles = vehicles;
         _bookings = bookings;
         _services = services;
+        _reviews = reviews;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;
         _loading = false;
@@ -375,7 +381,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   String _formatDate(BuildContext context, String value) {
     final dt = _parseDate(value);
     if (dt == null) return value;
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    return '${dt.month}/${dt.day}/${dt.year}';
   }
 
   String _formatTime(BuildContext context, String value) {
@@ -393,7 +399,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       case 'ACCEPTED':
         return 'Accepted';
       case 'REACHED_CUSTOMER':
-        return 'Driver Reached';
+        return 'Reached Customer';
       case 'VEHICLE_PICKED':
         return 'Vehicle Picked';
       case 'REACHED_MERCHANT':
@@ -401,20 +407,307 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       case 'VEHICLE_AT_MERCHANT':
         return 'At Garage';
       case 'SERVICE_STARTED':
+      case 'SERVICE_IN_PROGRESS':
         return 'Servicing';
       case 'SERVICE_COMPLETED':
-        return 'Ready';
+        return 'Service is completed.';
       case 'OUT_FOR_DELIVERY':
         return 'Out for Delivery';
       case 'DELIVERED':
-        return 'Delivered';
+        return 'Completed';
       case 'COMPLETED':
-        return 'Delivered';
+        return 'Completed';
       case 'CANCELLED':
         return 'Cancelled';
       default:
         return status;
     }
+  }
+
+  Future<void> _showReviewDialog(
+    BuildContext context,
+    Booking booking, {
+    int initialRating = 5,
+  }) async {
+    final bookingReviews = _reviews.where((r) {
+      final bId = r['booking'];
+      if (bId is String) return bId == booking.id;
+      if (bId is Map) {
+        final bidStr = (bId['_id'] ?? bId['id'])?.toString();
+        return bidStr == booking.id;
+      }
+      return false;
+    }).toList();
+
+    bool hasMerchantReview = bookingReviews.any(
+      (r) => r['category'] == 'Merchant',
+    );
+    bool hasPlatformReview = bookingReviews.any(
+      (r) => r['category'] == 'Platform',
+    );
+    bool isReviewLoading = false;
+
+    int merchantRating = initialRating;
+    int platformRating = initialRating;
+    final merchantCommentController = TextEditingController();
+    final platformCommentController = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final isComplete = hasMerchantReview && hasPlatformReview;
+
+            if (isComplete) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 64,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Feedback Submitted',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Thank you for sharing your experience with us!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Service Feedback',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Booking #${booking.orderNumber ?? booking.id.substring(booking.id.length - 6).toUpperCase()}',
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
+                    if (!hasMerchantReview &&
+                        booking.merchant != null &&
+                        (booking.merchant!['_id'] != null ||
+                            booking.merchant!['id'] != null)) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        'Service Center Rating',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          5,
+                          (i) => IconButton(
+                            onPressed: () =>
+                                setModalState(() => merchantRating = i + 1),
+                            icon: Icon(
+                              i < merchantRating
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TextField(
+                        controller: merchantCommentController,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Share your thoughts about the service...',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    if (!hasPlatformReview) ...[
+                      Text(
+                        'Platform Experience Rating',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          5,
+                          (i) => IconButton(
+                            onPressed: () =>
+                                setModalState(() => platformRating = i + 1),
+                            icon: Icon(
+                              i < platformRating
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TextField(
+                        controller: platformCommentController,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Share your thoughts about our app...',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isReviewLoading
+                            ? null
+                            : () async {
+                                setModalState(() => isReviewLoading = true);
+                                try {
+                                  if (!hasMerchantReview &&
+                                      booking.merchant != null &&
+                                      (booking.merchant!['_id'] != null ||
+                                          booking.merchant!['id'] != null)) {
+                                    await _reviewService.createReview(
+                                      bookingId: booking.id,
+                                      rating: merchantRating,
+                                      comment: merchantCommentController.text
+                                          .trim(),
+                                      category: 'Merchant',
+                                      targetId:
+                                          booking.merchant!['_id'] ??
+                                          booking.merchant!['id'],
+                                    );
+                                  }
+                                  if (!hasPlatformReview) {
+                                    await _reviewService.createReview(
+                                      bookingId: booking.id,
+                                      rating: platformRating,
+                                      comment: platformCommentController.text
+                                          .trim(),
+                                      category: 'Platform',
+                                    );
+                                  }
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Thank you for your feedback!',
+                                        ),
+                                      ),
+                                    );
+                                    _load();
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to submit review: $e',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  setModalState(() => isReviewLoading = false);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: isReviewLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Submit Review',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   String _formatPrice(num value) {
@@ -524,18 +817,51 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final active = source
         .where(
           (b) =>
-              b.status != 'CREATED' &&
               b.status != 'DELIVERED' &&
               b.status != 'CANCELLED' &&
               b.status != 'COMPLETED',
         )
         .toList();
     if (active.isEmpty) return null;
+
+    final inProgressStatuses = [
+      'ASSIGNED',
+      'ACCEPTED',
+      'STAFF_REACHED_MERCHANT',
+      'PICKUP_BATTERY_TIRE',
+      'MERCHANT_INSPECTION',
+      'PENDING_APPROVAL',
+      'SERVICE_STARTED',
+      'CAR_WASH_STARTED',
+      'INSTALLATION',
+      'OUT_FOR_DELIVERY',
+      'VEHICLE_PICKED',
+      'REACHED_MERCHANT',
+      'REACHED_CUSTOMER',
+    ];
+
     active.sort((a, b) {
-      final da = _parseDate(a.date) ?? DateTime(2999);
-      final db = _parseDate(b.date) ?? DateTime(2999);
-      return da.compareTo(db);
+      final aInProgress = inProgressStatuses.contains(a.status);
+      final bInProgress = inProgressStatuses.contains(b.status);
+
+      if (aInProgress && !bInProgress) return -1;
+      if (!aInProgress && bInProgress) return 1;
+
+      final da = _parseDate(a.date) ?? DateTime(1900);
+      final db = _parseDate(b.date) ?? DateTime(1900);
+      return db.compareTo(da); // DESCENDING - Most recent first
     });
+
+    // If the top one is CREATED, but we have others that are actually in progress,
+    // the sort above already handles it.
+    // However, if the user specifically wants ASSIGNED to show up in ongoing,
+    // and we have a CREATED one that is older, the CREATED one might still show
+    // if we don't exclude it or prioritize ASSIGNED.
+
+    // The user said: "when admin assigned should display in ongoing services"
+    // This implies CREATED should NOT be in ongoing services if possible,
+    // or at least ASSIGNED should be prioritized.
+
     return active.first;
   }
 
@@ -883,6 +1209,54 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               ),
             ],
           ),
+          if (booking.deliveryOtp?.code != null &&
+              booking.deliveryOtp!.code.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : const Color(0xFF4A90E2).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFF4A90E2).withValues(alpha: 0.2),
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    (booking.carWash?.isCarWashService ?? false)
+                        ? 'COMPLETION OTP'
+                        : 'DELIVERY OTP',
+                    style: TextStyle(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.6)
+                          : const Color(0xFF4A90E2),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    booking.deliveryOtp!.code,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF4A90E2),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 4,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerRight,
@@ -1163,9 +1537,33 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
               final isDelivered =
                   b.status == 'DELIVERED' || b.status == 'COMPLETED';
+              final isServiceCompleted = b.status == 'SERVICE_COMPLETED';
+              final isCompleted = isDelivered || isServiceCompleted;
+
               final statusColor = isDelivered
                   ? const Color(0xFF4ADE80)
-                  : const Color(0xFF4A90E2);
+                  : (isServiceCompleted
+                        ? const Color(0xFF60A5FA)
+                        : const Color(0xFF4A90E2));
+
+              // Find reviews for this booking
+              final bookingReviews = _reviews.where((r) {
+                final bId = r['booking'];
+                if (bId is String) return bId == b.id;
+                if (bId is Map) {
+                  final bidStr = (bId['_id'] ?? bId['id'])?.toString();
+                  return bidStr == b.id;
+                }
+                return false;
+              }).toList();
+
+              final hasBeenReviewed = bookingReviews.isNotEmpty;
+              final averageRating = hasBeenReviewed
+                  ? bookingReviews
+                            .map((r) => (r['rating'] as num).toDouble())
+                            .reduce((a, b) => a + b) /
+                        bookingReviews.length
+                  : 0.0;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.medium),
@@ -1196,98 +1594,170 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                               ),
                             ],
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                serviceName,
-                                style: Theme.of(context).textTheme.bodyLarge
-                                    ?.copyWith(
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.textPrimaryLight,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Order #${b.orderNumber ?? b.id.substring(b.id.length - 6).toUpperCase()}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white54 : Colors.grey,
                               ),
-                              if (vehicleLabel.isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                isDelivered ? 'Completed' : statusText,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          serviceName,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimaryLight,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                        ),
+                        if (vehicleLabel.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            vehicleLabel,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.6)
+                                      : AppColors.textSecondaryLight,
+                                  fontSize: 12,
+                                  letterSpacing: 0.2,
+                                ),
+                          ),
+                        ],
+                        if (isCompleted) ...[
+                          const SizedBox(height: 12),
+                          if (hasBeenReviewed)
+                            Row(
+                              children: [
+                                ...List.generate(
+                                  5,
+                                  (index) => Icon(
+                                    index < averageRating
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: Colors.amber,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Text(
-                                  vehicleLabel,
+                                  'Feedback submitted',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                ...List.generate(
+                                  5,
+                                  (index) => InkWell(
+                                    onTap: () => _showReviewDialog(
+                                      context,
+                                      b,
+                                      initialRating: index + 1,
+                                    ),
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 4),
+                                      child: Icon(
+                                        Icons.star_border,
+                                        color: Color(0xFFCBD5E1),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Rate your service',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color: isDark ? Colors.white54 : Colors.grey,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_formatDate(context, b.date)} • ${_formatTime(context, b.date)}',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: isDark
                                             ? Colors.white.withValues(
-                                                alpha: 0.6,
+                                                alpha: 0.5,
                                               )
-                                            : AppColors.textSecondaryLight,
+                                            : AppColors.textMutedLight,
                                         fontSize: 11,
-                                        letterSpacing: 0.2,
                                       ),
                                 ),
                               ],
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.small,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isDelivered
-                                          ? Icons.check_circle_rounded
-                                          : Icons.access_time_filled_rounded,
-                                      size: 13,
-                                      color: statusColor,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      statusText,
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              priceLabel,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppColors.textPrimaryLight,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 16,
-                                  ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatDate(context, b.date),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.5)
-                                        : AppColors.textMutedLight,
-                                    fontSize: 11,
-                                  ),
+                            Row(
+                              children: [
+                                Text(
+                                  priceLabel,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white
+                                            : AppColors.textPrimaryLight,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: AppColors.primaryBlue,
+                                ),
+                              ],
                             ),
                           ],
                         ),

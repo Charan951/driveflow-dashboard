@@ -10,35 +10,48 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   bool _navigated = false;
   bool _isMovingUp = false;
+  late final AnimationController _animationController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _animationController.forward();
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
     final auth = context.read<AuthProvider>();
-
-    // Start loading session immediately in background
     final loadMeFuture = auth.loadMe();
-
-    // Request notification permissions
     NotificationService().requestPermissions();
-
-    // Ensure data is loaded
     await loadMeFuture;
 
-    if (mounted && auth.isAuthenticated) {
-      // Small delay before moving up for better visual flow
+    if (!mounted) return;
+
+    if (auth.isAuthenticated) {
       await Future.delayed(const Duration(milliseconds: 400));
       if (mounted) {
-        setState(() {
-          _isMovingUp = true;
-        });
+        setState(() => _isMovingUp = true);
       }
     }
   }
@@ -64,23 +77,18 @@ class _SplashPageState extends State<SplashPage> {
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            // Black background
             Container(color: Colors.black),
             AnimatedAlign(
               duration: const Duration(milliseconds: 1500),
               curve: Curves.easeInOutQuart,
-              alignment: _isMovingUp
-                  ? const Alignment(0, -0.9)
-                  : Alignment.center,
-              child: TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 800),
-                tween: Tween(begin: 0.0, end: 1.0),
-                curve: Curves.easeOut, // Smooth premium finish
-                builder: (context, value, child) {
+              alignment: _isMovingUp ? const Alignment(0, -0.9) : Alignment.center,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
                   return Transform.scale(
-                    scale: 0.9 + (0.1 * value), // Scale: 0.9 -> 1.0
+                    scale: _scaleAnimation.value,
                     child: Opacity(
-                      opacity: value, // Fade: 0 -> 1
+                      opacity: _opacityAnimation.value,
                       child: child,
                     ),
                   );

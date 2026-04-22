@@ -31,6 +31,7 @@ import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wr
 import { useNavigate } from 'react-router-dom';
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { STATUS_LABELS } from '@/lib/statusFlow';
 
 const BookingsSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-8">
@@ -78,16 +79,29 @@ const MyBookingsPage = () => {
 
     // Listen for socket updates
     socketService.connect();
-    socketService.on('bookingUpdated', (data: any) => {
+    const bookingUpdatedHandler = (data: any) => {
       fetchData();
-    });
-    socketService.on('newApproval', (data: any) => {
+    };
+    const newApprovalHandler = (data: any) => {
       fetchData();
-    });
+    };
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if ((entity === 'booking' || entity === 'approval') && action) {
+        fetchData();
+      }
+    };
+
+    socketService.on('bookingUpdated', bookingUpdatedHandler);
+    socketService.on('newApproval', newApprovalHandler);
+    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
-      socketService.off('bookingUpdated');
-      socketService.off('newApproval');
+      socketService.off('bookingUpdated', bookingUpdatedHandler);
+      socketService.off('newApproval', newApprovalHandler);
+      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -271,7 +285,7 @@ const MyBookingsPage = () => {
                     <TableCell>
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       <Badge variant={getStatusColor(booking.status) as any}>
-                        {booking.status}
+                        {STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS] || booking.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -356,7 +370,7 @@ const MyBookingsPage = () => {
                     </div>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Badge variant={getStatusColor(booking.status) as any} className="flex-shrink-0">
-                      {booking.status}
+                      {STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS] || booking.status}
                     </Badge>
                   </div>
                   

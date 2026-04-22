@@ -1,4 +1,22 @@
 import Product from '../models/Product.js';
+import { getIO } from '../socket.js';
+import { emitEntitySync } from '../utils/syncService.js';
+
+const emitProductUpdate = (product, action = 'updated') => {
+  try {
+    // Legacy support
+    const io = getIO();
+    io.to('admin').emit('productUpdated', { product, action });
+    if (product.merchant) {
+      io.to(`user_${product.merchant.toString()}`).emit('productUpdated', { product, action });
+    }
+
+    // New Global Sync
+    emitEntitySync('product', action, product);
+  } catch (err) {
+    console.error('Socket emit error:', err);
+  }
+};
 
 // @desc    Get all products for the logged in merchant
 // @route   GET /api/products
@@ -29,6 +47,9 @@ export const createProduct = async (req, res) => {
     });
 
     const createdProduct = await product.save();
+    
+    emitProductUpdate(createdProduct, 'created');
+    
     res.status(201).json(createdProduct);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -56,6 +77,9 @@ export const updateProduct = async (req, res) => {
       product.threshold = threshold !== undefined ? threshold : product.threshold;
 
       const updatedProduct = await product.save();
+      
+      emitProductUpdate(updatedProduct, 'updated');
+      
       res.json(updatedProduct);
     } else {
       res.status(404).json({ message: 'Product not found' });
@@ -77,7 +101,13 @@ export const deleteProduct = async (req, res) => {
         return res.status(401).json({ message: 'Not authorized to delete this product' });
       }
 
+      const productId = product._id;
+      const merchantId = product.merchant;
+      
       await product.deleteOne();
+      
+      emitProductUpdate({ _id: productId, merchant: merchantId }, 'deleted');
+      
       res.json({ message: 'Product removed' });
     } else {
       res.status(404).json({ message: 'Product not found' });
