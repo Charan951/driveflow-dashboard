@@ -24,9 +24,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   String? _error;
   List<Booking> _bookings = const [];
 
-  Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
-
   @override
   void initState() {
     super.initState();
@@ -217,24 +214,22 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           titleSpacing: 0,
           title: Row(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+              Builder(
+                builder: (context) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
                     ),
-                  ],
-                ),
-                child: Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(Icons.menu),
-                    color: Colors.white,
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.menu,
+                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                    ),
                     tooltip: 'Menu',
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
@@ -420,7 +415,9 @@ class _BookingCardState extends State<_BookingCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = widget.statusColor;
+    final neutralChipColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.05);
     final isRateable = widget.statusLabel == 'Delivered';
 
     IconData iconForTitle(String title) {
@@ -461,35 +458,7 @@ class _BookingCardState extends State<_BookingCard> {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FractionallySizedBox(
-                  widthFactor: 0.26,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(18),
-                      bottomRight: Radius.circular(18),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            accent.withValues(alpha: 0.15),
-                            accent.withValues(alpha: 0.35),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Column(
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -499,17 +468,20 @@ class _BookingCardState extends State<_BookingCard> {
                       height: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.2),
-                          colors: [
-                            accent.withValues(alpha: 0.85),
-                            accent.withValues(alpha: 0.25),
-                          ],
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : Colors.black.withValues(alpha: 0.03),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : AppColors.borderColorLight,
                         ),
                       ),
                       child: Icon(
                         iconForTitle(widget.title),
-                        color: Colors.white,
+                        color: isDark
+                            ? AppColors.textSecondary
+                            : AppColors.textSecondaryLight,
                         size: 22,
                       ),
                     ),
@@ -541,7 +513,7 @@ class _BookingCardState extends State<_BookingCard> {
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  color: accent.withValues(alpha: 0.08),
+                                  color: neutralChipColor,
                                 ),
                                 child: Text(
                                   widget.categoryLabel!.toUpperCase(),
@@ -549,7 +521,9 @@ class _BookingCardState extends State<_BookingCard> {
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(
-                                        color: accent,
+                                        color: isDark
+                                            ? AppColors.textSecondary
+                                            : AppColors.textSecondaryLight,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.6,
                                       ),
@@ -698,8 +672,6 @@ class _BookingCardState extends State<_BookingCard> {
                 ),
               ],
             ),
-          ],
-        ),
       ),
     );
   }

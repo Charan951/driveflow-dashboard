@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -37,7 +38,7 @@ Future<void> initializeBackgroundService() async {
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
-      autoStart: true,
+      autoStart: false,
       isForegroundMode: true,
       notificationChannelId: 'high_importance_channel',
       initialNotificationTitle: 'Carzzi Service',
@@ -45,7 +46,7 @@ Future<void> initializeBackgroundService() async {
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(
-      autoStart: true,
+      autoStart: false,
       onForeground: onStart,
       onBackground: onIosBackground,
     ),
@@ -85,6 +86,7 @@ void onStart(ServiceInstance service) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
@@ -142,14 +144,25 @@ Future<void> _bootstrapApp({
     debugPrint(stack.toString());
   }
 
-  try {
-    await notificationService.initialize().timeout(const Duration(seconds: 15));
-  } catch (e, stack) {
-    debugPrint('Notification init failed: $e');
-    debugPrint(stack.toString());
-  }
+  // Do not block app startup on notification initialization.
+  // Some devices/environments can take longer than expected here.
+  unawaited(() async {
+    try {
+      await notificationService
+          .initialize()
+          .timeout(const Duration(seconds: 20));
+      await notificationService.requestPermissions();
+      await notificationService.syncToken();
+    } catch (e) {
+      debugPrint('Notification init skipped at startup: $e');
+    }
+  }());
 
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+  final role = authProvider.user?.role?.toLowerCase();
+  final shouldStartBackgroundService = role == 'staff' || role == 'merchant';
+  if (!kIsWeb &&
+      (Platform.isAndroid || Platform.isIOS) &&
+      shouldStartBackgroundService) {
     try {
       await initializeBackgroundService().timeout(const Duration(seconds: 15));
     } catch (e) {

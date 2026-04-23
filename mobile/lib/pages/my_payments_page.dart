@@ -23,9 +23,6 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   String? _error;
   List<Booking> _payments = const [];
 
-  Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
-
   @override
   void initState() {
     super.initState();
@@ -137,21 +134,19 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
               Builder(
                 builder: (context) => Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [_accentPurple, _accentBlue],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accentBlue.withValues(alpha: 0.4),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.menu),
-                    color: Colors.white,
+                    icon: Icon(
+                      Icons.menu,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                     tooltip: 'Menu',
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),

@@ -16,9 +16,66 @@ import '../main.dart'; // Import to use rootNavigatorKey
 
 // Background message handler
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // For data-only pushes, show a local notification in background/terminated
+  // so users still receive alerts when app is not open.
+  if (message.notification != null) return;
+
+  final data = message.data;
+  final type = data['type']?.toString();
+  final subType = data['subType']?.toString();
+  final status =
+      data['status']?.toString() ?? data['bookingStatus']?.toString();
+
+  if (!NotificationService.isNotificationAllowed(
+    type: type,
+    subType: subType,
+    status: status,
+  )) {
+    return;
+  }
+
+  final title =
+      data['title']?.toString() ??
+      data['notificationTitle']?.toString() ??
+      'Carzzi';
+  final body =
+      data['body']?.toString() ??
+      data['message']?.toString() ??
+      'You have a new update';
+
+  final local = FlutterLocalNotificationsPlugin();
+  const initializationSettings = InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(),
+  );
+  await local.initialize(initializationSettings);
+
+  await local.show(
+    DateTime.now().millisecondsSinceEpoch.remainder(100000),
+    title,
+    body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'high_importance_channel',
+        'High Importance Notifications',
+        channelDescription: 'This channel is used for important notifications.',
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        visibility: NotificationVisibility.public,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    ),
+    payload: jsonEncode(data),
+  );
 }
 
 @pragma('vm:entry-point')
@@ -258,7 +315,7 @@ class NotificationService {
     await PlatformUtils.createAndroidNotificationChannels(_localNotifications);
 
     // 3. Set up FCM listeners
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     final messaging = await _getMessaging();
 
     await messaging.setForegroundNotificationPresentationOptions(
@@ -558,13 +615,7 @@ class NotificationService {
         } else if (type == 'promotion') {
           Navigator.pushNamed(context, '/speshway-dashboard');
         } else if (type == 'approval' || type == 'approval_request') {
-          final String? approvalId = data['approvalId']?.toString();
-          if (approvalId != null && approvalId.isNotEmpty) {
-            final title = data['title'] ?? 'Approval Required';
-            final body =
-                data['body'] ?? 'A new request requires your approval.';
-            showApprovalDialog(title, body, approvalId);
-          } else if (bookingId != null && bookingId.isNotEmpty) {
+          if (bookingId != null && bookingId.isNotEmpty) {
             Navigator.pushNamed(context, '/track', arguments: bookingId);
           } else {
             Navigator.pushNamed(context, '/notifications');

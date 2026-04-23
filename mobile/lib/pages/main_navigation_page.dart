@@ -65,7 +65,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
   }
 
   Future<bool> _onWillPop() async {
-    final selectedIndex = context.select<NavigationProvider, int>((n) => n.selectedIndex);
+    final selectedIndex = _navProvider?.selectedIndex ?? 2;
 
     if (selectedIndex != 2) {
       _navProvider?.setTab(2);

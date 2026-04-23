@@ -506,13 +506,25 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         titleSpacing: 8,
         automaticallyImplyLeading: false,
         leading: Builder(
-          builder: (context) => IconButton(
-            icon: Icon(
-              Icons.menu,
-              color: isDark ? Colors.white : Colors.black87,
+          builder: (context) => Container(
+            margin: const EdgeInsets.only(left: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.28)
+                    : Colors.black.withValues(alpha: 0.16),
+                width: 1.0,
+              ),
             ),
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            child: IconButton(
+              icon: Icon(
+                Icons.menu,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              tooltip: 'Menu',
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
         ),
         title: null,

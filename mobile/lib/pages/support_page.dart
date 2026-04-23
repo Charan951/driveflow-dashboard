@@ -291,21 +291,19 @@ class _SupportPageState extends State<SupportPage> {
                 Builder(
                   builder: (context) => Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        colors: [_accentPurple, _accentBlue],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.black.withValues(alpha: 0.16),
+                        width: 1.0,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _accentBlue.withValues(alpha: 0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.menu),
-                      color: Colors.white,
+                      icon: Icon(
+                        Icons.menu,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
                       tooltip: 'Menu',
                       onPressed: () => Scaffold.of(context).openDrawer(),
                     ),

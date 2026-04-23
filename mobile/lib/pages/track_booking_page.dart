@@ -30,6 +30,13 @@ class TrackBookingPage extends StatefulWidget {
   State<TrackBookingPage> createState() => _TrackBookingPageState();
 }
 
+class _PhotoCarouselItem {
+  final String url;
+  final String? label;
+
+  const _PhotoCarouselItem({required this.url, this.label});
+}
+
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _paymentService = PaymentService();
@@ -62,8 +69,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   DateTime? _liveUpdatedAt;
   bool _isPaymentLoading = false;
   bool _isMapMaximized = false;
+  int _chatUnreadCount = 0;
   bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
+  final Map<String, PageController> _carouselControllers = {};
+  final Map<String, int> _carouselIndexes = {};
 
   // Performance optimizations
   DateTime? _lastLocationUpdate;
@@ -245,6 +255,33 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.on('newApproval', (data) {
       if (!mounted) return;
       _fetchPendingApprovals();
+      try {
+        final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+        final relatedBookingId = (mapData['relatedId'] ?? '').toString();
+        if (_bookingId != null && relatedBookingId == _bookingId) {
+          setState(() => _chatUnreadCount++);
+        }
+      } catch (_) {}
+    });
+
+    _socketService.on('receiveMessage', (data) {
+      if (!mounted) return;
+      try {
+        final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+        final bookingId =
+            (mapData['bookingId'] ?? mapData['relatedId'] ?? '').toString();
+        final sender = mapData['sender'];
+        final senderId = sender is Map
+            ? (sender['_id'] ?? sender['id'] ?? '').toString()
+            : '';
+        final currentUserId = context.read<AuthProvider>().user?.id;
+        if (_bookingId != null &&
+            bookingId == _bookingId &&
+            senderId.isNotEmpty &&
+            senderId != currentUserId) {
+          setState(() => _chatUnreadCount++);
+        }
+      } catch (_) {}
     });
 
     _socketService.on('global:sync', (data) {
@@ -297,11 +334,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.removeListener(_onSocketUpdate);
     _socketService.off('liveLocation');
     _socketService.off('bookingUpdated');
+    _socketService.off('receiveMessage');
     _socketService.off('global:sync');
     if (_bookingId != null) {
       _socketService.emit('leave', 'booking_$_bookingId');
     }
     _approvalsTimer?.cancel();
+    for (final controller in _carouselControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -1164,15 +1205,45 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'SERVICE_STARTED' ||
             booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
+    final isCarWashBooking =
+        booking != null &&
+        (booking.services.any((s) {
+              final cat = (s.category ?? '').toLowerCase();
+              return cat.contains('car wash') ||
+                  cat.contains('wash') ||
+                  cat.contains('detailing') ||
+                  cat.contains('essentials');
+            }) ||
+            booking.carWash?.isCarWashService == true);
+    final isBatteryTireBooking =
+        booking != null &&
+        (booking.services.any((s) {
+              final cat = (s.category ?? '').toLowerCase();
+              return cat.contains('battery') ||
+                  cat.contains('tyres') ||
+                  cat.contains('tyre') ||
+                  cat.contains('tire');
+            }) ||
+            booking.batteryTire?.isBatteryTireService == true);
+    final canDownloadInvoice =
+        booking != null &&
+        booking.invoiceUrl != null &&
+        (isCarWashBooking ||
+            isBatteryTireBooking ||
+            booking.paymentStatus == 'paid');
+    final isBookedStatus = booking?.status.toUpperCase() == 'BOOKED';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
+        automaticallyImplyLeading: true,
+        centerTitle: true,
         backgroundColor: isDark ? Colors.transparent : Colors.white,
         surfaceTintColor: isDark ? Colors.transparent : Colors.white,
-        elevation: isDark ? 0 : null,
+        elevation: isDark ? 0 : 5.0,
+        shadowColor: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.1),
         title: Text(
           'Track Service',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1180,6 +1251,38 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          if (canDownloadInvoice)
+            Padding(
+              padding: const EdgeInsets.only(right: 5.0),
+              child: IconButton(
+                tooltip: 'Download Invoice',
+                onPressed: () async {
+                  final url = _resolveImageUrl(booking.invoiceUrl);
+                  if (url != null) {
+                    final uri = Uri.parse(url);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: kIsWeb
+                            ? LaunchMode.platformDefault
+                            : LaunchMode.externalApplication,
+                      );
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not launch invoice URL'),
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+                icon: const Icon(Icons.download_rounded, size: 26,),
+              ),
+            ),
+        ],
       ),
       floatingActionButton:
           booking != null &&
@@ -1191,6 +1294,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               ].contains(booking.status.toUpperCase())
           ? FloatingActionButton(
               onPressed: () {
+                setState(() => _chatUnreadCount = 0);
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
@@ -1212,13 +1316,44 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 );
               },
               backgroundColor: const Color(0xFF2563EB),
-              child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                  if (_chatUnreadCount > 0)
+                    Positioned(
+                      right: -10,
+                      top: -8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: Colors.white, width: 1.2),
+                        ),
+                        child: Text(
+                          _chatUnreadCount > 99
+                              ? '99+'
+                              : _chatUnreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             )
           : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, isBookedStatus ? 8 : 16, 16, 16),
           children: [
             if (_loading)
               const Padding(
@@ -1284,6 +1419,115 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         cat == 'services' ||
                         name.contains('general service');
                   });
+                  final isDeliveredStatus =
+                      booking.status.toUpperCase() == 'DELIVERED';
+                  final canShowTopReviewCta =
+                      (booking.status == 'DELIVERED' ||
+                          booking.status == 'COMPLETED') &&
+                      (!_hasMerchantReview || !_hasPlatformReview);
+                  final inspectionItems = <_PhotoCarouselItem>[
+                    if (booking.inspection?.frontPhoto != null &&
+                        _resolveImageUrl(booking.inspection!.frontPhoto) != null)
+                      _PhotoCarouselItem(
+                        url: _resolveImageUrl(booking.inspection!.frontPhoto)!,
+                        label: 'Front',
+                      ),
+                    if (booking.inspection?.backPhoto != null &&
+                        _resolveImageUrl(booking.inspection!.backPhoto) != null)
+                      _PhotoCarouselItem(
+                        url: _resolveImageUrl(booking.inspection!.backPhoto)!,
+                        label: 'Back',
+                      ),
+                    if (booking.inspection?.leftPhoto != null &&
+                        _resolveImageUrl(booking.inspection!.leftPhoto) != null)
+                      _PhotoCarouselItem(
+                        url: _resolveImageUrl(booking.inspection!.leftPhoto)!,
+                        label: 'Left',
+                      ),
+                    if (booking.inspection?.rightPhoto != null &&
+                        _resolveImageUrl(booking.inspection!.rightPhoto) != null)
+                      _PhotoCarouselItem(
+                        url: _resolveImageUrl(booking.inspection!.rightPhoto)!,
+                        label: 'Right',
+                      ),
+                  ];
+                  final prePickupItems = <_PhotoCarouselItem>[
+                    for (int i = 0; i < booking.prePickupPhotos.length; i++)
+                      if (_resolveImageUrl(booking.prePickupPhotos[i]) != null)
+                        _PhotoCarouselItem(
+                          url: _resolveImageUrl(booking.prePickupPhotos[i])!,
+                          label: isBatteryTire
+                              ? (i == 0
+                                    ? 'New Part'
+                                    : i == 1
+                                    ? 'Old Part'
+                                    : 'Photo ${i + 1}')
+                              : 'Photo ${i + 1}',
+                        ),
+                  ];
+                  final servicePhotoItems = <_PhotoCarouselItem>[];
+                  final beforeCarWashItems = <_PhotoCarouselItem>[];
+                  final afterCarWashItems = <_PhotoCarouselItem>[];
+                  final isEssentialsCarWash = isCarWash &&
+                      booking.services.any(
+                        (s) => (s.category ?? '').toLowerCase().contains(
+                          'essentials',
+                        ),
+                      );
+                  final beforeCarWashTitle = isEssentialsCarWash
+                      ? 'Before Service'
+                      : 'Before Car Wash';
+                  final afterCarWashTitle = isEssentialsCarWash
+                      ? 'After Service'
+                      : 'After Car Wash';
+                  void addServicePhotos(List<String> photos, String labelPrefix) {
+                    for (int i = 0; i < photos.length; i++) {
+                      final resolved = _resolveImageUrl(photos[i]);
+                      if (resolved == null) continue;
+                      servicePhotoItems.add(
+                        _PhotoCarouselItem(
+                          url: resolved,
+                          label: '$labelPrefix ${i + 1}',
+                        ),
+                      );
+                    }
+                  }
+
+                  if (isCarWash) {
+                    final allCarWashPhotos = <String>[
+                      ...(booking.carWash?.beforeWashPhotos ?? const []),
+                      ...(booking.carWash?.afterWashPhotos ?? const []),
+                    ];
+                    for (int i = 0; i < allCarWashPhotos.length; i++) {
+                      final resolved = _resolveImageUrl(allCarWashPhotos[i]);
+                      if (resolved == null) continue;
+                      if (i < 4) {
+                        beforeCarWashItems.add(
+                          _PhotoCarouselItem(
+                            url: resolved,
+                            label: '$beforeCarWashTitle ${i + 1}',
+                          ),
+                        );
+                      } else {
+                        afterCarWashItems.add(
+                          _PhotoCarouselItem(
+                            url: resolved,
+                            label: '$afterCarWashTitle ${i - 3}',
+                          ),
+                        );
+                      }
+                    }
+                  } else {
+                    addServicePhotos(
+                      booking.beforeServicePhotos,
+                      'Before Service',
+                    );
+                    addServicePhotos(
+                      booking.duringServicePhotos,
+                      'During Service',
+                    );
+                    addServicePhotos(booking.postServicePhotos, 'After Service');
+                  }
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1550,32 +1794,72 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E1E1E)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade800
-                                : Colors.grey.shade200,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.2)
-                                  : Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                      if (canShowTopReviewCta) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.primaryBlue,
+                                  AppColors.primaryBlueDark,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
+                            child: ElevatedButton.icon(
+                              onPressed: _showReviewDialog,
+                              icon: const Icon(Icons.star),
+                              label: const Text(
+                                'Rate your experience',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                foregroundColor: AppColors.textPrimary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      ],
+                      if (!isDeliveredStatus && showLiveTrackingMap) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1E1E1E)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade200,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: isDark
+                                    ? Colors.black.withValues(alpha: 0.2)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                             Row(
                               children: [
                                 if (booking.pickupRequired || isCarWash) ...[
@@ -1692,12 +1976,808 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     ),
                               ),
                             ],
+                            ],
+                          ),
+                        ),
+                      ],
+                      if ((booking.status == 'SERVICE_COMPLETED' ||
+                              booking.status == 'COMPLETED' ||
+                              booking.status == 'DELIVERED') &&
+                          booking.paymentStatus != 'paid') ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF6366F1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.payment,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Payment Required',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF4F46E5),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Payment awaiting to dispatch vehicle. Service is completed',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: const Color(0xFF4B5563)),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isPaymentLoading
+                                      ? null
+                                      : _handlePayment,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4F46E5),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: _isPaymentLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Pay ₹${booking.calculatedTotal}',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      if (booking.status == 'OUT_FOR_DELIVERY' &&
+                          booking.deliveryOtp != null &&
+                          booking.deliveryOtp!.code.trim().isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF6366F1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (isCarWash || isBatteryTire)
+                                    ? 'Completion OTP'
+                                    : 'Delivery OTP',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF4F46E5),
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    booking.deliveryOtp!.code,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      letterSpacing: 4,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF111827),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                (isCarWash || isBatteryTire)
+                                    ? 'Share this code with our staff to confirm service completion.'
+                                    : 'Share this code only with our staff at the time of delivery.',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: const Color(0xFF4B5563),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // const SizedBox(height: 16),
+                        // SizedBox(
+                        //   width: double.infinity,
+                        //   child: ElevatedButton(
+                        //     onPressed: () => _showConfirmDeliveryDialog(),
+                        //     style: ElevatedButton.styleFrom(
+                        //       backgroundColor: const Color(0xFF2563EB),
+                        //       foregroundColor: Colors.white,
+                        //       padding: const EdgeInsets.symmetric(vertical: 16),
+                        //       shape: RoundedRectangleBorder(
+                        //         borderRadius: BorderRadius.circular(12),
+                        //       ),
+                        //       elevation: 0,
+                        //     ),
+                        //     child: const Text(
+                        //       'Confirm Receipt',
+                        //       style: TextStyle(
+                        //         fontSize: 16,
+                        //         fontWeight: FontWeight.bold,
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
+                      // if (_pendingApprovals.isNotEmpty) ...[
+                      //   const SizedBox(height: 24),
+                      //   Container(
+                      //     padding: const EdgeInsets.all(16),
+                      //     decoration: BoxDecoration(
+                      //       color: const Color(0xFFFEF3C7),
+                      //       borderRadius: BorderRadius.circular(16),
+                      //       border: Border.all(color: const Color(0xFFFCD34D)),
+                      //     ),
+                      //     child: Column(
+                      //       crossAxisAlignment: CrossAxisAlignment.start,
+                      //       children: [
+                      //         Row(
+                      //           children: [
+                      //             Container(
+                      //               width: 24,
+                      //               height: 24,
+                      //               decoration: BoxDecoration(
+                      //                 color: const Color(0xFFF59E0B),
+                      //                 borderRadius: BorderRadius.circular(999),
+                      //               ),
+                      //               child: const Icon(
+                      //                 Icons.warning_amber_rounded,
+                      //                 size: 16,
+                      //                 color: Colors.white,
+                      //               ),
+                      //             ),
+                      //             const SizedBox(width: 8),
+                      //             Expanded(
+                      //               child: Text(
+                      //                 'Approval required',
+                      //                 style: Theme.of(context)
+                      //                     .textTheme
+                      //                     .bodyMedium
+                      //                     ?.copyWith(
+                      //                       fontWeight: FontWeight.w700,
+                      //                       color: const Color(0xFF92400E),
+                      //                     ),
+                      //               ),
+                      //             ),
+                      //           ],
+                      //         ),
+                      //         const SizedBox(height: 8),
+                      //         ListView.builder(
+                      //           shrinkWrap: true,
+                      //           padding: EdgeInsets.zero,
+                      //           physics: const NeverScrollableScrollPhysics(),
+                      //           itemCount: _pendingApprovals.length,
+                      //           itemBuilder: (context, index) {
+                      //             final approval = _pendingApprovals[index];
+                      //             final data = approval['data'];
+                      //             String name = 'Part replacement';
+                      //             int? quantity;
+                      //             double? price;
+                      //             String? newImageUrl;
+                      //             String? oldImageUrl;
+                      //             if (data is Map) {
+                      //               final rawName = data['name'];
+                      //               if (rawName != null &&
+                      //                   rawName.toString().trim().isNotEmpty) {
+                      //                 name = rawName.toString();
+                      //               }
+                      //               final rawQty = data['quantity'];
+                      //               if (rawQty is num) {
+                      //                 quantity = rawQty.toInt();
+                      //               }
+                      //               final rawPrice = data['price'];
+                      //               if (rawPrice is num) {
+                      //                 price = rawPrice.toDouble();
+                      //               }
+                      //               newImageUrl = _resolveImageUrl(
+                      //                 data['image'],
+                      //               );
+                      //               oldImageUrl = _resolveImageUrl(
+                      //                 data['oldImage'],
+                      //               );
+                      //             }
+                      //             double? total;
+                      //             if (quantity != null && price != null) {
+                      //               total = quantity * price;
+                      //             }
+                      //             final approvalId =
+                      //                 approval['_id']?.toString() ?? '';
+                      //             return Container(
+                      //               margin: const EdgeInsets.only(top: 8),
+                      //               child: Row(
+                      //                 crossAxisAlignment:
+                      //                     CrossAxisAlignment.start,
+                      //                 children: [
+                      //                   Container(
+                      //                     width: 24,
+                      //                     height: 24,
+                      //                     decoration: BoxDecoration(
+                      //                       color: const Color(0xFFFEF3C7),
+                      //                       borderRadius: BorderRadius.circular(
+                      //                         999,
+                      //                       ),
+                      //                     ),
+                      //                     alignment: Alignment.center,
+                      //                     child: const Text(
+                      //                       'SC',
+                      //                       style: TextStyle(
+                      //                         fontSize: 10,
+                      //                         fontWeight: FontWeight.w700,
+                      //                         color: Color(0xFF92400E),
+                      //                       ),
+                      //                     ),
+                      //                   ),
+                      //                   const SizedBox(width: 6),
+                      //                   Expanded(
+                      //                     child: Column(
+                      //                       crossAxisAlignment:
+                      //                           CrossAxisAlignment.start,
+                      //                       children: [
+                      //                         Container(
+                      //                           padding: const EdgeInsets.all(
+                      //                             10,
+                      //                           ),
+                      //                           decoration: BoxDecoration(
+                      //                             color: Colors.white,
+                      //                             borderRadius:
+                      //                                 BorderRadius.circular(16),
+                      //                             border: Border.all(
+                      //                               color: const Color(
+                      //                                 0xFFFCD34D,
+                      //                               ),
+                      //                             ),
+                      //                           ),
+                      //                           child: Column(
+                      //                             crossAxisAlignment:
+                      //                                 CrossAxisAlignment.start,
+                      //                             children: [
+                      //                               Row(
+                      //                                 children: [
+                      //                                   Expanded(
+                      //                                     child: Text(
+                      //                                       name,
+                      //                                       style: Theme.of(context)
+                      //                                           .textTheme
+                      //                                           .bodyMedium
+                      //                                           ?.copyWith(
+                      //                                             fontWeight:
+                      //                                                 FontWeight
+                      //                                                     .w600,
+                      //                                           ),
+                      //                                     ),
+                      //                                   ),
+                      //                                   if (total != null)
+                      //                                     Text(
+                      //                                       '₹${total.toStringAsFixed(2)}',
+                      //                                       style: Theme.of(context)
+                      //                                           .textTheme
+                      //                                           .bodySmall
+                      //                                           ?.copyWith(
+                      //                                             fontWeight:
+                      //                                                 FontWeight
+                      //                                                     .w700,
+                      //                                             color: const Color(
+                      //                                               0xFF111827,
+                      //                                             ),
+                      //                                           ),
+                      //                                     ),
+                      //                                 ],
+                      //                               ),
+                      //                               if (quantity != null ||
+                      //                                   price != null)
+                      //                                 Padding(
+                      //                                   padding:
+                      //                                       const EdgeInsets.only(
+                      //                                         top: 2,
+                      //                                       ),
+                      //                                   child: Text(
+                      //                                     'Qty: ${quantity ?? '-'} • Price: ₹${price != null ? price.toStringAsFixed(2) : '-'}',
+                      //                                     style: Theme.of(context)
+                      //                                         .textTheme
+                      //                                         .bodySmall
+                      //                                         ?.copyWith(
+                      //                                           color:
+                      //                                               const Color(
+                      //                                                 0xFF92400E,
+                      //                                               ),
+                      //                                         ),
+                      //                                   ),
+                      //                                 ),
+                      //                               const SizedBox(height: 8),
+                      //                               Row(
+                      //                                 children: [
+                      //                                   Expanded(
+                      //                                     child: Column(
+                      //                                       crossAxisAlignment:
+                      //                                           CrossAxisAlignment
+                      //                                               .start,
+                      //                                       children: [
+                      //                                         Text(
+                      //                                           'New Part',
+                      //                                           style: Theme.of(context)
+                      //                                               .textTheme
+                      //                                               .bodySmall
+                      //                                               ?.copyWith(
+                      //                                                 fontWeight:
+                      //                                                     FontWeight
+                      //                                                         .w600,
+                      //                                                 color: const Color(
+                      //                                                   0xFF4B5563,
+                      //                                                 ),
+                      //                                                 fontSize:
+                      //                                                     10,
+                      //                                               ),
+                      //                                           overflow:
+                      //                                               TextOverflow
+                      //                                                   .ellipsis,
+                      //                                         ),
+                      //                                         const SizedBox(
+                      //                                           height: 4,
+                      //                                         ),
+                      //                                         SizedBox(
+                      //                                           width: 80,
+                      //                                           height: 80,
+                      //                                           child: Container(
+                      //                                             decoration: BoxDecoration(
+                      //                                               color: const Color(
+                      //                                                 0xFFF9FAFB,
+                      //                                               ),
+                      //                                               borderRadius:
+                      //                                                   BorderRadius.circular(
+                      //                                                     12,
+                      //                                                   ),
+                      //                                               border: Border.all(
+                      //                                                 color: const Color(
+                      //                                                   0xFFE5E7EB,
+                      //                                                 ),
+                      //                                               ),
+                      //                                             ),
+                      //                                             clipBehavior:
+                      //                                                 Clip.antiAlias,
+                      //                                             child:
+                      //                                                 _resolveImageUrl(
+                      //                                                       newImageUrl,
+                      //                                                     ) !=
+                      //                                                     null
+                      //                                                 ? CachedNetworkImage(
+                      //                                                     imageUrl: _resolveImageUrl(
+                      //                                                       newImageUrl,
+                      //                                                     )!,
+                      //                                                     fit: BoxFit
+                      //                                                         .cover,
+                      //                                                     placeholder:
+                      //                                                         (
+                      //                                                           context,
+                      //                                                           url,
+                      //                                                         ) => const Center(
+                      //                                                           child: CircularProgressIndicator(
+                      //                                                             strokeWidth: 2,
+                      //                                                           ),
+                      //                                                         ),
+                      //                                                     errorWidget:
+                      //                                                         (
+                      //                                                           context,
+                      //                                                           url,
+                      //                                                           error,
+                      //                                                         ) => const Icon(
+                      //                                                           Icons.broken_image,
+                      //                                                           size: 20,
+                      //                                                         ),
+                      //                                                   )
+                      //                                                 : Center(
+                      //                                                     child: Text(
+                      //                                                       'No image',
+                      //                                                       style:
+                      //                                                           Theme.of(
+                      //                                                             context,
+                      //                                                           ).textTheme.bodySmall?.copyWith(
+                      //                                                             color: const Color(
+                      //                                                               0xFF9CA3AF,
+                      //                                                             ),
+                      //                                                             fontSize: 8,
+                      //                                                           ),
+                      //                                                     ),
+                      //                                                   ),
+                      //                                           ),
+                      //                                         ),
+                      //                                       ],
+                      //                                     ),
+                      //                                   ),
+                      //                                   const SizedBox(
+                      //                                     width: 8,
+                      //                                   ),
+                      //                                   Expanded(
+                      //                                     child: Column(
+                      //                                       crossAxisAlignment:
+                      //                                           CrossAxisAlignment
+                      //                                               .start,
+                      //                                       children: [
+                      //                                         Text(
+                      //                                           'Old Part',
+                      //                                           style: Theme.of(context)
+                      //                                               .textTheme
+                      //                                               .bodySmall
+                      //                                               ?.copyWith(
+                      //                                                 fontWeight:
+                      //                                                     FontWeight
+                      //                                                         .w600,
+                      //                                                 color: const Color(
+                      //                                                   0xFF4B5563,
+                      //                                                 ),
+                      //                                                 fontSize:
+                      //                                                     10,
+                      //                                               ),
+                      //                                           overflow:
+                      //                                               TextOverflow
+                      //                                                   .ellipsis,
+                      //                                         ),
+                      //                                         const SizedBox(
+                      //                                           height: 4,
+                      //                                         ),
+                      //                                         SizedBox(
+                      //                                           width: 80,
+                      //                                           height: 80,
+                      //                                           child: Container(
+                      //                                             decoration: BoxDecoration(
+                      //                                               color: const Color(
+                      //                                                 0xFFF9FAFB,
+                      //                                               ),
+                      //                                               borderRadius:
+                      //                                                   BorderRadius.circular(
+                      //                                                     12,
+                      //                                                   ),
+                      //                                               border: Border.all(
+                      //                                                 color: const Color(
+                      //                                                   0xFFE5E7EB,
+                      //                                                 ),
+                      //                                               ),
+                      //                                             ),
+                      //                                             clipBehavior:
+                      //                                                 Clip.antiAlias,
+                      //                                             child:
+                      //                                                 _resolveImageUrl(
+                      //                                                       oldImageUrl,
+                      //                                                     ) !=
+                      //                                                     null
+                      //                                                 ? CachedNetworkImage(
+                      //                                                     imageUrl: _resolveImageUrl(
+                      //                                                       oldImageUrl,
+                      //                                                     )!,
+                      //                                                     fit: BoxFit
+                      //                                                         .cover,
+                      //                                                     placeholder:
+                      //                                                         (
+                      //                                                           context,
+                      //                                                           url,
+                      //                                                         ) => const Center(
+                      //                                                           child: CircularProgressIndicator(
+                      //                                                             strokeWidth: 2,
+                      //                                                           ),
+                      //                                                         ),
+                      //                                                     errorWidget:
+                      //                                                         (
+                      //                                                           context,
+                      //                                                           url,
+                      //                                                           error,
+                      //                                                         ) => const Icon(
+                      //                                                           Icons.broken_image,
+                      //                                                           size: 20,
+                      //                                                         ),
+                      //                                                   )
+                      //                                                 : Center(
+                      //                                                     child: Text(
+                      //                                                       'No image',
+                      //                                                       style:
+                      //                                                           Theme.of(
+                      //                                                             context,
+                      //                                                           ).textTheme.bodySmall?.copyWith(
+                      //                                                             color: const Color(
+                      //                                                               0xFF9CA3AF,
+                      //                                                             ),
+                      //                                                             fontSize: 8,
+                      //                                                           ),
+                      //                                                     ),
+                      //                                                   ),
+                      //                                           ),
+                      //                                         ),
+                      //                                       ],
+                      //                                     ),
+                      //                                   ),
+                      //                                 ],
+                      //                               ),
+                      //                             ],
+                      //                           ),
+                      //                         ),
+                      //                         const SizedBox(height: 6),
+                      //                         Row(
+                      //                           mainAxisAlignment:
+                      //                               MainAxisAlignment.end,
+                      //                           children: [
+                      //                             OutlinedButton(
+                      //                               onPressed:
+                      //                                   approvalId.isEmpty
+                      //                                   ? null
+                      //                                   : () =>
+                      //                                         _showRejectReasonSheet(
+                      //                                           approvalId,
+                      //                                         ),
+                      //                               style: OutlinedButton.styleFrom(
+                      //                                 foregroundColor:
+                      //                                     const Color(
+                      //                                       0xFFB91C1C,
+                      //                                     ),
+                      //                                 side: const BorderSide(
+                      //                                   color: Color(
+                      //                                     0xFFFCA5A5,
+                      //                                   ),
+                      //                                 ),
+                      //                                 padding:
+                      //                                     const EdgeInsets.symmetric(
+                      //                                       horizontal: 12,
+                      //                                       vertical: 6,
+                      //                                     ),
+                      //                               ),
+                      //                               child: const Text(
+                      //                                 'Reject',
+                      //                                 style: TextStyle(
+                      //                                   fontSize: 12,
+                      //                                 ),
+                      //                               ),
+                      //                             ),
+                      //                             const SizedBox(width: 8),
+                      //                             ElevatedButton(
+                      //                               onPressed:
+                      //                                   approvalId.isEmpty
+                      //                                   ? null
+                      //                                   : () =>
+                      //                                         _handleApprovalAction(
+                      //                                           approvalId,
+                      //                                           'Approved',
+                      //                                         ),
+                      //                               style: ElevatedButton.styleFrom(
+                      //                                 backgroundColor:
+                      //                                     const Color(
+                      //                                       0xFF22C55E,
+                      //                                     ),
+                      //                                 foregroundColor:
+                      //                                     Colors.white,
+                      //                                 padding:
+                      //                                     const EdgeInsets.symmetric(
+                      //                                       horizontal: 14,
+                      //                                       vertical: 8,
+                      //                                     ),
+                      //                                 shape: RoundedRectangleBorder(
+                      //                                   borderRadius:
+                      //                                       BorderRadius.circular(
+                      //                                         999,
+                      //                                       ),
+                      //                                 ),
+                      //                                 elevation: 0,
+                      //                               ),
+                      //                               child: const Text(
+                      //                                 'Approve',
+                      //                                 style: TextStyle(
+                      //                                   fontSize: 12,
+                      //                                 ),
+                      //                               ),
+                      //                             ),
+                      //                           ],
+                      //                         ),
+                      //                       ],
+                      //                     ),
+                      //                   ),
+                      //                 ],
+                      //               ),
+                      //             );
+                      //           },
+                      //         ),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // ],
+                      if (!isCarWash &&
+                          !isBatteryTire &&
+                          !isGeneralService) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'Detailed Status',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.black : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.grey.shade900
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              _StatusRow(
+                                label: 'Inspection',
+                                isCompleted:
+                                    booking.inspectionCompletedAt != null,
+                                time: _formatDateTime(
+                                  context,
+                                  booking.inspectionCompletedAt,
+                                ),
+                                isDark: isDark,
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Divider(height: 1),
+                              ),
+                              _StatusRow(
+                                label: 'Service & QC',
+                                isCompleted: booking.qcCompletedAt != null,
+                                time: _formatDateTime(
+                                  context,
+                                  booking.qcCompletedAt,
+                                ),
+                                isDark: isDark,
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Divider(height: 1),
+                              ),
+                              _StatusRow(
+                                label: 'Payment',
+                                isCompleted: booking.paymentStatus == 'paid',
+                                time: booking.paymentStatus == 'paid'
+                                    ? 'Completed'
+                                    : 'Pending',
+                                isDark: isDark,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      Text(
+                        'Service Progress',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.black : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.grey.shade900
+                                : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (booking.pickupRequired &&
+                                booking.status == 'REACHED_CUSTOMER' &&
+                                _nearAlertShown) ...[
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFF22C55E),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Staff is nearby',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF166534),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            Builder(
+                              builder: (context) {
+                                final flow = Booking.getFlowForBooking(booking);
+                                final labels = flow
+                                    .map(
+                                      (s) => Booking.getStatusLabel(
+                                        s,
+                                        booking.services,
+                                      ),
+                                    )
+                                    .toList();
+                                final labelToStatus = Map.fromIterables(
+                                  labels,
+                                  flow,
+                                );
+
+                                // Determine active index based on status flow
+                                int activeIndex = flow.indexOf(
+                                  booking.status.toUpperCase(),
+                                );
+                                if (activeIndex == -1) {
+                                  // Handle some aliases or special cases
+                                  if (booking.status.toUpperCase() ==
+                                          'COMPLETED' &&
+                                      flow.contains('DELIVERED')) {
+                                    activeIndex = flow.indexOf('DELIVERED');
+                                  } else if (booking.status.toUpperCase() ==
+                                          'DELIVERED' &&
+                                      flow.contains('COMPLETED')) {
+                                    activeIndex = flow.indexOf('COMPLETED');
+                                  } else {
+                                    activeIndex = 0;
+                                  }
+                                }
+
+                                return _VerticalStepper(
+                                  labels: labels,
+                                  activeIndex: activeIndex,
+                                  statusHistory: booking.statusHistory,
+                                  labelToStatus: labelToStatus,
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-
                       // Driver/Staff Details Section
+                      const SizedBox(height: 16),
                       (() {
                         final name =
                             booking.carWash?.staffName ??
@@ -1754,38 +2834,184 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   Uri.parse('tel:${booking.merchantPhone}'),
                                 ),
                               ),
-                            const SizedBox(width: 8),
-                            _buildCircleActionButton(
-                              icon: Icons.message,
-                              color: const Color(0xFF4F46E5),
-                              bgColor: const Color(0xFFEEF2FF),
-                              onTap: () {
-                                final phone =
-                                    booking.merchantPhone?.replaceAll(
-                                      RegExp(r'\D'),
-                                      '',
-                                    ) ??
-                                    '';
-                                if (phone.isNotEmpty) {
-                                  launchUrl(
-                                    Uri.parse(
-                                      'https://wa.me/$phone?text=Hi, I have a query about order #${booking.orderNumber ?? booking.id}',
-                                    ),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              },
-                            ),
                           ],
                         ),
                         const SizedBox(height: 16),
                       ],
+                      if (inspectionItems.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildAutoPhotoCarouselSection(
+                          sectionKey: 'inspection',
+                          title: 'Vehicle Inspection',
+                          subtitle:
+                              'Photos of your vehicle taken by the service center before starting the service.',
+                          items: inspectionItems,
+                          isDark: isDark,
+                        ),
+                      ],
+
+                      // Replaced Parts Section (Frontend Parity)
+                      if (booking.serviceParts.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'Replaced Parts',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 12),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: booking.serviceParts.length,
+                          separatorBuilder: (context, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final part = booking.serviceParts[index];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.black : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.grey.shade900
+                                      : const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  if (part.image != null)
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isDark
+                                              ? Colors.grey.shade900
+                                              : const Color(0xFFE5E7EB),
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(7),
+                                        child: CachedNetworkImage(
+                                          imageUrl: _resolveImageUrl(
+                                            part.image,
+                                          )!,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          part.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Qty: ${part.quantity} • Price: ₹${part.price}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark
+                                                ? Colors.white60
+                                                : Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: part.fromInspection
+                                                ? const Color(0xFFDCFCE7)
+                                                : const Color(0xFFDBEAFE),
+                                            borderRadius: BorderRadius.circular(
+                                              99,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            part.fromInspection
+                                                ? 'From inspection'
+                                                : 'New discovery',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: part.fromInspection
+                                                  ? const Color(0xFF166534)
+                                                  : const Color(0xFF1E40AF),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                      if (prePickupItems.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildAutoPhotoCarouselSection(
+                          sectionKey: 'prePickup',
+                          title: isBatteryTire
+                              ? 'Pickup & Installation'
+                              : 'Pre-Picked Photos',
+                          items: prePickupItems,
+                          isDark: isDark,
+                        ),
+                      ],
+                      if (isCarWash &&
+                          (beforeCarWashItems.isNotEmpty ||
+                              afterCarWashItems.isNotEmpty)) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'Service Photos',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (beforeCarWashItems.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _buildAutoPhotoCarouselSection(
+                            sectionKey: 'beforeCarWash',
+                            title: beforeCarWashTitle,
+                            items: beforeCarWashItems,
+                            isDark: isDark,
+                          ),
+                        ],
+                        if (afterCarWashItems.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _buildAutoPhotoCarouselSection(
+                            sectionKey: 'afterCarWash',
+                            title: afterCarWashTitle,
+                            items: afterCarWashItems,
+                            isDark: isDark,
+                          ),
+                        ],
+                      ] else if (servicePhotoItems.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildAutoPhotoCarouselSection(
+                          sectionKey: 'servicePhotos',
+                          title: 'Service Photos',
+                          items: servicePhotoItems,
+                          isDark: isDark,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E1E1E)
-                              : Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
@@ -1805,9 +3031,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Expanded(
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 220,
+                                  ),
                                   child: Text(
                                     'Booking #${booking.orderNumber ?? booking.id}',
                                     maxLines: 1,
@@ -1832,7 +3064,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF2563EB),
+                                      color: Color.fromARGB(255, 76, 42, 230),
                                     ),
                                   ),
                                 ),
@@ -1852,9 +3084,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             if (booking.vehicle != null) ...[
                               Row(
                                 children: [
-                                  if (_resolveImageUrl(
-                                        booking.vehicle!.image,
-                                      ) !=
+                                  if (_resolveImageUrl(booking.vehicle!.image) !=
                                       null)
                                     Container(
                                       width: 60,
@@ -1923,8 +3153,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             ],
                             if (booking.billing != null &&
                                 (booking.billing!.total > 0 ||
-                                    booking.billing!.invoiceNumber !=
-                                        null)) ...[
+                                    booking.billing!.invoiceNumber != null)) ...[
                               const SizedBox(height: 12),
                               const Divider(height: 1),
                               const SizedBox(height: 12),
@@ -2137,1231 +3366,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ],
                         ),
                       ),
-                      if ((booking.status == 'OUT_FOR_DELIVERY' ||
-                              booking.status == 'SERVICE_COMPLETED' ||
-                              booking.status == 'DELIVERY' ||
-                              booking.status == 'CAR_WASH_COMPLETED' ||
-                              booking.status == 'CAR_WASH_STARTED' ||
-                              booking.status == 'SERVICE_STARTED' ||
-                              booking.status == 'INSTALLATION') &&
-                          booking.deliveryOtp != null &&
-                          booking.deliveryOtp!.code.trim().isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF6366F1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                (isCarWash || isBatteryTire)
-                                    ? 'Completion OTP'
-                                    : 'Delivery OTP',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF4F46E5),
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      booking.deliveryOtp!.code,
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        letterSpacing: 4,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF111827),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      (isCarWash || isBatteryTire)
-                                          ? 'Share this code with our staff to confirm service completion.'
-                                          : 'Share this code only with our staff at the time of delivery.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: const Color(0xFF4B5563),
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () => _showConfirmDeliveryDialog(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'Confirm Receipt',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (_pendingApprovals.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFFCD34D)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF59E0B),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Approval required',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF92400E),
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              ListView.builder(
-                                shrinkWrap: true,
-                                padding: EdgeInsets.zero,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _pendingApprovals.length,
-                                itemBuilder: (context, index) {
-                                  final approval = _pendingApprovals[index];
-                                  final data = approval['data'];
-                                  String name = 'Part replacement';
-                                  int? quantity;
-                                  double? price;
-                                  String? newImageUrl;
-                                  String? oldImageUrl;
-                                  if (data is Map) {
-                                    final rawName = data['name'];
-                                    if (rawName != null &&
-                                        rawName.toString().trim().isNotEmpty) {
-                                      name = rawName.toString();
-                                    }
-                                    final rawQty = data['quantity'];
-                                    if (rawQty is num) {
-                                      quantity = rawQty.toInt();
-                                    }
-                                    final rawPrice = data['price'];
-                                    if (rawPrice is num) {
-                                      price = rawPrice.toDouble();
-                                    }
-                                    newImageUrl = _resolveImageUrl(
-                                      data['image'],
-                                    );
-                                    oldImageUrl = _resolveImageUrl(
-                                      data['oldImage'],
-                                    );
-                                  }
-                                  double? total;
-                                  if (quantity != null && price != null) {
-                                    total = quantity * price;
-                                  }
-                                  final approvalId =
-                                      approval['_id']?.toString() ?? '';
-                                  return Container(
-                                    margin: const EdgeInsets.only(top: 8),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 24,
-                                          height: 24,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFEF3C7),
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: const Text(
-                                            'SC',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF92400E),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(
-                                                  10,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  border: Border.all(
-                                                    color: const Color(
-                                                      0xFFFCD34D,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(
-                                                            name,
-                                                            style: Theme.of(context)
-                                                                .textTheme
-                                                                .bodyMedium
-                                                                ?.copyWith(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        if (total != null)
-                                                          Text(
-                                                            '₹${total.toStringAsFixed(2)}',
-                                                            style: Theme.of(context)
-                                                                .textTheme
-                                                                .bodySmall
-                                                                ?.copyWith(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w700,
-                                                                  color: const Color(
-                                                                    0xFF111827,
-                                                                  ),
-                                                                ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                    if (quantity != null ||
-                                                        price != null)
-                                                      Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                              top: 2,
-                                                            ),
-                                                        child: Text(
-                                                          'Qty: ${quantity ?? '-'} • Price: ₹${price != null ? price.toStringAsFixed(2) : '-'}',
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .bodySmall
-                                                              ?.copyWith(
-                                                                color:
-                                                                    const Color(
-                                                                      0xFF92400E,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    const SizedBox(height: 8),
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                            children: [
-                                                              Text(
-                                                                'New Part',
-                                                                style: Theme.of(context)
-                                                                    .textTheme
-                                                                    .bodySmall
-                                                                    ?.copyWith(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      color: const Color(
-                                                                        0xFF4B5563,
-                                                                      ),
-                                                                      fontSize:
-                                                                          10,
-                                                                    ),
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 4,
-                                                              ),
-                                                              SizedBox(
-                                                                width: 80,
-                                                                height: 80,
-                                                                child: Container(
-                                                                  decoration: BoxDecoration(
-                                                                    color: const Color(
-                                                                      0xFFF9FAFB,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    border: Border.all(
-                                                                      color: const Color(
-                                                                        0xFFE5E7EB,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  clipBehavior:
-                                                                      Clip.antiAlias,
-                                                                  child:
-                                                                      _resolveImageUrl(
-                                                                            newImageUrl,
-                                                                          ) !=
-                                                                          null
-                                                                      ? CachedNetworkImage(
-                                                                          imageUrl: _resolveImageUrl(
-                                                                            newImageUrl,
-                                                                          )!,
-                                                                          fit: BoxFit
-                                                                              .cover,
-                                                                          placeholder:
-                                                                              (
-                                                                                context,
-                                                                                url,
-                                                                              ) => const Center(
-                                                                                child: CircularProgressIndicator(
-                                                                                  strokeWidth: 2,
-                                                                                ),
-                                                                              ),
-                                                                          errorWidget:
-                                                                              (
-                                                                                context,
-                                                                                url,
-                                                                                error,
-                                                                              ) => const Icon(
-                                                                                Icons.broken_image,
-                                                                                size: 20,
-                                                                              ),
-                                                                        )
-                                                                      : Center(
-                                                                          child: Text(
-                                                                            'No image',
-                                                                            style:
-                                                                                Theme.of(
-                                                                                  context,
-                                                                                ).textTheme.bodySmall?.copyWith(
-                                                                                  color: const Color(
-                                                                                    0xFF9CA3AF,
-                                                                                  ),
-                                                                                  fontSize: 8,
-                                                                                ),
-                                                                          ),
-                                                                        ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                            children: [
-                                                              Text(
-                                                                'Old Part',
-                                                                style: Theme.of(context)
-                                                                    .textTheme
-                                                                    .bodySmall
-                                                                    ?.copyWith(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      color: const Color(
-                                                                        0xFF4B5563,
-                                                                      ),
-                                                                      fontSize:
-                                                                          10,
-                                                                    ),
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 4,
-                                                              ),
-                                                              SizedBox(
-                                                                width: 80,
-                                                                height: 80,
-                                                                child: Container(
-                                                                  decoration: BoxDecoration(
-                                                                    color: const Color(
-                                                                      0xFFF9FAFB,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    border: Border.all(
-                                                                      color: const Color(
-                                                                        0xFFE5E7EB,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  clipBehavior:
-                                                                      Clip.antiAlias,
-                                                                  child:
-                                                                      _resolveImageUrl(
-                                                                            oldImageUrl,
-                                                                          ) !=
-                                                                          null
-                                                                      ? CachedNetworkImage(
-                                                                          imageUrl: _resolveImageUrl(
-                                                                            oldImageUrl,
-                                                                          )!,
-                                                                          fit: BoxFit
-                                                                              .cover,
-                                                                          placeholder:
-                                                                              (
-                                                                                context,
-                                                                                url,
-                                                                              ) => const Center(
-                                                                                child: CircularProgressIndicator(
-                                                                                  strokeWidth: 2,
-                                                                                ),
-                                                                              ),
-                                                                          errorWidget:
-                                                                              (
-                                                                                context,
-                                                                                url,
-                                                                                error,
-                                                                              ) => const Icon(
-                                                                                Icons.broken_image,
-                                                                                size: 20,
-                                                                              ),
-                                                                        )
-                                                                      : Center(
-                                                                          child: Text(
-                                                                            'No image',
-                                                                            style:
-                                                                                Theme.of(
-                                                                                  context,
-                                                                                ).textTheme.bodySmall?.copyWith(
-                                                                                  color: const Color(
-                                                                                    0xFF9CA3AF,
-                                                                                  ),
-                                                                                  fontSize: 8,
-                                                                                ),
-                                                                          ),
-                                                                        ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.end,
-                                                children: [
-                                                  OutlinedButton(
-                                                    onPressed:
-                                                        approvalId.isEmpty
-                                                        ? null
-                                                        : () =>
-                                                              _showRejectReasonSheet(
-                                                                approvalId,
-                                                              ),
-                                                    style: OutlinedButton.styleFrom(
-                                                      foregroundColor:
-                                                          const Color(
-                                                            0xFFB91C1C,
-                                                          ),
-                                                      side: const BorderSide(
-                                                        color: Color(
-                                                          0xFFFCA5A5,
-                                                        ),
-                                                      ),
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 12,
-                                                            vertical: 6,
-                                                          ),
-                                                    ),
-                                                    child: const Text(
-                                                      'Reject',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  ElevatedButton(
-                                                    onPressed:
-                                                        approvalId.isEmpty
-                                                        ? null
-                                                        : () =>
-                                                              _handleApprovalAction(
-                                                                approvalId,
-                                                                'Approved',
-                                                              ),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor:
-                                                          const Color(
-                                                            0xFF22C55E,
-                                                          ),
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 14,
-                                                            vertical: 8,
-                                                          ),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              999,
-                                                            ),
-                                                      ),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: const Text(
-                                                      'Approve',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (!isCarWash &&
-                          !isBatteryTire &&
-                          !isGeneralService) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Detailed Status',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.grey.shade900
-                                  : const Color(0xFFE5E7EB),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              _StatusRow(
-                                label: 'Inspection',
-                                isCompleted:
-                                    booking.inspectionCompletedAt != null,
-                                time: _formatDateTime(
-                                  context,
-                                  booking.inspectionCompletedAt,
-                                ),
-                                isDark: isDark,
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(height: 1),
-                              ),
-                              _StatusRow(
-                                label: 'Service & QC',
-                                isCompleted: booking.qcCompletedAt != null,
-                                time: _formatDateTime(
-                                  context,
-                                  booking.qcCompletedAt,
-                                ),
-                                isDark: isDark,
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(height: 1),
-                              ),
-                              _StatusRow(
-                                label: 'Payment',
-                                isCompleted: booking.paymentStatus == 'paid',
-                                time: booking.paymentStatus == 'paid'
-                                    ? 'Completed'
-                                    : 'Pending',
-                                isDark: isDark,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Text(
-                        'Service Progress',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (booking.pickupRequired &&
-                                booking.status == 'REACHED_CUSTOMER' &&
-                                _nearAlertShown) ...[
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFF22C55E),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Staff is nearby',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF166534),
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            Builder(
-                              builder: (context) {
-                                final flow = Booking.getFlowForBooking(booking);
-                                final labels = flow
-                                    .map(
-                                      (s) => Booking.getStatusLabel(
-                                        s,
-                                        booking.services,
-                                      ),
-                                    )
-                                    .toList();
-                                final labelToStatus = Map.fromIterables(
-                                  labels,
-                                  flow,
-                                );
-
-                                // Determine active index based on status flow
-                                int activeIndex = flow.indexOf(
-                                  booking.status.toUpperCase(),
-                                );
-                                if (activeIndex == -1) {
-                                  // Handle some aliases or special cases
-                                  if (booking.status.toUpperCase() ==
-                                          'COMPLETED' &&
-                                      flow.contains('DELIVERED')) {
-                                    activeIndex = flow.indexOf('DELIVERED');
-                                  } else if (booking.status.toUpperCase() ==
-                                          'DELIVERED' &&
-                                      flow.contains('COMPLETED')) {
-                                    activeIndex = flow.indexOf('COMPLETED');
-                                  } else {
-                                    activeIndex = 0;
-                                  }
-                                }
-
-                                return _VerticalStepper(
-                                  labels: labels,
-                                  activeIndex: activeIndex,
-                                  statusHistory: booking.statusHistory,
-                                  labelToStatus: labelToStatus,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      if ((booking.status == 'DELIVERED' ||
-                              booking.status == 'COMPLETED') &&
-                          (!_hasMerchantReview || !_hasPlatformReview)) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.primaryBlue,
-                                  AppColors.primaryBlueDark,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: _showReviewDialog,
-                              icon: const Icon(Icons.star),
-                              label: const Text(
-                                'Rate your experience',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: AppColors.textPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      if ((booking.status == 'SERVICE_COMPLETED' ||
-                              booking.status == 'COMPLETED' ||
-                              booking.status == 'DELIVERED') &&
-                          booking.paymentStatus != 'paid') ...[
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF6366F1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.payment,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Payment Required',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF4F46E5),
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Service is completed. Please pay ₹${booking.calculatedTotal} to proceed with vehicle delivery.',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: const Color(0xFF4B5563)),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isPaymentLoading
-                                      ? null
-                                      : _handlePayment,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4F46E5),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: _isPaymentLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Pay Now',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      // Inspection Photos Section (Frontend Parity)
-                      if (booking.inspection != null &&
-                          (booking.inspection!.frontPhoto != null ||
-                              booking.inspection!.backPhoto != null ||
-                              booking.inspection!.leftPhoto != null ||
-                              booking.inspection!.rightPhoto != null)) ...[
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.shield_outlined,
-                              size: 18,
-                              color: Color(0xFF2563EB),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Vehicle Inspection',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Photos of your vehicle taken by the service center before starting the service.',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 200,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              if (booking.inspection!.frontPhoto != null)
-                                _buildInspectionPhotoMobile(
-                                  context,
-                                  'Front',
-                                  booking.inspection!.frontPhoto!,
-                                  isDark,
-                                ),
-                              if (booking.inspection!.backPhoto != null)
-                                _buildInspectionPhotoMobile(
-                                  context,
-                                  'Back',
-                                  booking.inspection!.backPhoto!,
-                                  isDark,
-                                ),
-                              if (booking.inspection!.leftPhoto != null)
-                                _buildInspectionPhotoMobile(
-                                  context,
-                                  'Left',
-                                  booking.inspection!.leftPhoto!,
-                                  isDark,
-                                ),
-                              if (booking.inspection!.rightPhoto != null)
-                                _buildInspectionPhotoMobile(
-                                  context,
-                                  'Right',
-                                  booking.inspection!.rightPhoto!,
-                                  isDark,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      // Replaced Parts Section (Frontend Parity)
-                      if (booking.serviceParts.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Replaced Parts',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: booking.serviceParts.length,
-                          separatorBuilder: (context, _) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final part = booking.serviceParts[index];
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.black : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.grey.shade900
-                                      : const Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  if (part.image != null)
-                                    Container(
-                                      width: 50,
-                                      height: 50,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? Colors.grey.shade900
-                                              : const Color(0xFFE5E7EB),
-                                        ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(7),
-                                        child: CachedNetworkImage(
-                                          imageUrl: _resolveImageUrl(
-                                            part.image,
-                                          )!,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          part.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Qty: ${part.quantity} • Price: ₹${part.price}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: isDark
-                                                ? Colors.white60
-                                                : Colors.black54,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: part.fromInspection
-                                                ? const Color(0xFFDCFCE7)
-                                                : const Color(0xFFDBEAFE),
-                                            borderRadius: BorderRadius.circular(
-                                              99,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            part.fromInspection
-                                                ? 'From inspection'
-                                                : 'New discovery',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: part.fromInspection
-                                                  ? const Color(0xFF166534)
-                                                  : const Color(0xFF1E40AF),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                      if (booking.prePickupPhotos.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          isBatteryTire
-                              ? 'Pickup & Installation'
-                              : 'Pre-Pickup Photos',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 120,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: booking.prePickupPhotos.length,
-                            separatorBuilder: (context, _) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, index) {
-                              final url = _resolveImageUrl(
-                                booking.prePickupPhotos[index],
-                              );
-                              if (url == null) return const SizedBox.shrink();
-                              String photoLabel = '';
-                              if (isBatteryTire) {
-                                if (index == 0) photoLabel = 'New Part';
-                                if (index == 1) photoLabel = 'Old Part';
-                              } else {
-                                photoLabel = 'Photo ${index + 1}';
-                              }
-
-                              return Column(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => _showImagePreview(url),
-                                    child: Container(
-                                      width: 100,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? Colors.white.withValues(
-                                                  alpha: 0.1,
-                                                )
-                                              : const Color(0xFFE5E7EB),
-                                        ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(11),
-                                        child: CachedNetworkImage(
-                                          imageUrl: url,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) =>
-                                              const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              ),
-                                          errorWidget: (context, url, error) =>
-                                              const Icon(
-                                                Icons.broken_image,
-                                                size: 20,
-                                              ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (photoLabel.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        photoLabel,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                      if (booking.beforeServicePhotos.isNotEmpty ||
-                          booking.duringServicePhotos.isNotEmpty ||
-                          booking.postServicePhotos.isNotEmpty ||
-                          (isCarWash &&
-                              ((booking.carWash != null &&
-                                      booking
-                                          .carWash!
-                                          .beforeWashPhotos
-                                          .isNotEmpty) ||
-                                  (booking.carWash != null &&
-                                      booking
-                                          .carWash!
-                                          .afterWashPhotos
-                                          .isNotEmpty)))) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Service Photos',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ...(() {
-                                final isEssentials = booking.services.any(
-                                  (s) => (s.category ?? '')
-                                      .toLowerCase()
-                                      .contains('essentials'),
-                                );
-                                return [
-                                  if (isCarWash &&
-                                      booking.carWash?.beforeWashPhotos !=
-                                          null &&
-                                      booking
-                                          .carWash!
-                                          .beforeWashPhotos
-                                          .isNotEmpty)
-                                    _buildHorizontalPhotoCategory(
-                                      context,
-                                      const SizedBox.shrink(),
-                                      title: isEssentials
-                                          ? 'Before Service'
-                                          : 'Before Wash',
-                                      photos: booking.carWash!.beforeWashPhotos,
-                                      isDark: isDark,
-                                    ),
-                                  if (isCarWash &&
-                                      booking.carWash?.afterWashPhotos !=
-                                          null &&
-                                      booking
-                                          .carWash!
-                                          .afterWashPhotos
-                                          .isNotEmpty)
-                                    _buildHorizontalPhotoCategory(
-                                      context,
-                                      (booking
-                                                  .carWash
-                                                  ?.beforeWashPhotos
-                                                  .isNotEmpty ??
-                                              false)
-                                          ? const SizedBox(width: 16)
-                                          : const SizedBox.shrink(),
-                                      title: isEssentials
-                                          ? 'After Service'
-                                          : 'After Wash',
-                                      photos: booking.carWash!.afterWashPhotos,
-                                      isDark: isDark,
-                                    ),
-                                ];
-                              })(),
-                              if (!isCarWash &&
-                                  booking.beforeServicePhotos.isNotEmpty)
-                                _buildHorizontalPhotoCategory(
-                                  context,
-                                  const SizedBox.shrink(),
-                                  title: 'Before Service',
-                                  photos: booking.beforeServicePhotos,
-                                  isDark: isDark,
-                                ),
-                              if (!isCarWash &&
-                                  booking.duringServicePhotos.isNotEmpty)
-                                _buildHorizontalPhotoCategory(
-                                  context,
-                                  booking.beforeServicePhotos.isNotEmpty
-                                      ? const SizedBox(width: 16)
-                                      : const SizedBox.shrink(),
-                                  title: 'During Service',
-                                  photos: booking.duringServicePhotos,
-                                  isDark: isDark,
-                                ),
-                              if (!isCarWash &&
-                                  booking.postServicePhotos.isNotEmpty)
-                                _buildHorizontalPhotoCategory(
-                                  context,
-                                  (booking.beforeServicePhotos.isNotEmpty ||
-                                          booking
-                                              .duringServicePhotos
-                                              .isNotEmpty)
-                                      ? const SizedBox(width: 16)
-                                      : const SizedBox.shrink(),
-                                  title: 'After Service',
-                                  photos: booking.postServicePhotos,
-                                  isDark: isDark,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
                       // Warranty Information - Only for battery/tire
                       if (isBatteryTire &&
                           booking.batteryTire?.warrantyName != null) ...[
@@ -3452,51 +3456,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ),
                         ),
                       ],
-                      if (booking.invoiceUrl != null &&
-                          (isCarWash ||
-                              isBatteryTire ||
-                              booking.paymentStatus == 'paid')) ...[
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final url = _resolveImageUrl(booking.invoiceUrl);
-                              if (url != null) {
-                                final uri = Uri.parse(url);
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(
-                                    uri,
-                                    mode: kIsWeb
-                                        ? LaunchMode.platformDefault
-                                        : LaunchMode.externalApplication,
-                                  );
-                                } else {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Could not launch invoice URL',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.download),
-                            label: const Text('Download Invoice'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.backgroundSurface,
-                              foregroundColor: AppColors.textPrimary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   );
                 },
@@ -3508,123 +3467,109 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildHorizontalPhotoCategory(
-    BuildContext context,
-    Widget spacing, {
-    required String title,
-    required List<String> photos,
-    required bool isDark,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        spacing,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: List.generate(photos.length, (index) {
-                final url = _resolveImageUrl(photos[index]);
-                if (url == null) return const SizedBox.shrink();
-                return GestureDetector(
-                  onTap: () => _showImagePreview(url),
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    margin: EdgeInsets.only(
-                      right: index == photos.length - 1 ? 0 : 10,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        errorWidget: (context, url, error) =>
-                            const Icon(Icons.broken_image, size: 20),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ],
-        ),
-      ],
+  void _ensureCarouselState(String sectionKey, int itemCount) {
+    _carouselIndexes.putIfAbsent(sectionKey, () => 0);
+    _carouselControllers.putIfAbsent(
+      sectionKey,
+      () => PageController(viewportFraction: 0.9),
     );
   }
 
-  Widget _buildInspectionPhotoMobile(
-    BuildContext context,
-    String label,
-    String photoPath,
-    bool isDark,
-  ) {
-    final url = _resolveImageUrl(photoPath);
-    if (url == null) return const SizedBox.shrink();
+  Widget _buildAutoPhotoCarouselSection({
+    required String sectionKey,
+    required String title,
+    String? subtitle,
+    required List<_PhotoCarouselItem> items,
+    required bool isDark,
+  }) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    _ensureCarouselState(sectionKey, items.length);
+    final controller = _carouselControllers.putIfAbsent(
+      sectionKey,
+      () => PageController(viewportFraction: 0.9),
+    );
+    final currentIndex = (_carouselIndexes[sectionKey] ?? 0) % items.length;
+    final carouselHeight = MediaQuery.of(context).size.height * 0.34;
 
-    return Container(
-      width: 240,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showImagePreview(url),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.1)
-                        : const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
-                  child: CachedNetworkImage(
-                    imageUrl: url,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.broken_image, size: 20),
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : Colors.black87,
+            Text(
+              '${currentIndex + 1}/${items.length}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
             ),
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
           ),
         ],
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: carouselHeight.clamp(220.0, 340.0),
+          child: PageView.builder(
+            controller: controller,
+            onPageChanged: (index) {
+              if (!mounted) return;
+              setState(() {
+                _carouselIndexes[sectionKey] = index;
+              });
+            },
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return AnimatedOpacity(
+                duration: const Duration(milliseconds: 250),
+                opacity: index == currentIndex ? 1 : 0.38,
+                child: GestureDetector(
+                  onTap: () => _showImagePreview(item.url),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: item.url,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) =>
+                                const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.broken_image, size: 24),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

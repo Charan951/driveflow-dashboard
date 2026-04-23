@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/api_client.dart';
+import '../core/env.dart';
 import '../models/booking.dart';
 import '../models/message.dart';
 import '../services/socket_service.dart';
@@ -32,6 +33,21 @@ class _ChatPageState extends State<ChatPage> {
   late final String _bookingId;
   bool _isSending = false;
 
+  String _normalizeForCompare(String input) {
+    final lower = input.toLowerCase();
+    final noSymbols = lower.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+    return noSymbols.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  bool _containsWelcomeMessage(List<Message> messages) {
+    const signature = 'welcome to carzzi support chat';
+    for (final m in messages) {
+      final normalized = _normalizeForCompare(m.text);
+      if (normalized.contains(signature)) return true;
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -53,9 +69,6 @@ class _ChatPageState extends State<ChatPage> {
   void _handleNewApproval(dynamic data) {
     if (!mounted) return;
     _socketService.emit('getMessages', {'bookingId': _bookingId});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('New approval request received')),
-    );
   }
 
   void _handleReceiveMessage(dynamic data) {
@@ -95,22 +108,25 @@ class _ChatPageState extends State<ChatPage> {
       final greetingTime = widget.booking.createdAt != null
           ? DateTime.tryParse(widget.booking.createdAt!) ?? DateTime.now()
           : DateTime.now();
+      final hasExistingWelcome = _containsWelcomeMessage(loadedMessages);
 
       setState(() {
         _messages.clear();
-        _messages.add(
-          Message(
-            id: 'system_greeting',
-            bookingId: _bookingId,
-            sender: const MessageSender(
-              id: 'carzzi-system-user',
-              name: 'Carzzi',
-              role: 'system',
+        if (!hasExistingWelcome) {
+          _messages.add(
+            Message(
+              id: 'system_greeting',
+              bookingId: _bookingId,
+              sender: const MessageSender(
+                id: 'carzzi-system-user',
+                name: 'Carzzi',
+                role: 'system',
+              ),
+              text: carzziGreetingMessage,
+              createdAt: greetingTime,
             ),
-            text: carzziGreetingMessage,
-            createdAt: greetingTime,
-          ),
-        );
+          );
+        }
         _messages.addAll(loadedMessages);
       });
       _scrollToBottom();
@@ -255,7 +271,7 @@ class _ChatPageState extends State<ChatPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Support Chat',
+                  'Approval Request',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -408,6 +424,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildApprovalCard(ApprovalInfo approval, bool isSelf) {
     final isPending = approval.status == 'pending';
     final bool isApproved = approval.status == 'approved';
+    final approvalImageUrl = _resolveImageUrl(approval.image);
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -464,6 +481,37 @@ class _ChatPageState extends State<ChatPage> {
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ],
+          if (isPending && approvalImageUrl != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                approvalImageUrl,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 140,
+                  color: Colors.grey.shade100,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 140,
+                    color: Colors.grey.shade100,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
           if (isPending && !isSelf) ...[
             const SizedBox(height: 12),
             Row(
@@ -501,6 +549,18 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
+  }
+
+  String? _resolveImageUrl(String? imagePath) {
+    if (imagePath == null) return null;
+    final value = imagePath.trim();
+    if (value.isEmpty) return null;
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    if (value.startsWith('/uploads/')) return '${Env.baseUrl}$value';
+    if (value.startsWith('uploads/')) return '${Env.baseUrl}/$value';
+    return '${Env.baseUrl}/uploads/$value';
   }
 
   Widget _buildMessageInput() {

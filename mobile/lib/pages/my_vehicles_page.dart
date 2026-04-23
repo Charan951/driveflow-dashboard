@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
-import '../core/app_styles.dart';
 import '../core/api_client.dart';
 import '../state/navigation_provider.dart';
 import '../models/vehicle.dart';
@@ -185,22 +184,23 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
             padding: const EdgeInsets.only(left: AppSpacing.defaultPadding),
             child: Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: AppStyles.primaryGradient,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                Builder(
+                  builder: (context) => Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.black.withValues(alpha: 0.16),
+                        width: 1.0,
                       ),
-                    ],
-                  ),
-                  child: Builder(
-                    builder: (context) => IconButton(
-                      icon: const Icon(Icons.menu),
-                      color: Colors.white,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.menu,
+                        color:
+                            isDark ? Colors.white : AppColors.textPrimaryLight,
+                      ),
                       onPressed: () => Scaffold.of(context).openDrawer(),
                     ),
                   ),

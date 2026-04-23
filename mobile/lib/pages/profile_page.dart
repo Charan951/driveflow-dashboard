@@ -80,24 +80,23 @@ class _ProfilePageState extends State<ProfilePage> {
           titleSpacing: 16,
           title: Row(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: LinearGradient(
-                    colors: [_accentPurple, _accentBlue],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _accentBlue.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+              Builder(
+                builder: (context) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
                     ),
-                  ],
-                ),
-                child: Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(Icons.menu, size: 20),
-                    color: Colors.white,
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.menu,
+                      size: 20,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                     tooltip: 'Menu',
                     onPressed: () => Scaffold.of(context).openDrawer(),
                     constraints: const BoxConstraints(

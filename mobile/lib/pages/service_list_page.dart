@@ -401,12 +401,23 @@ class _ServiceListPageState extends State<ServiceListPage> {
           Row(
             children: [
               Builder(
-                builder: (context) => IconButton(
-                  icon: Icon(
-                    Icons.menu,
-                    color: isDark ? Colors.white : Colors.black,
+                builder: (context) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
                   ),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.menu,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

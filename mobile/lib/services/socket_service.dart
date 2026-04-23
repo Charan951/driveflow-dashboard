@@ -31,6 +31,11 @@ class SocketService extends ValueNotifier<String?> {
     if (user != null) {
       disconnect();
     } else if (_socket != null) {
+      // If socket already exists but got disconnected (e.g. app background/resume),
+      // force reconnect so listeners keep receiving live updates.
+      if (!_isConnected) {
+        _socket!.connect();
+      }
       return;
     }
 
@@ -236,8 +241,7 @@ class SocketService extends ValueNotifier<String?> {
             type: 'approval',
           );
 
-          // Show foreground dialog
-          NotificationService().showApprovalDialog(title, body, approvalId);
+          // No foreground popup dialog; keep notification-based flow only.
         } catch (e) {
           // Ignore
         }

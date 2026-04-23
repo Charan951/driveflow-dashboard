@@ -2261,7 +2261,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
           await _processPayment(tempBookingId, tempBookingData: res);
-        } else {}
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment setup error: missing temporary booking id. Please try again.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
 
@@ -2325,6 +2334,30 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 .toString();
         final amount = (orderData['amount'] as num).toInt();
 
+        if (razorpayKey.isEmpty || razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment is not configured. Please contact support.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        if (amount <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Invalid payment amount. Please refresh and try again.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
         final options = {
           'key': razorpayKey,
           'amount': amount,
@@ -2343,8 +2376,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           'theme': {'color': '#2563EB'},
           'upi': {'flow': 'intent'}, // Force intent flow for UPI
         };
-
-        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {}
 
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -154,7 +154,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     try {
       final results = await Future.wait<dynamic>([
         _vehicleService.listMyVehicles(),
-        _bookingService.listMyBookings(),
+        _bookingService.listMyBookings(forceRefresh: true),
         _catalogService.listServices(isQuickService: true),
         _reviewService.getMyReviews(),
       ]);
@@ -1043,12 +1043,21 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       children: [
         _AnimatedDashboardCard(
           onTap: () => Scaffold.of(context).openDrawer(),
-          child: _FrostedCard(
-            borderRadius: 12,
-            padding: EdgeInsets.zero,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.28)
+                    : Colors.black.withValues(alpha: 0.16),
+                width: 1.0,
+              ),
+            ),
             child: IconButton(
-              icon: const Icon(Icons.menu),
-              color: isDark ? Colors.white : AppColors.textPrimaryLight,
+              icon: Icon(
+                Icons.menu,
+                color: isDark ? Colors.white : AppColors.textPrimaryLight,
+              ),
               tooltip: 'Menu',
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
@@ -1132,6 +1141,22 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final timeLabel = _formatTime(context, booking.date);
     final locationLabel =
         booking.location?.address ?? 'Pickup service scheduled';
+    final showPayButton = booking.paymentStatus != 'paid';
+    final payAmount =
+        (booking.billing != null && booking.billing!.total > 0)
+        ? booking.billing!.total
+        : booking.calculatedTotal;
+
+    void openTrackService() {
+      Navigator.pushNamed(
+        context,
+        '/track',
+        arguments: booking.id,
+      ).then((_) {
+        if (!mounted) return;
+        _load(isInitial: true);
+      });
+    }
 
     return _NeonBorderCard(
       neonColor: _neonBlue,
@@ -1222,7 +1247,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               ),
             ],
           ),
-          if (booking.deliveryOtp?.code != null &&
+          if (booking.status == 'OUT_FOR_DELIVERY' &&
+              booking.deliveryOtp?.code != null &&
               booking.deliveryOtp!.code.isNotEmpty) ...[
             const SizedBox(height: 20),
             Container(
@@ -1271,17 +1297,32 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             ),
           ],
           const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _NeonButton(
-              label: 'Track Service',
-              purple: _accentPurple,
-              blue: _accentBlue,
-              onTap: () {
-                Navigator.pushNamed(context, '/track', arguments: booking.id);
-              },
+          if (showPayButton)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _SecondaryActionButton(
+                  label: 'Pay ₹$payAmount',
+                  onTap: openTrackService,
+                ),
+                _NeonButton(
+                  label: 'Track Service',
+                  purple: _accentPurple,
+                  blue: _accentBlue,
+                  onTap: openTrackService,
+                ),
+              ],
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: _NeonButton(
+                label: 'Track Service',
+                purple: _accentPurple,
+                blue: _accentBlue,
+                onTap: openTrackService,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1383,7 +1424,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 borderRadius: 16,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 6,
-                  vertical: AppSpacing.small,
+                  vertical: 6,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -1417,7 +1458,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             )
                           : const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     Container(
                       width: 40,
                       height: 40,
@@ -1433,9 +1474,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 34,
+                    const SizedBox(height: 6),
+                    Expanded(
                       child: Center(
                         child: Text(
                           (category?.toUpperCase() == 'WASH' ||
@@ -1449,17 +1489,16 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 : AppColors.textPrimaryLight,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            height: 1.2,
+                            height: 1.1,
                           ),
                           textAlign: TextAlign.center,
-                          maxLines: 3,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                    const Spacer(),
                     SizedBox(
-                      height: 16,
+                      height: 14,
                       child: (item.price != null && item.price! > 0)
                           ? Text(
                               _formatPrice(item.price!),
@@ -1581,8 +1620,14 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.medium),
                 child: _AnimatedDashboardCard(
-                  onTap: () =>
-                      Navigator.pushNamed(context, '/track', arguments: b.id),
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/track',
+                    arguments: b.id,
+                  ).then((_) {
+                    if (!mounted) return;
+                    _load(isInitial: true);
+                  }),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
@@ -1979,6 +2024,37 @@ class _NeonButton extends StatelessWidget {
               letterSpacing: 0.5,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _SecondaryActionButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: AppColors.primaryBlue, width: 1.4),
+        foregroundColor: AppColors.primaryBlue,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: AppColors.primaryBlue,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
         ),
       ),
     );
