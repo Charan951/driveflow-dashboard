@@ -25,7 +25,7 @@ import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import Timeline from '@/components/Timeline';
-import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService, getStatusLabel } from '@/lib/statusFlow';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
@@ -112,6 +112,13 @@ const TrackServicePage: React.FC = () => {
       if (typeof (service as any) !== 'object' || !(service as any).category) return false;
       const cat = (service as any).category.toLowerCase();
       return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+    });
+
+  const isEssentials = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof (service as any) !== 'object' || !(service as any).category) return false;
+      const cat = (service as any).category.toLowerCase();
+      return cat.includes('essentials');
     });
   
   const activeStatusFlow: readonly BookingStatus[] = getFlowForService(Array.isArray(order?.services) ? order.services : []);
@@ -636,7 +643,7 @@ const TrackServicePage: React.FC = () => {
             await paymentService.verifyPayment(verificationData);
             
             if (isCarWashService) {
-              toast.success('Payment Successful! Your car wash booking is now confirmed. Admin will assign staff shortly.');
+              toast.success(`Payment Successful! Your ${isEssentials ? 'service' : 'car wash'} booking is now confirmed. Admin will assign staff shortly.`);
             } else {
               toast.success('Payment Successful!');
             }
@@ -721,7 +728,7 @@ const TrackServicePage: React.FC = () => {
         ? 'Staff waiting at your location'
         : (s === 'OUT_FOR_DELIVERY'
             ? 'Waiting for staff pickup vehicle'
-            : STATUS_LABELS[s]);
+            : getStatusLabel(s, Array.isArray(order?.services) ? order.services : []));
 
     return {
       step: label,
@@ -921,13 +928,13 @@ const TrackServicePage: React.FC = () => {
             >
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" />
-                Car Wash Photos
+                {isEssentials ? 'Service Photos' : 'Car Wash Photos'}
               </h2>
               
               <div className="grid grid-cols-1 gap-6">
                 {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Before Wash</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">{isEssentials ? 'Before Service' : 'Before Wash'}</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {order.carWash.beforeWashPhotos.map((url, i) => (
                         <button
@@ -936,7 +943,7 @@ const TrackServicePage: React.FC = () => {
                           onClick={() => window.open(url, '_blank')}
                           className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
                         >
-                          <img src={url} alt={`Before Wash ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`${isEssentials ? 'Before Service' : 'Before Wash'} ${i + 1}`} className="w-full h-full object-cover" />
                         </button>
                       ))}
                     </div>
@@ -945,7 +952,7 @@ const TrackServicePage: React.FC = () => {
 
                 {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">After Wash</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">{isEssentials ? 'After Service' : 'After Wash'}</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {order.carWash.afterWashPhotos.map((url, i) => (
                         <button
@@ -954,7 +961,7 @@ const TrackServicePage: React.FC = () => {
                           onClick={() => window.open(url, '_blank')}
                           className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
                         >
-                          <img src={url} alt={`After Wash ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`${isEssentials ? 'After Service' : 'After Wash'} ${i + 1}`} className="w-full h-full object-cover" />
                         </button>
                       ))}
                     </div>
@@ -1226,14 +1233,14 @@ const TrackServicePage: React.FC = () => {
                 {isCarWashService && order.paymentStatus === 'pending' && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
                     <p className="text-sm text-orange-700 font-medium">
-                      ⚠️ Payment required to confirm your car wash booking
+                      ⚠️ Payment required to confirm your {isEssentials ? 'service' : 'car wash'} booking
                     </p>
                   </div>
                 )}
                 {isCarWashService && order.paymentStatus === 'paid' && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-sm text-green-700 font-medium">
-                      ✓ Payment completed during booking for car wash service
+                      ✓ Payment completed during booking for {isEssentials ? 'service' : 'car wash service'}
                     </p>
                   </div>
                 )}
@@ -1259,7 +1266,7 @@ const TrackServicePage: React.FC = () => {
                       onClick={handlePayment}
                       disabled={isPaymentLoading || (!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status))}
                     >
-                      {isPaymentLoading ? 'Processing...' : (isCarWashService ? 'Pay Now to Confirm Car Wash' : 'Pay Now')}
+                      {isPaymentLoading ? 'Processing...' : (isCarWashService ? `Pay Now to Confirm ${isEssentials ? 'Service' : 'Car Wash'}` : 'Pay Now')}
                     </button>
                     {!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                       <p className="text-[11px] text-center text-muted-foreground">
@@ -1397,7 +1404,7 @@ const TrackServicePage: React.FC = () => {
       )}
 
       {((order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') || 
-        (order.deliveryOtp?.code && ['CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'DELIVERY', 'INSTALLATION', 'SERVICE_STARTED'].includes(order.status))) && !deliveryConfirmed && (
+        (order.deliveryOtp?.code && ['CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'DELIVERY', 'INSTALLATION', 'SERVICE_STARTED', 'SERVICE_COMPLETED'].includes(order.status))) && !deliveryConfirmed && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1406,7 +1413,9 @@ const TrackServicePage: React.FC = () => {
         >
           <h2 className="text-xl font-bold text-foreground mb-2">
             {isCarWashService 
-              ? (order.status === 'CAR_WASH_STARTED' ? 'Car Wash in Progress' : 'Car Wash Completed')
+              ? (order.status === 'CAR_WASH_STARTED' 
+                ? (isEssentials ? 'Service in Progress' : 'Car Wash in Progress') 
+                : (isEssentials ? 'Service Completed' : 'Car Wash Completed'))
               : (order.status === 'SERVICE_COMPLETED' ? 'Payment awaiting to dispatch vehicle' : 
                  order.status === 'SERVICE_STARTED' ? 'Service in Progress' :
                  order.status === 'INSTALLATION' ? 'Installation in Progress' : 'Vehicle Ready')
@@ -1414,17 +1423,19 @@ const TrackServicePage: React.FC = () => {
           </h2>
           <p className="text-muted-foreground mb-3">
             {isCarWashService 
-              ? (order.status === 'CAR_WASH_STARTED' ? 'Your car wash service is in progress.' : 'Your car wash service is completed and ready for confirmation.')
+              ? (order.status === 'CAR_WASH_STARTED' 
+                ? (isEssentials ? 'Your service is in progress.' : 'Your car wash service is in progress.') 
+                : (isEssentials ? 'Your service is completed and ready for confirmation.' : 'Your car wash service is completed and ready for confirmation.'))
               : (order.status === 'SERVICE_COMPLETED' ? 'Please complete the payment to proceed with vehicle dispatch.' : 
                  order.status === 'SERVICE_STARTED' ? 'Your service is in progress.' :
                  order.status === 'INSTALLATION' ? 'Your installation is in progress.' : 'Your vehicle is ready for pickup/delivery.')
             }
           </p>
           
-          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY' || order.status === 'CAR_WASH_STARTED' || order.status === 'SERVICE_STARTED' || order.status === 'INSTALLATION') && (
+          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY' || order.status === 'CAR_WASH_STARTED' || order.status === 'SERVICE_STARTED' || order.status === 'INSTALLATION' || order.status === 'SERVICE_COMPLETED') && (
             <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-primary/80">
-                {isCarWashService ? 'Completion OTP' : 'Delivery OTP'}
+                Delivery OTP
               </p>
               <p className="mt-1 text-2xl font-mono font-semibold text-primary">
                 {order.deliveryOtp.code}

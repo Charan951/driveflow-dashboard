@@ -449,7 +449,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _booking!.status.replaceAll('_', ' '),
+                  BookingDetail.getStatusLabel(
+                    _booking!.status,
+                    services: _booking?.services,
+                  ),
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -763,7 +766,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                               SizedBox(
                                 width: 80,
                                 child: Text(
-                                  BookingDetail.getStatusLabel(status),
+                                  BookingDetail.getStatusLabel(
+                                    status,
+                                    services: _booking?.services,
+                                  ),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 9,
@@ -886,7 +892,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             icon: Icons.directions_car,
             children: [
               _buildInfoRow('Vehicle', _booking!.vehicleName ?? 'N/A'),
-              _buildInfoRow('Status', _booking!.status),
+              _buildInfoRow(
+                'Status',
+                BookingDetail.getStatusLabel(
+                  _booking!.status,
+                  services: _booking?.services,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -3017,7 +3029,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                 ),
                               )
                             : Text(
-                                'Move to ${status == 'SERVICE_STARTED' ? 'JOB CARD' : status.replaceAll('_', ' ')}',
+                                'Move to ${status == 'SERVICE_STARTED' ? 'JOB CARD' : BookingDetail.getStatusLabel(status, services: _booking?.services)}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,

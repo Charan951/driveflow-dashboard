@@ -6,6 +6,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { Vehicle } from '@/services/vehicleService';
 import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
+import { getStatusLabel } from '@/lib/statusFlow';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -25,9 +26,11 @@ import {
   FileText,
   Download,
   IndianRupee,
-  Camera
+  Camera,
+  MessageCircle
 } from 'lucide-react';
 import * as turf from '@turf/turf';
+import ChatWidget from '@/components/ChatWidget';
 
 const BookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +56,7 @@ const BookingDetailPage: React.FC = () => {
       (booking!.services as Service[]).some(service => {
         if (!service.category) return false;
         const cat = service.category.toLowerCase();
-        return cat.includes('car wash') || cat.includes('wash');
+        return cat.includes('car wash') || cat.includes('wash') || cat.includes('essentials');
       });
     return hasCarWashCategory || booking?.carWash?.isCarWashService === true;
   }, [booking?.services, booking?.carWash?.isCarWashService]);
@@ -1240,8 +1243,8 @@ const BookingDetailPage: React.FC = () => {
                     { label: 'Created', value: 'CREATED' },
                     { label: 'Assigned', value: 'ASSIGNED' },
                     { label: 'Reached Customer', value: 'REACHED_CUSTOMER' },
-                    { label: 'Car Wash Started', value: 'CAR_WASH_STARTED' },
-                    { label: 'Car Wash Completed', value: 'CAR_WASH_COMPLETED' },
+                    { label: getStatusLabel('CAR_WASH_STARTED', booking.services || []), value: 'CAR_WASH_STARTED' },
+                    { label: getStatusLabel('CAR_WASH_COMPLETED', booking.services || []), value: 'CAR_WASH_COMPLETED' },
                     { label: 'Delivered', value: 'DELIVERED' },
                     { label: 'Cancelled', value: 'CANCELLED' }
                  ]
@@ -1288,6 +1291,16 @@ const BookingDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+      {booking?._id && (
+        <ChatWidget 
+          bookingId={booking._id} 
+          status={booking.status} 
+          onUpdate={async () => {
+            const data = await bookingService.getBookingById(booking._id);
+            setBooking(data);
+          }} 
+        />
+      )}
     </div>
   );
 };

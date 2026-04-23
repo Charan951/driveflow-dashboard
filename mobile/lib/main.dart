@@ -419,7 +419,7 @@ class MyApp extends StatelessWidget {
               '/vehicles': (_) => const MyVehiclesPage(),
               '/add-vehicle': (_) => const AddVehiclePage(),
               '/notifications': (_) => const NotificationsPage(),
-              '/insurance': (_) => const _TabRedirect(index: 1),
+              '/essentials': (_) => const _TabRedirect(index: 1),
               '/support': (_) => const SupportPage(),
               '/profile': (_) => const ProfilePage(),
               '/car-wash': (_) => const _TabRedirect(index: 3),

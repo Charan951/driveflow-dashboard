@@ -96,7 +96,6 @@ const PublicServices = () => {
       case 'Detailing': return 'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&q=80&w=800';
       case 'AC': return 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=800';
       case 'Accessories': return 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=800';
-      case 'Insurance': return 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&q=80&w=800';
       case 'Battery': return 'https://images.unsplash.com/photo-1620939511593-29937a54457e?auto=format&fit=crop&q=80&w=800';
       default: return 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800';
     }
@@ -119,7 +118,7 @@ const PublicServices = () => {
       const mappings: Record<string, string[]> = {
         'general service': ['Periodic'],
         'body shop': ['Painting', 'Repair'],
-        'insurance claim': ['Insurance'],
+        'essentials': ['Essentials', 'Accessories'],
         'amaron': ['Battery'],
         'exide': ['Battery'],
         'tyres': ['Tyres']

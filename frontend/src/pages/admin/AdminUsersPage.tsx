@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { userService, User } from '@/services/userService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { Check, Shield, User as UserIcon, Briefcase, Users, X, Eye, Search, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +25,40 @@ const AdminUsersPage: React.FC = () => {
     if (currentUser?.role === 'admin') {
       fetchUsers();
     }
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const userUpdatedHandler = (updatedUser: User) => {
+      setUsers(prev => prev.map(u => u._id === updatedUser._id ? updatedUser : u));
+    };
+
+    const userCreatedHandler = (newUser: User) => {
+      setUsers(prev => [newUser, ...prev]);
+    };
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'user') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchUsers();
+        }
+      }
+    };
+
+    socketService.on('userUpdated', userUpdatedHandler);
+    socketService.on('userCreated', userCreatedHandler);
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('userUpdated', userUpdatedHandler);
+      socketService.off('userCreated', userCreatedHandler);
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, [currentUser]);
 
   const fetchUsers = async () => {

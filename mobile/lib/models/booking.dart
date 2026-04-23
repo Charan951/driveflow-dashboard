@@ -463,7 +463,15 @@ class Booking {
     'DELIVERED',
   ];
 
-  static String getStatusLabel(String status) {
+  static String getStatusLabel(String status, [List<dynamic>? services]) {
+    if (services != null &&
+        services.any((s) {
+          final cat = (s.category ?? '').toString().toLowerCase();
+          return cat.contains('essentials');
+        })) {
+      if (status == 'CAR_WASH_STARTED') return 'Service Started';
+      if (status == 'CAR_WASH_COMPLETED') return 'Service Completed';
+    }
     return statusLabels[status.toUpperCase()] ?? status;
   }
 
@@ -474,10 +482,12 @@ class Booking {
 
     final services = booking.services;
 
-    // Check if it's a car wash service
+    // Check if it's a car wash or essentials service
     final isCarWash = services.any((s) {
       final cat = (s.category ?? '').toLowerCase();
-      return cat.contains('car wash') || cat.contains('wash');
+      return cat.contains('car wash') ||
+          cat.contains('wash') ||
+          cat.contains('essentials');
     });
 
     // Check if it's a battery or tire service
@@ -503,7 +513,12 @@ class Booking {
         'AC',
         'Detailing',
       ];
-      const noPickupCategories = ['Insurance', 'Accessories', 'Other'];
+      const noPickupCategories = [
+        'Insurance',
+        'Essentials',
+        'Accessories',
+        'Other',
+      ];
 
       final hasPickupService = services.any(
         (s) => pickupCategories.contains(s.category),

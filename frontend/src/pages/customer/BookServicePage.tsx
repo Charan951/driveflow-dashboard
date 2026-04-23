@@ -302,7 +302,7 @@ const BookServicePage: React.FC = () => {
       const bookingDate = new Date(selectedDate);
       bookingDate.setHours(hours, minutes, 0, 0);
 
-      // Check if this is a service that requires payment first (Car Wash, Battery, or Tires)
+      // Check if this is a service that requires payment first (Car Wash, Battery/Tires, or Essentials)
       const isCarWash = selectedServicesData.some(service => 
         service.category === 'Car Wash' || service.category === 'Wash' || service.category === 'Detailing'
       );
@@ -313,7 +313,11 @@ const BookServicePage: React.FC = () => {
         service.category === 'Tyre & Battery'
       );
 
-      const requiresPaymentService = isCarWash || isBatteryTire;
+      const isEssentialsService = selectedServicesData.some(service =>
+        service.category === 'Essentials'
+      );
+
+      const requiresPaymentService = isCarWash || isBatteryTire || isEssentialsService;
 
       const bookingData = {
         vehicleId: selectedVehicle,
@@ -337,15 +341,18 @@ const BookServicePage: React.FC = () => {
           ...bookingData,
           totalAmount: totalPrice,
           requiresPaymentService: true,
-          isCarWashService: isCarWash,
-          isBatteryTireService: isBatteryTire
+          isCarWashService: isCarWash || isEssentialsService,
+          isBatteryTireService: isBatteryTire,
+          isEssentialsService
         };
         
         const serviceType = selectedServicesData.some(service => 
           service.category === 'Car Wash' || service.category === 'Wash'
         ) ? 'car wash' : selectedServicesData.some(service => 
           service.category === 'Battery' || service.category === 'Tyre & Battery'
-        ) ? 'battery' : 'tire';
+        ) ? 'battery' : selectedServicesData.some(service =>
+          service.category === 'Essentials'
+        ) ? 'essentials' : 'tire';
         
         toast.success(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} service booking prepared! Please complete payment to create the booking.`);
         // Navigate to a payment page with temp data
@@ -374,7 +381,7 @@ const BookServicePage: React.FC = () => {
     'Periodic': ['Services', 'Periodic', 'Repair', 'AC'],
     'Wash': ['Car Wash', 'Wash', 'Detailing'],
     'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
-    'Insurance': ['Insurance'],
+    'Essentials': ['Essentials', 'Accessories'],
     'Other': ['Other', 'Painting', 'Denting', 'Accessories']
   };
 
@@ -391,8 +398,8 @@ const BookServicePage: React.FC = () => {
         return 'Book a Tires & Battery Service';
       case 'Periodic':
         return 'Book a Periodic Service';
-      case 'Insurance':
-        return 'Book an Insurance Service';
+      case 'Essentials':
+        return 'Book an Essentials Service';
       case 'Services':
         return 'Book a General Service';
       case 'Repair':

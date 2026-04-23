@@ -76,7 +76,7 @@ class PillBottomBar extends StatelessWidget {
                         child: GlassNavItem(
                           activeIcon: Icons.shield_rounded,
                           inactiveIcon: Icons.shield_outlined,
-                          label: 'Insurance',
+                          label: 'Essentials',
                           isActive: selectedIndex == 1,
                           inactiveColor: inactiveColor,
                           onTap: () => onTap(1),

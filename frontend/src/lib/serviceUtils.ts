@@ -5,6 +5,7 @@ export const isPaymentRequiredService = (services: any[]): boolean => {
     typeof service === 'object' && (
       service.category === 'Car Wash' || 
       service.category === 'Wash' ||
+      service.category === 'Essentials' ||
       service.category === 'Battery' ||
       service.category === 'Tyres' ||
       service.category === 'Tyre & Battery'
@@ -16,7 +17,8 @@ export const isCarWashService = (services: any[]): boolean => {
   return Array.isArray(services) && services.some(service => 
     typeof service === 'object' && (
       service.category === 'Car Wash' || 
-      service.category === 'Wash'
+      service.category === 'Wash' ||
+      service.category === 'Essentials'
     )
   );
 };

@@ -7,7 +7,7 @@ export interface Service {
   price: number;
   duration: number;
   estimationTime?: string;
-  category: 'Services' | 'Periodic' | 'Wash' | 'Car Wash' | 'Tyre & Battery' | 'Tyres' | 'Battery' | 'Insurance' | 'Painting' | 'Denting' | 'Repair' | 'Detailing' | 'AC' | 'Accessories' | 'Other';
+  category: 'Services' | 'Periodic' | 'Wash' | 'Car Wash' | 'Tyre & Battery' | 'Tyres' | 'Battery' | 'Painting' | 'Denting' | 'Repair' | 'Detailing' | 'AC' | 'Accessories' | 'Essentials' | 'Other';
   vehicleType: 'Car';
   image?: string;
   features?: string[];

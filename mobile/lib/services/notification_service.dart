@@ -11,6 +11,7 @@ import './platform_utils.dart'
     if (dart.library.html) './platform_utils_web.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../core/api_client.dart';
+import '../core/app_colors.dart';
 import '../main.dart'; // Import to use rootNavigatorKey
 
 // Background message handler
@@ -78,10 +79,146 @@ class NotificationService {
   Future<FirebaseMessaging> _getMessaging() async {
     if (_messaging != null) return _messaging!;
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
     _messaging = FirebaseMessaging.instance;
     return _messaging!;
+  }
+
+  static final List<String> allowedBookingStatuses = [
+    'CREATED',
+    'ASSIGNED',
+    'REACHED_CUSTOMER',
+    'STAFF_REACHED_MERCHANT',
+    'SERVICE_STARTED',
+    'CAR_WASH_STARTED',
+    'INSTALLATION',
+    'SERVICE_COMPLETED',
+    'CAR_WASH_COMPLETED',
+    'COMPLETED',
+    'DELIVERY',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+  ];
+
+  void showApprovalDialog(String title, String body, String approvalId) {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark
+              ? AppColors.backgroundSecondary
+              : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            body,
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => _updateApprovalStatus(approvalId, 'Rejected'),
+              child: const Text(
+                'Reject',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => _updateApprovalStatus(approvalId, 'Approved'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Accept'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateApprovalStatus(String approvalId, String status) async {
+    final context = rootNavigatorKey.currentContext;
+    if (context != null) Navigator.of(context).pop();
+
+    try {
+      final ApiClient api = ApiClient();
+      await api.putAny('/approvals/$approvalId', body: {'status': status});
+
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Request $status successfully'),
+            backgroundColor: status == 'Approved' ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update request: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static bool isNotificationAllowed({
+    String? type,
+    String? subType,
+    String? status,
+  }) {
+    // 1. Booked (CREATED)
+    // 2. Assigned (ASSIGNED)
+    // 3. Staff Reached (REACHED_CUSTOMER, STAFF_REACHED_MERCHANT)
+    // 4. Service Started (SERVICE_STARTED, CAR_WASH_STARTED, INSTALLATION)
+    // 5. Service Completed (SERVICE_COMPLETED, CAR_WASH_COMPLETED, COMPLETED)
+    // 7. Delivery (DELIVERY, OUT_FOR_DELIVERY, DELIVERED)
+    if (status != null &&
+        allowedBookingStatuses.contains(status.toUpperCase())) {
+      return true;
+    }
+
+    // 6. Waiting for payment
+    if (type == 'payment' || subType == 'billing') {
+      return true;
+    }
+
+    // 8. Merchant Approvals
+    if (type == 'approval' || type == 'approval_request') {
+      return true;
+    }
+
+    // Special case for types that imply the allowed statuses
+    if (type == 'booking_created' || type == 'order') {
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> initialize() async {
@@ -125,7 +262,7 @@ class NotificationService {
     final messaging = await _getMessaging();
 
     await messaging.setForegroundNotificationPresentationOptions(
-      alert: true,
+      alert: false, // Prevent double notifications in foreground
       badge: true,
       sound: true,
     );
@@ -191,6 +328,17 @@ class NotificationService {
 
   void _showLocalNotification(RemoteMessage message) async {
     if (kIsWeb) return;
+
+    final data = message.data;
+    final type = data['type']?.toString();
+    final subType = data['subType']?.toString();
+    final status =
+        data['status']?.toString() ?? data['bookingStatus']?.toString();
+
+    if (!isNotificationAllowed(type: type, subType: subType, status: status)) {
+      return;
+    }
+
     RemoteNotification? notification = message.notification;
     String? imageUrl =
         message.data['image'] ??
@@ -243,8 +391,37 @@ class NotificationService {
     required String body,
     String? imageUrl,
     String? payload,
+    String? type,
+    String? status,
+    String? subType,
   }) async {
     if (kIsWeb) return;
+
+    // Filter notifications
+    if (!isNotificationAllowed(type: type, status: status, subType: subType)) {
+      // If we have a payload but no explicit type/status, try to extract from payload
+      if (payload != null && type == null && status == null) {
+        try {
+          final data = jsonDecode(payload);
+          if (!isNotificationAllowed(
+            type: data['type']?.toString(),
+            subType: data['subType']?.toString(),
+            status: (data['status'] ?? data['bookingStatus'])?.toString(),
+          )) {
+            return;
+          }
+        } catch (_) {
+          // If payload is not JSON or extraction fails, we'll allow it for now
+          // to avoid missing important manual notifications
+        }
+      } else {
+        // If type/status were provided and not allowed, or no info at all, block it
+        // Special case: if it's a manual notification without any booking info,
+        // we might want to allow it, but the user said "and this only".
+        // Let's be strict.
+        if (type != null || status != null) return;
+      }
+    }
 
     BigPictureStyleInformation? bigPictureStyleInformation;
     if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -380,6 +557,18 @@ class NotificationService {
           Navigator.pushNamed(context, '/support');
         } else if (type == 'promotion') {
           Navigator.pushNamed(context, '/speshway-dashboard');
+        } else if (type == 'approval' || type == 'approval_request') {
+          final String? approvalId = data['approvalId']?.toString();
+          if (approvalId != null && approvalId.isNotEmpty) {
+            final title = data['title'] ?? 'Approval Required';
+            final body =
+                data['body'] ?? 'A new request requires your approval.';
+            showApprovalDialog(title, body, approvalId);
+          } else if (bookingId != null && bookingId.isNotEmpty) {
+            Navigator.pushNamed(context, '/track', arguments: bookingId);
+          } else {
+            Navigator.pushNamed(context, '/notifications');
+          }
         } else {
           Navigator.pushNamed(context, '/notifications');
         }

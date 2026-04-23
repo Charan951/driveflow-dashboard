@@ -271,9 +271,9 @@ const VehicleDetailPage: React.FC = () => {
                         <Shield className="w-6 h-6" />
                      </div>
                      <div className="flex-1">
-                        <h3 className="font-medium mb-1">Insurance Policy</h3>
-                        <p className="text-xs text-muted-foreground mb-3">Valid until: Dec 2024</p>
-                        <button className="text-sm text-primary hover:underline font-medium">View Document</button>
+                        <h3 className="font-medium mb-1">Essentials</h3>
+                        <p className="text-xs text-muted-foreground mb-3">Key documents and essentials for this vehicle.</p>
+                        <button className="text-sm text-primary hover:underline font-medium">View Details</button>
                      </div>
                   </div>
                   <div className="bg-card p-4 rounded-xl border border-border flex items-start gap-3">

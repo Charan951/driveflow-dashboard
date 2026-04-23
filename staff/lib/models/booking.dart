@@ -6,6 +6,7 @@ class BookingSummary {
   final String? vehicleName;
   final String? locationAddress;
   final String? serviceName;
+  final List<dynamic>? services;
 
   BookingSummary({
     required this.id,
@@ -15,6 +16,7 @@ class BookingSummary {
     this.vehicleName,
     this.locationAddress,
     this.serviceName,
+    this.services,
   });
 
   factory BookingSummary.fromJson(Map<String, dynamic>? json) {
@@ -60,9 +62,13 @@ class BookingSummary {
       if (plate != null && plate.isNotEmpty) plate,
     ].join(' ');
 
+    List<dynamic>? allServices;
     String serviceName = 'General Service';
     try {
       final services = getField('services');
+      if (services is List) {
+        allServices = services;
+      }
       final service = getField('service');
       if (services is List && services.isNotEmpty) {
         final firstService = services[0];
@@ -84,6 +90,7 @@ class BookingSummary {
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       locationAddress: location?['address']?.toString(),
       serviceName: serviceName,
+      services: allServices,
     );
   }
 }
@@ -124,6 +131,7 @@ class BookingDetail {
   final int? orderNumber;
   final String status;
   final String date;
+  final List<dynamic>? services;
   final BookingLocation? location;
   final BookingLocation? merchantLocation;
   final String? vehicleName;
@@ -151,6 +159,7 @@ class BookingDetail {
     this.orderNumber,
     required this.status,
     required this.date,
+    this.services,
     this.location,
     this.merchantLocation,
     this.vehicleName,
@@ -197,7 +206,17 @@ class BookingDetail {
     'ON HOLD': 'On Hold',
   };
 
-  static String getStatusLabel(String status) {
+  static String getStatusLabel(String status, {List<dynamic>? services}) {
+    if (services != null &&
+        services.any((s) {
+          final category =
+              (s is Map ? s['category'] : null)?.toString().toLowerCase() ?? '';
+          return category.contains('essentials');
+        })) {
+      if (status.toUpperCase() == 'CAR_WASH_STARTED') return 'Service Started';
+      if (status.toUpperCase() == 'CAR_WASH_COMPLETED')
+        return 'Service Completed';
+    }
     return statusLabels[status.toUpperCase()] ?? status;
   }
 
@@ -206,6 +225,7 @@ class BookingDetail {
     int? orderNumber,
     String? status,
     String? date,
+    List<dynamic>? services,
     BookingLocation? location,
     BookingLocation? merchantLocation,
     String? vehicleName,
@@ -233,6 +253,7 @@ class BookingDetail {
       orderNumber: orderNumber ?? this.orderNumber,
       status: status ?? this.status,
       date: date ?? this.date,
+      services: services ?? this.services,
       location: location ?? this.location,
       merchantLocation: merchantLocation ?? this.merchantLocation,
       vehicleName: vehicleName ?? this.vehicleName,
@@ -346,6 +367,7 @@ class BookingDetail {
           : null,
       status: (getField('status') ?? '').toString(),
       date: (getField('date') ?? '').toString(),
+      services: getField('services') as List?,
       location: location,
       merchantLocation: merchantLocation,
       vehicleName: vehicleName.isEmpty ? null : vehicleName,

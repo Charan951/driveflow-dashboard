@@ -59,10 +59,24 @@ const AdminSupportPage = () => {
     socketService.on('ticketUpdated', handleUpdate);
     socketService.on('ticketCreated', handleCreate);
 
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'ticket') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchTickets();
+        }
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('ticketUpdated', handleUpdate);
       socketService.off('ticketCreated', handleCreate);
+      socketService.off('global:sync', globalSyncHandler);
     };
   }, []); // Back to empty array, using functional updates to state
 

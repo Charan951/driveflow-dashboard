@@ -240,7 +240,10 @@ class _OrderCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  _StatusBadge(status: booking.status),
+                  _StatusBadge(
+                    status: booking.status,
+                    services: booking.services,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -287,8 +290,9 @@ class _OrderCard extends StatelessWidget {
 
 class _StatusBadge extends StatelessWidget {
   final String status;
+  final List<dynamic>? services;
 
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, this.services});
 
   @override
   Widget build(BuildContext context) {
@@ -331,7 +335,7 @@ class _StatusBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
-        status.replaceAll('_', ' '),
+        BookingDetail.getStatusLabel(status, services: services),
         style: TextStyle(
           color: color,
           fontSize: 12,

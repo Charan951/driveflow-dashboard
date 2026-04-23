@@ -13,6 +13,7 @@ import '../core/env.dart';
 import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../widgets/customer_drawer.dart';
+import '../services/socket_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -24,15 +25,30 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
+  late final SocketService _socketService;
 
   @override
   void initState() {
     super.initState();
+    _socketService = SocketService();
+    _socketService.addListener(_onSocketUpdate);
   }
 
   @override
   void dispose() {
+    _socketService.removeListener(_onSocketUpdate);
     super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    final event = _socketService.value;
+    if (event == null) return;
+
+    if ((event.contains('sync:user') || event.contains('sync:vehicle')) &&
+        mounted) {
+      // Refresh user data through AuthProvider
+      context.read<AuthProvider>().refreshUser();
+    }
   }
 
   @override

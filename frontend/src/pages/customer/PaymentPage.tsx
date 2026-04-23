@@ -65,6 +65,11 @@ const PaymentPage: React.FC = () => {
     if (tempBookingData.isCarWashService) {
       return { type: 'Car Wash', icon: Car, color: 'blue' };
     }
+
+    // Check if this is an essentials service
+    if (tempBookingData.isEssentialsService) {
+      return { type: 'Essentials', icon: Wrench, color: 'blue' };
+    }
     
     // For new payment flow, check service categories from the booking data
     // This assumes the service data is available in tempBookingData

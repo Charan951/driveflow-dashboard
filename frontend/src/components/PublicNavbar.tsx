@@ -57,8 +57,8 @@ const PublicNavbar: React.FC = () => {
        { title: "1. Services", dbKeys: ["Services", "Periodic", "Repair", "AC"], items: [] as any[] },
        { title: "2. CAR WASH", dbKeys: ["Car Wash", "Wash", "Detailing"], items: [] as any[] },
        { title: "3. TYRES & BATTERY", dbKeys: ["Tyre & Battery", "Tyres", "Battery"], items: [] as any[] },
-       { title: "4. INSURANCE", dbKeys: ["Insurance"], items: [] as any[], path: "/services?service=Insurance" },
-       { title: "5. OTHER", dbKeys: ["Other", "Painting", "Denting", "Accessories"], items: [] as any[] }
+       { title: "4. ESSENTIALS", dbKeys: ["Essentials", "Accessories"], items: [] as any[], path: "/services?service=Essentials" },
+       { title: "5. OTHER", dbKeys: ["Other", "Painting", "Denting"], items: [] as any[] }
      ];
 
     services.forEach(service => {
@@ -160,7 +160,7 @@ const PublicNavbar: React.FC = () => {
                         </NavigationMenuTrigger>
                         <NavigationMenuContent>
                           <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
-                            {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
+                            {serviceCategories.filter(c => c.items.length > 0).map((category) => (
                               <div key={category.title} className="space-y-3">
                                 <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
                                 <div className="flex flex-col gap-2">
@@ -179,7 +179,7 @@ const PublicNavbar: React.FC = () => {
                                       <Link 
                                         to={category.path!}
                                         className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
-                                        View Insurance
+                                        View Essentials
                                       </Link>
                                     </NavigationMenuLink>
                                   )}
@@ -298,7 +298,7 @@ const PublicNavbar: React.FC = () => {
                         
                         {isServicesExpanded && (
                           <div className="flex flex-col gap-1 pl-4 border-l border-border ml-3 my-1">
-                            {serviceCategories.filter(c => c.items.length > 0 || c.dbKeys.includes('Insurance')).map((category) => (
+                            {serviceCategories.filter(c => c.items.length > 0).map((category) => (
                               <div key={category.title} className="flex flex-col gap-1">
                                 <button
                                   onClick={() => toggleCategory(category.title)}
@@ -322,7 +322,7 @@ const PublicNavbar: React.FC = () => {
                                       <Link
                                         to={category.path!}
                                         className="text-sm text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted/50">
-                                        View Insurance
+                                        View Essentials
                                       </Link>
                                     )}
                                   </div>

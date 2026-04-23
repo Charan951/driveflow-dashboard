@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Plus, Edit, Trash2, X, Check } from 'lucide-react';
 import { roleService } from '../../services/roleService';
+import { socketService } from '../../services/socket';
 import { toast } from 'react-hot-toast';
 
 interface Role {
@@ -22,7 +23,6 @@ const AVAILABLE_PERMISSIONS = [
   'Tracking',
   'Payments',
   'Documents',
-  'Insurance',
   'Stock',
   'Support',
   'Feedback',
@@ -46,6 +46,27 @@ const AdminRolesPage = () => {
 
   useEffect(() => {
     fetchRoles();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      if (entity === 'role' && action) {
+        fetchRoles();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const fetchRoles = async () => {

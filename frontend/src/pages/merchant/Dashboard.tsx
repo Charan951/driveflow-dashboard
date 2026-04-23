@@ -63,7 +63,10 @@ const Dashboard: React.FC = () => {
       if (!data) return;
       const entity = (data as any).entity;
       const action = (data as any).action;
-      if (entity === 'booking' && action) {
+      
+      // Merchant should refresh for bookings, products, services, and profile/settings
+      const merchantEntities = ['booking', 'product', 'service', 'user', 'setting', 'approval'];
+      if (merchantEntities.includes(entity) && action) {
         fetchData();
       }
     };

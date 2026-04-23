@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
+import { socketService } from '@/services/socket';
 import VehicleCard from '@/components/VehicleCard';
 import { Search, Filter, Plus, Car, User, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +16,28 @@ const AdminVehiclesPage: React.FC = () => {
 
   useEffect(() => {
     fetchVehicles();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'vehicle') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchVehicles();
+        }
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const fetchVehicles = async () => {

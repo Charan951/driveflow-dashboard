@@ -41,7 +41,10 @@ const StaffDashboardPage: React.FC = () => {
       if (!data) return;
       const entity = (data as any).entity;
       const action = (data as any).action;
-      if (entity === 'booking' && action) {
+      
+      // Staff should refresh for bookings and their own profile
+      const staffEntities = ['booking', 'user', 'notification'];
+      if (staffEntities.includes(entity) && action) {
         fetchData();
       }
     };

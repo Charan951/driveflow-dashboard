@@ -181,7 +181,7 @@ class PaymentService {
         status: 'CREATED',
         paymentId: paymentId,
         carWash: {
-          isCarWashService: !!tempData.isCarWashService,
+          isCarWashService: !!tempData.isCarWashService || !!tempData.isEssentialsService,
           beforeWashPhotos: [],
           afterWashPhotos: [],
         },

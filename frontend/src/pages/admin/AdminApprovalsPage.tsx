@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getApprovals, updateApprovalStatus, ApprovalRequest, createApproval } from '@/services/approvalService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { 
   CheckCircle, 
@@ -28,6 +29,30 @@ const AdminApprovalsPage: React.FC = () => {
 
   useEffect(() => {
     fetchApprovals();
+
+    // Socket Listener
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'approval') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchApprovals();
+        }
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+    socketService.on('newApproval', fetchApprovals);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+      socketService.off('newApproval', fetchApprovals);
+    };
   }, []);
 
   useEffect(() => {

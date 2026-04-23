@@ -43,25 +43,11 @@ const vehicleSchema = new mongoose.Schema({
   nextService: { type: Date },
   documents: [{
     name: { type: String },
-    type: { type: String, enum: ['Insurance', 'Registration', 'Battery Warranty', 'Tire Warranty', 'Other'] },
+    type: { type: String, enum: ['Registration', 'Battery Warranty', 'Tire Warranty', 'Other'] },
     url: { type: String },
     expiryDate: { type: Date },
     uploadedAt: { type: Date, default: Date.now }
   }],
-  insurance: {
-    policyNumber: { type: String },
-    provider: { type: String },
-    startDate: { type: Date },
-    expiryDate: { type: Date },
-    status: { type: String, enum: ['Active', 'Expired', 'Expiring Soon'], default: 'Active' },
-    claims: [{
-      claimNumber: { type: String },
-      date: { type: Date, default: Date.now },
-      description: { type: String },
-      amount: { type: Number },
-      status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
-    }]
-  },
   healthIndicators: {
     generalService: {
       value: { type: Number, default: 0 },

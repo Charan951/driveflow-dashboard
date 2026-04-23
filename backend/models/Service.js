@@ -22,7 +22,7 @@ const serviceSchema = mongoose.Schema(
       type: String,
       required: true,
       index: true,
-      enum: ['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Insurance', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Other'],
+      enum: ['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Essentials', 'Other'],
     },
     estimationTime: {
       type: String, // e.g. "2-3 hours" or "1 day"

@@ -53,10 +53,11 @@ const AdminDashboard: React.FC = () => {
       if (!data) return;
       const entity = (data as any).entity;
       const action = (data as any).action;
-      if (entity === 'booking' || entity === 'ticket') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchData();
-        }
+      
+      // Admin dashboard should refresh for almost any entity change
+      const adminEntities = ['booking', 'ticket', 'user', 'merchant', 'staff', 'payment', 'approval', 'vehicle', 'product', 'service', 'setting', 'role'];
+      if (adminEntities.includes(entity) && action) {
+        fetchData();
       }
     };
 

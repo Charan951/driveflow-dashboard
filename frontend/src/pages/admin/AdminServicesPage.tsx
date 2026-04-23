@@ -3,6 +3,7 @@ import { Plus, Edit, Trash, Upload, Loader2, Check, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
 import { uploadService } from '@/services/uploadService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,27 @@ const AdminServicesPage: React.FC = () => {
 
   useEffect(() => {
     fetchServices();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      if (entity === 'service' && action) {
+        fetchServices();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const handleSave = async (serviceData: Omit<Service, '_id'>) => {
@@ -315,13 +337,13 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   <option value="Tyre & Battery">Tyre & Battery</option>
                   <option value="Tyres">Tyres</option>
                   <option value="Battery">Battery</option>
-                  <option value="Insurance">Insurance</option>
                   <option value="Painting">Painting</option>
                   <option value="Denting">Denting</option>
                   <option value="Repair">Repair</option>
                   <option value="Detailing">Detailing</option>
                   <option value="AC">AC Service</option>
                   <option value="Accessories">Accessories</option>
+                  <option value="Essentials">Essentials</option>
                   <option value="Other">Other</option>
                 </select>
               </div>

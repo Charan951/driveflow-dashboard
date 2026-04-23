@@ -100,6 +100,11 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       arguments: {'openBookHint': true},
     ),
     _DrawerItem(
+      icon: Icons.shield_outlined,
+      label: 'Essentials Services',
+      routeName: '/essentials',
+    ),
+    _DrawerItem(
       icon: Icons.local_car_wash_outlined,
       label: 'Car Wash',
       routeName: '/car-wash',
@@ -108,11 +113,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       icon: Icons.battery_charging_full_outlined,
       label: 'Tires & Battery',
       routeName: '/tires',
-    ),
-    _DrawerItem(
-      icon: Icons.shield_outlined,
-      label: 'Insurance',
-      routeName: '/insurance',
     ),
     _DrawerItem(
       icon: Icons.support_agent_outlined,

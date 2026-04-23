@@ -65,6 +65,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
 
+  // Performance optimizations
+  DateTime? _lastLocationUpdate;
+  DateTime? _lastRouteFetch;
+  static const _locationThrottle = Duration(milliseconds: 2000);
+  static const _routeThrottle = Duration(seconds: 15);
+
   @override
   void initState() {
     super.initState();
@@ -153,6 +159,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       if (data != null) {
         try {
+          final now = DateTime.now();
+          if (_lastLocationUpdate != null &&
+              now.difference(_lastLocationUpdate!) < _locationThrottle) {
+            return;
+          }
+          _lastLocationUpdate = now;
+
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final lat = mapData['lat'];
           final lng = mapData['lng'];
@@ -172,6 +185,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 final loc = _booking?.location;
                 if (loc != null && loc.lat != null && loc.lng != null) {
                   final dest = LatLng(loc.lat!, loc.lng!);
+                  // Only auto-center if the user isn't manually exploring
+                  // or if it's the first update
                   _mapController.fitCamera(
                     CameraFit.bounds(
                       bounds: LatLngBounds.fromPoints([next, dest]),
@@ -188,10 +203,17 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
             if (_booking?.location?.lat != null &&
                 _booking?.location?.lng != null) {
-              _fetchRoute(
-                next,
-                LatLng(_booking!.location!.lat!, _booking!.location!.lng!),
+              final dest = LatLng(
+                _booking!.location!.lat!,
+                _booking!.location!.lng!,
               );
+
+              // Throttle route fetching
+              if (_lastRouteFetch == null ||
+                  now.difference(_lastRouteFetch!) > _routeThrottle) {
+                _fetchRoute(next, dest);
+                _lastRouteFetch = now;
+              }
             }
           }
         } catch (e) {
@@ -224,14 +246,32 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       _fetchPendingApprovals();
     });
+
+    _socketService.on('global:sync', (data) {
+      if (!mounted) return;
+      if (data != null) {
+        try {
+          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final entity = (mapData['entity'] ?? '').toString();
+          final action = (mapData['action'] ?? '').toString();
+          if (entity == 'payment' ||
+              entity == 'approval' ||
+              entity == 'booking' ||
+              entity == 'user') {
+            _load(silent: true);
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
   }
 
   void _onSocketUpdate() {
     if (_loading || _bookingId == null) return;
     final event = _socketService.value;
-    if (event != null &&
-        (event.contains('sync:booking') || event.contains('sync:approval'))) {
-      _load();
+    if (event != null && (event.contains('booking_updated'))) {
+      _load(silent: true);
     }
   }
 
@@ -257,6 +297,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.removeListener(_onSocketUpdate);
     _socketService.off('liveLocation');
     _socketService.off('bookingUpdated');
+    _socketService.off('global:sync');
     if (_bookingId != null) {
       _socketService.emit('leave', 'booking_$_bookingId');
     }
@@ -359,7 +400,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
     final id = _bookingId;
     if (id == null || id.isEmpty) {
       setState(() {
@@ -369,10 +410,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final booking = await _service.getBooking(id);
       if (mounted) {
@@ -925,8 +968,27 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _approvalsTimer?.cancel();
     final booking = _booking;
     if (booking == null || booking.id.isEmpty) return;
+
+    // Only run polling if the status is one where approvals might happen
+    // and if we haven't already completed the service
+    const activeStatuses = [
+      'ASSIGNED',
+      'ACCEPTED',
+      'REACHED_CUSTOMER',
+      'VEHICLE_PICKED',
+      'REACHED_MERCHANT',
+      'VEHICLE_AT_MERCHANT',
+      'SERVICE_STARTED',
+    ];
+
+    if (!activeStatuses.contains(booking.status)) {
+      return;
+    }
+
     _approvalsTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(
+        seconds: 20,
+      ), // Increased to 20s for better battery/performance
       (_) => _fetchPendingApprovals(),
     );
   }
@@ -1072,7 +1134,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       return 'Payment awaiting to dispatch vehicle. Service is completed.';
     }
 
-    return Booking.getStatusLabel(status);
+    return Booking.getStatusLabel(status, booking?.services);
   }
 
   @override
@@ -1202,7 +1264,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         final cat = (s.category ?? '').toLowerCase();
                         return cat.contains('car wash') ||
                             cat.contains('wash') ||
-                            cat.contains('detailing');
+                            cat.contains('detailing') ||
+                            cat.contains('essentials');
                       }) ||
                       booking.carWash?.isCarWashService == true;
                   final isBatteryTire =
@@ -1465,7 +1528,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     const SizedBox(height: 2),
                                     Text(
                                       isCarWash
-                                          ? 'Your car wash partner has almost reached your location.'
+                                          ? (booking.services.any(
+                                                  (s) => (s.category ?? '')
+                                                      .toLowerCase()
+                                                      .contains('essentials'),
+                                                )
+                                                ? 'Your service partner has almost reached your location.'
+                                                : 'Your car wash partner has almost reached your location.')
                                           : 'Your pickup partner has almost reached your location.',
                                       style: Theme.of(context)
                                           .textTheme
@@ -1970,7 +2039,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     Expanded(
                                       child: Text(
                                         isCarWash
-                                            ? 'Payment required to confirm your car wash booking'
+                                            ? (booking.services.any(
+                                                    (s) => (s.category ?? '')
+                                                        .toLowerCase()
+                                                        .contains('essentials'),
+                                                  )
+                                                  ? 'Payment required to confirm your service booking'
+                                                  : 'Payment required to confirm your car wash booking')
                                             : 'Payment required to confirm your battery/tire booking',
                                         style: const TextStyle(
                                           fontSize: 12,
@@ -2747,7 +2822,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               builder: (context) {
                                 final flow = Booking.getFlowForBooking(booking);
                                 final labels = flow
-                                    .map((s) => Booking.getStatusLabel(s))
+                                    .map(
+                                      (s) => Booking.getStatusLabel(
+                                        s,
+                                        booking.services,
+                                      ),
+                                    )
                                     .toList();
                                 final labelToStatus = Map.fromIterables(
                                   labels,
@@ -3197,32 +3277,53 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (isCarWash &&
-                                  booking.carWash?.beforeWashPhotos != null &&
-                                  booking.carWash!.beforeWashPhotos.isNotEmpty)
-                                _buildHorizontalPhotoCategory(
-                                  context,
-                                  const SizedBox.shrink(),
-                                  title: 'Before Wash',
-                                  photos: booking.carWash!.beforeWashPhotos,
-                                  isDark: isDark,
-                                ),
-                              if (isCarWash &&
-                                  booking.carWash?.afterWashPhotos != null &&
-                                  booking.carWash!.afterWashPhotos.isNotEmpty)
-                                _buildHorizontalPhotoCategory(
-                                  context,
-                                  (booking
-                                              .carWash
-                                              ?.beforeWashPhotos
-                                              .isNotEmpty ??
-                                          false)
-                                      ? const SizedBox(width: 16)
-                                      : const SizedBox.shrink(),
-                                  title: 'After Wash',
-                                  photos: booking.carWash!.afterWashPhotos,
-                                  isDark: isDark,
-                                ),
+                              ...(() {
+                                final isEssentials = booking.services.any(
+                                  (s) => (s.category ?? '')
+                                      .toLowerCase()
+                                      .contains('essentials'),
+                                );
+                                return [
+                                  if (isCarWash &&
+                                      booking.carWash?.beforeWashPhotos !=
+                                          null &&
+                                      booking
+                                          .carWash!
+                                          .beforeWashPhotos
+                                          .isNotEmpty)
+                                    _buildHorizontalPhotoCategory(
+                                      context,
+                                      const SizedBox.shrink(),
+                                      title: isEssentials
+                                          ? 'Before Service'
+                                          : 'Before Wash',
+                                      photos: booking.carWash!.beforeWashPhotos,
+                                      isDark: isDark,
+                                    ),
+                                  if (isCarWash &&
+                                      booking.carWash?.afterWashPhotos !=
+                                          null &&
+                                      booking
+                                          .carWash!
+                                          .afterWashPhotos
+                                          .isNotEmpty)
+                                    _buildHorizontalPhotoCategory(
+                                      context,
+                                      (booking
+                                                  .carWash
+                                                  ?.beforeWashPhotos
+                                                  .isNotEmpty ??
+                                              false)
+                                          ? const SizedBox(width: 16)
+                                          : const SizedBox.shrink(),
+                                      title: isEssentials
+                                          ? 'After Service'
+                                          : 'After Wash',
+                                      photos: booking.carWash!.afterWashPhotos,
+                                      isDark: isDark,
+                                    ),
+                                ];
+                              })(),
                               if (!isCarWash &&
                                   booking.beforeServicePhotos.isNotEmpty)
                                 _buildHorizontalPhotoCategory(

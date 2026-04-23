@@ -653,7 +653,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  booking.status.replaceAll('_', ' '),
+                  BookingDetail.getStatusLabel(
+                    booking.status,
+                    services: booking.services,
+                  ),
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -705,7 +708,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                         Row(
                           children: [
                             Text(
-                              'Status: ${booking.status}',
+                              'Status: ${BookingDetail.getStatusLabel(booking.status, services: booking.services)}',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: const Color(0xFF2563EB),
                               ),
@@ -945,6 +948,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Widget _buildStatusControl(BookingDetail booking) {
     final isCarWash = booking.carWash?.isCarWashService == true;
     final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
+    final isEssentials =
+        booking.services?.any(
+          (s) =>
+              s['category']?.toString().toLowerCase().contains('essentials') ??
+              false,
+        ) ??
+        false;
 
     List<Widget> actions = [];
 
@@ -968,9 +978,19 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       if (booking.status == 'ASSIGNED' || booking.status == 'ACCEPTED') {
         actions.add(_statusButton('REACHED_CUSTOMER', 'Reached Customer'));
       } else if (booking.status == 'REACHED_CUSTOMER') {
-        actions.add(_statusButton('CAR_WASH_STARTED', 'Start Car Wash'));
+        actions.add(
+          _statusButton(
+            'CAR_WASH_STARTED',
+            isEssentials ? 'Start Service' : 'Start Car Wash',
+          ),
+        );
       } else if (booking.status == 'CAR_WASH_STARTED') {
-        actions.add(_statusButton('CAR_WASH_COMPLETED', 'Complete Car Wash'));
+        actions.add(
+          _statusButton(
+            'CAR_WASH_COMPLETED',
+            isEssentials ? 'Complete Service' : 'Complete Car Wash',
+          ),
+        );
       } else if (booking.status == 'CAR_WASH_COMPLETED') {
         actions.add(_statusButton('DELIVERED', 'Mark Delivered'));
       }
@@ -1173,7 +1193,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                         SizedBox(
                           width: 80,
                           child: Text(
-                            BookingDetail.getStatusLabel(status),
+                            BookingDetail.getStatusLabel(
+                              status,
+                              services: _booking?.services,
+                            ),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 9,

@@ -7,7 +7,6 @@ import {
   fetchVehicleDetails,
   getUserVehicles,
   getVehicleById,
-  getInsuranceData,
   getVehicleRCDetails,
   updateVehicleHealth,
 } from '../controllers/vehicleController.js';
@@ -19,8 +18,6 @@ router.put('/:id/health', protect, updateVehicleHealth);
 
 router.post('/rc-details', protect, getVehicleRCDetails);
 router.post('/fetch-details', protect, fetchVehicleDetails);
-
-router.get('/insurance/all', protect, admin, getInsuranceData);
 
 router.route('/')
   .get(protect, getVehicles)

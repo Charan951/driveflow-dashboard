@@ -22,7 +22,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
 
   final List<Widget> _pages = const [
     BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
-    BookServiceFlowPage(key: ValueKey('insurance'), initialCategory: 'Insurance'),
+    BookServiceFlowPage(key: ValueKey('essentials'), initialCategory: 'Essentials'),
     CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
     BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),

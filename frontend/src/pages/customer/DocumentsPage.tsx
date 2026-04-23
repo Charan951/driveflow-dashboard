@@ -9,7 +9,7 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 const documentTypes = [
   { id: 'all', label: 'All' },
   { id: 'rc', label: 'Registration' },
-  { id: 'insurance', label: 'Insurance' },
+  { id: 'essentials', label: 'Essentials' },
   { id: 'puc', label: 'PUC' },
   { id: 'invoice', label: 'Invoices' },
   { id: 'warranty', label: 'Warranty' },

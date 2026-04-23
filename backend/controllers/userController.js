@@ -235,6 +235,9 @@ export const updateUser = async (req, res) => {
 
       const updatedUser = await user.save();
 
+      // Global Real-time Sync
+      emitEntitySync('user', 'updated', updatedUser);
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -265,6 +268,10 @@ export const approveUser = async (req, res) => {
       user.isApproved = true;
       user.rejectionReason = null; // Clear any previous rejection
       const updatedUser = await user.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('user', 'updated', updatedUser);
+      
       res.json(updatedUser);
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -285,6 +292,10 @@ export const rejectUser = async (req, res) => {
       user.isApproved = false;
       user.rejectionReason = reason;
       const updatedUser = await user.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('user', 'updated', updatedUser);
+      
       res.json(updatedUser);
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -375,6 +386,9 @@ export const createUser = async (req, res) => {
       } catch (e) {
         
       }
+
+      // Global Real-time Sync
+      emitEntitySync('user', 'created', user);
 
       res.status(201).json({
         _id: user._id,

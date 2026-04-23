@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getStatusLabel } from '@/lib/statusFlow';
 import { Camera, Upload, X, CheckCircle, Clock, MapPin } from 'lucide-react';
 import { carWashService, CarWashBooking } from '../services/carWashService';
 import { uploadService } from '../services/uploadService';
@@ -13,6 +14,8 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   const [beforeImages, setBeforeImages] = useState<File[]>([]);
   const [afterImages, setAfterImages] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const isEssentials = booking.services?.some(s => s.category?.toLowerCase().includes('essentials'));
 
   const canUploadBefore = booking.status === 'REACHED_CUSTOMER' && 
     (!booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0);
@@ -68,7 +71,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
     if (beforeImages.length === 0) {
       toast({
         title: "No Images",
-        description: "Please select at least one before wash photo",
+        description: `Please select at least one before ${isEssentials ? 'service' : 'wash'} photo`,
         variant: "destructive"
       });
       return;
@@ -87,13 +90,13 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
       onUpdate();
       toast({
         title: "Success",
-        description: "Before wash photos uploaded successfully"
+        description: `Before ${isEssentials ? 'service' : 'wash'} photos uploaded successfully`
       });
     } catch (error) {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Failed to upload before wash photos",
+        description: `Failed to upload before ${isEssentials ? 'service' : 'wash'} photos`,
         variant: "destructive"
       });
     } finally {
@@ -107,14 +110,14 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
       await carWashService.startCarWash(booking._id);
       onUpdate();
       toast({
-        title: "Car Wash Started",
-        description: "Car wash has been started successfully"
+        title: getStatusLabel("CAR_WASH_STARTED", booking.services || []),
+        description: `${getStatusLabel("CAR_WASH_STARTED", booking.services || [])} has been successfully`
       });
     } catch (error) {
       console.error('Start wash error:', error);
       toast({
         title: "Error",
-        description: "Failed to start car wash",
+        description: `Failed to start ${isEssentials ? 'service' : 'car wash'}`,
         variant: "destructive"
       });
     } finally {
@@ -126,7 +129,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
     if (afterImages.length === 0) {
       toast({
         title: "No Images",
-        description: "Please select at least one after wash photo",
+        description: `Please select at least one after ${isEssentials ? 'service' : 'wash'} photo`,
         variant: "destructive"
       });
       return;
@@ -144,14 +147,14 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
       setAfterImages([]);
       onUpdate();
       toast({
-        title: "Car Wash Completed",
-        description: "Car wash completed successfully. Customer will receive OTP."
+        title: getStatusLabel("CAR_WASH_COMPLETED", booking.services || []),
+        description: `${getStatusLabel("CAR_WASH_COMPLETED", booking.services || [])} successfully. Customer will receive OTP.`
       });
     } catch (error) {
       console.error('Complete wash error:', error);
       toast({
         title: "Error",
-        description: "Failed to complete car wash",
+        description: `Failed to complete ${isEssentials ? 'service' : 'car wash'}`,
         variant: "destructive"
       });
     } finally {
@@ -164,7 +167,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
       {/* Booking Info */}
       <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-          <h3 className="text-base sm:text-lg font-semibold">Car Wash Service #{booking.orderNumber}</h3>
+          <h3 className="text-base sm:text-lg font-semibold">{isEssentials ? 'Service' : 'Car Wash Service'} #{booking.orderNumber}</h3>
           <span className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full self-start sm:self-auto ${
             booking.status === 'REACHED_CUSTOMER' ? 'bg-blue-100 text-blue-800' :
             booking.status === 'CAR_WASH_STARTED' ? 'bg-yellow-100 text-yellow-800' :
@@ -207,7 +210,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
             <Camera className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
-            <span className="hidden sm:inline">Before Wash Photos</span>
+            <span className="hidden sm:inline">{isEssentials ? 'Before Service Photos' : 'Before Wash Photos'}</span>
             <span className="sm:hidden">Before Photos</span>
           </h3>
           {booking.carWash.beforeWashPhotos?.length > 0 && (
@@ -273,7 +276,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
               >
                 {loading ? 'Uploading...' : (
                   <>
-                    <span className="hidden sm:inline">Upload Before Photos</span>
+                    <span className="hidden sm:inline">Upload Before {isEssentials ? 'Service' : 'Wash'} Photos</span>
                     <span className="sm:hidden">Upload</span>
                   </>
                 )}
@@ -290,11 +293,11 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
             <div className="min-w-0 flex-1">
               <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <Clock className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
-                <span className="hidden sm:inline">Start Car Wash</span>
-                <span className="sm:hidden">Start Wash</span>
+                <span className="hidden sm:inline">{isEssentials ? 'Start Service' : 'Start Car Wash'}</span>
+                <span className="sm:hidden">{isEssentials ? 'Start Service' : 'Start Wash'}</span>
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                <span className="hidden sm:inline">Begin the car wash service after uploading before photos</span>
+                <span className="hidden sm:inline">Begin the {isEssentials ? 'service' : 'car wash service'} after uploading before photos</span>
                 <span className="sm:hidden">Begin service after uploading photos</span>
               </p>
             </div>
@@ -305,7 +308,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
             >
               {loading ? 'Starting...' : (
                 <>
-                  <span className="hidden sm:inline">Start Car Wash</span>
+                  <span className="hidden sm:inline">{isEssentials ? 'Start Service' : 'Start Car Wash'}</span>
                   <span className="sm:hidden">Start</span>
                 </>
               )}
@@ -320,7 +323,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
-              After Wash Photos
+              {isEssentials ? 'After Service Photos' : 'After Wash Photos'}
             </h3>
             <span className="text-sm text-muted-foreground">
               {afterImages.length}/4 images
@@ -359,9 +362,14 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
             <button 
               onClick={completeWash}
               disabled={loading || afterImages.length === 0}
-              className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="px-4 sm:px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base self-start sm:self-auto"
             >
-              {loading ? 'Completing...' : 'Complete Car Wash'}
+              {loading ? 'Completing...' : (
+                <>
+                  <span className="hidden sm:inline">Complete {isEssentials ? 'Service' : 'Car Wash'}</span>
+                  <span className="sm:hidden">Complete</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -373,7 +381,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           <div className="flex items-center gap-3">
             <CheckCircle className="w-6 h-6 text-green-600" />
             <div>
-              <h3 className="text-lg font-semibold text-green-800">Car Wash Completed</h3>
+              <h3 className="text-lg font-semibold text-green-800">{getStatusLabel('CAR_WASH_COMPLETED', booking.services)}</h3>
               <p className="text-sm text-green-600">
                 Service completed successfully. Customer has received the delivery OTP.
               </p>
@@ -382,7 +390,11 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           
           {booking.carWash.afterWashPhotos?.length > 0 && (
             <div className="mt-4">
-              <h4 className="text-sm font-medium text-green-800 mb-3">After Wash Photos</h4>
+              <h4 className="text-sm font-medium text-green-800 mb-3">
+                {booking.services?.some(s => s.category?.toLowerCase().includes('essentials')) 
+                  ? 'After Service Photos' 
+                  : 'After Wash Photos'}
+              </h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {booking.carWash.afterWashPhotos.map((url, i) => (
                   <div key={`completed-after-${i}`} className="aspect-square rounded-lg overflow-hidden border border-green-200">

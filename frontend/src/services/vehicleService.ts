@@ -21,13 +21,6 @@ export interface Vehicle {
     lastService?: string;
     nextService?: string;
     user?: string | { _id: string; name: string; email: string; phone?: string }; // User ID or Populated User
-    insurance?: {
-        policyNumber: string;
-        provider: string;
-        startDate?: string;
-        expiryDate: string;
-        status: string;
-    };
     healthIndicators?: {
         generalService?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
         brakePads?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
@@ -48,10 +41,6 @@ export const vehicleService = {
     },
     getVehicleById: async (id: string) => {
         const response = await api.get(`/vehicles/${id}`);
-        return response.data;
-    },
-    getInsuranceData: async () => {
-        const response = await api.get('/vehicles/insurance/all');
         return response.data;
     },
     getUserVehicles: async (userId: string) => {

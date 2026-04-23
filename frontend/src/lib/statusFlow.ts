@@ -67,6 +67,21 @@ export const STATUS_LABELS: Record<BookingStatus, string> = {
   DELIVERY: 'Delivery',
 };
 
+export const getStatusLabel = (status: string, services: any[] = []): string => {
+  const isEssentials = Array.isArray(services) && services.some(service => {
+    if (!service || typeof service !== 'object' || !service.category) return false;
+    const cat = service.category.toLowerCase();
+    return cat.includes('essentials');
+  });
+
+  if (isEssentials) {
+    if (status === 'CAR_WASH_STARTED') return 'Service Started';
+    if (status === 'CAR_WASH_COMPLETED') return 'Service Completed';
+  }
+
+  return STATUS_LABELS[status as BookingStatus] || status;
+};
+
 export const getFlowForService = (services: any[]): readonly BookingStatus[] => {
   if (!Array.isArray(services) || services.length === 0) {
     return PICKUP_FLOW_ORDER; // Default fallback
@@ -76,7 +91,7 @@ export const getFlowForService = (services: any[]): readonly BookingStatus[] => 
   const isCarWash = services.some(service => {
     if (!service || typeof service !== 'object' || !service.category) return false;
     const cat = service.category.toLowerCase();
-    return cat.includes('car wash') || cat.includes('wash');
+    return cat.includes('car wash') || cat.includes('wash') || cat.includes('essentials');
   });
 
   // Check if it's a battery or tire service
@@ -96,7 +111,7 @@ export const getFlowForService = (services: any[]): readonly BookingStatus[] => 
     const pickupCategories = ['Services', 'Periodic', 'Repair', 'Painting', 'Denting', 'AC', 'Detailing'];
     
     // Categories that are typically done at merchant location (no pickup):
-    const noPickupCategories = ['Insurance', 'Accessories', 'Other'];
+    const noPickupCategories = ['Accessories', 'Essentials', 'Other'];
     
     const hasPickupService = services.some(service => 
       typeof service === 'object' && pickupCategories.includes(service.category)

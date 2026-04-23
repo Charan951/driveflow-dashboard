@@ -8,6 +8,7 @@ import {
   updateVehicleReference,
   deleteVehicleReference
 } from '../../services/vehicleReferenceService';
+import { socketService } from '../../services/socket';
 import { toast } from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,28 @@ const AdminVehicleDataPage = () => {
 
   useEffect(() => {
     fetchVehicleData();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      // 'vehicle_reference' or 'vehicle' entity change should refresh this
+      if ((entity === 'vehicle' || entity === 'vehicle_reference') && action) {
+        fetchVehicleData();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const fetchVehicleData = async () => {

@@ -191,7 +191,7 @@ const DashboardPage: React.FC = () => {
     .sort((a, b) => {
       // Prioritize statuses that are actually "in progress"
       const isInProgress = (s: string) => 
-        ['ASSIGNED', 'ACCEPTED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'MERCHANT_INSPECTION', 'PENDING_APPROVAL', 'SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'OUT_FOR_DELIVERY', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'REACHED_CUSTOMER'].includes(s);
+        ['ASSIGNED', 'ACCEPTED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'MERCHANT_INSPECTION', 'PENDING_APPROVAL', 'SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'OUT_FOR_DELIVERY', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'REACHED_CUSTOMER', 'SERVICE_COMPLETED', 'CAR_WASH_COMPLETED', 'DELIVERY'].includes(s);
       
       const aProgress = isInProgress(a.status);
       const bProgress = isInProgress(b.status);
@@ -419,8 +419,8 @@ const DashboardPage: React.FC = () => {
           {upcomingBooking.deliveryOtp?.code && (
             <div className="mb-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-white/40 bg-white/10 px-4 py-2">
               <p className="text-[10px] uppercase tracking-wide text-white/80">
-                {upcomingBooking.carWash?.isCarWashService ? 'Completion OTP' : 'Delivery OTP'}
-              </p>
+                  Delivery OTP
+                </p>
               <p className="text-xl font-mono font-bold text-white">
                 {upcomingBooking.deliveryOtp.code}
               </p>

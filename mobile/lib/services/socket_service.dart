@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/env.dart';
 import '../core/storage.dart';
+import '../core/api_client.dart';
+import '../core/app_colors.dart';
+import '../main.dart';
 import '../state/tracking_provider.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -137,6 +140,8 @@ class SocketService extends ValueNotifier<String?> {
             title: 'Booking Updated',
             body: 'Booking #$orderNum status is now $status',
             payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+            type: 'status',
+            status: mapData['status']?.toString(),
           );
         } catch (e) {
           // Ignore
@@ -162,6 +167,8 @@ class SocketService extends ValueNotifier<String?> {
             title: 'New Booking',
             body: 'New booking #$orderNum has been created!',
             payload: jsonEncode({'type': 'order', 'bookingId': bookingId}),
+            type: 'order',
+            status: 'CREATED',
           );
         } catch (e) {
           // Ignore
@@ -187,6 +194,8 @@ class SocketService extends ValueNotifier<String?> {
             title: 'Booking Cancelled',
             body: 'Booking #$orderNum has been cancelled.',
             payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
+            type: 'status',
+            status: 'CANCELLED',
           );
         } catch (e) {
           // Ignore
@@ -200,12 +209,20 @@ class SocketService extends ValueNotifier<String?> {
       if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final approvalId = (mapData['_id'] ?? '').toString();
           final type = (mapData['type'] ?? '').toString();
+          final approvalData = mapData['data'] ?? {};
+
           final title = type == 'PartReplacement'
               ? 'New Part Approval'
+              : type == 'ExtraCost'
+              ? 'Extra Cost Approval'
               : 'New Approval Request';
+
           final body = type == 'PartReplacement'
-              ? 'A new part replacement requires your approval.'
+              ? 'A new part replacement (${approvalData['name']}) requires your approval.'
+              : type == 'ExtraCost'
+              ? 'An extra cost of ₹${approvalData['amount']} requires your approval for: ${approvalData['reason']}'
               : 'A new request requires your approval.';
 
           NotificationService().showLocalNotification(
@@ -214,8 +231,13 @@ class SocketService extends ValueNotifier<String?> {
             payload: jsonEncode({
               'type': 'approval',
               'bookingId': (mapData['relatedId'] ?? '').toString(),
+              'approvalId': approvalId,
             }),
+            type: 'approval',
           );
+
+          // Show foreground dialog
+          NotificationService().showApprovalDialog(title, body, approvalId);
         } catch (e) {
           // Ignore
         }
@@ -236,14 +258,27 @@ class SocketService extends ValueNotifier<String?> {
       if (data != null) {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final payload = mapData['payload'] != null
+              ? (mapData['payload'] is String
+                    ? mapData['payload'] as String
+                    : jsonEncode(mapData['payload']))
+              : null;
+
+          Map<String, dynamic>? payloadData;
+          if (payload != null) {
+            try {
+              payloadData = jsonDecode(payload);
+            } catch (_) {}
+          }
+
           NotificationService().showLocalNotification(
             title: (mapData['title'] ?? 'Notification').toString(),
             body: (mapData['message'] ?? mapData['body'] ?? '').toString(),
-            payload: mapData['payload'] != null
-                ? (mapData['payload'] is String
-                      ? mapData['payload'] as String
-                      : jsonEncode(mapData['payload']))
-                : null,
+            payload: payload,
+            type: payloadData?['type']?.toString(),
+            status: (payloadData?['status'] ?? payloadData?['bookingStatus'])
+                ?.toString(),
+            subType: payloadData?['subType']?.toString(),
           );
         } catch (e) {
           // Ignore
@@ -258,6 +293,7 @@ class SocketService extends ValueNotifier<String?> {
         title: 'Support Ticket Updated',
         body: 'A support ticket has been updated.',
         payload: jsonEncode({'type': 'support'}),
+        type: 'support',
       );
       notifyListeners();
     });

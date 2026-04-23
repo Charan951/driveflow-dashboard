@@ -41,6 +41,7 @@ class _SupportPageState extends State<SupportPage> {
       _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
     }
     _socketService.off('ticketUpdated', _onTicketUpdated);
+    _socketService.removeListener(_onGlobalSync);
     _replyController.dispose();
     super.dispose();
   }
@@ -48,6 +49,17 @@ class _SupportPageState extends State<SupportPage> {
   void _initSocket() async {
     await _socketService.init();
     _socketService.on('ticketUpdated', _onTicketUpdated);
+    _socketService.addListener(_onGlobalSync);
+  }
+
+  void _onGlobalSync() {
+    final event = _socketService.value;
+    if (event == null) return;
+
+    if ((event.contains('sync:ticket') || event.contains('sync:user')) &&
+        mounted) {
+      _loadTickets();
+    }
   }
 
   void _onTicketUpdated(dynamic data) {

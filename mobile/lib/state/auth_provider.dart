@@ -29,7 +29,9 @@ class AuthProvider extends ChangeNotifier {
 
   void _onSocketEvent() {
     final event = SocketService().value;
-    if (event != null && event.startsWith('role_updated:')) {
+    if (event == null) return;
+
+    if (event.startsWith('role_updated:')) {
       try {
         final payloadStr = event.substring('role_updated:'.length);
         final data = jsonDecode(payloadStr) as Map<String, dynamic>;
@@ -66,6 +68,9 @@ class AuthProvider extends ChangeNotifier {
       } catch (e) {
         // Ignore
       }
+    } else if (event.contains('sync:user') || event.contains('sync:setting')) {
+      // Reload user data from server for global sync events
+      _refreshUserInBackground();
     }
   }
 
@@ -92,6 +97,10 @@ class AuthProvider extends ChangeNotifier {
     if (role == 'staff') return '/staff';
     if (role == 'admin') return '/admin';
     return '/customer';
+  }
+
+  Future<void> refreshUser() async {
+    await _refreshUserInBackground();
   }
 
   Future<void> loadMe({bool force = false}) async {

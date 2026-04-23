@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from './models/User.js';
 import Booking from './models/Booking.js';
 import Message from './models/Message.js';
+import { sendPushToUser, sendPushToRole } from './utils/pushService.js';
 
 let io;
 
@@ -498,6 +499,66 @@ export const emitChatMessage = (bookingId, message) => {
     // Also notify global role room
     io.to(msgObj.recipientRole).emit('receiveMessage', msgObj);
   }
+
+  // Send a separate notification event for global sync (so apps can show toasts/alerts)
+  const notificationPayload = {
+    title: `New Message from ${msgObj.sender.name || 'Support'}`,
+    body: msgObj.text,
+    type: 'chat',
+    data: {
+      bookingId: msgObj.bookingId,
+      messageId: msgObj._id,
+      senderId: msgObj.sender._id,
+      senderRole: msgObj.sender.role
+    }
+  };
+
+  // Broadcast notification to the same audience
+  if (!msgObj.recipientRole || msgObj.recipientRole === 'all') {
+    io.to(roomBase).emit('notification', notificationPayload);
+  } else {
+    io.to(`${roomBase}_${msgObj.recipientRole}`).emit('notification', notificationPayload);
+  }
+
+  // Send push notification to the recipient(s) - this is handled by pushService
+  // but we can trigger it here if we know who the recipients are.
+  // For simplicity, we'll rely on the socket 'notification' event for real-time sync
+  // and potentially trigger a push if we have the recipient ID.
+  (async () => {
+    try {
+      const booking = await Booking.findById(bookingId).lean();
+      if (!booking) return;
+
+      const senderId = msgObj.sender._id.toString();
+      
+      // Notify customer if sender is not customer
+      if (msgObj.sender.role !== 'customer') {
+        const customerId = booking.user.toString();
+        if (customerId !== senderId) {
+          sendPushToUser(customerId, notificationPayload.title, notificationPayload.body, notificationPayload.data, 'chat');
+        }
+      }
+
+      // Notify merchant if sender is not merchant
+      if (msgObj.sender.role !== 'merchant' && booking.merchant) {
+        const merchantId = booking.merchant.toString();
+        if (merchantId !== senderId) {
+          sendPushToUser(merchantId, notificationPayload.title, notificationPayload.body, notificationPayload.data, 'chat');
+        }
+      }
+
+      // Notify staff if sender is not staff
+      const staffId = booking.pickupDriver || booking.technician || (booking.carWash && booking.carWash.staffAssigned);
+      if (msgObj.sender.role !== 'staff' && staffId) {
+        const sId = staffId.toString();
+        if (sId !== senderId) {
+          sendPushToUser(sId, notificationPayload.title, notificationPayload.body, notificationPayload.data, 'chat');
+        }
+      }
+    } catch (err) {
+      console.error('Error sending chat push notification:', err);
+    }
+  })();
 };
 
 export const getIO = () => {

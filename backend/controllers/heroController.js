@@ -1,4 +1,5 @@
 import { getDataFromS3, saveDataToS3 } from '../utils/s3Storage.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 const HERO_CONFIG_KEY = 'hero_config.json';
 
@@ -34,6 +35,10 @@ export const updateHeroSettings = async (req, res) => {
     };
     
     await saveDataToS3(HERO_CONFIG_KEY, config);
+
+    // Global Real-time Sync
+    emitEntitySync('hero', 'updated', config);
+
     res.json({ message: 'Hero settings updated in S3', config });
   } catch (error) {
     res.status(500).json({ message: error.message });

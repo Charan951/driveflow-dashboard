@@ -93,29 +93,6 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ vehicle, isOpen
             </div>
           </section>
 
-          {vehicle.insurance && (
-            <section>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Insurance Details</h3>
-              <div className="bg-muted/30 rounded-xl p-4 border border-border">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="w-5 h-5 text-green-500 mt-1" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold">{vehicle.insurance.provider}</p>
-                    <p className="text-xs text-muted-foreground">Policy: {vehicle.insurance.policyNumber}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={vehicle.insurance.status === 'Active' ? 'success' : 'destructive'} className="text-[10px]">
-                        {vehicle.insurance.status}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        Expires: {vehicle.insurance.expiryDate}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
           {vehicle.vin && (
             <section>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">VIN Number</h3>

@@ -6,6 +6,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useAppStore } from '@/store/appStore';
 
+import { updateApprovalStatus } from '@/services/approvalService';
+
 const SocketNotificationListener = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -19,12 +21,8 @@ const SocketNotificationListener = () => {
     socketService.connect();
 
     socketService.on('connect', () => {
-      if (userRole === 'admin') {
-        socketService.joinRoom('admin');
-      } else if (userRole === 'merchant') {
-        socketService.joinRoom('merchant');
-      } else if (userRole === 'staff') {
-        socketService.joinRoom('staff');
+      if (userRole) {
+        socketService.joinRoom(userRole.toLowerCase());
       }
       socketService.joinRoom(`user_${user._id}`);
     });
@@ -33,12 +31,8 @@ const SocketNotificationListener = () => {
     // but the 'connect' listener above handles the re-connection logic
     const isConnected = socketService.isConnected();
     if (isConnected) {
-      if (userRole === 'admin') {
-        socketService.joinRoom('admin');
-      } else if (userRole === 'merchant') {
-        socketService.joinRoom('merchant');
-      } else if (userRole === 'staff') {
-        socketService.joinRoom('staff');
+      if (userRole) {
+        socketService.joinRoom(userRole.toLowerCase());
       }
       socketService.joinRoom(`user_${user._id}`);
     }
@@ -163,19 +157,61 @@ const SocketNotificationListener = () => {
       queryClient.invalidateQueries({ queryKey: ['booking', data.relatedId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
-      toast.info(`New Approval Request`, {
-        description: `A new ${data.type || 'request'} requires your approval.`,
-        action: {
-          label: 'View',
-          onClick: () => {
-            if (userRole === 'customer') {
-              navigate(`/track/${data.relatedId}`);
-            } else if (userRole === 'admin') {
-              navigate(`/admin/approvals`);
+      const approvalId = data._id;
+      const title = data.type === 'PartReplacement' 
+        ? 'New Part Approval' 
+        : data.type === 'ExtraCost'
+          ? 'Extra Cost Approval'
+          : 'New Approval Request';
+      
+      const message = data.type === 'PartReplacement'
+        ? `A new part replacement (${data.data?.name}) requires your approval.`
+        : data.type === 'ExtraCost'
+          ? `An extra cost of ₹${data.data?.amount} requires your approval.`
+          : 'A new request requires your approval.';
+
+      if (userRole === 'customer') {
+        toast(title, {
+          description: message,
+          duration: 10000, // Show longer
+          action: {
+            label: 'Approve',
+            onClick: async () => {
+              try {
+                await updateApprovalStatus(approvalId, 'Approved');
+                toast.success('Request approved successfully');
+                queryClient.invalidateQueries({ queryKey: ['booking', data.relatedId] });
+              } catch (err) {
+                toast.error('Failed to approve request');
+              }
             }
           },
-        },
-      });
+          cancel: {
+            label: 'Reject',
+            onClick: async () => {
+              try {
+                await updateApprovalStatus(approvalId, 'Rejected');
+                toast.success('Request rejected successfully');
+                queryClient.invalidateQueries({ queryKey: ['booking', data.relatedId] });
+              } catch (err) {
+                toast.error('Failed to reject request');
+              }
+            }
+          }
+        });
+      } else {
+        toast.info(title, {
+          description: message,
+          action: {
+            label: 'View',
+            onClick: () => {
+              if (userRole === 'admin') {
+                navigate(`/admin/approvals`);
+              }
+            },
+          },
+        });
+      }
     };
 
     const handleUserUpdated = (data: any) => {
@@ -255,25 +291,31 @@ const SocketNotificationListener = () => {
 
       if (!entity || !action) return;
 
-      if (entity === 'booking') {
-        queryClient.invalidateQueries({ queryKey: ['bookings'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      } else if (entity === 'ticket') {
-        queryClient.invalidateQueries({ queryKey: ['tickets'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      } else if (entity === 'vehicle') {
-        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-        queryClient.invalidateQueries({ queryKey: ['tracking'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      } else if (entity === 'user') {
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      } else if (entity === 'approval') {
-        queryClient.invalidateQueries({ queryKey: ['approvals'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      } else if (entity === 'payment') {
-        queryClient.invalidateQueries({ queryKey: ['payments'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Map entities to query keys
+      const entityQueryMap: Record<string, string[]> = {
+        'booking': ['bookings', 'booking', 'dashboard'],
+        'ticket': ['tickets', 'ticket', 'dashboard'],
+        'vehicle': ['vehicles', 'tracking', 'dashboard'],
+        'user': ['users', 'user', 'dashboard', 'profile'],
+        'approval': ['approvals', 'dashboard'],
+        'payment': ['payments', 'dashboard'],
+        'product': ['products', 'dashboard'],
+        'service': ['services', 'dashboard'],
+        'setting': ['settings', 'public-settings', 'dashboard'],
+        'role': ['roles', 'dashboard'],
+        'hero': ['hero', 'dashboard'],
+        'notification': ['notifications', 'dashboard']
+      };
+
+      const keysToInvalidate = entityQueryMap[entity] || ['dashboard'];
+      
+      keysToInvalidate.forEach(key => {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      });
+
+      // Special handling for some actions
+      if (action === 'deleted_all' && entity === 'notification') {
+        queryClient.setQueryData(['notifications'], []);
       }
     };
 

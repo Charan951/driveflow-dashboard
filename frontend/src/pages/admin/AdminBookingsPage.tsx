@@ -19,7 +19,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { STATUS_LABELS } from '@/lib/statusFlow';
+import { STATUS_LABELS, getStatusLabel } from '@/lib/statusFlow';
 
 const AdminBookingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -143,7 +143,7 @@ const AdminBookingsPage: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, services: any[] = []) => {
     const styles: Record<string, string> = {
       'CREATED': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
       'ASSIGNED': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
@@ -162,7 +162,7 @@ const AdminBookingsPage: React.FC = () => {
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
-        {STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status}
+        {getStatusLabel(status, services)}
       </span>
     );
   };
@@ -277,10 +277,14 @@ const AdminBookingsPage: React.FC = () => {
                       <td className="p-3 text-sm">
                         <div className="max-w-[100px] truncate">
                           {(() => {
-                            // Check if this is a car wash service
+                            // Check if this is a car wash or essentials service
                             const isCarWashService = Array.isArray(booking.services) && 
                               booking.services.some(service => 
-                                typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                                typeof service === 'object' && (
+                                  service.category === 'Car Wash' || 
+                                  service.category === 'Wash' ||
+                                  service.category === 'Essentials'
+                                )
                               );
                             
                             if (isCarWashService) {
@@ -292,7 +296,7 @@ const AdminBookingsPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="p-3">
-                        {getStatusBadge(booking.status)}
+                        {getStatusBadge(booking.status, booking.services)}
                       </td>
                       <td className="p-3 font-medium text-right">
                         <div className="flex flex-col items-end gap-1">
@@ -349,7 +353,7 @@ const AdminBookingsPage: React.FC = () => {
                     <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
                     <span className="font-bold text-sm mt-0.5">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
                   </div>
-                  {getStatusBadge(booking.status)}
+                  {getStatusBadge(booking.status, booking.services)}
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -389,7 +393,11 @@ const AdminBookingsPage: React.FC = () => {
                       {(() => {
                         const isCarWashService = Array.isArray(booking.services) && 
                           booking.services.some(service => 
-                            typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+                            typeof service === 'object' && (
+                              service.category === 'Car Wash' || 
+                              service.category === 'Wash' ||
+                              service.category === 'Essentials'
+                            )
                           );
                         
                         if (isCarWashService) {

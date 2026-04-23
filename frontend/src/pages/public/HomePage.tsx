@@ -34,11 +34,11 @@ const staticServices = [
   },
   { 
     icon: Shield, 
-    title: 'Insurance', 
-    description: 'Comprehensive coverage plans to keep you protected on the road.', 
+    title: 'Essentials', 
+    description: 'Essential add-ons and safety checks to keep you protected on the road.', 
     color: 'bg-purple-500', 
     image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=800",
-    link: '/contact'
+    link: '/services?service=Essentials'
   },
   { 
     icon: Droplets, 

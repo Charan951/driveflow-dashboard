@@ -1,4 +1,5 @@
 import Setting from '../models/Setting.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Get public settings
 // @route   GET /api/settings/public
@@ -33,6 +34,7 @@ export const updateSetting = async (req, res) => {
   const { key, value, group, description } = req.body;
   try {
     let setting = await Setting.findOne({ key });
+    let action = 'updated';
 
     if (setting) {
       setting.value = value;
@@ -41,7 +43,11 @@ export const updateSetting = async (req, res) => {
       await setting.save();
     } else {
       setting = await Setting.create({ key, value, group, description });
+      action = 'created';
     }
+
+    // Global Real-time Sync
+    emitEntitySync('setting', action, setting);
 
     res.json(setting);
   } catch (error) {
@@ -63,7 +69,13 @@ export const bulkUpdateSettings = async (req, res) => {
       );
     });
 
-    await Promise.all(promises);
+    const updatedSettings = await Promise.all(promises);
+    
+    // Global Real-time Sync for each updated setting
+    updatedSettings.forEach(setting => {
+      emitEntitySync('setting', 'updated', setting);
+    });
+    
     res.json({ message: 'Settings updated' });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -78,9 +78,23 @@ const AdminMerchantsPage: React.FC = () => {
       }));
     });
 
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      if (entity === 'user') {
+        if (action === 'created' || action === 'updated' || action === 'deleted') {
+          fetchUsers();
+        }
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('userStatusUpdate');
+      socketService.off('global:sync', globalSyncHandler);
       // Don't disconnect here if other components need it, but safe to leave room
     };
   }, []);

@@ -142,6 +142,8 @@ export const verifyPayment = async (req, res) => {
         ? 'Car Wash' 
         : services.some(s => s.category === 'Battery' || s.category === 'Tyre & Battery')
         ? 'Battery'
+        : services.some(s => s.category === 'Essentials')
+        ? 'Essentials'
         : 'Tire';
 
       // Send email confirmation

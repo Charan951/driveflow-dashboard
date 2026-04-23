@@ -97,6 +97,19 @@ const isGeneralServiceBooking = async (booking) => {
   }
 };
 
+// Helper function to check if booking is for Essentials service
+const isEssentialsBooking = async (booking) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: booking.services } });
+    return services.some(service => 
+      service.category && service.category.toLowerCase().includes('essentials')
+    );
+  } catch (error) {
+    return false;
+  }
+};
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private
@@ -119,13 +132,14 @@ export const createBooking = async (req, res) => {
 
     const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
 
-    // Check if this is a service that requires payment (Car Wash, Battery, or Tires)
+    // Check if this is a service that requires payment (Car Wash, Battery/Tires, or Essentials)
     const requiresPaymentService = services.some(service => 
       service.category === 'Car Wash' || 
       service.category === 'Wash' ||
       service.category === 'Battery' ||
       service.category === 'Tyres' ||
-      service.category === 'Tyre & Battery'
+      service.category === 'Tyre & Battery' ||
+      service.category === 'Essentials'
     );
 
     // For services requiring payment, store booking data temporarily and require payment first
@@ -656,6 +670,27 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
+      if (canonTo === 'SERVICE_STARTED' || canonTo === 'CAR_WASH_STARTED' || canonTo === 'INSTALLATION' || canonTo === 'SERVICE_COMPLETED' || canonTo === 'CAR_WASH_COMPLETED' || canonTo === 'DELIVERY') {
+        if (!booking.deliveryOtp || !booking.deliveryOtp.code) {
+          const code = Math.floor(1000 + Math.random() * 9000).toString();
+          booking.deliveryOtp = {
+            code,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            attempts: 0,
+            verifiedAt: null
+          };
+
+          // Send notifications for new OTP
+          if (booking.user?.email) {
+            const subject = 'Delivery OTP';
+            const body = `Your Delivery OTP is ${code}. Use this to confirm service completion/delivery. It expires in 24 hours.`;
+            
+            await sendEmail(booking.user.email, subject, body).catch(() => {});
+          }
+          await sendPushToUser(booking.user?._id, 'Delivery OTP', `Your Delivery OTP is ${code}`, { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
+        }
+      }
+
       if (canonTo === 'SERVICE_COMPLETED') {
         if (req.user.role === 'staff') {
           return res.status(401).json({ message: 'Only merchant can mark service as completed' });
@@ -687,9 +722,13 @@ export const updateBookingStatus = async (req, res) => {
 
       // Car wash specific photo requirements
       if (canonTo === 'CAR_WASH_STARTED') {
+        const isEssentials = await isEssentialsBooking(booking);
         const beforePhotos = Array.isArray(booking.carWash?.beforeWashPhotos) ? booking.carWash.beforeWashPhotos : [];
         if (beforePhotos.length < 2) {
-          return res.status(400).json({ message: 'Please upload at least 2 before wash photos before starting car wash' });
+          const msg = isEssentials 
+            ? 'Please upload at least 2 before service photos before starting service'
+            : 'Please upload at least 2 before wash photos before starting car wash';
+          return res.status(400).json({ message: msg });
         }
         
         // Set wash start time
@@ -699,34 +738,19 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       if (canonTo === 'CAR_WASH_COMPLETED') {
-        
+        const isEssentials = await isEssentialsBooking(booking);
         const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
         
         if (afterPhotos.length < 2) {
-          return res.status(400).json({ message: 'Please upload at least 2 after wash photos before completing car wash' });
+          const msg = isEssentials 
+            ? 'Please upload at least 2 after service photos before completing service'
+            : 'Please upload at least 2 after wash photos before completing car wash';
+          return res.status(400).json({ message: msg });
         }
         
-        // Set wash completion time and generate OTP for delivery
+        // Set wash completion time
         if (booking.carWash) {
           booking.carWash.washCompletedAt = new Date();
-          
-          // Generate OTP for car wash delivery
-          const code = Math.floor(1000 + Math.random() * 9000).toString();
-          booking.deliveryOtp = {
-            code,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-            attempts: 0,
-            verifiedAt: null
-          };
-          
-          if (booking.user?.email) {
-            await sendEmail(
-              booking.user.email,
-              'Car Wash Completion & Delivery OTP',
-              `Your OTP for car wash delivery is ${code}. It expires in 24 hours.`
-            ).catch(() => {});
-          }
-          await sendPushToUser(booking.user?._id, 'Car Wash Completed', `Your car wash is completed. Use OTP ${code} to confirm delivery.`, { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
         }
       }
 
@@ -758,11 +782,11 @@ export const updateBookingStatus = async (req, res) => {
           if (booking.user?.email) {
             await sendEmail(
             booking.user.email,
-            'Installation & Delivery OTP',
-            `Your OTP for battery/tire installation and delivery is ${code}. It expires in 24 hours.`
+            'Delivery OTP',
+            `Your Delivery OTP is ${code}. It expires in 24 hours.`
           ).catch(() => {});
         }
-        await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm installation completion', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
+        await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
       }
 
         if (canonTo === 'DELIVERY') {
@@ -886,7 +910,12 @@ Thank you for choosing Carzzi 🙌`;
             if (!existingStatusMessage) {
               let statusText = '';
               if (canonTo === 'SERVICE_STARTED') statusText = "Service has started for your vehicle. Our technician is working on it.";
-              else if (canonTo === 'CAR_WASH_STARTED') statusText = "Car wash has started for your vehicle. Our staff is working on it.";
+              else if (canonTo === 'CAR_WASH_STARTED') {
+                const isEssentials = await isEssentialsBooking(savedBooking);
+                statusText = isEssentials 
+                  ? "Service has started for your vehicle. Our staff is working on it."
+                  : "Car wash has started for your vehicle. Our staff is working on it.";
+              }
               else if (canonTo === 'INSTALLATION') statusText = "Installation has started for your vehicle.";
               else if (canonTo === 'On Hold') statusText = "Your service is currently on hold. We will update you soon.";
 
@@ -1308,10 +1337,16 @@ export const startCarWash = async (req, res) => {
 
     // Notify customer
     try {
+      const isEssentials = populated.services?.some(s => s.category?.toLowerCase().includes('essentials'));
+      const pushTitle = isEssentials ? 'Service Started' : 'Car Wash Started';
+      const pushBody = isEssentials 
+        ? `Your service (#${booking.orderNumber}) has been started.`
+        : `Your car wash service (#${booking.orderNumber}) has been started.`;
+
       await sendPushToUser(
         booking.user,
-        'Car Wash Started',
-        `Your car wash service (#${booking.orderNumber}) has been started.`,
+        pushTitle,
+        pushBody,
         { bookingId: booking._id.toString(), type: 'car_wash_started' },
         'order'
       );
@@ -1319,7 +1354,8 @@ export const startCarWash = async (req, res) => {
       
     }
 
-    res.json({ message: 'Car wash started successfully', booking: populated });
+    const isEssentials = await isEssentialsBooking(populated);
+    res.json({ message: isEssentials ? 'Service started successfully' : 'Car wash started successfully', booking: populated });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -1441,23 +1477,28 @@ export const completeCarWash = async (req, res) => {
 
     // Notify customer with OTP
     try {
-      
+      const isEssentials = populated.services?.some(s => s.category?.toLowerCase().includes('essentials'));
+      const pushTitle = isEssentials ? 'Service Completed' : 'Car Wash Completed';
+      const pushBody = isEssentials 
+        ? `Your service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`
+        : `Your car wash service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`;
+
       const pushResult = await sendPushToUser(
         booking.user,
-        'Car Wash Completed',
-        `Your car wash service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`,
+        pushTitle,
+        pushBody,
         { bookingId: booking._id.toString(), type: 'car_wash_completed', otp: otpCode },
         'order'
       );
-      
     } catch (err) {
       
     }
 
-    res.json({ 
-      message: 'Car wash completed successfully', 
+    const isEssentials = await isEssentialsBooking(populated);
+    res.json({
+      message: isEssentials ? 'Service completed successfully' : 'Car wash completed successfully',
       booking: populated,
-      deliveryOtp: otpCode 
+      deliveryOtp: otpCode
     });
   } catch (error) {
     

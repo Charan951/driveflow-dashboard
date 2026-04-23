@@ -83,7 +83,13 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
             event.startsWith('new_approval') ||
             event.contains('sync:booking') ||
             event.contains('sync:approval') ||
-            event.contains('sync:payment')) &&
+            event.contains('sync:payment') ||
+            event.contains('sync:product') ||
+            event.contains('sync:service') ||
+            event.contains('sync:vehicle') ||
+            event.contains('sync:user') ||
+            event.contains('sync:notification') ||
+            event.contains('sync:setting')) &&
         mounted) {
       _load();
     }
@@ -1209,8 +1215,8 @@ class _QuickServicesSection extends StatelessWidget {
 
                   if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
                     route = '/car-wash';
-                  } else if (['Insurance'].contains(cat)) {
-                    route = '/insurance';
+                  } else if (['Insurance', 'Essentials'].contains(cat)) {
+                    route = '/essentials';
                   } else if ([
                     'Tyre & Battery',
                     'Tyres',
@@ -1920,7 +1926,9 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
     if (v.contains('engine') || v.contains('repair')) {
       return Icons.settings_suggest_outlined;
     }
-    if (v.contains('insurance')) return Icons.shield_outlined;
+    if (v.contains('insurance') || v.contains('essentials')) {
+      return Icons.shield_outlined;
+    }
     return Icons.build_outlined;
   }
 

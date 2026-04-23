@@ -262,8 +262,8 @@ const CustomerVehicleDetailPage: React.FC = () => {
                         <Shield className="w-6 h-6" />
                      </div>
                      <div className="flex-1">
-                        <h3 className="font-bold mb-1">Insurance Policy</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Protect your vehicle with valid insurance.</p>
+                        <h3 className="font-bold mb-1">Essentials</h3>
+                        <p className="text-xs text-muted-foreground mb-4">Keep your vehicle ready with important essentials and documents.</p>
                         <button className="text-sm text-primary hover:underline font-bold flex items-center gap-1">
                           View Details <ArrowLeft className="w-3 h-3 rotate-180" />
                         </button>

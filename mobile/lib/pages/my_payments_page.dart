@@ -51,7 +51,13 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   }
 
   void _onSocketUpdate() {
-    if (mounted) {
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    if ((event.contains('sync:payment') ||
+            event.contains('sync:booking') ||
+            event.contains('sync:user')) &&
+        mounted) {
       _load();
     }
   }
@@ -273,7 +279,8 @@ class _PaymentCardState extends State<_PaymentCard> {
     if (v.contains('engine') || v.contains('repair')) {
       return Icons.settings_suggest_outlined;
     }
-    if (v.contains('insurance')) return Icons.shield_outlined;
+    if (v.contains('insurance') || v.contains('essentials'))
+      return Icons.shield_outlined;
     return Icons.payments_outlined;
   }
 

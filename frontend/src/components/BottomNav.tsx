@@ -13,7 +13,7 @@ export interface NavItem {
 
 const defaultNavItems: NavItem[] = [
   { icon: Settings, label: 'Services', path: '/book-service?category=Periodic' },
-  { icon: Shield, label: 'Insurance', path: '/insurance' },
+  { icon: Shield, label: 'Essentials', path: '/book-service?category=Essentials' },
   { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
   { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
   { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
@@ -30,7 +30,27 @@ export const BottomNav: React.FC<BottomNavProps> = ({ items = defaultNavItems })
     if (path === '/dashboard') {
       return location.pathname === '/dashboard';
     }
-    return location.pathname.startsWith(path);
+
+    const [basePath, query] = path.split('?');
+
+    if (location.pathname !== basePath) {
+      return location.pathname.startsWith(basePath);
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    const searchParams = new URLSearchParams(location.search);
+    const targetParams = new URLSearchParams(`?${query}`);
+
+    for (const [key, value] of targetParams.entries()) {
+      if (searchParams.get(key) !== value) {
+        return false;
+      }
+    }
+
+    return true;
   };
 
   return (

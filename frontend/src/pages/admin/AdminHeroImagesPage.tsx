@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { heroService, HeroSlide, PageHero } from '@/services/heroService';
 import { uploadService } from '@/services/uploadService';
+import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
 
 const PAGES = [
@@ -41,6 +42,27 @@ const AdminHeroImagesPage = () => {
 
   useEffect(() => {
     fetchHeroSettings();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      if (entity === 'hero' && action) {
+        fetchHeroSettings();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const fetchHeroSettings = async () => {

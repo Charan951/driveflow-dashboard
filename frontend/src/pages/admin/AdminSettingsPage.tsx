@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Save, RefreshCw, Settings, Globe, Briefcase, Clock, FileText } from 'lucide-react';
 import { settingService, Setting } from '../../services/settingService';
+import { socketService } from '../../services/socket';
 import { toast } from 'react-hot-toast';
 
 const SETTING_GROUPS = [
@@ -47,6 +48,27 @@ const AdminSettingsPage = () => {
 
   useEffect(() => {
     fetchSettings();
+
+    // Socket Setup
+    socketService.connect();
+    socketService.joinRoom('admin');
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      if (entity === 'setting' && action) {
+        fetchSettings();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.leaveRoom('admin');
+      socketService.off('global:sync', globalSyncHandler);
+    };
   }, []);
 
   const fetchSettings = async () => {

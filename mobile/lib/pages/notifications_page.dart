@@ -42,7 +42,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   void _onSocketUpdate() {
-    if (mounted) {
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    if ((event.contains('sync:notification') ||
+            event.contains('sync:user') ||
+            event == 'notification') &&
+        mounted) {
       _load();
     }
   }

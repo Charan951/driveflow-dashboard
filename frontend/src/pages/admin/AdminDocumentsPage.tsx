@@ -83,7 +83,6 @@ const AdminDocumentsPage = () => {
           >
             <option value="All">All Types</option>
             <option value="Invoice">Invoices</option>
-            <option value="Insurance">Insurance</option>
             <option value="Registration">Registration</option>
             <option value="Battery Warranty">Battery Warranty</option>
             <option value="Tire Warranty">Tire Warranty</option>
@@ -109,7 +108,7 @@ const AdminDocumentsPage = () => {
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0
                   ${doc.type === 'Invoice' ? 'bg-green-100 text-green-800' :
-                    doc.type === 'Insurance' ? 'bg-blue-100 text-blue-800' :
+                    doc.type === 'Essentials' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'}`}
                 >
                   {doc.type}
@@ -160,7 +159,7 @@ const AdminDocumentsPage = () => {
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium
                       ${doc.type === 'Invoice' ? 'bg-green-100 text-green-800' :
-                        doc.type === 'Insurance' ? 'bg-blue-100 text-blue-800' :
+                        doc.type === 'Essentials' ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'}`}
                     >
                       {doc.type}

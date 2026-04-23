@@ -249,7 +249,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final nav = context.read<NavigationProvider>();
     final Map<String, int> tabMapping = {
       'Periodic': 0,
-      'Insurance': 1,
+      'Essentials': 1,
       'Wash': 3,
       'Tyres': 4,
     };
@@ -446,7 +446,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     // Check if this page's tab is active and if we should refresh
     final Map<String, int> tabMapping = {
       'Periodic': 0,
-      'Insurance': 1,
+      'Essentials': 1,
       'Wash': 3,
       'Tyres': 4,
     };
@@ -752,7 +752,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       'Wash': ['Car Wash', 'Wash', 'Detailing'],
       // Keep this aligned with web app logic
       'Tyres': ['Tyre & Battery', 'Tyres', 'Battery'],
-      'Insurance': ['Insurance'],
+      'Essentials': ['Essentials', 'Insurance'],
       'Other': ['Other', 'Painting', 'Denting', 'Accessories'],
     };
 

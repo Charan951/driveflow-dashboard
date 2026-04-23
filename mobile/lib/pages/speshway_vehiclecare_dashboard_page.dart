@@ -58,7 +58,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     });
 
     final socket = SocketService();
-    socket.addListener(_onSocketConnectionChanged);
+    socket.addListener(_onSocketUpdate);
     socket.on('bookingUpdated', _onExternalUpdate);
     socket.on('bookingCreated', _onExternalUpdate);
     socket.on('bookingCancelled', _onExternalUpdate);
@@ -68,16 +68,29 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     final socket = SocketService();
-    socket.removeListener(_onSocketConnectionChanged);
+    socket.removeListener(_onSocketUpdate);
     socket.off('bookingUpdated', _onExternalUpdate);
     socket.off('bookingCreated', _onExternalUpdate);
     socket.off('bookingCancelled', _onExternalUpdate);
     super.dispose();
   }
 
-  void _onSocketConnectionChanged() {
-    if (SocketService().isConnected) {
-      _load(isInitial: true);
+  void _onSocketUpdate() {
+    final event = SocketService().value;
+    if (event == null) return;
+
+    // Reload if connection changed or specific entity sync
+    if (event == 'connected' ||
+        event.contains('sync:booking') ||
+        event.contains('sync:approval') ||
+        event.contains('sync:payment') ||
+        event.contains('sync:product') ||
+        event.contains('sync:service') ||
+        event.contains('sync:vehicle') ||
+        event.contains('sync:user') ||
+        event.contains('sync:notification') ||
+        event.contains('sync:setting')) {
+      if (mounted) _load();
     }
   }
 
@@ -1350,8 +1363,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
                       if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
                         route = '/car-wash';
-                      } else if (['Insurance'].contains(cat)) {
-                        route = '/insurance';
+                      } else if (['Insurance', 'Essentials'].contains(cat)) {
+                        route = '/essentials';
                       } else if ([
                         'Tyre & Battery',
                         'Tyres',

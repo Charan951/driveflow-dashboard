@@ -1,6 +1,7 @@
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
 import { sendPushToUser, sendPushToRole, sendPushToTopic } from '../utils/pushService.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Send a notification
 // @route   POST /api/notifications
@@ -25,6 +26,10 @@ export const sendNotification = async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ message: result.message || 'Failed to send notification' });
     }
+
+    // Notifications are saved in pushService.js, so we don't save again here.
+    // However, we should emit sync event.
+    emitEntitySync('notification', 'created', { title, message, type, data, recipientId, targetGroup });
 
     res.status(201).json({ message: 'Notification sent successfully' });
   } catch (error) {
@@ -87,6 +92,10 @@ export const markAsRead = async (req, res) => {
       }
       notification.isRead = true;
       await notification.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('notification', 'updated', notification);
+      
       res.json(notification);
     } else {
       res.status(404).json({ message: 'Notification not found' });
@@ -107,7 +116,14 @@ export const deleteNotification = async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
+    const notificationId = notification._id;
+    const userId = notification.userId;
+    
     await notification.deleteOne();
+    
+    // Global Real-time Sync
+    emitEntitySync('notification', 'deleted', { _id: notificationId, userId });
+    
     res.json({ message: 'Notification deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -120,6 +136,10 @@ export const deleteNotification = async (req, res) => {
 export const clearMyNotifications = async (req, res) => {
   try {
     await Notification.deleteMany({ userId: req.user._id });
+    
+    // Global Real-time Sync
+    emitEntitySync('notification', 'deleted_all', { userId: req.user._id });
+    
     res.json({ message: 'Notifications cleared' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -132,6 +152,10 @@ export const clearMyNotifications = async (req, res) => {
 export const clearHistory = async (req, res) => {
   try {
     await Notification.deleteMany({});
+    
+    // Global Real-time Sync
+    emitEntitySync('notification', 'deleted_all', { scope: 'history' });
+    
     res.json({ message: 'Notification history cleared' });
   } catch (error) {
     res.status(500).json({ message: error.message });

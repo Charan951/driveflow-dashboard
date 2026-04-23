@@ -23,7 +23,7 @@ const ServicesPage: React.FC = () => {
     fetchServices();
   }, []);
 
-  const categories = ['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Insurance', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Other'];
+  const categories = ['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Essentials', 'Other'];
 
   return (
     <div className="p-6">

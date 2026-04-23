@@ -26,12 +26,12 @@ const services = [
     vehicleType: 'Car',
   },
   {
-    name: 'Insurance Claim',
-    description: 'Hassle-free insurance claim processing and repairs.',
+    name: 'Essentials Plus Package',
+    description: 'Essential protection package including critical safety checks and support.',
     price: 0,
     duration: 0,
-    category: 'Insurance',
-    features: ['Cashless Repair', 'Document Support', 'Claim Assistance'],
+    category: 'Essentials',
+    features: ['Safety Checks', 'Document Support', 'Priority Assistance'],
     vehicleType: 'Car',
   },
   // --- Car Wash ---
@@ -101,12 +101,12 @@ const services = [
   },
   // --- Insurance ---
   {
-    name: 'INSURANCE',
-    description: 'Car insurance renewal and new policy assistance.',
+    name: 'Essentials',
+    description: 'Essential add-ons and services to keep your vehicle road-ready.',
     price: 0,
     duration: 0,
-    category: 'Insurance',
-    features: ['Policy Renewal', 'New Policy', 'Premium Comparison'],
+    category: 'Essentials',
+    features: ['Emergency Kit', 'Basic Accessories', 'Health Checks'],
     vehicleType: 'Car',
   },
 ];

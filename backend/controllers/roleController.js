@@ -1,4 +1,5 @@
 import Role from '../models/Role.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 // @desc    Get all roles
 // @route   GET /api/roles
@@ -29,6 +30,9 @@ export const createRole = async (req, res) => {
       description,
     });
 
+    // Global Real-time Sync
+    emitEntitySync('role', 'created', role);
+
     res.status(201).json(role);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -49,6 +53,10 @@ export const updateRole = async (req, res) => {
       role.description = description || role.description;
 
       const updatedRole = await role.save();
+      
+      // Global Real-time Sync
+      emitEntitySync('role', 'updated', updatedRole);
+      
       res.json(updatedRole);
     } else {
       res.status(404).json({ message: 'Role not found' });
@@ -65,7 +73,12 @@ export const deleteRole = async (req, res) => {
   try {
     const role = await Role.findById(req.params.id);
     if (role) {
+      const roleId = role._id;
       await role.deleteOne();
+      
+      // Global Real-time Sync
+      emitEntitySync('role', 'deleted', { _id: roleId });
+      
       res.json({ message: 'Role removed' });
     } else {
       res.status(404).json({ message: 'Role not found' });

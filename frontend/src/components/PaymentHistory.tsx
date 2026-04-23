@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { paymentService, PaymentData, PaymentHistory as PaymentHistoryType } from '@/services/paymentService';
+import { socketService } from '@/services/socket';
 
 interface PaymentHistoryProps {
   userId?: string;
@@ -37,7 +38,36 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
 
   useEffect(() => {
     fetchPayments();
-  }, [pagination.page, filters]);
+
+    // Socket Setup
+    socketService.connect();
+    if (isAdmin) {
+      socketService.joinRoom('admin');
+    } else if (userId) {
+      socketService.joinRoom(`user_${userId}`);
+    }
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+      
+      if (entity === 'payment' && action) {
+        fetchPayments();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      if (isAdmin) {
+        socketService.leaveRoom('admin');
+      } else if (userId) {
+        socketService.leaveRoom(`user_${userId}`);
+      }
+      socketService.off('global:sync', globalSyncHandler);
+    };
+  }, [pagination.page, filters, isAdmin, userId]);
 
   const fetchPayments = async () => {
     try {

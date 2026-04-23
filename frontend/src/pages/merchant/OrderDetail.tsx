@@ -189,11 +189,18 @@ const OrderDetail: React.FC = () => {
 
   if (!booking) return null;
 
+  const isEssentials = Array.isArray(booking.services) && 
+    booking.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('essentials');
+    });
+
   const isCarWashService = Array.isArray(booking.services) && 
     booking.services.some(service => {
       if (typeof service !== 'object' || !service.category) return false;
       const cat = service.category.toLowerCase();
-      return cat.includes('car wash') || cat.includes('wash');
+      return cat.includes('car wash') || cat.includes('wash') || cat.includes('essentials');
     });
 
   return (

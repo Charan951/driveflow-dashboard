@@ -79,19 +79,6 @@ export const getVehicles = async (req, res) => {
   }
 };
 
-// @desc    Get all vehicles with insurance data (Admin)
-// @route   GET /api/vehicles/insurance/all
-// @access  Private/Admin
-export const getInsuranceData = async (req, res) => {
-  try {
-    const vehicles = await Vehicle.find({ 'insurance.policyNumber': { $exists: true } })
-      .populate('user', 'name email phone');
-    res.json(vehicles);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // @desc    Fetch vehicle RC details from RapidAPI V2
 // @route   POST /api/vehicles/rc-details
 // @access  Private
@@ -416,4 +403,3 @@ export const updateVehicleHealth = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

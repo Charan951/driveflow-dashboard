@@ -88,6 +88,9 @@ class CustomStepper extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10,
                           color: (isActive || isCompleted)

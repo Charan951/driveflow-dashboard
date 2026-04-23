@@ -155,7 +155,9 @@ export const createApproval = async (req, res) => {
           { 
             type: 'approval_request', 
             bookingId: relatedId.toString(),
-            approvalId: createdApproval._id.toString()
+            approvalId: createdApproval._id.toString(),
+            title: 'Approval Required',
+            body: message
           },
           'order'
         );

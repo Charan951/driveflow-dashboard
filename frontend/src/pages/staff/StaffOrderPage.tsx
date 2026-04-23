@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
-import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
+import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft, MessageCircle } from 'lucide-react';
 import ElapsedTimer from '@/components/ElapsedTimer';
 import * as turf from '@turf/turf';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
+import ChatWidget from '@/components/ChatWidget';
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
@@ -30,10 +31,14 @@ const StaffOrderPage: React.FC = () => {
   const handleStatusUpdate = React.useCallback(async (newStatus: string) => {
     if (!order) return;
 
-    // Check if this is a car wash service
+    // Check if this is a car wash or essentials service
     const isCarWashService = Array.isArray(order.services) && 
       order.services.some(service => 
-        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+        typeof service === 'object' && (
+          service.category === 'Car Wash' || 
+          service.category === 'Wash' ||
+          service.category === 'Essentials'
+        )
       );
 
     // Check if this is a battery or tire service
@@ -173,7 +178,11 @@ const StaffOrderPage: React.FC = () => {
       
       const isCarWashNow = Array.isArray(order?.services) && 
         order.services.some(service => 
-          typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+          typeof service === 'object' && (
+            service.category === 'Car Wash' || 
+            service.category === 'Wash' ||
+            service.category === 'Essentials'
+          )
         );
 
       // Check if this is a battery or tire service
@@ -389,21 +398,22 @@ const StaffOrderPage: React.FC = () => {
     };
   }, [id, setActiveBookingId, startTracking, stopTracking]);
 
-  useEffect(() => {
-    const fetchOrder = async () => {
-        if (!id) return;
-        try {
-            const data = await bookingService.getBookingById(id);
-            setOrder(data);
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to load order details");
-        } finally {
-            setLoading(false);
-        }
-    };
-    fetchOrder();
+  const fetchOrder = React.useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await bookingService.getBookingById(id);
+      setOrder(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load order details");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchOrder();
+  }, [fetchOrder]);
 
   useEffect(() => {
     if (id) {
@@ -507,7 +517,11 @@ const StaffOrderPage: React.FC = () => {
     
     const isCarWashService = Array.isArray(order.services) && 
       order.services.some(service => 
-        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+        typeof service === 'object' && (
+          service.category === 'Car Wash' || 
+          service.category === 'Wash' ||
+          service.category === 'Essentials'
+        )
       );
     
     const isHeadingToMerchant = !isCarWashService && (
@@ -642,10 +656,14 @@ const StaffOrderPage: React.FC = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
     
-    // Check if this is a car wash service
+    // Check if this is a car wash or essentials service
     const isCarWashService = Array.isArray(order.services) && 
       order.services.some(service => 
-        typeof service === 'object' && (service.category === 'Car Wash' || service.category === 'Wash')
+        typeof service === 'object' && (
+          service.category === 'Car Wash' || 
+          service.category === 'Wash' ||
+          service.category === 'Essentials'
+        )
       );
     
     try {
@@ -737,11 +755,18 @@ const StaffOrderPage: React.FC = () => {
   const services = Array.isArray(order.services) ? order.services : [];
 
   // Service type flags (Consolidated)
+  const isEssentials = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('essentials');
+    });
+
   const isCarWash = Array.isArray(order?.services) && 
     order.services.some(service => {
       if (typeof service !== 'object' || !service.category) return false;
       const cat = service.category.toLowerCase();
-      return cat.includes('car wash') || cat.includes('wash');
+      return cat.includes('car wash') || cat.includes('wash') || cat.includes('essentials');
     });
 
   const isBatteryOrTire = Array.isArray(order?.services) && 
@@ -756,8 +781,8 @@ const StaffOrderPage: React.FC = () => {
       // Car wash specific workflow - no acceptance needed
       switch (currentStatus) {
         case 'ASSIGNED': return { label: 'Reached Customer', nextStatus: 'REACHED_CUSTOMER', color: 'bg-blue-600 hover:bg-blue-700' };
-        case 'REACHED_CUSTOMER': return { label: 'Start Car Wash', nextStatus: 'CAR_WASH_STARTED', color: 'bg-blue-600 hover:bg-blue-700' };
-        case 'CAR_WASH_STARTED': return { label: 'Complete Car Wash', nextStatus: 'CAR_WASH_COMPLETED', color: 'bg-green-600 hover:bg-green-700' };
+        case 'REACHED_CUSTOMER': return { label: isEssentials ? 'Start Service' : 'Start Car Wash', nextStatus: 'CAR_WASH_STARTED', color: 'bg-blue-600 hover:bg-blue-700' };
+        case 'CAR_WASH_STARTED': return { label: isEssentials ? 'Complete Service' : 'Complete Car Wash', nextStatus: 'CAR_WASH_COMPLETED', color: 'bg-green-600 hover:bg-green-700' };
         case 'CAR_WASH_COMPLETED': return { label: 'Complete Delivery', nextStatus: 'DELIVERED', color: 'bg-green-600 hover:bg-green-700' };
         default: return null;
       }
@@ -940,14 +965,14 @@ const StaffOrderPage: React.FC = () => {
                   if (order.status === 'REACHED_CUSTOMER') {
                     return isUploadingPrePickup ? 'Uploading...' : (
                       <>
-                        <span className="hidden sm:inline">Upload Before Wash Photos</span>
+                        <span className="hidden sm:inline">Upload Before {isEssentials ? 'Service' : 'Wash'} Photos</span>
                         <span className="sm:hidden">Before Photos</span>
                       </>
                     );
                   } else if (order.status === 'CAR_WASH_STARTED') {
                     return isUploadingPrePickup ? 'Uploading...' : (
                       <>
-                        <span className="hidden sm:inline">Upload After Wash Photos</span>
+                        <span className="hidden sm:inline">Upload After {isEssentials ? 'Service' : 'Wash'} Photos</span>
                         <span className="sm:hidden">After Photos</span>
                       </>
                     );
@@ -1147,7 +1172,7 @@ const StaffOrderPage: React.FC = () => {
                   <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="space-y-1">
-                        <h3 className="font-medium">Before Wash Photos</h3>
+                        <h3 className="font-medium">{isEssentials ? 'Before Service Photos' : 'Before Wash Photos'}</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
                           {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length >= 2 ? (
                             <>
@@ -1169,12 +1194,12 @@ const StaffOrderPage: React.FC = () => {
                       {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 ? (
                         order.carWash.beforeWashPhotos.map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                            <img src={url} alt={`Before wash ${index + 1}`} className="w-full h-full object-cover" />
+                            <img src={url} alt={`Before ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
                           </div>
                         ))
                       ) : (
                         <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
-                          No before wash photos yet
+                          No before {isEssentials ? 'service' : 'wash'} photos yet
                         </div>
                       )}
                     </div>
@@ -1184,7 +1209,7 @@ const StaffOrderPage: React.FC = () => {
                   <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="space-y-1">
-                        <h3 className="font-medium">After Wash Photos</h3>
+                        <h3 className="font-medium">{isEssentials ? 'After Service Photos' : 'After Wash Photos'}</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
                           {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length >= 2 ? (
                             <>
@@ -1206,12 +1231,12 @@ const StaffOrderPage: React.FC = () => {
                       {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 ? (
                         order.carWash.afterWashPhotos.map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                            <img src={url} alt={`After wash ${index + 1}`} className="w-full h-full object-cover" />
+                            <img src={url} alt={`After ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
                           </div>
                         ))
                       ) : (
                         <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
-                          No after wash photos yet
+                          No after {isEssentials ? 'service' : 'wash'} photos yet
                         </div>
                       )}
                     </div>
@@ -1300,6 +1325,13 @@ const StaffOrderPage: React.FC = () => {
           })()}
         </TabsContent>
       </Tabs>
+      {order?._id && (
+        <ChatWidget 
+          bookingId={order._id} 
+          status={order.status} 
+          onUpdate={fetchOrder} 
+        />
+      )}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { Activity, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService } from '@/lib/statusFlow';
+import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService, getStatusLabel } from '@/lib/statusFlow';
 import Timeline from '../Timeline';
 
 interface StatusControlPanelProps {
@@ -122,7 +122,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
     }
   };
 
-  const nextActionLabel = STATUS_LABELS[nextStatus as keyof typeof STATUS_LABELS] || nextStatus;
+  const nextActionLabel = getStatusLabel(nextStatus, booking.services || []);
   const isWaitingForPayment = booking.status === 'SERVICE_COMPLETED' && booking.paymentStatus !== 'paid';
 
   return (
@@ -138,7 +138,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
               booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
               'bg-blue-100 text-blue-800'
           }`}>
-              {booking.status}
+              {getStatusLabel(booking.status, booking.services || [])}
           </span>
           {booking.paymentStatus === 'paid' ? (
             <span className="text-[9px] md:text-[10px] text-green-600 font-bold uppercase tracking-widest">● Paid</span>
@@ -159,7 +159,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
                 ? 'Staff waiting at customer location'
                 : (s === 'OUT_FOR_DELIVERY' && booking.status !== 'OUT_FOR_DELIVERY'
                     ? 'Waiting for staff pickup'
-                    : STATUS_LABELS[s as keyof typeof STATUS_LABELS] || s);
+                    : getStatusLabel(s, booking.services || []));
 
             return {
               step: label,

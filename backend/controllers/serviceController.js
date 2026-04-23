@@ -109,7 +109,7 @@ export const updateService = async (req, res) => {
         service.duration = duration;
       }
       if (category !== undefined) {
-        if (!['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Insurance', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Other'].includes(category)) {
+        if (!['Services', 'Periodic', 'Wash', 'Car Wash', 'Tyre & Battery', 'Tyres', 'Battery', 'Painting', 'Denting', 'Repair', 'Detailing', 'AC', 'Accessories', 'Essentials', 'Other'].includes(category)) {
            return res.status(400).json({ message: 'Invalid category' });
         }
         service.category = category;

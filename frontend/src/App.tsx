@@ -85,7 +85,6 @@ const TrackServicePage = lazyRetry(() => import("./pages/customer/TrackServicePa
 const ChatPage = lazyRetry(() => import("./pages/customer/ChatPage"));
 const TiresBatteryPage = lazyRetry(() => import("./pages/customer/TiresBatteryPage"));
 const CarWashPage = lazyRetry(() => import("./pages/customer/CarWashPage"));
-const InsurancePage = lazyRetry(() => import("./pages/customer/InsurancePage"));
 const DocumentsPage = lazyRetry(() => import("./pages/customer/DocumentsPage"));
 const ProfilePage = lazyRetry(() => import("./pages/customer/ProfilePage"));
 const SupportPage = lazyRetry(() => import("./pages/customer/SupportPage"));
@@ -110,7 +109,6 @@ const AdminApprovalsPage = lazyRetry(() => import("./pages/admin/AdminApprovalsP
 const AdminTrackingPage = lazyRetry(() => import("./pages/admin/AdminTrackingPage"));
 const AdminPaymentsPage = lazyRetry(() => import("./pages/admin/AdminPaymentsPage"));
 const AdminDocumentsPage = lazyRetry(() => import("./pages/admin/AdminDocumentsPage"));
-const AdminInsurancePage = lazyRetry(() => import("./pages/admin/AdminInsurancePage"));
 const AdminStockPage = lazyRetry(() => import("./pages/admin/AdminStockPage"));
 const MyNotificationsPage = lazyRetry(() => import("./pages/common/MyNotificationsPage"));
 const AdminSupportPage = lazyRetry(() => import("./pages/admin/AdminSupportPage"));
@@ -193,7 +191,6 @@ const App = () => (
               <Route path="/chat/:id" element={<ChatPage />} />
               <Route path="/tires-battery" element={<TiresBatteryPage />} />
               <Route path="/car-wash" element={<CarWashPage />} />
-              <Route path="/insurance" element={<InsurancePage />} />
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/support" element={<SupportPage />} />
@@ -230,7 +227,6 @@ const App = () => (
               <Route path="/admin/tracking" element={<AdminTrackingPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/documents" element={<AdminDocumentsPage />} />
-              <Route path="/admin/insurance" element={<AdminInsurancePage />} />
               <Route path="/admin/stock" element={<AdminStockPage />} />
               <Route path="/admin/support" element={<AdminSupportPage />} />
               <Route path="/admin/feedback" element={<AdminFeedbackPage />} />

@@ -52,7 +52,16 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   void _onSocketUpdate() {
-    if (mounted) {
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    if ((event.contains('sync:booking') ||
+            event.contains('sync:user') ||
+            event.contains('sync:vehicle') ||
+            event == 'booking_updated' ||
+            event == 'booking_created' ||
+            event == 'booking_cancelled') &&
+        mounted) {
       _load();
     }
   }
@@ -425,7 +434,8 @@ class _BookingCardState extends State<_BookingCard> {
       if (v.contains('engine') || v.contains('repair')) {
         return Icons.settings_suggest_outlined;
       }
-      if (v.contains('insurance')) return Icons.shield_outlined;
+      if (v.contains('insurance') || v.contains('essentials'))
+        return Icons.shield_outlined;
       return Icons.miscellaneous_services_outlined;
     }
 

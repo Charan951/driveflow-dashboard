@@ -8,6 +8,7 @@ import '../core/api_client.dart';
 import '../state/navigation_provider.dart';
 import '../models/vehicle.dart';
 import '../services/vehicle_service.dart';
+import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 
@@ -30,6 +31,35 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
+    super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    // Reload if vehicles or user info (ownership) changed
+    if ((event.contains('sync:vehicle') ||
+            event.contains('sync:user') ||
+            event.contains('sync:booking')) &&
+        mounted) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
