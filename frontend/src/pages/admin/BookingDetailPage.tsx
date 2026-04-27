@@ -830,7 +830,7 @@ const BookingDetailPage: React.FC = () => {
 
           {/* Additional Parts - Inspection */}
           {!isCarWashService && !isBatteryOrTireService && Array.isArray(booking.inspection?.additionalParts) && booking.inspection.additionalParts.filter(
-            (p) => (p.approvalStatus || (p.approved ? 'Approved' : 'Pending')) !== 'Rejected'
+            (p) => (p.approvalStatus?.toLowerCase() || (p.approved ? 'approved' : 'pending')) !== 'rejected'
           ).length > 0 && (
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
@@ -840,11 +840,11 @@ const BookingDetailPage: React.FC = () => {
               <div className="space-y-4">
                 {booking.inspection.additionalParts
                   .filter((part) => {
-                    const status = part.approvalStatus || (part.approved ? 'Approved' : 'Pending');
-                    return status !== 'Rejected';
+                    const status = part.approvalStatus?.toLowerCase() || (part.approved ? 'approved' : 'pending');
+                    return status !== 'rejected';
                   })
                   .map((part, index) => {
-                  const status = part.approvalStatus || (part.approved ? 'Approved' : 'Pending');
+                  const status = part.approvalStatus?.toLowerCase() || (part.approved ? 'approved' : 'pending');
                   const total = (part.price || 0) * (part.quantity || 1);
                   return (
                     <div
@@ -863,10 +863,10 @@ const BookingDetailPage: React.FC = () => {
                           <span>Price: ₹{part.price}</span>
                           <span className="text-blue-600 font-medium">Found during inspection</span>
                           <span className="inline-flex items-center gap-1">
-                            {status === 'Approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
-                            {status === 'Rejected' && <XCircle className="w-3 h-3 text-red-500" />}
-                            {status === 'Pending' && <Clock className="w-3 h-3 text-amber-500" />}
-                            <span className="capitalize">{status.toLowerCase()}</span>
+                            {status === 'approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {status === 'rejected' && <XCircle className="w-3 h-3 text-red-500" />}
+                            {status === 'pending' && <Clock className="w-3 h-3 text-amber-500" />}
+                            <span className="capitalize">{status}</span>
                           </span>
                         </div>
                       </div>
@@ -898,7 +898,7 @@ const BookingDetailPage: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 {booking.serviceExecution.serviceParts.map((part, index) => {
-                  const status = part.approvalStatus || 'Pending';
+                  const status = part.approvalStatus?.toLowerCase() || 'pending';
                   const total = (part.price || 0) * (part.quantity || 1);
                   return (
                     <div
@@ -921,10 +921,10 @@ const BookingDetailPage: React.FC = () => {
                             {part.fromInspection ? 'From approved inspection' : 'New discovery during service'}
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            {status === 'Approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
-                            {status === 'Rejected' && <XCircle className="w-3 h-3 text-red-500" />}
-                            {status === 'Pending' && <Clock className="w-3 h-3 text-amber-500" />}
-                            <span className="capitalize">{status.toLowerCase()}</span>
+                            {status === 'approved' && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {status === 'rejected' && <XCircle className="w-3 h-3 text-red-500" />}
+                            {status === 'pending' && <Clock className="w-3 h-3 text-amber-500" />}
+                            <span className="capitalize">{status}</span>
                           </span>
                         </div>
                       </div>
@@ -1049,10 +1049,15 @@ const BookingDetailPage: React.FC = () => {
                          if (s.isOnline) label += " 🟢 (Online)";
                          if (s.subRole) label += ` (${s.subRole})`;
                          
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && s.location?.lat) {
+                         const sLat = s.location?.lat;
+                         const sLng = s.location?.lng;
+                         const bLat = typeof booking.location === 'object' ? (booking.location as any).lat : null;
+                         const bLng = typeof booking.location === 'object' ? (booking.location as any).lng : null;
+
+                         if (bLat && bLng && sLat && sLng && sLat !== 0 && sLng !== 0) {
                             try {
-                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                               const to = turf.point([s.location.lng!, s.location.lat!]);
+                               const from = turf.point([bLng, bLat]);
+                               const to = turf.point([sLng, sLat]);
                                const dist = turf.distance(from, to);
                                if (dist < 1) {
                                   const meters = Math.round(dist * 1000);
@@ -1061,6 +1066,8 @@ const BookingDetailPage: React.FC = () => {
                                   label += ` - ${dist.toFixed(1)} km`;
                                }
                             } catch (e) { /* ignore */ }
+                         } else if (s.isOnline) {
+                            label += " - Location unknown";
                          }
                          return <option key={s._id} value={s._id}>{label}</option>;
                       })}
@@ -1094,22 +1101,25 @@ const BookingDetailPage: React.FC = () => {
                          else label += " (Open 🟢)";
 
                          // Add Distance
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && m.location?.lat) {
+                         const mLat = m.location?.lat;
+                         const mLng = m.location?.lng;
+                         const bLat = typeof booking.location === 'object' ? (booking.location as any).lat : null;
+                         const bLng = typeof booking.location === 'object' ? (booking.location as any).lng : null;
+
+                         if (bLat && bLng && mLat && mLng && mLat !== 0 && mLng !== 0) {
                             try {
-                               const from = turf.point([booking.location.lng!, booking.location.lat]);
-                               const to = turf.point([m.location.lng!, m.location.lat]);
-                               const distance = turf.distance(from, to);
-                               if (distance < 1) {
-                                  const meters = Math.round(distance * 1000);
+                               const from = turf.point([bLng, bLat]);
+                               const to = turf.point([mLng, mLat]);
+                               const dist = turf.distance(from, to);
+                               if (dist < 1) {
+                                  const meters = Math.round(dist * 1000);
                                   label += ` - ${meters} m`;
                                } else {
-                                  label += ` - ${distance.toFixed(1)} km`;
+                                  label += ` - ${dist.toFixed(1)} km`;
                                }
-                            } catch (e) {
-                               // ignore error
-                            }
+                            } catch (e) { /* ignore */ }
                          }
-                         return <option key={m._id} value={m._id}>{label}</option>
+                         return <option key={m._id} value={m._id}>{label}</option>;
                       })}
                    </select>
                  </div>
@@ -1127,10 +1137,17 @@ const BookingDetailPage: React.FC = () => {
                       {sortedDrivers.map(d => {
                          let label = d.name;
                          if (d.isOnline) label += " 🟢 (Online)";
-                         if (booking?.location && typeof booking.location === 'object' && booking.location.lat && d.location?.lat) {
+                         if (d.subRole) label += ` (${d.subRole})`;
+                         
+                         const dLat = d.location?.lat;
+                         const dLng = d.location?.lng;
+                         const bLat = typeof booking.location === 'object' ? (booking.location as any).lat : null;
+                         const bLng = typeof booking.location === 'object' ? (booking.location as any).lng : null;
+
+                         if (bLat && bLng && dLat && dLng && dLat !== 0 && dLng !== 0) {
                             try {
-                               const from = turf.point([booking.location.lng!, booking.location.lat!]);
-                               const to = turf.point([d.location.lng!, d.location.lat!]);
+                               const from = turf.point([bLng, bLat]);
+                               const to = turf.point([dLng, dLat]);
                                const dist = turf.distance(from, to);
                                if (dist < 1) {
                                   const meters = Math.round(dist * 1000);
@@ -1139,6 +1156,8 @@ const BookingDetailPage: React.FC = () => {
                                   label += ` - ${dist.toFixed(1)} km`;
                                }
                             } catch (e) { /* ignore */ }
+                         } else if (d.isOnline) {
+                            label += " - Location unknown";
                          }
                          return <option key={d._id} value={d._id}>{label}</option>;
                       })}

@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/env.dart';
 import '../core/storage.dart';
-import '../core/api_client.dart';
-import '../core/app_colors.dart';
-import '../main.dart';
 import '../state/tracking_provider.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -19,16 +16,20 @@ class SocketService extends ValueNotifier<String?> {
   io.Socket? _socket;
   bool _isConnected = false;
   TrackingProvider? _trackingProvider;
+  User? _currentUser;
 
   bool get isConnected => _isConnected;
+
+  TrackingProvider? get trackingProvider => _trackingProvider;
 
   void setTrackingProvider(TrackingProvider provider) {
     _trackingProvider = provider;
   }
 
   Future<void> init([User? user]) async {
-    // If user is provided, we should re-initialize if needed to ensure token is sent
+    // If user is provided, update our local reference
     if (user != null) {
+      _currentUser = user;
       disconnect();
     } else if (_socket != null) {
       // If socket already exists but got disconnected (e.g. app background/resume),
@@ -39,8 +40,8 @@ class SocketService extends ValueNotifier<String?> {
       return;
     }
 
-    if (user != null && _trackingProvider != null) {
-      _trackingProvider!.init(user.role, user.id);
+    if (_currentUser != null && _trackingProvider != null) {
+      _trackingProvider!.init(_currentUser!.role, _currentUser!.id);
     }
 
     final token = await AppStorage().getToken();
@@ -59,9 +60,15 @@ class SocketService extends ValueNotifier<String?> {
     _socket!.onConnect((_) async {
       _isConnected = true;
 
-      // Join mandatory rooms
-      final userId = await AppStorage().getUserId();
-      final role = await AppStorage().getUserRole();
+      // Join mandatory rooms using the user object if we have it,
+      // otherwise fallback to storage (but storage is less reliable during login/reg)
+      String? userId = _currentUser?.id;
+      String? role = _currentUser?.role;
+
+      if (userId == null || role == null) {
+        userId = await AppStorage().getUserId();
+        role = await AppStorage().getUserRole();
+      }
 
       if (userId != null) {
         joinRoom('user_$userId');
@@ -360,5 +367,6 @@ class SocketService extends ValueNotifier<String?> {
     _socket?.dispose();
     _socket = null;
     _isConnected = false;
+    _currentUser = null;
   }
 }

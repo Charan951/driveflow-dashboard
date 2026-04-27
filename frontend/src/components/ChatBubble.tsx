@@ -90,7 +90,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 </p>
               </div>
             )}
-            {approvalStatus === 'pending' && !isSelf && (
+            {approvalStatus?.toLowerCase() === 'pending' && !isSelf && (
               <div className="flex gap-2">
                 <button
                   onClick={onApprove}
@@ -106,7 +106,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 </button>
               </div>
             )}
-            {approvalStatus === 'approved' && (
+            {approvalStatus?.toLowerCase() === 'approved' && (
               <div className="flex items-center gap-2 text-success">
                 <Check className="w-4 h-4" />
                 <span className="text-sm font-medium">Approved</span>

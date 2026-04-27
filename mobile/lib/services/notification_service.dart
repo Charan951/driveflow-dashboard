@@ -224,8 +224,9 @@ class NotificationService {
       final ApiClient api = ApiClient();
       await api.putAny('/approvals/$approvalId', body: {'status': status});
 
-      if (context != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final currentContext = rootNavigatorKey.currentContext;
+      if (currentContext != null && currentContext.mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text('Request $status successfully'),
             backgroundColor: status == 'Approved' ? Colors.green : Colors.red,
@@ -233,8 +234,9 @@ class NotificationService {
         );
       }
     } catch (e) {
-      if (context != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final currentContext = rootNavigatorKey.currentContext;
+      if (currentContext != null && currentContext.mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text('Failed to update request: $e'),
             backgroundColor: Colors.red,

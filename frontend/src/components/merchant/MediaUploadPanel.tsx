@@ -49,9 +49,11 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   );
 
   // Get approved additional parts from inspection that can be sent to service
-  const approvedInspectionParts = booking?.inspection?.additionalParts?.filter(
-    part => part.approvalStatus === 'Approved' || part.approved
-  ) || [];
+  const approvedInspectionParts = booking?.inspection?.additionalParts
+    ? booking.inspection.additionalParts
+        .map((part, index) => ({ ...part, originalIndex: index }))
+        .filter(part => part.approvalStatus?.toLowerCase() === 'approved' || part.approved)
+    : [];
 
   // Track which inspection parts have been sent to service
   const [sentInspectionParts, setSentInspectionParts] = useState<string[]>(
@@ -61,6 +63,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
       .filter(Boolean)
   );
 
+  const [newImagesForExistingParts, setNewImagesForExistingParts] = useState<Record<number, File>>({});
   const [loading, setLoading] = useState(false);
 
   // Initialize service parts from existing data
@@ -68,16 +71,57 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
     if (booking?.serviceExecution?.afterPhotos) {
       setExistingAfter(booking.serviceExecution.afterPhotos);
     }
-    if (booking?.serviceExecution?.serviceParts) {
-      setExistingServiceParts(booking.serviceExecution.serviceParts);
-      // Update sent inspection parts
-      const sentIds = booking.serviceExecution.serviceParts
-        .filter(part => part.fromInspection)
-        .map(part => part.inspectionPartId || '')
-        .filter(Boolean);
-      setSentInspectionParts(sentIds);
+    
+    const existingParts = booking?.serviceExecution?.serviceParts || [];
+    setExistingServiceParts(existingParts);
+    
+    // Automatically add approved inspection parts to serviceParts if they haven't been sent yet
+    if (booking?.inspection?.additionalParts) {
+      const approvedPartsWithIndices = booking.inspection.additionalParts
+        .map((part, index) => ({ part, originalIndex: index }))
+        .filter(item => item.part.approvalStatus?.toLowerCase() === 'approved' || item.part.approved);
+
+      setServiceParts(currentServiceParts => {
+        const sentIds = existingParts
+          .filter(part => part.fromInspection)
+          .map(part => part.inspectionPartId || '')
+          .filter(Boolean);
+
+        const partsToAutoAdd = approvedPartsWithIndices.filter((item) => {
+          const inspectionPartId = `inspection_${item.originalIndex}`;
+          return !sentIds.includes(inspectionPartId) && 
+                 !currentServiceParts.some(sp => sp.inspectionPartId === inspectionPartId);
+        });
+
+        if (partsToAutoAdd.length > 0) {
+          const newServiceParts = partsToAutoAdd.map((item) => {
+            return {
+              name: item.part.name,
+              price: item.part.price,
+              quantity: item.part.quantity,
+              imageUrl: item.part.image,
+              fromInspection: true,
+              inspectionPartId: `inspection_${item.originalIndex}`,
+              oldImage: item.part.image,
+              needsNewImage: true
+            };
+          });
+          return [...currentServiceParts, ...newServiceParts];
+        }
+        return currentServiceParts;
+      });
     }
   }, [booking]);
+
+  // Derived state for sent inspection parts
+  const allSentInspectionParts = [
+    ...existingServiceParts
+      .filter(part => part.fromInspection)
+      .map(part => part.inspectionPartId || ''),
+    ...serviceParts
+      .filter(part => part.fromInspection)
+      .map(part => part.inspectionPartId || '')
+  ].filter(Boolean);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -152,14 +196,22 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
     if (e.target.files && e.target.files[0]) {
       updateServicePart(index, 'image', e.target.files[0]);
       // Mark that new image has been uploaded
-      if (serviceParts[index].fromInspection) {
-        updateServicePart(index, 'needsNewImage', false);
-      }
+      updateServicePart(index, 'needsNewImage', false);
+    }
+  };
+
+  const handleExistingPartImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewImagesForExistingParts(prev => ({
+        ...prev,
+        [index]: e.target.files![0]
+      }));
     }
   };
 
   const handleUpload = async () => {
     if (afterImages.length === 0 && serviceParts.length === 0 && 
+        Object.keys(newImagesForExistingParts).length === 0 &&
         existingAfter.length === booking?.serviceExecution?.afterPhotos?.length &&
         existingServiceParts.length === booking?.serviceExecution?.serviceParts?.length) {
       toast.info('No changes to save');
@@ -178,7 +230,18 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
         
         const finalAfter = [...existingAfter, ...newAfterUrls];
 
-        // Process service parts (both from inspection and new discoveries)
+        // Process existing service parts with new images
+        const updatedExistingParts = [...existingServiceParts];
+        for (const [indexStr, file] of Object.entries(newImagesForExistingParts)) {
+          const index = parseInt(indexStr);
+          const res: { files: { url: string }[] } = await uploadService.uploadFiles([file]);
+          updatedExistingParts[index] = {
+            ...updatedExistingParts[index],
+            image: res.files[0].url
+          };
+        }
+
+        // Process new service parts
         const processedServiceParts = [];
         for (const part of serviceParts) {
           let newImageUrl = part.imageUrl; // Keep old image as fallback
@@ -187,6 +250,9 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
           if (part.image) {
             const res: { files: { url: string }[] } = await uploadService.uploadFiles([part.image]);
             newImageUrl = res.files[0].url;
+          } else if (part.fromInspection && part.needsNewImage) {
+            // Warn if a part from inspection doesn't have a new image yet
+            // We'll allow it but it's better to have one
           }
           
           processedServiceParts.push({
@@ -203,7 +269,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
           });
         }
 
-        const finalServiceParts = [...existingServiceParts, ...processedServiceParts];
+        const finalServiceParts = [...updatedExistingParts, ...processedServiceParts];
         
         await bookingService.updateBookingDetails(bookingId, {
             serviceExecution: {
@@ -217,6 +283,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
         setExistingServiceParts(finalServiceParts);
         setAfterImages([]);
         setServiceParts([]);
+        setNewImagesForExistingParts({});
 
         onUploadComplete();
         toast.success('Service data updated successfully');
@@ -248,12 +315,12 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {approvedInspectionParts.map((part, index) => {
-              const inspectionPartId = `inspection_${index}`;
-              const alreadySent = sentInspectionParts.includes(inspectionPartId);
+            {approvedInspectionParts.map((part) => {
+              const inspectionPartId = `inspection_${part.originalIndex}`;
+              const alreadySent = allSentInspectionParts.includes(inspectionPartId);
               
               return (
-                <div key={`inspection-part-${index}`} className="flex items-center gap-4 p-4 border border-green-200 bg-green-50/50 rounded-lg">
+                <div key={inspectionPartId} className="flex items-center gap-4 p-4 border border-green-200 bg-green-50/50 rounded-lg">
                   <div className="flex flex-col items-center gap-2">
                     {part.image && (
                       <img src={part.image} alt={part.name} className="w-16 h-16 object-cover rounded" />
@@ -268,7 +335,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
                     <span className="text-xs text-green-600 font-medium">✓ Customer Approved</span>
                   </div>
                   <button
-                    onClick={() => sendInspectionPartToService(part, index)}
+                    onClick={() => sendInspectionPartToService(part, part.originalIndex)}
                     disabled={alreadySent}
                     className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
                       alreadySent 
@@ -318,10 +385,10 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
             </h4>
             <div className="space-y-3">
               {existingServiceParts.map((part, index) => (
-                <div key={`existing-service-part-${index}`} className={`flex items-center gap-4 p-3 rounded-lg ${
+                <div key={`existing-service-part-${index}`} className={`flex flex-col md:flex-row md:items-center gap-4 p-3 rounded-lg ${
                   part.fromInspection ? 'bg-green-50 border border-green-200' : 'bg-muted/50'
                 }`}>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     {part.oldImage && (
                       <div className="flex flex-col items-center gap-1">
                         <button
@@ -330,39 +397,72 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
                         >
                           <img src={part.oldImage} alt="Before" className="w-full h-full object-cover rounded" />
                         </button>
-                        <span className="text-xs text-muted-foreground">Before</span>
+                        <span className="text-[10px] text-muted-foreground uppercase">Before</span>
                       </div>
                     )}
-                    {part.image && (
-                      <div className="flex flex-col items-center gap-1">
-                        <button
-                          onClick={() => window.open(part.image!, '_blank')}
-                          className="w-12 h-12 object-cover rounded hover:opacity-90 transition-opacity"
-                        >
-                          <img src={part.image} alt="After" className="w-full h-full object-cover rounded" />
-                        </button>
-                        <span className="text-xs text-muted-foreground">After</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="relative group">
+                        {(newImagesForExistingParts[index] || part.image) ? (
+                          <button
+                            onClick={() => window.open(newImagesForExistingParts[index] ? URL.createObjectURL(newImagesForExistingParts[index]) : part.image!, '_blank')}
+                            className="w-12 h-12 object-cover rounded hover:opacity-90 transition-opacity border border-border overflow-hidden"
+                          >
+                            <img 
+                              src={newImagesForExistingParts[index] ? URL.createObjectURL(newImagesForExistingParts[index]) : part.image} 
+                              alt="After" 
+                              className="w-full h-full object-cover" 
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center border border-dashed border-border">
+                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        
+                        {!isReadOnly && (
+                          <label className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer shadow-sm hover:scale-110 transition-transform">
+                            <Plus className="w-3 h-3" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleExistingPartImageChange(index, e)}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                       </div>
-                    )}
+                      <span className="text-[10px] text-muted-foreground uppercase">
+                        {newImagesForExistingParts[index] ? 'New Image' : 'After'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">{part.name}</p>
                     <p className="text-sm text-muted-foreground">
                       Qty: {part.quantity} • Price: ₹{part.price}
                     </p>
-                    <span className={`text-xs font-medium ${
-                      part.fromInspection ? 'text-green-600' : 'text-blue-600'
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        part.fromInspection ? 'text-green-600' : 'text-blue-600'
+                      }`}>
+                        {part.fromInspection ? '✓ Inspection' : '⚡ Discovery'}
+                      </span>
+                      {newImagesForExistingParts[index] && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                          Unsaved Changes
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${
+                      part.approvalStatus?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-800' :
+                      part.approvalStatus?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {part.fromInspection ? '✓ From approved inspection' : '⚡ New discovery during service'}
+                      {part.approvalStatus || 'Pending'}
                     </span>
                   </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    part.approvalStatus === 'Approved' ? 'bg-green-100 text-green-800' :
-                    part.approvalStatus === 'Rejected' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {part.approvalStatus}
-                  </span>
                 </div>
               ))}
             </div>

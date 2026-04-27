@@ -74,7 +74,9 @@ Future<void> _onStart(ServiceInstance service) async {
       ? AndroidSettings(
           accuracy: LocationAccuracy.best,
           distanceFilter: 0,
-          intervalDuration: const Duration(seconds: 1),
+          intervalDuration: const Duration(
+            seconds: 3,
+          ), // Match StaffTrackingService (3s)
           foregroundNotificationConfig: const ForegroundNotificationConfig(
             notificationText: "Continuous background tracking enabled.",
             notificationTitle: "Staff Tracking Active",
@@ -117,7 +119,7 @@ Future<void> _onStart(ServiceInstance service) async {
     };
 
     debugPrint(
-      'BackgroundTracking: Position update: ${pos.latitude}, ${pos.longitude}',
+      'BackgroundTracking: Position update: ${pos.latitude}, ${pos.longitude} (Accuracy: ${pos.accuracy}m)',
     );
 
     if (bookingId != null && bookingId!.isNotEmpty) {

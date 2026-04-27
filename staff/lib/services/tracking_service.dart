@@ -153,24 +153,51 @@ class StaffTrackingService {
   Future<bool> _ensurePermissions() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      debugPrint('TrackingService: Location services are disabled');
       return false;
     }
+
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
+      debugPrint('TrackingService: Location permission denied: $permission');
       return false;
     }
+
+    // Check for precise location (Android 12+)
+    if (!kIsWeb && Platform.isAndroid) {
+      final accuracy = await Geolocator.getAccuracyPermission();
+      if (accuracy == LocationAccuracyPermission.reduced) {
+        debugPrint(
+          'TrackingService: Reduced accuracy granted, requesting precise location',
+        );
+        // On Android 12+, we can't programmatically upgrade from Approximate to Precise
+        // without showing the dialog again. requestPermission() will do that.
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          return false;
+        }
+      }
+    }
+
+    // Request "Always" permission for background tracking on Android and iOS
     if (permission == LocationPermission.whileInUse) {
-      if (!kIsWeb && Platform.isIOS) {
+      if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+        debugPrint(
+          'TrackingService: Requesting Always permission for background tracking',
+        );
         final next = await Geolocator.requestPermission();
         if (next == LocationPermission.always) {
           permission = next;
         }
       }
     }
+
     return true;
   }
 
@@ -201,7 +228,9 @@ class StaffTrackingService {
       settings = AndroidSettings(
         accuracy: LocationAccuracy.best,
         distanceFilter: 0,
-        intervalDuration: const Duration(seconds: 1),
+        intervalDuration: const Duration(
+          seconds: 3,
+        ), // Increased to 3s for better GPS lock stability
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationText: "Staff live tracking is active",
           notificationTitle: "Live Tracking",
@@ -222,9 +251,14 @@ class StaffTrackingService {
       );
     }
 
-    _positionSub = Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(_handlePosition, onError: (_) {});
+    _positionSub = Geolocator.getPositionStream(locationSettings: settings)
+        .listen(
+          _handlePosition,
+          onError: (error) {
+            debugPrint('TrackingService: Position stream error: $error');
+          },
+          cancelOnError: false,
+        );
   }
 
   Future<void> _handlePosition(Position position) async {
@@ -239,7 +273,7 @@ class StaffTrackingService {
     );
 
     debugPrint(
-      'TrackingService: Position update: ${position.latitude}, ${position.longitude}',
+      'TrackingService: Position update: ${position.latitude}, ${position.longitude} (Accuracy: ${position.accuracy}m)',
     );
 
     if (_targetLat != null &&

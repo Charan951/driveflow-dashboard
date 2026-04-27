@@ -431,8 +431,9 @@ class _BookingCardState extends State<_BookingCard> {
       if (v.contains('engine') || v.contains('repair')) {
         return Icons.settings_suggest_outlined;
       }
-      if (v.contains('insurance') || v.contains('essentials'))
+      if (v.contains('insurance') || v.contains('essentials')) {
         return Icons.shield_outlined;
+      }
       return Icons.miscellaneous_services_outlined;
     }
 

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../main.dart'; // import rootNavigatorKey
 import '../core/api_client.dart';
@@ -45,24 +44,30 @@ class AuthProvider extends ChangeNotifier {
           AppStorage().setUserJson(jsonEncode(updatedUser.toJson()));
           notifyListeners();
 
+          // We used to force navigation here, but it was too abrupt and caused data loss
+          // for users in the middle of a flow. Instead, we just update the user state
+          // and let the next app restart or manual navigation handle the view change.
+          // RootGate will also switch the background view if the user is at the root.
+
           if (rootNavigatorKey.currentContext != null) {
-            final role = updatedUser.role?.toLowerCase();
-            if (role == 'merchant') {
-              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-                '/merchant',
-                (route) => false,
-              );
-            } else if (role == 'staff') {
-              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-                '/staff',
-                (route) => false,
-              );
-            } else {
-              rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-                '/main',
-                (route) => false,
-              );
-            }
+            final role = updatedUser.role?.toLowerCase() ?? 'user';
+            ScaffoldMessenger.of(rootNavigatorKey.currentContext!).showSnackBar(
+              SnackBar(
+                content: Text('Your role has been updated to $role.'),
+                duration: const Duration(seconds: 5),
+                behavior: SnackBarBehavior.floating,
+                action: SnackBarAction(
+                  label: 'Refresh',
+                  onPressed: () {
+                    final h = homeRoute;
+                    rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                      h,
+                      (route) => false,
+                    );
+                  },
+                ),
+              ),
+            );
           }
         }
       } catch (e) {
@@ -270,10 +275,24 @@ class AuthProvider extends ChangeNotifier {
     loading = true;
     notifyListeners();
     try {
-      await _auth.logout();
+      // 1. Clear state in providers
+      SocketService().trackingProvider?.clear();
       SocketService().disconnect();
+
+      // 2. Clear storage
+      await AppStorage().clearToken();
+      await AppStorage().clearUser();
       await AppStorage().clearDashboard();
       await AppStorage().clearHasSeenNoVehicleModal();
+
+      // 3. Call backend logout (optional, depends on implementation)
+      try {
+        await _auth.logout();
+      } catch (e) {
+        // Ignore backend logout errors
+      }
+
+      // 4. Reset local state
       user = null;
       lastError = null;
     } finally {

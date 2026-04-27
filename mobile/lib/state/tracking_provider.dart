@@ -20,6 +20,7 @@ class TrackingProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient();
 
   Future<void> init(String? role, String? userId) async {
+    clear();
     if (role == null || userId == null) return;
     try {
       String endpoint = '/bookings/mybookings';
@@ -45,6 +46,16 @@ class TrackingProvider extends ChangeNotifier {
     } catch (e) {
       // No active booking found or error, silent
     }
+  }
+
+  void clear() {
+    _activeBooking = null;
+    _staffLocation = null;
+    _eta = null;
+    _isVisible = false;
+    _lastStatus = null;
+    _notificationService.cancelTrackingNotification();
+    notifyListeners();
   }
 
   static const List<String> trackingStatuses = [

@@ -520,7 +520,7 @@ class _ChatPageState extends State<ChatPage> {
                   child: OutlinedButton(
                     onPressed: () => _handleApprovalAction(
                       approval.approvalId ?? '',
-                      'rejected',
+                      'Rejected',
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
@@ -534,7 +534,7 @@ class _ChatPageState extends State<ChatPage> {
                   child: ElevatedButton(
                     onPressed: () => _handleApprovalAction(
                       approval.approvalId ?? '',
-                      'approved',
+                      'Approved',
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,

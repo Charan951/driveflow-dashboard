@@ -203,6 +203,11 @@ const OrderDetail: React.FC = () => {
       return cat.includes('car wash') || cat.includes('wash') || cat.includes('essentials');
     });
 
+  const hasApprovedParts = Array.isArray(booking.inspection?.additionalParts) && 
+    booking.inspection.additionalParts.some(part => 
+      part.approvalStatus?.toLowerCase() === 'approved' || part.approved
+    );
+
   return (
     <motion.div 
       variants={containerVariants}
@@ -243,12 +248,13 @@ const OrderDetail: React.FC = () => {
           className="w-full"
         >
             <TabsList className={`grid w-full gap-2 h-auto p-2 bg-muted/50 border border-border rounded-2xl lg:w-[800px] ${
-                isCarWashService 
+                (isCarWashService && !hasApprovedParts) 
                 ? 'grid-cols-1' 
                 : (booking.batteryTire?.isBatteryTireService 
                     ? 'grid-cols-2' 
                     : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6')
             }`}>
+
                 <TabsTrigger 
                     value="overview" 
                     className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm"
@@ -264,7 +270,7 @@ const OrderDetail: React.FC = () => {
                             Warranty
                         </TabsTrigger>
                     </>
-                ) : !isCarWashService && (
+                ) : (!isCarWashService || hasApprovedParts) && (
                     <>
                         <TabsTrigger 
                             value="inspection"
@@ -276,32 +282,32 @@ const OrderDetail: React.FC = () => {
                         </TabsTrigger>
                         <TabsTrigger 
                             value="service"
-                            disabled={!booking.inspection?.completedAt}
-                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            disabled={!booking.inspection?.completedAt && !hasApprovedParts}
+                            title={!booking.inspection?.completedAt && !hasApprovedParts ? "Complete Inspection first" : ""}
                             className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             Service
                         </TabsTrigger>
                         <TabsTrigger 
                             value="qc"
-                            disabled={!booking.inspection?.completedAt}
-                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            disabled={!booking.inspection?.completedAt && !hasApprovedParts}
+                            title={!booking.inspection?.completedAt && !hasApprovedParts ? "Complete Inspection first" : ""}
                             className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             QC Check
                         </TabsTrigger>
                         <TabsTrigger 
                             value="health"
-                            disabled={!booking.inspection?.completedAt}
-                            title={!booking.inspection?.completedAt ? "Complete Inspection first" : ""}
+                            disabled={!booking.inspection?.completedAt && !hasApprovedParts}
+                            title={!booking.inspection?.completedAt && !hasApprovedParts ? "Complete Inspection first" : ""}
                             className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             Health
                         </TabsTrigger>
                         <TabsTrigger 
                             value="billing"
-                            disabled={!booking.qc?.completedAt}
-                            title={!booking.qc?.completedAt ? "Complete QC Check first" : ""}
+                            disabled={!booking.qc?.completedAt && !hasApprovedParts}
+                            title={!booking.qc?.completedAt && !hasApprovedParts ? "Complete QC Check first" : ""}
                             className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl shadow-sm disabled:opacity-40"
                         >
                             Billing
@@ -517,35 +523,35 @@ const OrderDetail: React.FC = () => {
             )}
 
             {/* Inspection Tab */}
-            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+            {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="inspection" className="mt-8">
                     <InspectionPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 
             {/* Service Tab */}
-            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+            {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="service" className="space-y-6 mt-8">
                     <MediaUploadPanel bookingId={booking._id} booking={booking} onUploadComplete={() => fetchBooking('service')} />
                 </TabsContent>
             )}
 
             {/* QC Tab */}
-            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+            {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="qc" className="space-y-6 mt-8">
                     <QCPanel booking={booking} onUpdate={handleQCUpdate} />
                 </TabsContent>
             )}
 
             {/* Health Tab */}
-            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+            {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="health" className="mt-8">
                     <VehicleHealthPanel booking={booking} onUpdate={fetchBooking} />
                 </TabsContent>
             )}
 
             {/* Billing Tab */}
-            {!booking.batteryTire?.isBatteryTireService && !isCarWashService && (
+            {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="billing" className="mt-8">
                     <BillUploadPanel booking={booking} onUploadComplete={fetchBooking} />
                 </TabsContent>

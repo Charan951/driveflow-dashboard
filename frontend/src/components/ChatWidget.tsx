@@ -89,11 +89,11 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     };
   }, []);
 
-  const isEnabled = [
-    'SERVICE_STARTED',
-    'CAR_WASH_STARTED',
-    'INSTALLATION',
-    'On Hold'
+  const isEnabled = ![
+    'CREATED',
+    'DELIVERED',
+    'COMPLETED',
+    'CANCELLED'
   ].includes(status);
 
   const scrollToBottom = () => {

@@ -5,7 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -2174,7 +2175,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     setState(() => _locating = true);
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled) return;
+      if (!enabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable location services')),
+          );
+        }
+        return;
+      }
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -2182,7 +2190,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied')),
+          );
+        }
         return;
+      }
+
+      // Check for precise location (Android 12+)
+      if (!kIsWeb && Platform.isAndroid) {
+        final accuracy = await Geolocator.getLocationAccuracy();
+        if (accuracy == LocationAccuracyStatus.reduced) {
+          debugPrint(
+            'MobileApp: Reduced accuracy granted, requesting precise location',
+          );
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) {
+            return;
+          }
+        }
       }
 
       final pos = await Geolocator.getCurrentPosition(
@@ -2193,9 +2221,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       _mapController.move(latLng, 15);
       _setSelectedLocation(latLng);
     } catch (e) {
-      // Handle error
+      debugPrint('Error getting current location: $e');
     } finally {
-      setState(() => _locating = false);
+      if (mounted) {
+        setState(() => _locating = false);
+      }
     }
   }
 

@@ -178,7 +178,12 @@ export const createApproval = async (req, res) => {
 // @route   PUT /api/approvals/:id
 // @access  Private/Admin/User
 export const updateApprovalStatus = async (req, res) => {
-  const { status, adminComment } = req.body;
+  let { status, adminComment } = req.body;
+
+  // Normalize status for consistency (e.g., 'approved' -> 'Approved')
+  if (status) {
+    status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  }
 
   try {
     const approval = await ApprovalRequest.findById(req.params.id);

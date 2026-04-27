@@ -58,7 +58,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   final double _bearingRad = 0.0;
   String? _etaTextDuration;
   String? _etaTextDistance;
-  List<Map<String, dynamic>> _pendingApprovals = [];
   Timer? _approvalsTimer;
   List<LatLng> _routePoints = [];
   bool _mapReady = false;
@@ -268,8 +267,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       try {
         final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
-        final bookingId =
-            (mapData['bookingId'] ?? mapData['relatedId'] ?? '').toString();
+        final bookingId = (mapData['bookingId'] ?? mapData['relatedId'] ?? '')
+            .toString();
         final sender = mapData['sender'];
         final senderId = sender is Map
             ? (sender['_id'] ?? sender['id'] ?? '').toString()
@@ -290,7 +289,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         try {
           final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
           final entity = (mapData['entity'] ?? '').toString();
-          final action = (mapData['action'] ?? '').toString();
           if (entity == 'payment' ||
               entity == 'approval' ||
               entity == 'booking' ||
@@ -490,174 +488,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         });
       }
     } catch (_) {}
-  }
-
-  Future<void> _showConfirmDeliveryDialog() async {
-    final booking = _booking;
-    if (booking == null || booking.id.isEmpty) return;
-
-    final otpController = TextEditingController();
-    final isBatteryOrTireService =
-        booking.services.any((s) {
-          final cat = (s.category ?? '').toLowerCase();
-          return cat.contains('battery') ||
-              cat.contains('tyres') ||
-              cat.contains('tyre') ||
-              cat.contains('tire');
-        }) ||
-        booking.batteryTire?.isBatteryTireService == true;
-
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            16 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Confirm Delivery',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter the 4-digit OTP shared by our staff to confirm your service completion.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white70
-                      : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: otpController,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 24,
-                  letterSpacing: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Enter OTP',
-                  counterText: '',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF2563EB),
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () =>
-                    Navigator.pop(context, otpController.text.trim()),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Confirm',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (!mounted) return;
-
-    if (result == null || result.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the OTP to confirm delivery'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (result.length != 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid 4-digit OTP'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    try {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      await _service.verifyDeliveryOtp(booking.id, result);
-
-      final finalStatus = isBatteryOrTireService ? 'COMPLETED' : 'DELIVERED';
-      await _service.updateBookingStatus(booking.id, finalStatus);
-
-      if (mounted) {
-        Navigator.pop(context);
-
-        final updatedBooking = await _service.getBooking(booking.id);
-        if (!mounted) return;
-        setState(() {
-          _booking = updatedBooking;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Delivery confirmed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        if (mounted && !_hasMerchantReview && !_hasPlatformReview) {
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (mounted) {
-            _showReviewDialog();
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to confirm delivery: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _showReviewDialog() async {
@@ -961,6 +791,58 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     return '${Env.baseUrl}/$s';
   }
 
+  Widget _buildPartImage(String? imagePath, String label, bool isDark) {
+    final resolvedUrl = _resolveImageUrl(imagePath);
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: resolvedUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: resolvedUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 20,
+                      color: isDark ? Colors.white24 : Colors.black26,
+                    ),
+                  )
+                : Icon(
+                    Icons.image_not_supported_outlined,
+                    size: 20,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: isDark ? Colors.white60 : Colors.black54,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _fetchPendingApprovals() async {
     final booking = _booking;
     if (booking == null) return;
@@ -1001,7 +883,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
     if (!mounted) return;
     setState(() {
-      _pendingApprovals = items;
+      // _pendingApprovals = items;
     });
   }
 
@@ -1032,129 +914,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       ), // Increased to 20s for better battery/performance
       (_) => _fetchPendingApprovals(),
     );
-  }
-
-  Future<void> _handleApprovalAction(
-    String approvalId,
-    String status, {
-    String? reason,
-  }) async {
-    if (approvalId.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final body = <String, dynamic>{'status': status};
-      if (reason != null && reason.trim().isNotEmpty) {
-        body['adminComment'] = reason.trim();
-      }
-      await _api.putJson(ApiEndpoints.approvalById(approvalId), body: body);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'Approved' ? 'Request approved' : 'Request rejected',
-          ),
-        ),
-      );
-      await _fetchPendingApprovals();
-      if (status == 'Approved') {
-        final id = _bookingId;
-        if (id != null && id.isNotEmpty) {
-          final updated = await _service.getBooking(id);
-          if (!mounted) return;
-          setState(() => _booking = updated);
-        }
-      }
-    } catch (_) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'Approved'
-                ? 'Failed to approve request'
-                : 'Failed to reject request',
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _showRejectReasonSheet(String approvalId) async {
-    if (approvalId.isEmpty) return;
-    final controller = TextEditingController();
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Reject request',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please share the reason for rejection. This helps our team understand your concern.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  hintText: 'Type your reason here',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final value = controller.text.trim();
-                        if (value.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a reason'),
-                            ),
-                          );
-                          return;
-                        }
-                        Navigator.of(context).pop(value);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFDC2626),
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Submit'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (result == null || result.trim().isEmpty) return;
-    await _handleApprovalAction(approvalId, 'Rejected', reason: result);
   }
 
   String _statusLabel(String status) {
@@ -1238,12 +997,22 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
-        automaticallyImplyLeading: true,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            size: 22,
+          ),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        automaticallyImplyLeading: false,
         centerTitle: true,
         backgroundColor: isDark ? Colors.transparent : Colors.white,
         surfaceTintColor: isDark ? Colors.transparent : Colors.white,
         elevation: isDark ? 0 : 5.0,
-        shadowColor: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.1),
+        shadowColor: isDark
+            ? Colors.transparent
+            : Colors.black.withValues(alpha: 0.1),
         title: Text(
           'Track Service',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1279,7 +1048,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     }
                   }
                 },
-                icon: const Icon(Icons.download_rounded, size: 26,),
+                icon: const Icon(Icons.download_rounded, size: 26),
               ),
             ),
         ],
@@ -1427,7 +1196,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       (!_hasMerchantReview || !_hasPlatformReview);
                   final inspectionItems = <_PhotoCarouselItem>[
                     if (booking.inspection?.frontPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.frontPhoto) != null)
+                        _resolveImageUrl(booking.inspection!.frontPhoto) !=
+                            null)
                       _PhotoCarouselItem(
                         url: _resolveImageUrl(booking.inspection!.frontPhoto)!,
                         label: 'Front',
@@ -1445,7 +1215,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         label: 'Left',
                       ),
                     if (booking.inspection?.rightPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.rightPhoto) != null)
+                        _resolveImageUrl(booking.inspection!.rightPhoto) !=
+                            null)
                       _PhotoCarouselItem(
                         url: _resolveImageUrl(booking.inspection!.rightPhoto)!,
                         label: 'Right',
@@ -1468,7 +1239,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   final servicePhotoItems = <_PhotoCarouselItem>[];
                   final beforeCarWashItems = <_PhotoCarouselItem>[];
                   final afterCarWashItems = <_PhotoCarouselItem>[];
-                  final isEssentialsCarWash = isCarWash &&
+                  final isEssentialsCarWash =
+                      isCarWash &&
                       booking.services.any(
                         (s) => (s.category ?? '').toLowerCase().contains(
                           'essentials',
@@ -1480,7 +1252,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   final afterCarWashTitle = isEssentialsCarWash
                       ? 'After Service'
                       : 'After Car Wash';
-                  void addServicePhotos(List<String> photos, String labelPrefix) {
+                  void addServicePhotos(
+                    List<String> photos,
+                    String labelPrefix,
+                  ) {
                     for (int i = 0; i < photos.length; i++) {
                       final resolved = _resolveImageUrl(photos[i]);
                       if (resolved == null) continue;
@@ -1526,7 +1301,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       booking.duringServicePhotos,
                       'During Service',
                     );
-                    addServicePhotos(booking.postServicePhotos, 'After Service');
+                    addServicePhotos(
+                      booking.postServicePhotos,
+                      'After Service',
+                    );
                   }
 
                   return Column(
@@ -1860,50 +1638,27 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                            Row(
-                              children: [
-                                if (booking.pickupRequired || isCarWash) ...[
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: _socketConnected
-                                          ? const Color(0xFF22C55E)
-                                          : const Color(0xFF94A3B8),
-                                      borderRadius: BorderRadius.circular(999),
+                              Row(
+                                children: [
+                                  if (booking.pickupRequired || isCarWash) ...[
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: _socketConnected
+                                            ? const Color(0xFF22C55E)
+                                            : const Color(0xFF94A3B8),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _socketConnected
-                                          ? 'Live tracking connected'
-                                          : 'Live tracking disconnected',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                  if (_liveLatLng != null &&
-                                      _liveUpdatedAt != null)
-                                    Text(
-                                      ' • ${_formatClockTime(context, _liveUpdatedAt!)}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  if (_etaTextDuration != null &&
-                                      _etaTextDistance != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8),
+                                    const SizedBox(width: 8),
+                                    Expanded(
                                       child: Text(
-                                        'ETA: $_etaTextDuration • $_etaTextDistance',
+                                        _socketConnected
+                                            ? 'Live tracking connected'
+                                            : 'Live tracking disconnected',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -1912,48 +1667,61 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                             ),
                                       ),
                                     ),
-                                ] else ...[
-                                  Expanded(
-                                    child: Text(
-                                      'Pickup not required. Go directly to the workshop.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                    if (_liveLatLng != null &&
+                                        _liveUpdatedAt != null)
+                                      Text(
+                                        ' • ${_formatClockTime(context, _liveUpdatedAt!)}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    if (_etaTextDuration != null &&
+                                        _etaTextDistance != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: Text(
+                                          'ETA: $_etaTextDuration • $_etaTextDistance',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                  ] else ...[
+                                    Expanded(
+                                      child: Text(
+                                        'Pickup not required. Go directly to the workshop.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              (booking.pickupRequired || isCarWash)
-                                  ? (bookingLoc?.address != null &&
-                                            bookingLoc!.address!.isNotEmpty
-                                        ? bookingLoc.address!
-                                        : (bookingLatLng == null
-                                              ? 'Service location not set'
-                                              : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'))
-                                  : (merchantLoc?.address != null &&
-                                            merchantLoc!.address!.isNotEmpty
-                                        ? merchantLoc.address!
-                                        : (merchantLatLng == null
-                                              ? 'Workshop location not set'
-                                              : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white70
-                                        : Colors.black87,
-                                  ),
-                            ),
-                            if ((booking.pickupRequired || isCarWash) &&
-                                _liveLatLng != null) ...[
+                              ),
                               const SizedBox(height: 8),
                               Text(
-                                '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
+                                (booking.pickupRequired || isCarWash)
+                                    ? (bookingLoc?.address != null &&
+                                              bookingLoc!.address!.isNotEmpty
+                                          ? bookingLoc.address!
+                                          : (bookingLatLng == null
+                                                ? 'Service location not set'
+                                                : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'))
+                                    : (merchantLoc?.address != null &&
+                                              merchantLoc!.address!.isNotEmpty
+                                          ? merchantLoc.address!
+                                          : (merchantLatLng == null
+                                                ? 'Workshop location not set'
+                                                : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: isDark
@@ -1961,21 +1729,33 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                           : Colors.black87,
                                     ),
                               ),
-                            ],
-                            if ((booking.pickupRequired || isCarWash) &&
-                                _socketError != null &&
-                                _socketError!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                _socketError!,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: isDark
-                                          ? Colors.white70
-                                          : Colors.black54,
-                                    ),
-                              ),
-                            ],
+                              if ((booking.pickupRequired || isCarWash) &&
+                                  _liveLatLng != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black87,
+                                      ),
+                                ),
+                              ],
+                              if ((booking.pickupRequired || isCarWash) &&
+                                  _socketError != null &&
+                                  _socketError!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _socketError!,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                      ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -2113,9 +1893,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     ? 'Share this code with our staff to confirm service completion.'
                                     : 'Share this code only with our staff at the time of delivery.',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF4B5563),
-                                    ),
+                                    ?.copyWith(color: const Color(0xFF4B5563)),
                               ),
                             ],
                           ),
@@ -2690,7 +2468,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ),
                       const SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 10),
+                        padding: const EdgeInsets.only(
+                          top: 20,
+                          left: 20,
+                          right: 20,
+                          bottom: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.black : Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -2880,29 +2663,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               ),
                               child: Row(
                                 children: [
-                                  if (part.image != null)
-                                    Container(
-                                      width: 50,
-                                      height: 50,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? Colors.grey.shade900
-                                              : const Color(0xFFE5E7EB),
-                                        ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(7),
-                                        child: CachedNetworkImage(
-                                          imageUrl: _resolveImageUrl(
-                                            part.image,
-                                          )!,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -2954,6 +2714,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  _buildPartImage(
+                                    part.oldImage,
+                                    'Before',
+                                    isDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildPartImage(part.image, 'After', isDark),
                                 ],
                               ),
                             );
@@ -3011,7 +2779,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                          color: isDark
+                              ? const Color(0xFF1E1E1E)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
@@ -3084,7 +2854,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             if (booking.vehicle != null) ...[
                               Row(
                                 children: [
-                                  if (_resolveImageUrl(booking.vehicle!.image) !=
+                                  if (_resolveImageUrl(
+                                        booking.vehicle!.image,
+                                      ) !=
                                       null)
                                     Container(
                                       width: 60,
@@ -3153,7 +2925,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             ],
                             if (booking.billing != null &&
                                 (booking.billing!.total > 0 ||
-                                    booking.billing!.invoiceNumber != null)) ...[
+                                    booking.billing!.invoiceNumber !=
+                                        null)) ...[
                               const SizedBox(height: 12),
                               const Divider(height: 1),
                               const SizedBox(height: 12),
@@ -3499,9 +3272,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             Expanded(
               child: Text(
                 title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             Text(
@@ -3517,9 +3290,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
           ),
         ],
         const SizedBox(height: 12),
@@ -3551,12 +3324,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           CachedNetworkImage(
                             imageUrl: item.url,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) =>
-                                const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                             errorWidget: (context, url, error) =>
                                 const Icon(Icons.broken_image, size: 24),
                           ),

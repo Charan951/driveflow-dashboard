@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -667,6 +669,22 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
                 return;
               }
+
+              // Check for precise location (Android 12+)
+              if (!kIsWeb && Platform.isAndroid) {
+                final accuracy = await Geolocator.getLocationAccuracy();
+                if (accuracy == LocationAccuracyStatus.reduced) {
+                  debugPrint(
+                    'MobileApp: Reduced accuracy granted, requesting precise location',
+                  );
+                  permission = await Geolocator.requestPermission();
+                  if (permission == LocationPermission.denied ||
+                      permission == LocationPermission.deniedForever) {
+                    return;
+                  }
+                }
+              }
+
               final pos = await Geolocator.getCurrentPosition(
                 desiredAccuracy: LocationAccuracy.best,
                 timeLimit: const Duration(seconds: 15),

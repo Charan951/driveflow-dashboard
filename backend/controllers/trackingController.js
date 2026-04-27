@@ -129,8 +129,12 @@ export const getETA = async (req, res) => {
 // @route   PUT /api/tracking/user
 // @access  Private (Staff/Admin/Merchant)
 export const updateUserLocation = async (req, res) => {
-  const { lat, lng, address, bookingId } = req.body;
+  let { lat, lng, address, bookingId } = req.body;
   
+  // Convert strings to numbers if necessary
+  if (typeof lat === 'string') lat = parseFloat(lat);
+  if (typeof lng === 'string') lng = parseFloat(lng);
+
   try {
     if (!req.user || !req.user._id) {
       return res.status(401).json({ message: 'User not authenticated' });
@@ -138,17 +142,20 @@ export const updateUserLocation = async (req, res) => {
 
     const user = await User.findById(req.user._id);
     if (user) {
-      // Preserve existing location data if not provided
+      const isLatValid = typeof lat === 'number' && !isNaN(lat);
+      const isLngValid = typeof lng === 'number' && !isNaN(lng);
+
+      // Preserve existing location data if not provided or invalid
       user.location = {
         ...user.location,
-        lat: typeof lat === 'number' ? lat : user.location?.lat,
-        lng: typeof lng === 'number' ? lng : user.location?.lng,
+        lat: isLatValid ? lat : user.location?.lat,
+        lng: isLngValid ? lng : user.location?.lng,
         address: address || user.location?.address,
         updatedAt: Date.now()
       };
       
       // Update GeoJSON field for geospatial queries
-      if (lat && lng) {
+      if (isLatValid && isLngValid) {
         user.geo = {
           type: 'Point',
           coordinates: [lng, lat]

@@ -248,7 +248,7 @@ const MyBookingsPage = () => {
                     ? booking.inspection.additionalParts
                     : [];
                   const approvedParts = additionalParts.filter(
-                    (p) => p.approvalStatus === 'Approved' || p.approved
+                    (p) => p.approvalStatus?.toLowerCase() === 'approved' || p.approved
                   );
                   const approvedPartsCount = approvedParts.length;
                   const approvedPartsTotal = approvedParts.reduce(
@@ -335,7 +335,7 @@ const MyBookingsPage = () => {
                 ? booking.inspection.additionalParts
                 : [];
               const approvedParts = additionalParts.filter(
-                (p) => p.approvalStatus === 'Approved' || p.approved
+                (p) => p.approvalStatus?.toLowerCase() === 'approved' || p.approved
               );
               const approvedPartsCount = approvedParts.length;
               const approvedPartsTotal = approvedParts.reduce(
