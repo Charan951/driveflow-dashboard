@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert' as dart_convert;
+import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/storage.dart';
@@ -25,7 +26,11 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const StaffApp());
+  unawaited(_bootstrapApp());
+}
 
+Future<void> _bootstrapApp() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -87,7 +92,7 @@ void main() async {
     }
   });
 
-  runApp(const StaffApp());
+  
 }
 
 class StaffApp extends StatelessWidget {

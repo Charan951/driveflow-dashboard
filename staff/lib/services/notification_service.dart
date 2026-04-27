@@ -16,7 +16,9 @@ import '../main.dart'; // Import to use rootNavigatorKey
 // Background message handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
   debugPrint("Handling a background message: ${message.messageId}");
 }
 
@@ -69,11 +71,17 @@ class NotificationService {
   NotificationService._internal();
 
   final ApiClient _api = ApiClient();
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+
+  Future<void> _ensureFirebaseReady() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    }
+  }
 
   Future<void> initialize() async {
     if (kIsWeb) {
@@ -81,6 +89,7 @@ class NotificationService {
       return;
     }
     if (_initialized) return;
+    await _ensureFirebaseReady();
 
     // 1. Initialize Local Notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -145,6 +154,7 @@ class NotificationService {
 
   Future<void> requestPermissions() async {
     if (kIsWeb) return;
+    await _ensureFirebaseReady();
     await PlatformUtils.requestMobilePermissions(_messaging);
   }
 
@@ -160,6 +170,7 @@ class NotificationService {
   Future<void> syncToken() async {
     if (kIsWeb) return;
     try {
+      await _ensureFirebaseReady();
       final token = await _messaging.getToken();
       if (token == null) return;
 
