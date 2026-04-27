@@ -15,9 +15,13 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   final _service = NotificationService();
+  final _api = ApiClient();
+  SocketService? _socket;
   bool _loading = false;
   String? _error;
   List<NotificationItem> _items = [];
+  final Set<String> _approvalActionLoading = {};
+  final Set<String> _approvalActionHandled = {};
 
   @override
   void initState() {
@@ -25,24 +29,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _load();
 
     // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
+    _socket = context.read<SocketService>();
+    _socket?.addListener(_onSocketUpdate);
   }
 
   @override
   void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
+    _socket?.removeListener(_onSocketUpdate);
+    _socket = null;
     super.dispose();
   }
 
   void _onSocketUpdate() {
-    final event = context.read<SocketService>().value;
+    if (!mounted) return;
+    final event = _socket?.value;
     if (event == null) return;
 
     if ((event.contains('sync:notification') ||
@@ -89,14 +89,96 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       title: n.title,
                       message: n.message,
                       type: n.type,
+                      dataType: n.dataType,
                       isRead: true,
                       createdAt: n.createdAt,
+                      bookingId: n.bookingId,
+                      approvalId: n.approvalId,
                     )
                   : n,
             )
             .toList();
+        _approvalActionHandled.add(item.id);
       });
     } catch (_) {}
+  }
+
+  Future<void> _openNotification(NotificationItem item) async {
+    await _handleMarkAsRead(item);
+    if (!mounted) return;
+    if (item.bookingId != null && item.bookingId!.isNotEmpty) {
+      Navigator.pushNamed(context, '/track', arguments: item.bookingId);
+      return;
+    }
+    if (item.type == 'payment') {
+      Navigator.pushNamed(context, '/payments');
+      return;
+    }
+    if (item.type == 'support') {
+      Navigator.pushNamed(context, '/support');
+      return;
+    }
+  }
+
+  bool _isApprovalRequest(NotificationItem item) {
+    final type = (item.dataType ?? item.type).toLowerCase();
+    return type == 'approval_request' || type == 'approval';
+  }
+
+  Future<void> _handleApprovalAction(
+    NotificationItem item,
+    String status,
+  ) async {
+    final approvalId = item.approvalId;
+    if (approvalId == null || approvalId.isEmpty) return;
+    if (_approvalActionLoading.contains(item.id)) return;
+
+    setState(() => _approvalActionLoading.add(item.id));
+    try {
+      await _api.putAny('/approvals/$approvalId', body: {'status': status});
+      await _handleMarkAsRead(item);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'Approved'
+                ? 'Approval request approved.'
+                : 'Approval request rejected.',
+          ),
+          backgroundColor: status == 'Approved' ? Colors.green : Colors.red,
+        ),
+      );
+      if (item.bookingId != null && item.bookingId!.isNotEmpty) {
+        Navigator.pushNamed(context, '/track', arguments: item.bookingId);
+      } else {
+        _load();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : e.toString();
+      final alreadyResolved =
+          message.toLowerCase().contains('already resolved') ||
+          message.toLowerCase().contains('already') &&
+              message.toLowerCase().contains('resolved');
+      if (alreadyResolved) {
+        await _handleMarkAsRead(item);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            alreadyResolved
+                ? 'This approval is already resolved.'
+                : (e is ApiException
+                      ? e.message
+                      : 'Failed to update approval request.'),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() => _approvalActionLoading.remove(item.id));
+    }
   }
 
   Color _typeColor(String type) {
@@ -198,7 +280,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   final item = _items[index];
                   final color = _typeColor(item.type);
                   return InkWell(
-                    onTap: () => _handleMarkAsRead(item),
+                    onTap: () => _openNotification(item),
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       decoration: BoxDecoration(
@@ -284,6 +366,70 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                             : AppColors.textSecondary,
                                       ),
                                 ),
+                                if (_isApprovalRequest(item) &&
+                                    item.approvalId != null &&
+                                    item.approvalId!.isNotEmpty &&
+                                    !item.isRead &&
+                                    !_approvalActionHandled.contains(
+                                      item.id,
+                                    )) ...[
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed:
+                                              _approvalActionLoading.contains(
+                                                item.id,
+                                              )
+                                              ? null
+                                              : () => _handleApprovalAction(
+                                                  item,
+                                                  'Rejected',
+                                                ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.redAccent,
+                                            side: const BorderSide(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                          child: const Text('Reject'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed:
+                                              _approvalActionLoading.contains(
+                                                item.id,
+                                              )
+                                              ? null
+                                              : () => _handleApprovalAction(
+                                                  item,
+                                                  'Approved',
+                                                ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppColors.primaryBlue,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: _approvalActionLoading
+                                                  .contains(item.id)
+                                              ? const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: Colors.white,
+                                                      ),
+                                                )
+                                              : const Text('Approve'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),

@@ -12,6 +12,7 @@ import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../services/booking_service.dart';
 import '../services/catalog_service.dart';
+import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
@@ -31,6 +32,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   final _reviewService = ReviewService();
+  final _notificationService = NotificationService();
 
   bool _loading = false;
   String? _error;
@@ -41,6 +43,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
   List<Map<String, dynamic>> _reviews = [];
+  int _unreadNotificationsCount = 0;
   Booking? _upcomingBookingCached;
   List<Booking> _recentBookings = [];
 
@@ -166,6 +169,13 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       final bookings = (results[1] as List<Booking>);
       final services = (results[2] as List<ServiceItem>);
       final reviews = (results[3] as List<Map<String, dynamic>>);
+      var unreadCount = 0;
+      try {
+        final notifications = await _notificationService.listMyNotifications();
+        unreadCount = notifications.where((n) => !n.isRead).length;
+      } catch (_) {
+        // Ignore notification count failures so dashboard still loads.
+      }
 
       final upcoming = _computeUpcomingBooking(bookings);
       final recent = _computeRecentBookings(bookings, upcoming);
@@ -175,6 +185,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _bookings = bookings;
         _services = services;
         _reviews = reviews;
+        _unreadNotificationsCount = unreadCount;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;
         _loading = false;
@@ -1090,8 +1101,73 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             ],
           ),
         ),
+        const SizedBox(width: 8),
+        _AnimatedDashboardCard(
+          onTap: _openNotifications,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.16),
+                    width: 1.0,
+                  ),
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.notifications_none_rounded,
+                    color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                  ),
+                  tooltip: 'Notifications',
+                  onPressed: _openNotifications,
+                ),
+              ),
+              if (_unreadNotificationsCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                    child: Text(
+                      _unreadNotificationsCount > 99
+                          ? '99+'
+                          : '$_unreadNotificationsCount',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  void _openNotifications() {
+    Navigator.pushNamed(context, '/notifications').then((_) {
+      if (!mounted) return;
+      _load(isInitial: true);
+    });
   }
 
   Widget _buildUpcomingServiceCard() {
@@ -1143,7 +1219,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final timeLabel = _formatTime(context, booking.date);
     final locationLabel =
         booking.location?.address ?? 'Pickup service scheduled';
-    final showPayButton = booking.paymentStatus != 'paid';
+    final showPayButton =
+        booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid';
     final payAmount =
         (booking.billing != null && booking.billing!.total > 0)
         ? booking.billing!.total
@@ -1184,8 +1261,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'IN PROGRESS',
+                child: Text(
+                  _statusLabel(booking.status),
                   style: TextStyle(
                     color: Color(0xFF4A90E2),
                     fontSize: 10,

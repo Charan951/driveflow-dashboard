@@ -854,6 +854,166 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
+  void _showPartDetailsDialog(ServicePart part, bool isDark) {
+    final beforeImageUrl = _resolveImageUrl(part.oldImage);
+    final afterImageUrl = _resolveImageUrl(part.image);
+    final total = part.price * part.quantity;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        part.name,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Qty: ${part.quantity} • Price: ₹${part.price} • Total: ₹$total',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: part.fromInspection
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFDBEAFE),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    part.fromInspection ? 'From inspection' : 'New discovery',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: part.fromInspection
+                          ? const Color(0xFF166534)
+                          : const Color(0xFF1E40AF),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildPartImagePreviewCard(
+                        imageUrl: beforeImageUrl,
+                        label: 'Before',
+                        isDark: isDark,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildPartImagePreviewCard(
+                        imageUrl: afterImageUrl,
+                        label: 'After',
+                        isDark: isDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPartImagePreviewCard({
+    required String? imageUrl,
+    required String label,
+    required bool isDark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: imageUrl == null ? null : () => _showImagePreview(imageUrl),
+          child: Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? Colors.grey.shade800 : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: imageUrl == null
+                  ? Center(
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 24,
+                        color: isDark ? Colors.white30 : Colors.black26,
+                      ),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Icon(
+                        Icons.broken_image_outlined,
+                        size: 24,
+                        color: isDark ? Colors.white30 : Colors.black26,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _fetchPendingApprovals() async {
     final booking = _booking;
     if (booking == null) return;
@@ -1014,7 +1174,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             color: isDark ? Colors.white : const Color(0xFF0F172A),
             size: 22,
           ),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+              return;
+            }
+            navigator.pushReplacementNamed('/customer');
+          },
         ),
         automaticallyImplyLeading: false,
         centerTitle: true,
@@ -2661,79 +2828,90 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final part = booking.serviceParts[index];
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.black : Colors.white,
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.grey.shade900
-                                      : const Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          part.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Qty: ${part.quantity} • Price: ₹${part.price}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: isDark
-                                                ? Colors.white60
-                                                : Colors.black54,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: part.fromInspection
-                                                ? const Color(0xFFDCFCE7)
-                                                : const Color(0xFFDBEAFE),
-                                            borderRadius: BorderRadius.circular(
-                                              99,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            part.fromInspection
-                                                ? 'From inspection'
-                                                : 'New discovery',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: part.fromInspection
-                                                  ? const Color(0xFF166534)
-                                                  : const Color(0xFF1E40AF),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                onTap: () => _showPartDetailsDialog(part, isDark),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.black : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.grey.shade900
+                                          : const Color(0xFFE5E7EB),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  _buildPartImage(
-                                    part.oldImage,
-                                    'Before',
-                                    isDark,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              part.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Qty: ${part.quantity} • Price: ₹${part.price}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark
+                                                    ? Colors.white60
+                                                    : Colors.black54,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: part.fromInspection
+                                                    ? const Color(0xFFDCFCE7)
+                                                    : const Color(0xFFDBEAFE),
+                                                borderRadius:
+                                                    BorderRadius.circular(99),
+                                              ),
+                                              child: Text(
+                                                part.fromInspection
+                                                    ? 'From inspection'
+                                                    : 'New discovery',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: part.fromInspection
+                                                      ? const Color(0xFF166534)
+                                                      : const Color(0xFF1E40AF),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _buildPartImage(
+                                        part.oldImage,
+                                        'Before',
+                                        isDark,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _buildPartImage(
+                                        part.image,
+                                        'After',
+                                        isDark,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  _buildPartImage(part.image, 'After', isDark),
-                                ],
+                                ),
                               ),
                             );
                           },

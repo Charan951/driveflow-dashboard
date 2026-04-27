@@ -95,28 +95,85 @@ class NotificationItem {
   final String title;
   final String message;
   final String type;
+  final String? dataType;
   final bool isRead;
   final DateTime createdAt;
+  final String? bookingId;
+  final String? approvalId;
 
   NotificationItem({
     required this.id,
     required this.title,
     required this.message,
     required this.type,
+    this.dataType,
     required this.isRead,
     required this.createdAt,
+    this.bookingId,
+    this.approvalId,
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    String? extractedBookingId;
+    String? extractedApprovalId;
+    final rawData = json['data'];
+    final data = rawData is Map<String, dynamic>
+        ? rawData
+        : (rawData is Map ? Map<String, dynamic>.from(rawData) : null);
+    final directBookingId = json['bookingId']?.toString();
+    if (directBookingId != null && directBookingId.isNotEmpty) {
+      extractedBookingId = directBookingId;
+    } else if (data != null) {
+      final dataBookingId = data['bookingId']?.toString();
+      if (dataBookingId != null && dataBookingId.isNotEmpty) {
+        extractedBookingId = dataBookingId;
+      } else {
+        final dataRelatedId = data['relatedId'];
+        if (dataRelatedId is String && dataRelatedId.isNotEmpty) {
+          extractedBookingId = dataRelatedId;
+        } else if (dataRelatedId is Map) {
+          final relatedMap = dataRelatedId;
+          final id = (relatedMap['_id'] ?? relatedMap['id'])?.toString();
+          if (id != null && id.isNotEmpty) extractedBookingId = id;
+        }
+      }
+      final dataApprovalId = data['approvalId']?.toString();
+      if (dataApprovalId != null && dataApprovalId.isNotEmpty) {
+        extractedApprovalId = dataApprovalId;
+      }
+    } else {
+      final booking = json['booking'];
+      if (booking is String && booking.isNotEmpty) {
+        extractedBookingId = booking;
+      } else if (booking is Map) {
+        final bookingMap = booking;
+        final id = (bookingMap['_id'] ?? bookingMap['id'])?.toString();
+        if (id != null && id.isNotEmpty) extractedBookingId = id;
+      }
+      if (extractedBookingId == null) {
+        final relatedId = json['relatedId'];
+        if (relatedId is String && relatedId.isNotEmpty) {
+          extractedBookingId = relatedId;
+        } else if (relatedId is Map) {
+          final relatedMap = relatedId;
+          final id = (relatedMap['_id'] ?? relatedMap['id'])?.toString();
+          if (id != null && id.isNotEmpty) extractedBookingId = id;
+        }
+      }
+    }
+
     return NotificationItem(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       message: (json['body'] ?? json['message'] ?? '').toString(),
       type: (json['type'] ?? 'info').toString(),
+      dataType: data?['type']?.toString(),
       isRead: json['isRead'] == true,
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
+      bookingId: extractedBookingId,
+      approvalId: extractedApprovalId,
     );
   }
 }
