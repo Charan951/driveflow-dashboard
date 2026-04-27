@@ -56,12 +56,13 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
     });
     try {
       final user = await _authService.login(email: email, password: password);
-      if (!mounted) return;
 
       // Re-initialize socket with the new token after login
       await SocketService().reconnect();
+      if (!mounted) return;
 
-      if (user.role == 'merchant') {
+      final role = user.role.toLowerCase();
+      if (role == 'merchant') {
         Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
       } else {
         Navigator.of(context).pushReplacementNamed('/home');

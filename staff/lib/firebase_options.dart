@@ -38,8 +38,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ',
-    appId: '1:879267203995:ios:REPLACE_WITH_YOUR_IOS_APP_ID',
+    apiKey: 'AIzaSyDCXnjFQQGnFihTiqeUSLG8_HvmWWWHG7k',
+    appId: '1:879267203995:ios:aa261b9f42734e3736ef3e',
     messagingSenderId: '879267203995',
     projectId: 'speshway-3d072',
     storageBucket: 'speshway-3d072.firebasestorage.app',

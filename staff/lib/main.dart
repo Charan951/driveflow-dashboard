@@ -63,7 +63,7 @@ void main() async {
                     '/merchant-dashboard',
                     (route) => false,
                   );
-                } else if (role == 'staff') {
+                } else if (role == 'staff' || role == 'admin') {
                   rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
                     '/home',
                     (route) => false,

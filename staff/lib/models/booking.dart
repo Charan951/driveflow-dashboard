@@ -213,9 +213,12 @@ class BookingDetail {
               (s is Map ? s['category'] : null)?.toString().toLowerCase() ?? '';
           return category.contains('essentials');
         })) {
-      if (status.toUpperCase() == 'CAR_WASH_STARTED') return 'Service Started';
-      if (status.toUpperCase() == 'CAR_WASH_COMPLETED')
+      if (status.toUpperCase() == 'CAR_WASH_STARTED') {
+        return 'Service Started';
+      }
+      if (status.toUpperCase() == 'CAR_WASH_COMPLETED') {
         return 'Service Completed';
+      }
     }
     return statusLabels[status.toUpperCase()] ?? status;
   }

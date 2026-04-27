@@ -24,7 +24,7 @@ class AuthService {
       throw ApiException(statusCode: 500, message: 'Missing token in response');
     }
 
-    final role = response['role']?.toString();
+    final role = response['role']?.toString().toLowerCase();
     if (role != 'staff' && role != 'admin' && role != 'merchant') {
       throw ApiException(
         statusCode: 403,

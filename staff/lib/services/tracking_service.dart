@@ -170,8 +170,8 @@ class StaffTrackingService {
 
     // Check for precise location (Android 12+)
     if (!kIsWeb && Platform.isAndroid) {
-      final accuracy = await Geolocator.getAccuracyPermission();
-      if (accuracy == LocationAccuracyPermission.reduced) {
+      final accuracy = await Geolocator.getLocationAccuracy();
+      if (accuracy == LocationAccuracyStatus.reduced) {
         debugPrint(
           'TrackingService: Reduced accuracy granted, requesting precise location',
         );

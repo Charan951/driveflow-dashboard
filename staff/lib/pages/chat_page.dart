@@ -1,9 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../core/api_client.dart';
-import '../models/booking.dart';
-// Note: We need a Message model in staff app too, or use Map
 import '../services/socket_service.dart';
 import '../core/storage.dart';
 import '../core/env.dart';
@@ -33,7 +30,6 @@ class _StaffChatPageState extends State<StaffChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
-  final ApiClient _api = ApiClient();
   late SocketService _socketService;
   String? _currentUserId;
   bool _isLoading = true;
@@ -252,7 +248,6 @@ class _StaffChatPageState extends State<StaffChatPage> {
   Widget _buildMessageBubble(Map<String, dynamic> message, bool isSelf) {
     final sender = message['sender'];
     final senderName = sender?['name'] ?? 'Unknown';
-    final senderRole = sender?['role'] ?? 'user';
     final text = message['text'] ?? '';
     final createdAt =
         DateTime.tryParse(message['createdAt'] ?? '') ?? DateTime.now();

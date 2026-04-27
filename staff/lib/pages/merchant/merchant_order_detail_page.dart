@@ -1420,42 +1420,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Widget _buildUploadButton({
-    required String label,
-    String? url,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.white,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              url != null ? Icons.image : Icons.camera_alt,
-              size: 16,
-              color: url != null ? Colors.blue : Colors.grey,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              url != null ? 'Uploaded' : label,
-              style: TextStyle(
-                fontSize: 12,
-                color: url != null ? Colors.blue : Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<String?> _showImageSourceSheet() async {
     final ImageSource? source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -3117,7 +3081,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: selectedReason,
+                initialValue: selectedReason,
                 items: reasons
                     .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                     .toList(),
@@ -3598,10 +3562,6 @@ class _ChatDialogState extends State<_ChatDialog> {
         _scrollToBottom();
       }
     }
-  }
-
-  void _onSocketUpdate() {
-    // Keep for other possible updates if needed, but not for chat messages anymore
   }
 
   void _scrollToBottom() {

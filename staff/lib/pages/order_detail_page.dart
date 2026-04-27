@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,7 +8,6 @@ import 'package:intl/intl.dart';
 
 import '../core/env.dart';
 import '../core/api_client.dart';
-import '../core/storage.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
@@ -669,255 +667,244 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           ],
         ),
       ),
-      body: booking == null
-          ? const SizedBox.shrink()
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatusControl(booking),
+            const SizedBox(height: 16),
+            _buildStatusTimeline(booking),
+            const SizedBox(height: 16),
+            Container(
               padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStatusControl(booking),
-                  const SizedBox(height: 16),
-                  _buildStatusTimeline(booking),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Order #${booking.orderNumber ?? booking.id}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF374151),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          booking.vehicleName ?? 'Booking',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Text(
-                              'Status: ${BookingDetail.getStatusLabel(booking.status, services: booking.services)}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF2563EB),
-                              ),
-                            ),
-                            if (booking.pickupRequired) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: booking.prePickupPhotos.length >= 4
-                                        ? const Color(0xFF16A34A)
-                                        : const Color(0xFFF59E0B),
-                                  ),
-                                  color: booking.prePickupPhotos.length >= 4
-                                      ? const Color(0xFFBBF7D0)
-                                      : const Color(0xFFFEF3C7),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      booking.prePickupPhotos.length >= 4
-                                          ? Icons.check_circle
-                                          : Icons.warning_amber_rounded,
-                                      size: 14,
-                                      color: booking.prePickupPhotos.length >= 4
-                                          ? const Color(0xFF15803D)
-                                          : const Color(0xFFB45309),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      booking.prePickupPhotos.length >= 4
-                                          ? '4/4 photos'
-                                          : '${booking.prePickupPhotos.length}/4 photos',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            fontSize: 11,
-                                            color:
-                                                booking
-                                                        .prePickupPhotos
-                                                        .length >=
-                                                    4
-                                                ? const Color(0xFF166534)
-                                                : const Color(0xFF92400E),
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (booking.location?.address != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            booking.location!.address!,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
+                  Text(
+                    'Order #${booking.orderNumber ?? booking.id}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF374151),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: _isMapExpanded
-                        ? Alignment.center
-                        : Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isMapExpanded = !_isMapExpanded;
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        height: _isMapExpanded ? 450 : 120,
-                        width: _isMapExpanded ? double.infinity : 200,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Stack(
-                            children: [
-                              DecoratedBox(
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFF3F4F6),
-                                ),
-                                child: FlutterMap(
-                                  mapController: _mapController,
-                                  options: MapOptions(
-                                    initialCenter: _initialCenter(booking),
-                                    initialZoom: 16,
-                                    onMapReady: () {
-                                      setState(() => _mapReady = true);
-                                    },
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate: Env.mapTileUrlTemplate,
-                                      userAgentPackageName: Env.userAgent,
-                                      subdomains: Env.mapTileSubdomains,
-                                    ),
-                                    if (staffPos != null || destPos != null)
-                                      MarkerLayer(
-                                        markers: [
-                                          if (destPos != null)
-                                            Marker(
-                                              point: destPos,
-                                              width: 40,
-                                              height: 40,
-                                              child: const Icon(
-                                                Icons.location_pin,
-                                                size: 36,
-                                                color: Color(0xFFDC2626),
-                                              ),
-                                            ),
-                                          if (staffPos != null)
-                                            Marker(
-                                              point: staffPos,
-                                              width: 40,
-                                              height: 40,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: const Color(
-                                                    0xFF2563EB,
-                                                  ).withValues(alpha: 0.15),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(
-                                                  Icons.directions_car_filled,
-                                                  color: Color(0xFF2563EB),
-                                                  size: 24,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                top: 12,
-                                right: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    _isMapExpanded
-                                        ? Icons.fullscreen_exit
-                                        : Icons.fullscreen,
-                                    size: 20,
-                                    color: const Color(0xFF374151),
-                                  ),
-                                ),
-                              ),
-                              if (!_isMapExpanded)
-                                Positioned(
-                                  bottom: 12,
-                                  left: 0,
-                                  right: 0,
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.6,
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'Tap to expand',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                  const SizedBox(height: 6),
+                  Text(
+                    booking.vehicleName ?? 'Booking',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        'Status: ${BookingDetail.getStatusLabel(booking.status, services: booking.services)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF2563EB),
                         ),
                       ),
-                    ),
+                      if (booking.pickupRequired) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: booking.prePickupPhotos.length >= 4
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFF59E0B),
+                            ),
+                            color: booking.prePickupPhotos.length >= 4
+                                ? const Color(0xFFBBF7D0)
+                                : const Color(0xFFFEF3C7),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                booking.prePickupPhotos.length >= 4
+                                    ? Icons.check_circle
+                                    : Icons.warning_amber_rounded,
+                                size: 14,
+                                color: booking.prePickupPhotos.length >= 4
+                                    ? const Color(0xFF15803D)
+                                    : const Color(0xFFB45309),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                booking.prePickupPhotos.length >= 4
+                                    ? '4/4 photos'
+                                    : '${booking.prePickupPhotos.length}/4 photos',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  color: booking.prePickupPhotos.length >= 4
+                                      ? const Color(0xFF166534)
+                                      : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 24),
+                  if (booking.location?.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      booking.location!.address!,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: _isMapExpanded
+                  ? Alignment.center
+                  : Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isMapExpanded = !_isMapExpanded;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: _isMapExpanded ? 450 : 120,
+                  width: _isMapExpanded ? double.infinity : 200,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Stack(
+                      children: [
+                        DecoratedBox(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF3F4F6),
+                          ),
+                          child: FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: _initialCenter(booking),
+                              initialZoom: 16,
+                              onMapReady: () {
+                                setState(() => _mapReady = true);
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: Env.mapTileUrlTemplate,
+                                userAgentPackageName: Env.userAgent,
+                                subdomains: Env.mapTileSubdomains,
+                              ),
+                              if (staffPos != null || destPos != null)
+                                MarkerLayer(
+                                  markers: [
+                                    if (destPos != null)
+                                      Marker(
+                                        point: destPos,
+                                        width: 40,
+                                        height: 40,
+                                        child: const Icon(
+                                          Icons.location_pin,
+                                          size: 36,
+                                          color: Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    if (staffPos != null)
+                                      Marker(
+                                        point: staffPos,
+                                        width: 40,
+                                        height: 40,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: const Color(
+                                              0xFF2563EB,
+                                            ).withValues(alpha: 0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.directions_car_filled,
+                                            color: Color(0xFF2563EB),
+                                            size: 24,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isMapExpanded
+                                  ? Icons.fullscreen_exit
+                                  : Icons.fullscreen,
+                              size: 20,
+                              color: const Color(0xFF374151),
+                            ),
+                          ),
+                        ),
+                        if (!_isMapExpanded)
+                          Positioned(
+                            bottom: 12,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Tap to expand',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
       floatingActionButton:
           _booking != null &&
               [
