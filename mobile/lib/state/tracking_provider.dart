@@ -32,7 +32,9 @@ class TrackingProvider extends ChangeNotifier {
       if (data is List) {
         final List<Booking> bookings = data.map((e) {
           if (e is Map) {
-            final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+            final map = e is Map<String, dynamic>
+                ? e
+                : Map<String, dynamic>.from(e);
             return Booking.fromJson(map);
           }
           throw 'Invalid booking data';

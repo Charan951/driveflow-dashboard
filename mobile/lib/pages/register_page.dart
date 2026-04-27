@@ -83,6 +83,7 @@ class _RegisterPageState extends State<RegisterPage>
   Future<void> _handleRegister() async {
     if (_submitting) return;
 
+    HapticFeedback.mediumImpact();
     FocusScope.of(context).unfocus();
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
@@ -372,13 +373,14 @@ class _RegisterPageState extends State<RegisterPage>
                                           ? const SizedBox(
                                               width: 24,
                                               height: 24,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.5,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
+                                              child:
+                                                  CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2.5,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
                                             )
                                           : const Text(
                                               'Register',

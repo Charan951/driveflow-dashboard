@@ -15,14 +15,17 @@ class MainNavigationPage extends StatefulWidget {
   State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBindingObserver {
+class _MainNavigationPageState extends State<MainNavigationPage>
+    with WidgetsBindingObserver {
   DateTime? _lastBackPress;
-  PageController? _pageController;
   NavigationProvider? _navProvider;
 
   final List<Widget> _pages = const [
     BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
-    BookServiceFlowPage(key: ValueKey('essentials'), initialCategory: 'Essentials'),
+    BookServiceFlowPage(
+      key: ValueKey('essentials'),
+      initialCategory: 'Essentials',
+    ),
     CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
     BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
@@ -33,28 +36,12 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _navProvider = context.read<NavigationProvider>();
-    _pageController = PageController(initialPage: _navProvider!.selectedIndex);
-    _navProvider!.addListener(_onNavChanged);
   }
 
   @override
   void dispose() {
-    _navProvider?.removeListener(_onNavChanged);
-    _pageController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  void _onNavChanged() {
-    if (_pageController != null &&
-        _pageController!.hasClients &&
-        _pageController!.page?.round() != _navProvider!.selectedIndex) {
-      _pageController!.animateToPage(
-        _navProvider!.selectedIndex,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutQuart,
-      );
-    }
   }
 
   @override
@@ -73,7 +60,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
     }
 
     final now = DateTime.now();
-    if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+    if (_lastBackPress == null ||
+        now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
       _lastBackPress = now;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -90,7 +78,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = context.select<NavigationProvider, int>((n) => n.selectedIndex);
+    final selectedIndex = context.select<NavigationProvider, int>(
+      (n) => n.selectedIndex,
+    );
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return PopScope(
@@ -105,15 +95,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> with WidgetsBin
       child: Scaffold(
         extendBody: true,
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
-        body: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          onPageChanged: (index) {
-            if (index != _navProvider?.selectedIndex) {
-              _navProvider?.setTab(index);
-            }
-          },
-          children: _pages,
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _pages[selectedIndex],
         ),
         bottomNavigationBar: Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),

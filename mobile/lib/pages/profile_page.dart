@@ -212,10 +212,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             : Icons.light_mode_rounded,
                         title: 'Appearance',
                         subtitle: isDark ? 'Dark Mode' : 'Light Mode',
-                        trailing: Switch(
+                        trailing: Switch.adaptive(
                           value: isDark,
-                          activeThumbColor: Colors.white,
-                          activeTrackColor: _accentPurple,
+                          activeColor: _accentPurple,
                           onChanged: (_) => themeProvider.toggleTheme(),
                         ),
                       ),

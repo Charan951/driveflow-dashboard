@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppStorage {
   static final AppStorage _instance = AppStorage._internal();
@@ -12,21 +13,26 @@ class AppStorage {
   static const _dashboardKey = 'dashboard_state';
   static const _hasSeenNoVehicleModalKey = 'has_seen_no_vehicle_modal';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: false,
+      encryptedSharedPreferences: true,
       sharedPreferencesName: 'speshway_storage',
       resetOnError: true,
     ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
+  SharedPreferences? _prefs;
+
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
+
   Future<void> setHasSeenNoVehicleModal(bool value) async {
     try {
-      await _storage.write(
-        key: _hasSeenNoVehicleModalKey,
-        value: value.toString(),
-      );
+      final prefs = await _getPrefs();
+      await prefs.setBool(_hasSeenNoVehicleModalKey, value);
     } catch (e) {
       // Silent catch
     }
@@ -34,8 +40,8 @@ class AppStorage {
 
   Future<bool> getHasSeenNoVehicleModal() async {
     try {
-      final val = await _storage.read(key: _hasSeenNoVehicleModalKey);
-      return val == 'true';
+      final prefs = await _getPrefs();
+      return prefs.getBool(_hasSeenNoVehicleModalKey) ?? false;
     } catch (e) {
       return false;
     }
@@ -43,7 +49,8 @@ class AppStorage {
 
   Future<void> clearHasSeenNoVehicleModal() async {
     try {
-      await _storage.delete(key: _hasSeenNoVehicleModalKey);
+      final prefs = await _getPrefs();
+      await prefs.remove(_hasSeenNoVehicleModalKey);
     } catch (e) {
       // Silent catch
     }
@@ -51,7 +58,7 @@ class AppStorage {
 
   Future<void> setToken(String token) async {
     try {
-      await _storage.write(key: _tokenKey, value: token);
+      await _secureStorage.write(key: _tokenKey, value: token);
     } catch (e) {
       // Silent catch
     }
@@ -59,7 +66,7 @@ class AppStorage {
 
   Future<String?> getToken() async {
     try {
-      return await _storage.read(key: _tokenKey);
+      return await _secureStorage.read(key: _tokenKey);
     } catch (e) {
       return null;
     }
@@ -67,7 +74,7 @@ class AppStorage {
 
   Future<void> clearToken() async {
     try {
-      await _storage.delete(key: _tokenKey);
+      await _secureStorage.delete(key: _tokenKey);
     } catch (e) {
       // Silent catch
     }
@@ -75,7 +82,7 @@ class AppStorage {
 
   Future<void> setUserJson(String userJson) async {
     try {
-      await _storage.write(key: _userKey, value: userJson);
+      await _secureStorage.write(key: _userKey, value: userJson);
     } catch (e) {
       // Silent catch
     }
@@ -83,7 +90,7 @@ class AppStorage {
 
   Future<String?> getUserJson() async {
     try {
-      return await _storage.read(key: _userKey);
+      return await _secureStorage.read(key: _userKey);
     } catch (e) {
       return null;
     }
@@ -91,7 +98,7 @@ class AppStorage {
 
   Future<void> clearUser() async {
     try {
-      await _storage.delete(key: _userKey);
+      await _secureStorage.delete(key: _userKey);
     } catch (e) {
       // Silent catch
     }
@@ -121,7 +128,8 @@ class AppStorage {
 
   Future<void> setDashboardJson(String value) async {
     try {
-      await _storage.write(key: _dashboardKey, value: value);
+      final prefs = await _getPrefs();
+      await prefs.setString(_dashboardKey, value);
     } catch (e) {
       // Silent catch
     }
@@ -129,7 +137,8 @@ class AppStorage {
 
   Future<String?> getDashboardJson() async {
     try {
-      return await _storage.read(key: _dashboardKey);
+      final prefs = await _getPrefs();
+      return prefs.getString(_dashboardKey);
     } catch (e) {
       return null;
     }
@@ -137,7 +146,8 @@ class AppStorage {
 
   Future<void> clearDashboard() async {
     try {
-      await _storage.delete(key: _dashboardKey);
+      final prefs = await _getPrefs();
+      await prefs.remove(_dashboardKey);
     } catch (e) {
       // Silent catch
     }
@@ -145,7 +155,8 @@ class AppStorage {
 
   Future<void> setThemeMode(String mode) async {
     try {
-      await _storage.write(key: _themeModeKey, value: mode);
+      final prefs = await _getPrefs();
+      await prefs.setString(_themeModeKey, mode);
     } catch (e) {
       // Silent catch
     }
@@ -153,9 +164,20 @@ class AppStorage {
 
   Future<String?> getThemeMode() async {
     try {
-      return await _storage.read(key: _themeModeKey);
+      final prefs = await _getPrefs();
+      return prefs.getString(_themeModeKey);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> clearAll() async {
+    try {
+      await _secureStorage.deleteAll();
+      final prefs = await _getPrefs();
+      await prefs.clear();
+    } catch (e) {
+      // Silent catch
     }
   }
 }

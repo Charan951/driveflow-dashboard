@@ -31,6 +31,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   final _bookingService = BookingService();
   final _reviewService = ReviewService();
   final _scrollController = ScrollController();
+  SocketService? _socketService;
   String? _selectedVehicleId;
 
   bool _loading = false;
@@ -56,25 +57,19 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     });
 
     // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
+    _socketService = context.read<SocketService>();
+    _socketService?.addListener(_onSocketUpdate);
   }
 
   @override
   void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
+    _socketService?.removeListener(_onSocketUpdate);
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onSocketUpdate() {
-    final event = context.read<SocketService>().value;
+    final event = _socketService?.value;
     if (event == null) return;
     // Reload data if a booking was created, updated or cancelled, or new approval, or sync event
     if ((event.startsWith('booking_created') ||
@@ -211,10 +206,14 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
 
     try {
       final results = await Future.wait<dynamic>([
-        _vehicleService.listMyVehicles(),
-        _bookingService.listMyBookings(),
-        _catalogService.listServices(isQuickService: true),
-        _reviewService.getMyReviews(),
+        _vehicleService.listMyVehicles().catchError((e) => <Vehicle>[]),
+        _bookingService.listMyBookings().catchError((e) => <Booking>[]),
+        _catalogService
+            .listServices(isQuickService: true)
+            .catchError((e) => <ServiceItem>[]),
+        _reviewService.getMyReviews().catchError(
+          (e) => <Map<String, dynamic>>[],
+        ),
       ]);
 
       if (mounted) {
@@ -222,6 +221,10 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         final bookings = (results[1] as List<Booking>);
         final services = (results[2] as List<ServiceItem>);
         final reviews = (results[3] as List<Map<String, dynamic>>);
+
+        // If everything is empty and it wasn't a background refresh, we might want to show an error
+        // But usually we just show empty states.
+
         final upcoming = _computeUpcomingBooking(bookings);
 
         setState(() {
@@ -556,7 +559,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                 if (_loading && _vehicles.isEmpty && _bookings.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: 32),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: CircularProgressIndicator.adaptive()),
                   )
                 else if (_error != null && _vehicles.isEmpty)
                   Padding(
@@ -572,7 +575,9 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                           _error!,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.black54),
+                              ?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
                         ),
                         AppSpacing.verticalMedium,
                         OutlinedButton(

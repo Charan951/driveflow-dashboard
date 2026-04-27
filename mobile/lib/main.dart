@@ -148,9 +148,9 @@ Future<void> _bootstrapApp({
   // Some devices/environments can take longer than expected here.
   unawaited(() async {
     try {
-      await notificationService
-          .initialize()
-          .timeout(const Duration(seconds: 20));
+      await notificationService.initialize().timeout(
+        const Duration(seconds: 20),
+      );
       await notificationService.requestPermissions();
       await notificationService.syncToken();
     } catch (e) {
@@ -239,9 +239,12 @@ class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // A fast but smooth fade transition for all pages
+    // A fast and snappy fade transition
     return FadeTransition(
-      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutQuart, // Snappier than easeOutCubic
+      ),
       child: child,
     );
   }
@@ -501,12 +504,17 @@ class RootGate extends StatefulWidget {
 
 class _RootGateState extends State<RootGate> {
   bool _splashDelayComplete = false;
+  bool _delayStarted = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // 2 seconds delay for splash screen when authenticated
-    Future.delayed(const Duration(seconds: 2), () {
+  void _startDelay(bool isAuthenticated) {
+    if (_delayStarted) return;
+    _delayStarted = true;
+
+    // If authenticated, we wait a short bit for the splash animation.
+    // If not authenticated, we can show the splash screen until they click.
+    final delayMs = isAuthenticated ? 800 : 400;
+
+    Future.delayed(Duration(milliseconds: delayMs), () {
       if (mounted) {
         setState(() {
           _splashDelayComplete = true;
@@ -524,7 +532,10 @@ class _RootGateState extends State<RootGate> {
       return const SplashPage();
     }
 
-    // If authenticated, show home pages only after 3 seconds splash delay
+    // Start the delay now that we know the auth status
+    _startDelay(auth.isAuthenticated);
+
+    // If authenticated, show home pages after the splash delay
     if (auth.isAuthenticated) {
       if (!_splashDelayComplete) {
         return const SplashPage();
@@ -536,7 +547,7 @@ class _RootGateState extends State<RootGate> {
       return const MainNavigationPage();
     }
 
-    // If not authenticated, always show SplashPage (it will handle navigation to login)
+    // If not authenticated, always show SplashPage (it will handle navigation to login via click)
     return const SplashPage();
   }
 }

@@ -164,6 +164,10 @@ class AuthProvider extends ChangeNotifier {
       if (user == null) {
         lastError = _messageFromError(e);
       }
+      // Log network errors even if we have a cached user
+      if (e is ApiException && e.isNetworkError) {
+        debugPrint('Network error during loadMe: $e');
+      }
     } finally {
       loading = false;
       _isInitialized = true;

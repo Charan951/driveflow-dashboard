@@ -99,7 +99,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     Booking? updated;
     if (payload != null) {
       try {
-        final mapData = jsonDecode(jsonEncode(payload)) as Map<String, dynamic>;
+        final Map<String, dynamic> mapData = payload is Map<String, dynamic>
+            ? payload
+            : Map<String, dynamic>.from(payload as Map);
         updated = Booking.fromJson(mapData);
       } catch (e) {
         debugPrint('Error parsing external update: $e');

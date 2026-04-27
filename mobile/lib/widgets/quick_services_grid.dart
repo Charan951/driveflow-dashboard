@@ -7,10 +7,13 @@ class QuickServicesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth > 600 ? 3 : 2;
+
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.medium),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: AppSpacing.medium,
         mainAxisSpacing: AppSpacing.medium,
         childAspectRatio: 0.8, // Adjusted for card content

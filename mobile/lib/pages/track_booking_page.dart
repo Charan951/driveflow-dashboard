@@ -175,7 +175,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           }
           _lastLocationUpdate = now;
 
-          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final mapData = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
           final lat = mapData['lat'];
           final lng = mapData['lng'];
           if (lat is num && lng is num) {
@@ -235,7 +237,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       if (data != null) {
         try {
-          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final mapData = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
           final updated = Booking.fromJson(mapData);
           if (updated.id == _bookingId) {
             setState(() => _booking = updated);
@@ -255,7 +259,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       _fetchPendingApprovals();
       try {
-        final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+        final mapData = data is Map<String, dynamic>
+            ? data
+            : Map<String, dynamic>.from(data as Map);
         final relatedBookingId = (mapData['relatedId'] ?? '').toString();
         if (_bookingId != null && relatedBookingId == _bookingId) {
           setState(() => _chatUnreadCount++);
@@ -266,7 +272,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.on('receiveMessage', (data) {
       if (!mounted) return;
       try {
-        final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+        final mapData = data is Map<String, dynamic>
+            ? data
+            : Map<String, dynamic>.from(data as Map);
         final bookingId = (mapData['bookingId'] ?? mapData['relatedId'] ?? '')
             .toString();
         final sender = mapData['sender'];
@@ -287,7 +295,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (!mounted) return;
       if (data != null) {
         try {
-          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final mapData = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
           final entity = (mapData['entity'] ?? '').toString();
           if (entity == 'payment' ||
               entity == 'approval' ||
@@ -811,6 +821,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 ? CachedNetworkImage(
                     imageUrl: resolvedUrl,
                     fit: BoxFit.cover,
+                    memCacheHeight: 150,
                     placeholder: (context, url) => const Center(
                       child: SizedBox(
                         width: 20,

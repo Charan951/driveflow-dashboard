@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -23,34 +24,44 @@ class ApiClient {
   static const Duration _timeout = Duration(seconds: 12);
   static const Duration _uploadTimeout = Duration(seconds: 60);
 
-  dynamic _decodeBody(http.Response res) {
+  Future<dynamic> _decodeBody(http.Response res) async {
     if (res.body.isEmpty) {
       if (res.statusCode >= 400) {
-        throw ApiException(statusCode: res.statusCode, message: 'Request failed');
+        throw ApiException(
+          statusCode: res.statusCode,
+          message: 'Request failed',
+        );
       }
       return null;
     }
 
     dynamic decoded;
     try {
-      decoded = jsonDecode(res.body);
+      // Use background decoding for large responses (> 50KB) to avoid UI jank
+      if (res.body.length > 50000) {
+        decoded = await compute(jsonDecode, res.body);
+      } else {
+        decoded = jsonDecode(res.body);
+      }
     } on FormatException {
       final status = res.statusCode;
       final code = status >= 400 ? status : 500;
-      
+
       String errorMessage = 'Unexpected response format from server';
       if (res.body.contains('<html>') || res.body.contains('<!DOCTYPE html>')) {
         if (status == 405) {
-          errorMessage = 'Method Not Allowed (405). Possible server misconfiguration.';
+          errorMessage =
+              'Method Not Allowed (405). Possible server misconfiguration.';
         } else if (status == 502) {
           errorMessage = 'Bad Gateway (502). The server might be down.';
         } else if (status == 404) {
           errorMessage = 'API endpoint not found (404).';
         } else {
-          errorMessage = 'Server error ($status). Received HTML instead of JSON.';
+          errorMessage =
+              'Server error ($status). Received HTML instead of JSON.';
         }
       }
-      
+
       throw ApiException(statusCode: code, message: errorMessage);
     }
 
@@ -72,7 +83,7 @@ class ApiClient {
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
     try {
       final res = await _client.get(uri, headers: headers).timeout(_timeout);
-      return _decodeBody(res);
+      return await _decodeBody(res);
     } on TimeoutException {
       throw ApiException(statusCode: 408, message: 'Request timed out');
     }
@@ -96,7 +107,7 @@ class ApiClient {
       final res = await _client
           .post(uri, headers: headers, body: jsonEncode(body ?? {}))
           .timeout(_timeout);
-      return _decodeBody(res);
+      return await _decodeBody(res);
     } on TimeoutException {
       throw ApiException(statusCode: 408, message: 'Request timed out');
     }
@@ -113,7 +124,7 @@ class ApiClient {
       final res = await _client
           .put(uri, headers: headers, body: jsonEncode(body ?? {}))
           .timeout(_timeout);
-      return _decodeBody(res);
+      return await _decodeBody(res);
     } on TimeoutException {
       throw ApiException(statusCode: 408, message: 'Request timed out');
     }
@@ -148,7 +159,7 @@ class ApiClient {
     }
     final streamed = await request.send().timeout(_uploadTimeout);
     final res = await http.Response.fromStream(streamed);
-    final decoded = _decodeBody(res);
+    final decoded = await _decodeBody(res);
     if (decoded is List) return decoded;
     if (decoded is Map && decoded['files'] is List) {
       return decoded['files'] as List;
@@ -187,7 +198,7 @@ class ApiClient {
       final res = await _client
           .delete(uri, headers: headers, body: jsonEncode(body ?? {}))
           .timeout(_timeout);
-      return _decodeBody(res);
+      return await _decodeBody(res);
     } on TimeoutException {
       throw ApiException(statusCode: 408, message: 'Request timed out');
     }

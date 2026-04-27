@@ -69,7 +69,9 @@ class SocketService extends ValueNotifier<String?> {
     _socket!.on('user_role_updated', (data) {
       if (data != null) {
         try {
-          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final mapData = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
           value = 'role_updated:${jsonEncode(mapData)}';
           notifyListeners();
         } catch (e) {
@@ -183,7 +185,9 @@ class SocketService extends ValueNotifier<String?> {
     _socket!.on('global:sync', (data) {
       if (data != null) {
         try {
-          final mapData = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+          final mapData = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
           final entity = (mapData['entity'] ?? '').toString();
           final action = (mapData['action'] ?? '').toString();
 

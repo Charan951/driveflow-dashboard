@@ -30,7 +30,7 @@ class _LoginPageState extends State<LoginPage>
     _passwordController = TextEditingController();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
@@ -58,6 +58,7 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _handleLogin() async {
     if (_submitting) return;
 
+    HapticFeedback.mediumImpact();
     FocusScope.of(context).unfocus();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -289,13 +290,14 @@ class _LoginPageState extends State<LoginPage>
                                           ? const SizedBox(
                                               width: 24,
                                               height: 24,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.5,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
+                                              child:
+                                                  CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2.5,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
                                             )
                                           : const Text(
                                               'Login',

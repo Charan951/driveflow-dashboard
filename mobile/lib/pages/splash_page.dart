@@ -10,7 +10,8 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
+class _SplashPageState extends State<SplashPage>
+    with SingleTickerProviderStateMixin {
   bool _navigated = false;
   bool _isMovingUp = false;
   late final AnimationController _animationController;
@@ -49,23 +50,25 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     if (!mounted) return;
 
     if (auth.isAuthenticated) {
-      await Future.delayed(const Duration(milliseconds: 400));
+      // Small delay to allow logo animation to feel natural
+      await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {
         setState(() => _isMovingUp = true);
       }
+      // Wait for animation to complete before letting RootGate switch
+      await Future.delayed(const Duration(milliseconds: 500));
     } else {
-      // Route guests automatically so splash is not a dead end.
-      await Future.delayed(const Duration(milliseconds: 900));
-      if (!mounted || _navigated) return;
-      _navigated = true;
-      Navigator.of(context).pushReplacementNamed('/login');
+      // For non-authorized users, we don't navigate automatically anymore.
+      // They must click the screen to go to login.
+      await Future.delayed(const Duration(milliseconds: 300));
     }
   }
 
   void _onInteract() {
     if (_navigated) return;
     final auth = context.read<AuthProvider>();
-    if (!auth.isAuthenticated) {
+    // Only allow interaction if we've determined the user is not authenticated
+    if (auth.isInitialized && !auth.isAuthenticated) {
       _navigated = true;
       Navigator.of(context).pushReplacementNamed('/login');
     }
@@ -85,9 +88,12 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           children: [
             Container(color: Colors.black),
             AnimatedAlign(
-              duration: const Duration(milliseconds: 1500),
-              curve: Curves.easeInOutQuart,
-              alignment: _isMovingUp ? const Alignment(0, -0.9) : Alignment.center,
+              duration: const Duration(milliseconds: 600),
+              curve:
+                  Curves.easeOutBack, // Added a little bounce for a better feel
+              alignment: _isMovingUp
+                  ? const Alignment(0, -0.9)
+                  : Alignment.center,
               child: AnimatedBuilder(
                 animation: _animationController,
                 builder: (context, child) {

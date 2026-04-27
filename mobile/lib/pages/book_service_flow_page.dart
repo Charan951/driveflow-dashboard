@@ -385,19 +385,36 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     try {
-      final results = await Future.wait([
-        _vehicleService.listMyVehicles(forceRefresh: forceRefresh),
-        _catalogService.listServices(forceRefresh: forceRefresh),
+      final List<dynamic> results = await Future.wait([
+        _vehicleService.listMyVehicles(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('Error fetching vehicles: $e');
+          return <Vehicle>[];
+        }),
+        _catalogService.listServices(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('Error fetching services: $e');
+          return <ServiceItem>[];
+        }),
       ]);
 
       final List<Vehicle> vehicles = results[0] as List<Vehicle>;
       final List<ServiceItem> services = results[1] as List<ServiceItem>;
 
       if (mounted) {
+        if (vehicles.isEmpty && services.isEmpty && forceRefresh) {
+          // If both failed and it was a force refresh, show error
+          setState(() {
+            _error = 'Failed to load data. Please check your connection.';
+            _loading = false;
+          });
+          return;
+        }
+
         setState(() {
           _vehicles = List<Vehicle>.from(vehicles);
           _allServices = services;
           _hasAttemptedFetch = true;
+          _error = null; // Clear any previous errors if we got at least something
+          
           if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
             _selectedVehicleId = _vehicles.first.id;
 
@@ -511,9 +528,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           const SizedBox(height: 32),
                           RepaintBoundary(
                             child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 400),
-                              switchInCurve: Curves.easeOutQuart,
-                              switchOutCurve: Curves.easeInQuart,
+                              duration: const Duration(milliseconds: 250),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
                               transitionBuilder:
                                   (Widget child, Animation<double> animation) {
                                     return FadeTransition(

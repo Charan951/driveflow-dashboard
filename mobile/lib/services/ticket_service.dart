@@ -30,12 +30,10 @@ class SupportTicket {
       priority: (json['priority'] ?? 'Medium').toString(),
       messages: (json['messages'] as List? ?? []).map((e) {
         if (e is Map<String, dynamic>) return TicketMessage.fromJson(e);
-        try {
-          final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
-          return TicketMessage.fromJson(map);
-        } catch (_) {
-          return TicketMessage.fromJson({});
+        if (e is Map) {
+          return TicketMessage.fromJson(Map<String, dynamic>.from(e));
         }
+        return TicketMessage.fromJson({});
       }).toList(),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'].toString())
@@ -94,12 +92,10 @@ class TicketService {
     if (res is List) {
       return res.map((e) {
         if (e is Map<String, dynamic>) return SupportTicket.fromJson(e);
-        try {
-          final map = jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
-          return SupportTicket.fromJson(map);
-        } catch (_) {
-          return SupportTicket.fromJson({});
+        if (e is Map) {
+          return SupportTicket.fromJson(Map<String, dynamic>.from(e));
         }
+        return SupportTicket.fromJson({});
       }).toList();
     }
     return [];

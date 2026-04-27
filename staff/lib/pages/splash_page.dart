@@ -27,13 +27,13 @@ class _SplashPageState extends State<SplashPage> {
     NotificationService().requestPermissions();
 
     // Small initial delay for splash feel
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final user = await _authService.getCurrentUser();
 
     if (mounted && user != null) {
       // Small delay before moving up for better visual flow
-      await Future.delayed(const Duration(milliseconds: 400));
+      await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) {
         setState(() {
           _isMovingUp = true;
@@ -41,7 +41,7 @@ class _SplashPageState extends State<SplashPage> {
       }
 
       // Wait a bit more before navigating
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 600));
       if (mounted && !_navigated) {
         _navigated = true;
         final role = user.role.toLowerCase();

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppStorage {
   static final AppStorage _instance = AppStorage._internal();
@@ -9,7 +10,7 @@ class AppStorage {
   static const _tokenKey = 'staff_access_token';
   static const _userKey = 'staff_auth_user';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
       resetOnError: true,
@@ -17,28 +18,38 @@ class AppStorage {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
+  SharedPreferences? _prefs;
+
+  Future<SharedPreferences> get _nonSensitiveStorage async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
+
   Future<void> setToken(String token) async {
-    await _storage.write(key: _tokenKey, value: token);
+    await _secureStorage.write(key: _tokenKey, value: token);
   }
 
   Future<String?> getToken() async {
-    return _storage.read(key: _tokenKey);
+    return _secureStorage.read(key: _tokenKey);
   }
 
   Future<void> clearToken() async {
-    await _storage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: _tokenKey);
   }
 
   Future<void> setUserJson(String userJson) async {
-    await _storage.write(key: _userKey, value: userJson);
+    final prefs = await _nonSensitiveStorage;
+    await prefs.setString(_userKey, userJson);
   }
 
   Future<String?> getUserJson() async {
-    return _storage.read(key: _userKey);
+    final prefs = await _nonSensitiveStorage;
+    return prefs.getString(_userKey);
   }
 
   Future<void> clearUser() async {
-    await _storage.delete(key: _userKey);
+    final prefs = await _nonSensitiveStorage;
+    await prefs.remove(_userKey);
   }
 
   Future<String?> getUserId() async {

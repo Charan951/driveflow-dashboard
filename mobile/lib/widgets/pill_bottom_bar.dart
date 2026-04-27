@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
 import '../core/app_styles.dart';
@@ -151,7 +152,11 @@ class CenterNavAction extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            if (isActive) return;
+            HapticFeedback.selectionClick();
+            onTap();
+          },
           borderRadius: BorderRadius.circular(999),
           child: const Center(
             child: Icon(Icons.home_rounded, color: Colors.white, size: 30),
@@ -183,7 +188,11 @@ class GlassNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        if (isActive) return;
+        HapticFeedback.selectionClick();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -204,7 +213,7 @@ class GlassNavItem extends StatelessWidget {
             style: TextStyle(
               color: isActive ? AppStyles.primaryBlue : inactiveColor,
               fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-              fontSize: 9,
+              fontSize: 11,
             ),
           ),
         ],

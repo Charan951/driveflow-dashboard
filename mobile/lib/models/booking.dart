@@ -543,7 +543,9 @@ class Booking {
     final v = map['vehicle'];
     if (v is Map) {
       try {
-        final vehicleMap = jsonDecode(jsonEncode(v)) as Map<String, dynamic>;
+        final vehicleMap = v is Map<String, dynamic>
+            ? v
+            : Map<String, dynamic>.from(v);
         vehicle = Vehicle.fromJson(vehicleMap);
       } catch (_) {}
     }
@@ -554,8 +556,9 @@ class Booking {
       for (final e in s) {
         if (e is Map) {
           try {
-            final serviceMap =
-                jsonDecode(jsonEncode(e)) as Map<String, dynamic>;
+            final serviceMap = e is Map<String, dynamic>
+                ? e
+                : Map<String, dynamic>.from(e);
             services.add(ServiceItem.fromJson(serviceMap));
           } catch (_) {}
         }
@@ -566,7 +569,9 @@ class Booking {
     final loc = map['location'];
     if (loc is Map) {
       try {
-        final locMap = jsonDecode(jsonEncode(loc)) as Map<String, dynamic>;
+        final locMap = loc is Map<String, dynamic>
+            ? loc
+            : Map<String, dynamic>.from(loc);
         location = BookingLocation.fromJson(locMap);
       } catch (_) {}
     }
@@ -578,13 +583,14 @@ class Booking {
     final m = map['merchant'];
     if (m is Map) {
       try {
-        final mm = jsonDecode(jsonEncode(m)) as Map<String, dynamic>;
+        final mm = m is Map<String, dynamic> ? m : Map<String, dynamic>.from(m);
         merchant = mm;
         final mLoc = mm['location'];
         if (mLoc is Map) {
           try {
-            final merchantLocMap =
-                jsonDecode(jsonEncode(mLoc)) as Map<String, dynamic>;
+            final merchantLocMap = mLoc is Map<String, dynamic>
+                ? mLoc
+                : Map<String, dynamic>.from(mLoc);
             merchantLocation = BookingLocation.fromJson(merchantLocMap);
           } catch (_) {}
         }
@@ -605,7 +611,9 @@ class Booking {
     final d = map['deliveryOtp'];
     if (d is Map) {
       try {
-        final dMap = jsonDecode(jsonEncode(d)) as Map<String, dynamic>;
+        final dMap = d is Map<String, dynamic>
+            ? d
+            : Map<String, dynamic>.from(d);
         deliveryOtp = DeliveryOtp.fromJson(dMap);
       } catch (_) {}
     }
@@ -674,7 +682,9 @@ class Booking {
     final b = map['billing'];
     if (b is Map) {
       try {
-        final bMap = jsonDecode(jsonEncode(b)) as Map<String, dynamic>;
+        final bMap = b is Map<String, dynamic>
+            ? b
+            : Map<String, dynamic>.from(b);
         billing = BookingBilling.fromJson(bMap);
       } catch (_) {}
     }
