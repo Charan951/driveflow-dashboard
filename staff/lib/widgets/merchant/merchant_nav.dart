@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../core/app_colors.dart';
 
 class MerchantNavItem {
   final IconData icon;
@@ -90,8 +91,14 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
       (item) => item.route == currentRoute,
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         title: Text(
           widget.title,
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -119,34 +126,46 @@ class MerchantDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final AuthService authService = AuthService();
     final currentRoute = ModalRoute.of(context)?.settings.name;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       child: Column(
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+              color: isDark ? AppColors.backgroundPrimary : Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppColors.borderColor : Colors.grey[200]!,
+                ),
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple[50],
+                    color: isDark
+                        ? AppColors.primaryPurple.withValues(alpha: 0.1)
+                        : Colors.deepPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.store,
-                    color: Colors.deepPurple,
+                    color: isDark ? AppColors.primaryPurple : Colors.deepPurple,
                     size: 28,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'Merchant Portal',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
               ],
             ),
@@ -161,7 +180,11 @@ class MerchantDrawer extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(
                       item.icon,
-                      color: isActive ? Colors.deepPurple : Colors.grey[600],
+                      color: isActive
+                          ? (isDark
+                                ? AppColors.primaryPurple
+                                : Colors.deepPurple)
+                          : Colors.grey[600],
                     ),
                     title: Text(
                       item.label,
@@ -169,7 +192,11 @@ class MerchantDrawer extends StatelessWidget {
                         fontWeight: isActive
                             ? FontWeight.bold
                             : FontWeight.w500,
-                        color: isActive ? Colors.deepPurple : Colors.grey[800],
+                        color: isActive
+                            ? (isDark
+                                  ? AppColors.primaryPurple
+                                  : Colors.deepPurple)
+                            : (isDark ? Colors.grey[400] : Colors.grey[800]),
                       ),
                     ),
                     onTap: () {
@@ -182,14 +209,16 @@ class MerchantDrawer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     tileColor: isActive
-                        ? Colors.deepPurple.withValues(alpha: 0.1)
+                        ? (isDark
+                              ? AppColors.primaryPurple.withValues(alpha: 0.1)
+                              : Colors.deepPurple.withValues(alpha: 0.1))
                         : null,
                   ),
                 );
               }).toList(),
             ),
           ),
-          const Divider(),
+          Divider(color: isDark ? AppColors.borderColor : Colors.grey[200]),
           Padding(
             padding: const EdgeInsets.all(12),
             child: ListTile(
@@ -259,10 +288,16 @@ class MerchantBottomNav extends StatelessWidget {
       effectiveIndex = 0; // Default to Dashboard if on a hidden tab
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.borderColor : Colors.grey[200]!,
+          ),
+        ),
       ),
       child: BottomNavigationBar(
         currentIndex: effectiveIndex,
@@ -274,9 +309,9 @@ class MerchantBottomNav extends StatelessWidget {
           }
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
         selectedItemColor: isCurrentRouteInBottomNav
-            ? Colors.deepPurple
+            ? (isDark ? AppColors.primaryPurple : Colors.deepPurple)
             : Colors.grey[600],
         unselectedItemColor: Colors.grey[600],
         selectedLabelStyle: const TextStyle(
@@ -289,7 +324,10 @@ class MerchantBottomNav extends StatelessWidget {
           return BottomNavigationBarItem(
             icon: Icon(item.icon),
             label: item.label,
-            activeIcon: Icon(item.icon, color: Colors.deepPurple),
+            activeIcon: Icon(
+              item.icon,
+              color: isDark ? AppColors.primaryPurple : Colors.deepPurple,
+            ),
           );
         }).toList(),
       ),

@@ -13,12 +13,12 @@ class AppColors {
   static const Color splashDarkGray = Color(0xFF1A1A1A);
 
   // Background Colors
-  static const Color backgroundPrimary = Color(0xFF0D0D0D); // Scaffold (Dark)
-  static const Color backgroundSecondary = Color(0xFF121212); // Cards (Dark)
+  static const Color backgroundPrimary = Color(0xFF000000); // Scaffold (Dark)
+  static const Color backgroundSecondary = Color(0xFF0D0D0D); // Cards (Dark)
   static const Color backgroundSurface = Color(
-    0xFF1A1A1A,
+    0xFF121212,
   ); // Elevated UI (Dark)
-  static const Color borderColor = Color(0xFF262626); // (Dark)
+  static const Color borderColor = Color(0xFF1A1A1A); // (Dark)
 
   // Light Mode Colors
   static const Color backgroundPrimaryLight = Color(0xFFFFFFFF);

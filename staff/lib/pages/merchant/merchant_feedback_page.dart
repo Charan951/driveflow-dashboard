@@ -25,7 +25,7 @@ class _MerchantFeedbackPageState extends State<MerchantFeedbackPage> {
   Future<void> _load() async {
     if (mounted) setState(() => _isLoading = true);
     try {
-      final user = await _authService.getCurrentUser();
+      final user = await _authService.getCurrentUser(forceRefresh: true);
       if (user != null) {
         final data = await _service.getMerchantReviews(user.id);
         if (mounted) {

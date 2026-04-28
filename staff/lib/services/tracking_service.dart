@@ -261,8 +261,36 @@ class StaffTrackingService {
         );
   }
 
-  Future<void> _handlePosition(Position position) async {
-    if (!_isTracking) return;
+  Future<void> _handlePosition(dynamic pos) async {
+    if (!_isTracking || pos == null) return;
+    
+    // On web, sometimes the type system fails with LegacyJavaScriptObject
+    // We try to safely extract properties
+    Position? position;
+    if (pos is Position) {
+      position = pos;
+    } else {
+      try {
+        // Fallback for cases where type casting fails on web
+        // but the object has the expected properties
+        position = Position(
+          latitude: (pos.latitude as num).toDouble(),
+          longitude: (pos.longitude as num).toDouble(),
+          timestamp: pos.timestamp is DateTime ? pos.timestamp : DateTime.now(),
+          accuracy: (pos.accuracy as num).toDouble(),
+          altitude: (pos.altitude as num).toDouble(),
+          heading: (pos.heading as num).toDouble(),
+          speed: (pos.speed as num).toDouble(),
+          speedAccuracy: (pos.speedAccuracy as num).toDouble(),
+          altitudeAccuracy: (pos.altitudeAccuracy as num).toDouble(),
+          headingAccuracy: (pos.headingAccuracy as num).toDouble(),
+        );
+      } catch (e) {
+        debugPrint('TrackingService: Error casting position: $e');
+        return;
+      }
+    }
+
     final now = DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
     final current = info.value;

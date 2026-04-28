@@ -3,6 +3,7 @@ import '../../models/booking.dart';
 import '../../services/booking_service.dart';
 import '../../services/socket_service.dart';
 import '../../widgets/merchant/merchant_nav.dart';
+import '../../core/app_colors.dart';
 
 class MerchantOrdersPage extends StatefulWidget {
   const MerchantOrdersPage({super.key});
@@ -172,14 +173,21 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: onSelected,
-      selectedColor: Colors.deepPurple.withValues(alpha: 0.2),
-      checkmarkColor: Colors.deepPurple,
+      selectedColor: isDark
+          ? AppColors.primaryPurple.withValues(alpha: 0.2)
+          : AppColors.primaryPurple.withValues(alpha: 0.1),
+      checkmarkColor: AppColors.primaryPurple,
       labelStyle: TextStyle(
-        color: selected ? Colors.deepPurple : Colors.black87,
+        color: selected
+            ? AppColors.primaryPurple
+            : (isDark ? AppColors.textSecondary : AppColors.textSecondaryLight),
         fontWeight: selected ? FontWeight.bold : FontWeight.normal,
       ),
     );
@@ -194,15 +202,22 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
+        color: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundSecondaryLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -210,7 +225,7 @@ class _OrderCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -226,16 +241,21 @@ class _OrderCard extends StatelessWidget {
                         'Order #${booking.orderNumber ?? booking.id.substring(booking.id.length - 6).toUpperCase()}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: isDark
+                              ? AppColors.textMuted
+                              : AppColors.textMutedLight,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         booking.serviceName ?? 'General Service',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: isDark
+                              ? AppColors.textPrimary
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -251,7 +271,9 @@ class _OrderCard extends StatelessWidget {
                 booking.vehicleName ?? 'Unknown Vehicle',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[800],
+                  color: isDark
+                      ? AppColors.textSecondary
+                      : AppColors.textSecondaryLight,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -264,7 +286,9 @@ class _OrderCard extends StatelessWidget {
                       Icon(
                         Icons.access_time,
                         size: 16,
-                        color: Colors.grey[600],
+                        color: isDark
+                            ? AppColors.textMuted
+                            : AppColors.textMutedLight,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -273,11 +297,21 @@ class _OrderCard extends StatelessWidget {
                                 booking.date!,
                               ).toLocal().toString().split(' ')[0]
                             : 'N/A',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? AppColors.textMuted
+                              : AppColors.textMutedLight,
+                        ),
                       ),
                     ],
                   ),
-                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                  Icon(
+                    Icons.chevron_right,
+                    color: isDark
+                        ? AppColors.textMuted
+                        : AppColors.textMutedLight,
+                  ),
                 ],
               ),
             ],
@@ -300,17 +334,17 @@ class _StatusBadge extends StatelessWidget {
     switch (status) {
       case 'CREATED':
       case 'ASSIGNED':
-        color = Colors.blue;
+        color = AppColors.primaryBlue;
         break;
       case 'ACCEPTED':
       case 'REACHED_CUSTOMER':
       case 'VEHICLE_PICKED':
-        color = Colors.orange;
+        color = AppColors.warning;
         break;
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
       case 'SERVICE_STARTED':
-        color = Colors.deepPurple;
+        color = AppColors.primaryPurple;
         break;
       case 'SERVICE_COMPLETED':
         color = Colors.indigo;
@@ -320,10 +354,10 @@ class _StatusBadge extends StatelessWidget {
         break;
       case 'DELIVERED':
       case 'COMPLETED':
-        color = Colors.green;
+        color = AppColors.success;
         break;
       case 'CANCELLED':
-        color = Colors.red;
+        color = AppColors.error;
         break;
     }
 

@@ -5,7 +5,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../core/app_colors.dart';
+import '../state/theme_provider.dart';
 import '../core/env.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
@@ -598,6 +601,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -620,11 +625,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final destPos = _destinationLatLng(booking);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
@@ -634,7 +639,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           children: [
             Text(
               'Order #$orderNum',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: isDark ? Colors.white : Colors.black,
+              ),
             ),
             Row(
               children: [
@@ -642,12 +651,18 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                   DateFormat(
                     'dd MMM yyyy',
                   ).format(DateTime.parse(booking.date)),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   '•',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -655,10 +670,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     booking.status,
                     services: booking.services,
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF7C3AED),
+                    color: isDark
+                        ? AppColors.primaryPurple
+                        : const Color(0xFF7C3AED),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -677,11 +694,24 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             _buildStatusTimeline(booking),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                color: isDark ? AppColors.backgroundSecondary : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.borderColor
+                      : const Color(0xFFE5E7EB),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.3)
+                        : Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +719,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                   Text(
                     'Order #${booking.orderNumber ?? booking.id}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF374151),
+                      color: isDark
+                          ? Colors.grey[400]
+                          : const Color(0xFF374151),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -698,6 +730,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     booking.vehicleName ?? 'Booking',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -706,7 +739,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                       Text(
                         'Status: ${BookingDetail.getStatusLabel(booking.status, services: booking.services)}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF2563EB),
+                          color: isDark
+                              ? AppColors.primaryPurple
+                              : const Color(0xFF2563EB),
                         ),
                       ),
                       if (booking.pickupRequired) ...[
@@ -720,12 +755,20 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
                               color: booking.prePickupPhotos.length >= 4
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFFF59E0B),
+                                  ? (isDark
+                                        ? AppColors.success
+                                        : const Color(0xFF16A34A))
+                                  : (isDark
+                                        ? AppColors.warning
+                                        : const Color(0xFFF59E0B)),
                             ),
                             color: booking.prePickupPhotos.length >= 4
-                                ? const Color(0xFFBBF7D0)
-                                : const Color(0xFFFEF3C7),
+                                ? (isDark
+                                      ? AppColors.success.withValues(alpha: 0.1)
+                                      : const Color(0xFFBBF7D0))
+                                : (isDark
+                                      ? AppColors.warning.withValues(alpha: 0.1)
+                                      : const Color(0xFFFEF3C7)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -736,8 +779,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                     : Icons.warning_amber_rounded,
                                 size: 14,
                                 color: booking.prePickupPhotos.length >= 4
-                                    ? const Color(0xFF15803D)
-                                    : const Color(0xFFB45309),
+                                    ? (isDark
+                                          ? AppColors.success
+                                          : const Color(0xFF15803D))
+                                    : (isDark
+                                          ? AppColors.warning
+                                          : const Color(0xFFB45309)),
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -747,8 +794,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 11,
                                   color: booking.prePickupPhotos.length >= 4
-                                      ? const Color(0xFF166534)
-                                      : const Color(0xFF92400E),
+                                      ? (isDark
+                                            ? AppColors.success
+                                            : const Color(0xFF166534))
+                                      : (isDark
+                                            ? AppColors.warning
+                                            : const Color(0xFF92400E)),
                                 ),
                               ),
                             ],
@@ -761,7 +812,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     const SizedBox(height: 4),
                     Text(
                       booking.location!.address!,
-                      style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.grey[400] : Colors.black54,
+                      ),
                     ),
                   ],
                 ],
@@ -788,8 +841,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     child: Stack(
                       children: [
                         DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF3F4F6),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.backgroundSurface
+                                : const Color(0xFFF3F4F6),
                           ),
                           child: FlutterMap(
                             mapController: _mapController,
@@ -827,14 +882,21 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                         height: 40,
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFF2563EB,
-                                            ).withValues(alpha: 0.15),
+                                            color:
+                                                (isDark
+                                                        ? AppColors
+                                                              .primaryPurple
+                                                        : const Color(
+                                                            0xFF2563EB,
+                                                          ))
+                                                    .withValues(alpha: 0.15),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.directions_car_filled,
-                                            color: Color(0xFF2563EB),
+                                            color: isDark
+                                                ? AppColors.primaryPurple
+                                                : const Color(0xFF2563EB),
                                             size: 24,
                                           ),
                                         ),
@@ -850,11 +912,17 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: isDark
+                                  ? AppColors.backgroundSurface.withValues(
+                                      alpha: 0.9,
+                                    )
+                                  : Colors.white.withValues(alpha: 0.9),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
+                                  color: isDark
+                                      ? Colors.black.withValues(alpha: 0.3)
+                                      : Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -865,7 +933,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   ? Icons.fullscreen_exit
                                   : Icons.fullscreen,
                               size: 20,
-                              color: const Color(0xFF374151),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF374151),
                             ),
                           ),
                         ),
@@ -881,10 +951,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
+                                  color:
+                                      (isDark
+                                              ? AppColors.backgroundSurface
+                                              : Colors.black)
+                                          .withValues(alpha: 0.7),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Tap to expand',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -925,7 +999,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               ].contains(_booking!.status)
           ? FloatingActionButton(
               onPressed: () => _showChatDialog(_booking!),
-              backgroundColor: const Color(0xFF7C3AED),
+              backgroundColor: isDark
+                  ? AppColors.primaryPurple
+                  : const Color(0xFF7C3AED),
               child: const Icon(Icons.chat_bubble, color: Colors.white),
             )
           : null,
@@ -933,6 +1009,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Widget _buildStatusControl(BookingDetail booking) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isCarWash = booking.carWash?.isCarWashService == true;
     final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
     final isEssentials =
@@ -1011,12 +1088,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1041,6 +1122,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Widget _buildStatusTimeline(BookingDetail booking) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isBattery = booking.batteryTire?.isBatteryTireService == true;
     final bool isCarWash = booking.carWash?.isCarWashService == true;
 
@@ -1083,12 +1165,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1099,25 +1185,39 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.show_chart, size: 20, color: Color(0xFF7C3AED)),
+              Icon(
+                Icons.show_chart,
+                size: 20,
+                color: isDark
+                    ? AppColors.primaryPurple
+                    : const Color(0xFF7C3AED),
+              ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Status & Workflow',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
+                  color: isDark
+                      ? AppColors.backgroundSurface
+                      : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'STEP ${currentIndex + 1}/${flow.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF6B7280),
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : const Color(0xFF6B7280),
                   ),
                 ),
               ),
@@ -1145,14 +1245,19 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                             color: isCompleted
                                 ? const Color(0xFF10B981)
                                 : (isActive
-                                      ? const Color(0xFF7C3AED)
-                                      : const Color(0xFFF3F4F6)),
+                                      ? (isDark
+                                            ? AppColors.primaryPurple
+                                            : const Color(0xFF7C3AED))
+                                      : (isDark
+                                            ? AppColors.backgroundSurface
+                                            : const Color(0xFFF3F4F6))),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isActive
-                                  ? const Color(
-                                      0xFF7C3AED,
-                                    ).withValues(alpha: 0.2)
+                                  ? (isDark
+                                            ? AppColors.primaryPurple
+                                            : const Color(0xFF7C3AED))
+                                        .withValues(alpha: 0.2)
                                   : Colors.transparent,
                               width: 4,
                             ),
@@ -1191,8 +1296,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                                   ? FontWeight.bold
                                   : FontWeight.w500,
                               color: isCompleted || isActive
-                                  ? const Color(0xFF111827)
-                                  : const Color(0xFF9CA3AF),
+                                  ? (isDark
+                                        ? Colors.white
+                                        : const Color(0xFF111827))
+                                  : (isDark
+                                        ? AppColors.textMuted
+                                        : const Color(0xFF9CA3AF)),
                             ),
                           ),
                         ),
@@ -1205,7 +1314,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                         margin: const EdgeInsets.only(bottom: 24),
                         color: isCompleted
                             ? const Color(0xFF10B981)
-                            : const Color(0xFFE5E7EB),
+                            : (isDark
+                                  ? AppColors.borderColor
+                                  : const Color(0xFFE5E7EB)),
                       ),
                   ],
                 );
@@ -1218,12 +1329,15 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Widget _statusButton(String status, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 54,
       child: FilledButton(
         onPressed: _updatingStatus ? null : () => _updateStatus(status),
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF7C3AED),
+          backgroundColor: isDark
+              ? AppColors.primaryPurple
+              : const Color(0xFF7C3AED),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -1244,6 +1358,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
+                  color: Colors.white,
                 ),
               ),
       ),
@@ -1251,25 +1366,37 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Widget _photoUploadButton(BookingDetail booking) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 54,
       child: FilledButton.tonal(
         onPressed: _uploadingPhotos ? null : _showPrePickupPhotoOptions,
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFF5F3FF),
-          foregroundColor: const Color(0xFF7C3AED),
+          backgroundColor: isDark
+              ? AppColors.primaryPurple.withValues(alpha: 0.1)
+              : const Color(0xFFF5F3FF),
+          foregroundColor: isDark
+              ? AppColors.primaryPurple
+              : const Color(0xFF7C3AED),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          side: const BorderSide(color: Color(0xFFEDE9FE), width: 1.5),
+          side: BorderSide(
+            color: isDark
+                ? AppColors.primaryPurple.withValues(alpha: 0.2)
+                : const Color(0xFFEDE9FE),
+            width: 1.5,
+          ),
         ),
         child: _uploadingPhotos
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFF7C3AED),
+                  color: isDark
+                      ? AppColors.primaryPurple
+                      : const Color(0xFF7C3AED),
                 ),
               )
             : Text(
@@ -1287,6 +1414,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   }
 
   Widget _directionsButton(BookingDetail booking) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 50,
       child: FilledButton.icon(
@@ -1297,7 +1425,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: isDark
+              ? AppColors.backgroundSurface
+              : const Color(0xFF1E293B),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),

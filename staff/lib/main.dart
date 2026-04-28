@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:convert' as dart_convert;
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/storage.dart';
+import 'core/app_colors.dart';
+import 'state/theme_provider.dart';
 import 'services/background_tracking.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
@@ -26,19 +29,29 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const StaffApp());
-  unawaited(_bootstrapApp());
+
+  final themeProvider = ThemeProvider();
+
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider.value(value: themeProvider)],
+      child: const StaffApp(),
+    ),
+  );
+
+  unawaited(_bootstrapApp(themeProvider));
 }
 
-Future<void> _bootstrapApp() async {
+Future<void> _bootstrapApp(ThemeProvider themeProvider) async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await BackgroundTracking.configure();
-  await SocketService().init();
-
-  // Initialize Notifications
-  await NotificationService().initialize();
+  await Future.wait([
+    themeProvider.loadThemeMode(),
+    BackgroundTracking.configure(),
+    SocketService().init(),
+    NotificationService().initialize(),
+  ]);
 
   // Global socket listener for role updates
   SocketService().addListener(() {
@@ -91,8 +104,24 @@ Future<void> _bootstrapApp() async {
       }
     }
   });
+}
 
-  
+class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
+  const SmoothPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutQuart),
+      child: child,
+    );
+  }
 }
 
 class StaffApp extends StatelessWidget {
@@ -100,31 +129,134 @@ class StaffApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
+    final mode = context.watch<ThemeProvider>().mode;
+
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       title: 'Speshway Staff',
       debugShowCheckedModeBanner: false,
+      themeMode: mode,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: Colors.white,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryBlue,
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: AppColors.backgroundPrimaryLight,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: AppColors.backgroundPrimaryLight,
+          surfaceTintColor: AppColors.backgroundPrimaryLight,
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: SmoothPageTransitionsBuilder(),
+            TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+            TargetPlatform.linux: SmoothPageTransitionsBuilder(),
+            TargetPlatform.macOS: SmoothPageTransitionsBuilder(),
+            TargetPlatform.windows: SmoothPageTransitionsBuilder(),
           },
         ),
-        inputDecorationTheme: const InputDecorationTheme(
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.grey[50],
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[200]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(
+              color: AppColors.primaryBlue,
+              width: 2,
+            ),
+          ),
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.primaryBlue,
+          onPrimary: AppColors.textPrimary,
+          secondary: AppColors.primaryBlueSoft,
+          onSecondary: AppColors.textPrimary,
+          surface: AppColors.backgroundSecondary,
+          onSurface: AppColors.textPrimary,
+          error: AppColors.error,
+          onError: AppColors.textPrimary,
+        ),
+        scaffoldBackgroundColor: AppColors.backgroundPrimary,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.backgroundPrimary,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          titleTextStyle: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          iconTheme: IconThemeData(color: AppColors.textPrimary),
+        ),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          titleMedium: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          bodyLarge: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.normal,
+          ),
+          bodyMedium: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: AppColors.backgroundSecondary,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.borderColor),
+          ),
+        ),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: SmoothPageTransitionsBuilder(),
+            TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+            TargetPlatform.linux: SmoothPageTransitionsBuilder(),
+            TargetPlatform.macOS: SmoothPageTransitionsBuilder(),
+            TargetPlatform.windows: SmoothPageTransitionsBuilder(),
+          },
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.backgroundSecondary,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.borderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(
+              color: AppColors.primaryBlue,
+              width: 2,
+            ),
           ),
         ),
       ),

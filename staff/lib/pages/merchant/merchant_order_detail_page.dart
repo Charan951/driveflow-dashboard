@@ -7,10 +7,12 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../core/app_colors.dart';
 import '../../models/booking.dart';
 import '../../core/storage.dart';
 import '../../services/booking_service.dart';
 import '../../services/socket_service.dart';
+import '../../state/theme_provider.dart';
 
 class MerchantOrderDetailPage extends StatefulWidget {
   const MerchantOrderDetailPage({super.key});
@@ -403,11 +405,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (_booking == null) {
-      return const Scaffold(body: Center(child: Text('Order not found')));
+      return Scaffold(
+        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        body: const Center(child: Text('Order not found')),
+      );
     }
 
     final bool isBattery = _booking!.batteryTire?.isBatteryTireService == true;
@@ -418,11 +429,11 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         _booking!.id.substring(_booking!.id.length - 6).toUpperCase();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
@@ -432,7 +443,11 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           children: [
             Text(
               'Order #$orderNum',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: isDark ? Colors.white : Colors.black,
+              ),
             ),
             Row(
               children: [
@@ -440,12 +455,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   DateFormat(
                     'dd MMM yyyy',
                   ).format(DateTime.parse(_booking!.date)),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   '•',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -453,10 +474,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     _booking!.status,
                     services: _booking?.services,
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF7C3AED),
+                    color: isDark
+                        ? AppColors.primaryPurple
+                        : const Color(0xFF7C3AED),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -477,26 +500,40 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   ),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
+                    color: isDark
+                        ? AppColors.backgroundSecondary
+                        : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderColor
+                          : const Color(0xFFE5E7EB),
+                    ),
                   ),
                   child: TabBar(
                     controller: _tabController!,
                     isScrollable: !isCarWash && !isBattery,
                     indicator: BoxDecoration(
-                      color: const Color(0xFF7C3AED),
+                      color: isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                          color:
+                              (isDark
+                                      ? AppColors.primaryPurple
+                                      : const Color(0xFF7C3AED))
+                                  .withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     labelColor: Colors.white,
-                    unselectedLabelColor: const Color(0xFF6B7280),
+                    unselectedLabelColor: isDark
+                        ? Colors.grey[400]
+                        : const Color(0xFF6B7280),
                     labelStyle: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -603,9 +640,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
     if (!isChatEnabled) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return FloatingActionButton(
       onPressed: _showChatDialog,
-      backgroundColor: const Color(0xFF7C3AED),
+      backgroundColor: isDark
+          ? AppColors.primaryPurple
+          : const Color(0xFF7C3AED),
       child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
     );
   }
@@ -613,6 +654,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Widget _buildOverview() {
     final bool isBattery = _booking!.batteryTire?.isBatteryTireService == true;
     final bool isCarWash = _booking!.carWash?.isCarWashService == true;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     List<String> flow = [
       'CREATED',
@@ -659,12 +701,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? AppColors.backgroundSecondary : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(
+                color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.3)
+                      : Colors.black.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -675,17 +721,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.show_chart,
                       size: 20,
-                      color: Color(0xFF7C3AED),
+                      color: isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Status & Workflow',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const Spacer(),
@@ -695,15 +744,19 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? AppColors.backgroundSurface
+                            : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'STEP ${currentIndex + 1}/${flow.length}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                       ),
                     ),
@@ -731,14 +784,19 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                   color: isCompleted
                                       ? const Color(0xFF10B981)
                                       : (isActive
-                                            ? const Color(0xFF7C3AED)
-                                            : const Color(0xFFF3F4F6)),
+                                            ? (isDark
+                                                  ? AppColors.primaryPurple
+                                                  : const Color(0xFF7C3AED))
+                                            : (isDark
+                                                  ? AppColors.backgroundSurface
+                                                  : const Color(0xFFF3F4F6))),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: isActive
-                                        ? const Color(
-                                            0xFF7C3AED,
-                                          ).withValues(alpha: 0.2)
+                                        ? (isDark
+                                                  ? AppColors.primaryPurple
+                                                  : const Color(0xFF7C3AED))
+                                              .withValues(alpha: 0.2)
                                         : Colors.transparent,
                                     width: 4,
                                   ),
@@ -777,7 +835,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                         ? FontWeight.bold
                                         : FontWeight.w500,
                                     color: isCompleted || isActive
-                                        ? const Color(0xFF111827)
+                                        ? (isDark
+                                              ? Colors.white
+                                              : const Color(0xFF111827))
                                         : const Color(0xFF9CA3AF),
                                   ),
                                 ),
@@ -791,7 +851,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                               margin: const EdgeInsets.only(bottom: 24),
                               color: isCompleted
                                   ? const Color(0xFF10B981)
-                                  : const Color(0xFFE5E7EB),
+                                  : (isDark
+                                        ? AppColors.borderColor
+                                        : const Color(0xFFE5E7EB)),
                             ),
                         ],
                       );
@@ -808,9 +870,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.red[50],
+                color: isDark
+                    ? Colors.red.withValues(alpha: 0.1)
+                    : Colors.red[50],
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red[100]!),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.red.withValues(alpha: 0.2)
+                      : Colors.red[100]!,
+                ),
               ),
               child: Row(
                 children: [
@@ -830,7 +898,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                         Text(
                           _booking!.revisit?.reason ?? 'No reason provided',
                           style: TextStyle(
-                            color: Colors.red[700],
+                            color: isDark ? Colors.red[300] : Colors.red[700],
                             fontSize: 12,
                           ),
                         ),
@@ -845,9 +913,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.orange[50],
+                color: isDark
+                    ? Colors.orange.withValues(alpha: 0.1)
+                    : Colors.orange[50],
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange[100]!),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.orange.withValues(alpha: 0.2)
+                      : Colors.orange[100]!,
+                ),
               ),
               child: Row(
                 children: [
@@ -867,7 +941,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                         Text(
                           _booking!.delay?.reason ?? 'No reason provided',
                           style: TextStyle(
-                            color: Colors.orange[700],
+                            color: isDark
+                                ? Colors.orange[300]
+                                : Colors.orange[700],
                             fontSize: 12,
                           ),
                         ),
@@ -876,7 +952,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           Text(
                             _booking!.delay!.note!,
                             style: TextStyle(
-                              color: Colors.orange[600],
+                              color: isDark
+                                  ? Colors.orange[200]
+                                  : Colors.orange[600],
                               fontSize: 11,
                               fontStyle: FontStyle.italic,
                             ),
@@ -917,7 +995,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               children: [
                 Text(
                   _booking!.notes!,
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey[300] : Colors.black87,
+                  ),
                 ),
               ],
             ),
@@ -927,7 +1008,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             children: [
               Text(
                 _booking!.location?.address ?? 'No address provided',
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.grey[300] : Colors.black87,
+                ),
               ),
               if (_booking!.location?.lat != null &&
                   _booking!.location?.lng != null) ...[
@@ -965,6 +1049,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final inspection = _booking!.inspection;
     final isCompleted = inspection?.completedAt != null;
     final additionalParts = inspection?.additionalParts ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final canAddParts =
         _booking!.status == 'VEHICLE_AT_MERCHANT' ||
@@ -981,12 +1066,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? AppColors.backgroundSecondary : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(
+                color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.3)
+                      : Colors.black.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1003,11 +1092,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       color: Color(0xFFD97706),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Vehicle Inspection',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const Spacer(),
@@ -1018,23 +1108,27 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
+                          color: isDark
+                              ? const Color(0xFF166534).withValues(alpha: 0.2)
+                              : const Color(0xFFDCFCE7),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.check_circle,
                               size: 14,
                               color: Color(0xFF166534),
                             ),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Text(
                               'Confirmed',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF166534),
+                                color: isDark
+                                    ? Colors.green[300]
+                                    : const Color(0xFF166534),
                               ),
                             ),
                           ],
@@ -1043,12 +1137,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Damage Report / Findings',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF374151),
+                    color: isDark ? Colors.grey[300] : const Color(0xFF374151),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1056,32 +1150,56 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   controller: _damageReportController,
                   maxLines: 4,
                   enabled: !isCompleted,
-                  style: const TextStyle(fontSize: 14),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                   decoration: InputDecoration(
                     hintText:
                         'Describe any damages or findings from the initial inspection...',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    filled: isCompleted,
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+                      fontSize: 13,
+                    ),
+                    filled: true,
                     fillColor: isCompleted
-                        ? const Color(0xFFF9FAFB)
-                        : Colors.white,
+                        ? (isDark
+                              ? AppColors.backgroundSurface
+                              : const Color(0xFFF9FAFB))
+                        : (isDark ? AppColors.backgroundSurface : Colors.white),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Vehicle Photos (4 Sides Required)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF374151),
+                    color: isDark ? Colors.grey[300] : const Color(0xFF374151),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1129,12 +1247,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            side: const BorderSide(color: Color(0xFFE5E7EB)),
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.2)
+                                  : const Color(0xFFE5E7EB),
+                            ),
                           ),
                           child: Text(
                             _isSaving ? 'Saving...' : 'Save Draft',
-                            style: const TextStyle(
-                              color: Color(0xFF374151),
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF374151),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1174,9 +1298,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Additional Parts',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 if (!isCompleted)
                   TextButton.icon(
@@ -1187,7 +1315,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED),
                     ),
                   ),
               ],
@@ -1198,10 +1328,14 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
+                  color: isDark
+                      ? AppColors.backgroundSecondary
+                      : const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFE5E7EB),
+                    color: isDark
+                        ? AppColors.borderColor
+                        : const Color(0xFFE5E7EB),
                     style: BorderStyle.solid,
                   ),
                 ),
@@ -1209,13 +1343,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   children: [
                     Icon(
                       Icons.handyman_outlined,
-                      color: Colors.grey[400],
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
                       size: 32,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'No additional parts added',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[500] : Colors.grey[500],
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -1240,8 +1377,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildPartItem(AdditionalPart part) {
-    return Card(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -1251,12 +1396,25 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 Expanded(
                   child: Text(
                     part.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
                 ),
-                Text('Qty: ${part.quantity}'),
+                Text(
+                  'Qty: ${part.quantity}',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.black87,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Text('₹${part.price}'),
+                Text(
+                  '₹${part.price}',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.black87,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 _buildApprovalBadge(part.approvalStatus),
               ],
@@ -1289,16 +1447,17 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     Function(String) onUpload,
   ) {
     final isCompleted = _booking?.inspection?.completedAt != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           '$side side',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF6B7280),
+            color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
             letterSpacing: 0.5,
           ),
         ),
@@ -1315,13 +1474,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               width: double.infinity,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: const Color(0xFFE5E7EB),
+                  color: isDark
+                      ? AppColors.borderColor
+                      : const Color(0xFFE5E7EB),
                   width: 1.5,
-                  // Dashing is not natively supported in BoxDecoration, but we can simulate or use a package.
-                  // For now, a solid border is fine, matching the card style.
                 ),
                 borderRadius: BorderRadius.circular(12),
-                color: const Color(0xFFF9FAFB),
+                color: isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFF9FAFB),
               ),
               child: url != null && url.isNotEmpty
                   ? Stack(
@@ -1361,7 +1522,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       children: [
                         Icon(
                           Icons.cloud_upload_outlined,
-                          color: Colors.grey[400],
+                          color: isDark ? Colors.grey[600] : Colors.grey[400],
                           size: 24,
                         ),
                         const SizedBox(height: 4),
@@ -1370,7 +1531,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[500],
+                            color: isDark ? Colors.grey[500] : Colors.grey[500],
                           ),
                         ),
                       ],
@@ -1556,6 +1717,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             .where((part) => part.approvalStatus == 'Approved' || part.approved)
             .toList() ??
         [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1590,7 +1752,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveServiceData,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
+                  backgroundColor: AppColors.primaryPurple,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -1606,12 +1768,19 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildApprovedInspectionPartsSection(List<AdditionalPart> parts) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: isDark
+            ? const Color(0xFF166534).withValues(alpha: 0.1)
+            : const Color(0xFFF0FDF4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF166534).withValues(alpha: 0.3)
+              : const Color(0xFFBBF7D0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1624,20 +1793,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Approved Inspection Parts',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Color(0xFF166534),
+                  color: isDark ? Colors.green[300] : const Color(0xFF166534),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Customer approved these. Send to service and upload after images.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF15803D)),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.green[200] : const Color(0xFF15803D),
+            ),
           ),
           const SizedBox(height: 16),
           ...parts.asMap().entries.map((entry) {
@@ -1652,9 +1824,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppColors.backgroundSurface : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFDCFCE7)),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFDCFCE7),
+                ),
               ),
               child: Row(
                 children: [
@@ -1673,10 +1849,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.image, color: Colors.grey),
+                      child: Icon(
+                        Icons.image,
+                        color: isDark ? Colors.grey[600] : Colors.grey,
+                      ),
                     ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1685,13 +1866,16 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       children: [
                         Text(
                           part.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
                         Text(
                           'Qty: ${part.quantity} • ₹${part.price}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
                         ),
                       ],
@@ -1706,7 +1890,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: alreadySent
-                          ? Colors.grey[200]
+                          ? (isDark ? Colors.grey[800] : Colors.grey[200])
                           : Colors.green,
                       foregroundColor: alreadySent ? Colors.grey : Colors.white,
                       elevation: 0,
@@ -1757,13 +1941,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     bool isReadOnly,
   ) {
     final existingParts = execution?.serviceParts ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFE5E7EB),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1771,9 +1960,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Service Parts',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
               if (!isReadOnly)
                 TextButton.icon(
@@ -1781,7 +1974,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('New Discovery'),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: AppColors.primaryPurple,
                   ),
                 ),
             ],
@@ -1793,11 +1986,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    Icon(Icons.camera_alt, color: Colors.grey[300], size: 48),
+                    Icon(
+                      Icons.camera_alt,
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      size: 48,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'No service parts yet',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[600] : Colors.grey[400],
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -1819,18 +2019,27 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildExistingServicePartItem(AdditionalPart part, bool isReadOnly) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: part.fromInspection == true
-            ? const Color(0xFFF0FDF4)
-            : const Color(0xFFF8FAFC),
+            ? (isDark
+                  ? const Color(0xFF166534).withValues(alpha: 0.1)
+                  : const Color(0xFFF0FDF4))
+            : (isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : const Color(0xFFF8FAFC)),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: part.fromInspection == true
-              ? const Color(0xFFDCFCE7)
-              : const Color(0xFFE2E8F0),
+              ? (isDark
+                    ? const Color(0xFF166534).withValues(alpha: 0.3)
+                    : const Color(0xFFDCFCE7))
+              : (isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFE2E8F0)),
         ),
       ),
       child: Column(
@@ -1843,11 +2052,17 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   children: [
                     Text(
                       part.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
                     Text(
                       'Qty: ${part.quantity} • ₹${part.price}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                     Text(
                       part.fromInspection == true
@@ -1868,8 +2083,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: part.approvalStatus == 'Approved'
-                      ? Colors.green[100]
-                      : Colors.yellow[100],
+                      ? (isDark
+                            ? Colors.green[900]?.withValues(alpha: 0.3)
+                            : Colors.green[100])
+                      : (isDark
+                            ? Colors.yellow[900]?.withValues(alpha: 0.3)
+                            : Colors.yellow[100]),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1878,8 +2097,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: part.approvalStatus == 'Approved'
-                        ? Colors.green[800]
-                        : Colors.yellow[800],
+                        ? (isDark ? Colors.green[300] : Colors.green[800])
+                        : (isDark ? Colors.yellow[300] : Colors.yellow[800]),
                   ),
                 ),
               ),
@@ -1901,7 +2120,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           fit: BoxFit.cover,
                         ),
                       ),
-                      const Text('Before', style: TextStyle(fontSize: 10)),
+                      Text(
+                        'Before',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.grey[400] : Colors.black,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1919,7 +2144,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           fit: BoxFit.cover,
                         ),
                       ),
-                      const Text('After', style: TextStyle(fontSize: 10)),
+                      Text(
+                        'After',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.grey[400] : Colors.black,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1931,14 +2162,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildNewServicePartItem(int index, Map<String, dynamic> part) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
         ),
       ),
       child: Column(
@@ -1949,11 +2181,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: part['fromInspection'] == true
                     ? Text(
                         part['name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                       )
                     : TextField(
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        decoration: InputDecoration(
                           hintText: 'Part Name',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          ),
                           isDense: true,
                         ),
                         onChanged: (v) => part['name'] = v,
@@ -1984,11 +2225,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: part['fromInspection'] == true
                     ? Text(
                         'Price: ₹${part['price']}',
-                        style: const TextStyle(fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.black,
+                        ),
                       )
                     : TextField(
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        decoration: InputDecoration(
                           hintText: 'Price',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          ),
                           isDense: true,
                         ),
                         keyboardType: TextInputType.number,
@@ -2004,11 +2254,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: part['fromInspection'] == true
                     ? Text(
                         'Qty: ${part['quantity']}',
-                        style: const TextStyle(fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.black,
+                        ),
                       )
                     : TextField(
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        decoration: InputDecoration(
                           hintText: 'Qty',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          ),
                           isDense: true,
                         ),
                         keyboardType: TextInputType.number,
@@ -2055,7 +2314,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                           ))
                                   : const SizedBox.shrink()),
                       ),
-                      const Text('Before', style: TextStyle(fontSize: 10)),
+                      Text(
+                        'Before',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.grey[400] : Colors.black,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2073,9 +2338,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   child: Container(
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.grey[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.grey[300]!,
+                      ),
                     ),
                     child: part['image'] != null
                         ? ClipRRect(
@@ -2090,13 +2361,21 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                     fit: BoxFit.cover,
                                   ),
                           )
-                        : const Column(
+                        : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.camera_alt, color: Colors.grey),
+                              Icon(
+                                Icons.camera_alt,
+                                color: isDark ? Colors.grey[600] : Colors.grey,
+                              ),
                               Text(
                                 'After Image',
-                                style: TextStyle(fontSize: 10),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -2128,15 +2407,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     ServiceExecutionData? execution,
     bool isReadOnly,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final existingAfter = execution?.afterPhotos ?? [];
     final totalPhotos = existingAfter.length + _newAfterPhotos.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFE5E7EB),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2144,13 +2428,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'After Service Photos',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
               Text(
                 '$totalPhotos/4 Photos',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[600] : Colors.grey[500],
+                ),
               ),
             ],
           ),
@@ -2175,11 +2466,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     child: Container(
                       width: 100,
                       decoration: BoxDecoration(
-                        color: Colors.grey[50],
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.grey[50],
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.grey[300]!,
+                        ),
                       ),
-                      child: const Icon(Icons.add_a_photo, color: Colors.grey),
+                      child: Icon(
+                        Icons.add_a_photo,
+                        color: isDark ? Colors.grey[600] : Colors.grey,
+                      ),
                     ),
                   ),
               ],
@@ -2206,6 +2506,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildFilePhotoItem(XFile file) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Stack(
@@ -2233,8 +2534,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               onTap: () => setState(() => _newAfterPhotos.remove(file)),
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.7)
+                      : Colors.black54,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.close, size: 12, color: Colors.white),
@@ -2247,19 +2550,28 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildExtraCostSection(bool isReadOnly) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFE5E7EB),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Request Extra Cost Approval',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : Colors.black,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -2269,10 +2581,22 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: TextField(
                   controller: _extraCostReasonController,
                   enabled: !isReadOnly,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   decoration: InputDecoration(
                     hintText: 'Reason',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -2287,10 +2611,22 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   controller: _extraCostAmountController,
                   enabled: !isReadOnly,
                   keyboardType: TextInputType.number,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   decoration: InputDecoration(
                     hintText: 'Amount',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -2415,15 +2751,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Widget _buildQC() {
     final qc = _booking!.qc;
     final isQCCompleted = qc?.completedAt != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quality Check (QC)',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDark ? Colors.white : Colors.black,
+            ),
           ),
           const SizedBox(height: 16),
           _buildQCCheckbox(
@@ -2451,15 +2792,31 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green[50],
+                color: isDark
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : Colors.green[50],
                 borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'QC Completed at: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(qc!.completedAt!))}',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.green[100]!,
                 ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'QC Completed at: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(qc!.completedAt!))}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
           else
@@ -2481,8 +2838,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                           _noLeaksChecked &&
                           _noErrorLightsChecked)
                       ? Colors.green
-                      : Colors.grey,
+                      : (isDark ? Colors.grey[800] : Colors.grey),
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text('Confirm QC Completion'),
               ),
@@ -2494,13 +2855,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   Widget _buildQCCheckbox(String label, bool value, Function(bool) onChanged) {
     final isCompleted = _booking!.qc?.completedAt != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CheckboxListTile(
       title: Text(
         label,
-        style: TextStyle(color: isCompleted ? Colors.grey : null),
+        style: TextStyle(
+          color: isCompleted
+              ? (isDark ? Colors.grey[600] : Colors.grey)
+              : (isDark ? Colors.white : Colors.black),
+        ),
       ),
       value: value,
       onChanged: isCompleted ? null : (v) => onChanged(v ?? false),
+      activeColor: AppColors.primaryPurple,
+      checkColor: Colors.white,
     );
   }
 
@@ -2550,22 +2918,41 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   Widget _buildBilling() {
     final billing = _booking!.billing;
     final isUploaded = billing?.fileUrl != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Invoice Details',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDark ? Colors.white : Colors.black,
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _invoiceNumberController,
-            decoration: const InputDecoration(
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
               labelText: 'Invoice Number',
-              border: OutlineInputBorder(),
+              labelStyle: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE5E7EB),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2575,9 +2962,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: TextField(
                   controller: _partsCostController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
                     labelText: 'Parts Cost',
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[700],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -2586,9 +2987,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 child: TextField(
                   controller: _labourCostController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
                     labelText: 'Labour Cost',
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[700],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -2598,15 +3013,33 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           TextField(
             controller: _gstController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
               labelText: 'GST',
-              border: OutlineInputBorder(),
+              labelStyle: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE5E7EB),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Bill / Invoice File',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : Colors.black,
+            ),
           ),
           const SizedBox(height: 8),
           if (isUploaded && _billFile == null)
@@ -2615,14 +3048,28 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: isDark
+                        ? Colors.blue.withValues(alpha: 0.1)
+                        : Colors.blue[50],
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.blue.withValues(alpha: 0.2)
+                          : Colors.blue[100]!,
+                    ),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.file_present, color: Colors.blue),
                       const SizedBox(width: 12),
-                      const Expanded(child: Text('Invoice document uploaded')),
+                      Expanded(
+                        child: Text(
+                          'Invoice document uploaded',
+                          style: TextStyle(
+                            color: isDark ? Colors.blue[200] : Colors.blue[800],
+                          ),
+                        ),
+                      ),
                       TextButton(
                         onPressed: () => _pickBillFile(),
                         child: const Text('Change'),
@@ -2635,6 +3082,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   onPressed: () => launchUrl(Uri.parse(billing!.fileUrl!)),
                   icon: const Icon(Icons.visibility),
                   label: const Text('View Document'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryPurple,
+                  ),
                 ),
               ],
             )
@@ -2646,11 +3096,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: Colors.grey[300]!,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.grey[300]!,
                     style: BorderStyle.solid,
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey[50],
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey[50],
                 ),
                 child: Column(
                   children: [
@@ -2666,6 +3120,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       _billFile != null
                           ? 'File Selected: ${_billFile!.name}'
                           : 'Tap to select Invoice (Image/PDF)',
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -2677,9 +3134,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             child: ElevatedButton(
               onPressed: _isSaving ? null : _submitBilling,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: AppColors.primaryPurple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 _isSaving ? 'Submitting...' : 'Submit Bill & Complete Service',
@@ -3182,46 +3642,68 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: const Color(0xFF7C3AED)),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            ...children,
-          ],
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : Colors.grey[200]!,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isDark
+                    ? AppColors.primaryPurple
+                    : const Color(0xFF7C3AED),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+          Divider(
+            height: 24,
+            color: isDark ? AppColors.borderColor : Colors.grey[200],
+          ),
+          ...children,
+        ],
       ),
     );
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
         ],
       ),
     );
@@ -3229,6 +3711,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   Widget _buildWarranty() {
     final warranty = _booking!.batteryTire?.warranty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (warranty?.name != null && warranty!.name!.isNotEmpty) {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -3236,9 +3720,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.green[200]!),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.green.withValues(alpha: 0.2)
+                  : Colors.green[200]!,
+            ),
           ),
-          color: Colors.green[50],
+          color: isDark
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.green[50],
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -3247,16 +3737,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Warranty Information',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     Text(
                       warranty.addedAt ?? '',
-                      style: TextStyle(color: Colors.green[700], fontSize: 12),
+                      style: TextStyle(
+                        color: isDark ? Colors.green[300] : Colors.green[700],
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -3272,9 +3766,13 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     ),
                   ),
                 const SizedBox(height: 12),
-                _kv('Product', warranty.name ?? '-'),
-                _kv('Price', '₹${warranty.price ?? 0}'),
-                _kv('Warranty', '${warranty.warrantyMonths ?? 0} months'),
+                _kv('Product', warranty.name ?? '-', isDark),
+                _kv('Price', '₹${warranty.price ?? 0}', isDark),
+                _kv(
+                  'Warranty',
+                  '${warranty.warrantyMonths ?? 0} months',
+                  isDark,
+                ),
               ],
             ),
           ),
@@ -3287,26 +3785,81 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Add Warranty Information',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDark ? Colors.white : Colors.black,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _warrantyNameController,
-            decoration: const InputDecoration(labelText: 'Product Name'),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              labelText: 'Product Name',
+              labelStyle: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _warrantyPriceController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Price (₹)'),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              labelText: 'Price (₹)',
+              labelStyle: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _warrantyMonthsController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Warranty Months'),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              labelText: 'Warranty Months',
+              labelStyle: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           InkWell(
@@ -3315,9 +3868,15 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.grey[300]!,
+                ),
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.grey[50],
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey[50],
               ),
               child: Column(
                 children: [
@@ -3333,6 +3892,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     _warrantyImage != null
                         ? 'Image Selected'
                         : 'Tap to upload product image',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
@@ -3344,9 +3906,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             child: ElevatedButton(
               onPressed: _isSaving || _isUploading ? null : _submitWarranty,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: AppColors.primaryPurple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(_isSaving ? 'Submitting...' : 'Add Warranty'),
             ),
@@ -3356,14 +3921,23 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Widget _kv(String k, String v) {
+  Widget _kv(String k, String v, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(k, style: const TextStyle(color: Colors.grey)),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            k,
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey),
+          ),
+          Text(
+            v,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
         ],
       ),
     );
@@ -3431,6 +4005,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   void _showChatDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -3440,9 +4015,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (_, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: _ChatDialog(
             bookingId: _booking!.id,
@@ -3617,6 +4192,7 @@ class _ChatDialogState extends State<_ChatDialog> {
   }
 
   Widget _buildApprovalMessage(Map<String, dynamic> msg, bool isMe) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final approval = msg['approval'];
     if (approval == null) return const SizedBox.shrink();
 
@@ -3640,9 +4216,13 @@ class _ChatDialogState extends State<_ChatDialog> {
             width: 240,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? AppColors.backgroundSurface : Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : statusColor.withValues(alpha: 0.3),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -3669,13 +4249,19 @@ class _ChatDialogState extends State<_ChatDialog> {
                   ),
                 Text(
                   partName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 Text(
                   'Amount: ₹$amount',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                const Divider(height: 16),
+                Divider(
+                  height: 16,
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : null,
+                ),
                 Row(
                   children: [
                     Container(
@@ -3707,13 +4293,20 @@ class _ChatDialogState extends State<_ChatDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+            border: Border(
+              bottom: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.grey[200]!,
+              ),
+            ),
           ),
           child: Row(
             children: [
@@ -3721,11 +4314,20 @@ class _ChatDialogState extends State<_ChatDialog> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                  color:
+                      (isDark
+                              ? AppColors.primaryPurple
+                              : const Color(0xFF7C3AED))
+                          .withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Icon(Icons.support_agent, color: Color(0xFF7C3AED)),
+                child: Center(
+                  child: Icon(
+                    Icons.support_agent,
+                    color: isDark
+                        ? AppColors.primaryPurple
+                        : const Color(0xFF7C3AED),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3733,11 +4335,12 @@ class _ChatDialogState extends State<_ChatDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Support Chat',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     Text(
@@ -3748,7 +4351,10 @@ class _ChatDialogState extends State<_ChatDialog> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(
+                  Icons.close,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -3758,7 +4364,13 @@ class _ChatDialogState extends State<_ChatDialog> {
         // Messages
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: isDark
+                        ? AppColors.primaryPurple
+                        : const Color(0xFF7C3AED),
+                  ),
+                )
               : _messages.isEmpty
               ? Center(
                   child: Column(
@@ -3767,12 +4379,14 @@ class _ChatDialogState extends State<_ChatDialog> {
                       Icon(
                         Icons.chat_bubble_outline,
                         size: 48,
-                        color: Colors.grey[300],
+                        color: isDark ? Colors.grey[700] : Colors.grey[300],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'No messages yet',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(
+                          color: isDark ? Colors.grey[500] : Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -3814,9 +4428,11 @@ class _ChatDialogState extends State<_ChatDialog> {
                               ),
                               child: Text(
                                 senderName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.grey,
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey,
                                 ),
                               ),
                             ),
@@ -3827,8 +4443,12 @@ class _ChatDialogState extends State<_ChatDialog> {
                             ),
                             decoration: BoxDecoration(
                               color: isMe
-                                  ? const Color(0xFF7C3AED)
-                                  : const Color(0xFFF3F4F6),
+                                  ? (isDark
+                                        ? AppColors.primaryPurple
+                                        : const Color(0xFF7C3AED))
+                                  : (isDark
+                                        ? AppColors.backgroundSurface
+                                        : const Color(0xFFF3F4F6)),
                               borderRadius: BorderRadius.only(
                                 topLeft: const Radius.circular(16),
                                 topRight: const Radius.circular(16),
@@ -3839,11 +4459,20 @@ class _ChatDialogState extends State<_ChatDialog> {
                                     ? Radius.zero
                                     : const Radius.circular(16),
                               ),
+                              border: isMe || !isDark
+                                  ? null
+                                  : Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                    ),
                             ),
                             child: Text(
                               text,
                               style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black87,
+                                color: isMe
+                                    ? Colors.white
+                                    : (isDark ? Colors.white : Colors.black87),
                                 fontSize: 14,
                               ),
                             ),
@@ -3856,9 +4485,9 @@ class _ChatDialogState extends State<_ChatDialog> {
                             ),
                             child: Text(
                               time,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 9,
-                                color: Colors.grey,
+                                color: isDark ? Colors.grey[500] : Colors.grey,
                               ),
                             ),
                           ),
@@ -3878,15 +4507,23 @@ class _ChatDialogState extends State<_ChatDialog> {
             bottom: MediaQuery.of(context).padding.bottom + 12,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey[200]!)),
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.grey[200]!,
+              ),
+            ),
           ),
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_circle_outline,
-                  color: Color(0xFF7C3AED),
+                  color: isDark
+                      ? AppColors.primaryPurple
+                      : const Color(0xFF7C3AED),
                 ),
                 onPressed: _showAddPartDialog,
               ),
@@ -3894,15 +4531,23 @@ class _ChatDialogState extends State<_ChatDialog> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
+                    color: isDark
+                        ? AppColors.backgroundSurface
+                        : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    decoration: InputDecoration(
                       hintText: 'Type a message...',
                       border: InputBorder.none,
-                      hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[600] : Colors.grey,
+                      ),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -3910,8 +4555,10 @@ class _ChatDialogState extends State<_ChatDialog> {
               ),
               const SizedBox(width: 8),
               Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF7C3AED),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.primaryPurple
+                      : const Color(0xFF7C3AED),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(

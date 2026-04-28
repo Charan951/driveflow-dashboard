@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
 import '../core/env.dart';
@@ -45,16 +46,34 @@ class AuthService {
     return StaffUser.fromJson(response);
   }
 
-  Future<StaffUser?> getCurrentUser() async {
-    final json = await AppStorage().getUserJson();
-    if (json == null || json.isEmpty) return null;
-    final map = jsonDecode(json) as Map<String, dynamic>;
-    final user = StaffUser.fromJson(map);
+  Future<StaffUser?> getCurrentUser({bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      final json = await AppStorage().getUserJson();
+      if (json != null && json.isNotEmpty) {
+        try {
+          final map = jsonDecode(json) as Map<String, dynamic>;
+          final user = StaffUser.fromJson(map);
+          // Sync FCM token if we have a user
+          NotificationService().syncToken();
+          return user;
+        } catch (e) {
+          debugPrint('AuthService: Error parsing cached user: $e');
+        }
+      }
+    }
 
-    // Sync FCM token if we have a user
-    NotificationService().syncToken();
-
-    return user;
+    // If no cache or refresh requested, fetch from server
+    try {
+      final response = await _api.getJson(ApiEndpoints.usersMe);
+      final storage = AppStorage();
+      await storage.setUserJson(jsonEncode(response));
+      final user = StaffUser.fromJson(response);
+      NotificationService().syncToken();
+      return user;
+    } catch (e) {
+      debugPrint('AuthService: Error fetching user from server: $e');
+      return null;
+    }
   }
 
   Future<void> logout() async {

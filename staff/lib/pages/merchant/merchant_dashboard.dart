@@ -4,6 +4,7 @@ import '../../services/booking_service.dart';
 import '../../services/socket_service.dart';
 import '../../models/user.dart';
 import '../../widgets/merchant/merchant_nav.dart';
+import '../../core/app_colors.dart';
 
 class MerchantDashboardPage extends StatefulWidget {
   const MerchantDashboardPage({super.key});
@@ -66,7 +67,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     }
 
     try {
-      final user = await _authService.getCurrentUser();
+      final user = await _authService.getCurrentUser(forceRefresh: true);
       final stats = await _bookingService.getMerchantStats();
       if (mounted) {
         setState(() {
@@ -105,6 +106,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -121,26 +125,39 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
             children: [
               Text(
                 'Welcome, ${_user?.name ?? 'Merchant'}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Manage your service center orders and status.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
               ),
               const SizedBox(height: 24),
               // Shop Status Card
               Card(
                 elevation: 0,
-                color: _isShopOpen ? Colors.green[50] : Colors.red[50],
+                color: _isShopOpen
+                    ? (isDark
+                          ? AppColors.success.withValues(alpha: 0.1)
+                          : AppColors.success.withValues(alpha: 0.05))
+                    : (isDark
+                          ? AppColors.error.withValues(alpha: 0.1)
+                          : AppColors.error.withValues(alpha: 0.05)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: _isShopOpen ? Colors.green[100]! : Colors.red[100]!,
+                    color: _isShopOpen
+                        ? (isDark
+                              ? AppColors.success.withValues(alpha: 0.2)
+                              : AppColors.success.withValues(alpha: 0.1))
+                        : (isDark
+                              ? AppColors.error.withValues(alpha: 0.2)
+                              : AppColors.error.withValues(alpha: 0.1)),
                   ),
                 ),
                 child: Padding(
@@ -149,7 +166,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                     children: [
                       Icon(
                         _isShopOpen ? Icons.store : Icons.store_outlined,
-                        color: _isShopOpen ? Colors.green : Colors.red,
+                        color: _isShopOpen
+                            ? AppColors.success
+                            : AppColors.error,
                         size: 32,
                       ),
                       const SizedBox(width: 16),
@@ -162,8 +181,12 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _isShopOpen
-                                    ? Colors.green[800]
-                                    : Colors.red[800],
+                                    ? (isDark
+                                          ? AppColors.success
+                                          : AppColors.success)
+                                    : (isDark
+                                          ? AppColors.error
+                                          : AppColors.error),
                                 fontSize: 16,
                               ),
                             ),
@@ -173,8 +196,20 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                                   : 'Hidden from customers',
                               style: TextStyle(
                                 color: _isShopOpen
-                                    ? Colors.green[600]
-                                    : Colors.red[600],
+                                    ? (isDark
+                                          ? AppColors.success.withValues(
+                                              alpha: 0.7,
+                                            )
+                                          : AppColors.success.withValues(
+                                              alpha: 0.8,
+                                            ))
+                                    : (isDark
+                                          ? AppColors.error.withValues(
+                                              alpha: 0.7,
+                                            )
+                                          : AppColors.error.withValues(
+                                              alpha: 0.8,
+                                            )),
                                 fontSize: 13,
                               ),
                             ),
@@ -184,7 +219,10 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                       Switch(
                         value: _isShopOpen,
                         onChanged: _toggleShopStatus,
-                        activeThumbColor: Colors.green,
+                        activeThumbColor: AppColors.success,
+                        activeTrackColor: AppColors.success.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                     ],
                   ),
@@ -198,7 +236,8 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                     title: 'Active Orders',
                     value: _stats['activeOrders'].toString(),
                     icon: Icons.pending_actions,
-                    color: Colors.blue,
+                    color: AppColors.primaryBlue,
+                    isDark: isDark,
                   ),
                   const SizedBox(width: 16),
                   _buildStatCard(
@@ -206,25 +245,27 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                     title: 'Completed',
                     value: _stats['completedOrders'].toString(),
                     icon: Icons.check_circle_outline,
-                    color: Colors.green,
+                    color: AppColors.success,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 16),
+                  _buildStatCard(
+                    context,
+                    title: 'Pending Bills',
+                    value: _stats['pendingBills'].toString(),
+                    icon: Icons.receipt_long,
+                    color: AppColors.warning,
+                    isDark: isDark,
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              _buildStatCard(
-                context,
-                title: 'Pending Bills',
-                value: _stats['pendingBills'].toString(),
-                icon: Icons.receipt_long,
-                color: Colors.orange,
-                isFullWidth: true,
               ),
               const SizedBox(height: 32),
               Text(
                 'Quick Actions',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
               const SizedBox(height: 16),
               _buildActionCard(
@@ -247,14 +288,21 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     required String value,
     required IconData icon,
     required Color color,
+    required bool isDark,
     bool isFullWidth = false,
   }) {
     final card = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: isDark
+            ? color.withValues(alpha: 0.1)
+            : color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: isDark
+              ? color.withValues(alpha: 0.2)
+              : color.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,7 +314,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: color.withValues(alpha: 0.8),
+              color: isDark
+                  ? color.withValues(alpha: 0.9)
+                  : color.withValues(alpha: 0.8),
             ),
           ),
           Text(
@@ -274,7 +324,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: color.withValues(alpha: 0.7),
+              color: isDark
+                  ? color.withValues(alpha: 0.8)
+                  : color.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -292,11 +344,15 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 0,
+      color: isDark ? AppColors.backgroundSecondary : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!),
+        side: BorderSide(
+          color: isDark ? AppColors.borderColor : Colors.grey[200]!,
+        ),
       ),
       child: ListTile(
         onTap: onTap,
@@ -304,14 +360,31 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.deepPurple[50],
+            color: isDark
+                ? AppColors.primaryPurple.withValues(alpha: 0.1)
+                : Colors.deepPurple.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: Colors.deepPurple),
+          child: Icon(
+            icon,
+            color: isDark ? AppColors.primaryPurple : Colors.deepPurple,
+          ),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
       ),
     );
   }

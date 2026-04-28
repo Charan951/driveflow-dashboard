@@ -9,10 +9,12 @@ class AppStorage {
 
   static const _tokenKey = 'staff_access_token';
   static const _userKey = 'staff_auth_user';
+  static const _themeModeKey = 'theme_mode';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
+      sharedPreferencesName: 'speshway_staff_storage',
       resetOnError: true,
     ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
@@ -20,9 +22,27 @@ class AppStorage {
 
   SharedPreferences? _prefs;
 
-  Future<SharedPreferences> get _nonSensitiveStorage async {
+  Future<SharedPreferences> _getPrefs() async {
     _prefs ??= await SharedPreferences.getInstance();
     return _prefs!;
+  }
+
+  Future<void> setThemeMode(String mode) async {
+    try {
+      final prefs = await _getPrefs();
+      await prefs.setString(_themeModeKey, mode);
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  Future<String?> getThemeMode() async {
+    try {
+      final prefs = await _getPrefs();
+      return prefs.getString(_themeModeKey);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> setToken(String token) async {
@@ -38,18 +58,37 @@ class AppStorage {
   }
 
   Future<void> setUserJson(String userJson) async {
-    final prefs = await _nonSensitiveStorage;
-    await prefs.setString(_userKey, userJson);
+    try {
+      await _secureStorage.write(key: _userKey, value: userJson);
+    } catch (e) {
+      // Silent catch
+    }
   }
 
   Future<String?> getUserJson() async {
-    final prefs = await _nonSensitiveStorage;
-    return prefs.getString(_userKey);
+    try {
+      return await _secureStorage.read(key: _userKey);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> clearUser() async {
-    final prefs = await _nonSensitiveStorage;
-    await prefs.remove(_userKey);
+    try {
+      await _secureStorage.delete(key: _userKey);
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  Future<void> clearAll() async {
+    try {
+      await _secureStorage.deleteAll();
+      final prefs = await _getPrefs();
+      await prefs.clear();
+    } catch (e) {
+      // Silent catch
+    }
   }
 
   Future<String?> getUserId() async {

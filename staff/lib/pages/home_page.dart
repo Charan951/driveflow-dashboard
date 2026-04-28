@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -8,6 +9,8 @@ import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
 import '../services/socket_service.dart';
+import '../core/app_colors.dart';
+import '../state/theme_provider.dart';
 
 class StaffHomePage extends StatefulWidget {
   const StaffHomePage({super.key});
@@ -71,7 +74,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
     // Try to get cached user immediately for profile view
     _authService
-        .getCurrentUser()
+        .getCurrentUser(forceRefresh: true)
         .then((user) {
           if (mounted) {
             setState(() {
@@ -226,6 +229,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
     TrackingInfo trackingInfo,
     bool isCompact,
   ) {
+    final isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: Column(
@@ -235,7 +239,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
             'Staff Portal',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF111827),
+              color: isDark ? Colors.white : const Color(0xFF111827),
             ),
           ),
           const SizedBox(height: 24),
@@ -243,6 +247,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
             icon: Icons.dashboard_rounded,
             label: 'Dashboard',
             selected: _selectedNav == 'dashboard',
+            isDark: isDark,
             onTap: () {
               setState(() {
                 _selectedNav = 'dashboard';
@@ -257,6 +262,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
             icon: Icons.list_alt_rounded,
             label: 'Orders',
             selected: _selectedNav == 'orders',
+            isDark: isDark,
             onTap: () {
               setState(() {
                 _selectedNav = 'orders';
@@ -271,6 +277,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
             icon: Icons.person_rounded,
             label: 'Profile',
             selected: _selectedNav == 'profile',
+            isDark: isDark,
             onTap: () {
               setState(() {
                 _selectedNav = 'profile';
@@ -282,9 +289,20 @@ class _StaffHomePageState extends State<StaffHomePage> {
           ),
           const SizedBox(height: 8),
           _NavItem(
+            icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            label: isDark ? 'Light Mode' : 'Dark Mode',
+            selected: false,
+            isDark: isDark,
+            onTap: () {
+              context.read<ThemeProvider>().toggleTheme();
+            },
+          ),
+          const SizedBox(height: 8),
+          _NavItem(
             icon: Icons.privacy_tip_rounded,
             label: 'Privacy Policy',
             selected: false,
+            isDark: isDark,
             onTap: () async {
               const url = 'https://carzzi.com/privacy';
               if (await canLaunchUrl(Uri.parse(url))) {
@@ -300,6 +318,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 'Live Status',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
               Switch(
@@ -311,23 +330,29 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   _handleToggleTracking(v);
                 },
                 activeThumbColor: Colors.white,
-                activeTrackColor: const Color(0xFF22C55E),
+                activeTrackColor: isDark
+                    ? AppColors.success
+                    : const Color(0xFF22C55E),
               ),
             ],
           ),
           Text(
             'Share location',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF6B7280),
+              color: isDark ? AppColors.textMuted : const Color(0xFF6B7280),
             ),
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFECFDF3),
+              color: isDark
+                  ? AppColors.backgroundSurface
+                  : const Color(0xFFECFDF3),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
+              border: Border.all(
+                color: isDark ? AppColors.borderColor : const Color(0xFFBBF7D0),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,9 +362,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
                     Container(
                       width: 24,
                       height: 24,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF22C55E),
+                        color: isDark
+                            ? AppColors.success
+                            : const Color(0xFF22C55E),
                       ),
                       child: const Icon(
                         Icons.check_rounded,
@@ -355,7 +382,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                             : 'Tracking paused',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF166534),
+                          color: isDark
+                              ? AppColors.success
+                              : const Color(0xFF166534),
                         ),
                       ),
                     ),
@@ -367,6 +396,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   value: trackingInfo.lat != null
                       ? trackingInfo.lat!.toStringAsFixed(6)
                       : '-',
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 4),
                 _StatusLine(
@@ -374,16 +404,19 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   value: trackingInfo.lng != null
                       ? trackingInfo.lng!.toStringAsFixed(6)
                       : '-',
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 4),
                 _StatusLine(
                   label: 'Last Update',
                   value: _formatTime(trackingInfo.lastUpdate),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 4),
                 _StatusLine(
                   label: 'Server Sync',
                   value: _formatTime(trackingInfo.lastServerSync),
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -405,7 +438,10 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
             ),
           ),
         ],
@@ -430,12 +466,53 @@ class _StaffHomePageState extends State<StaffHomePage> {
     }
   }
 
+  Widget _buildBottomBar(bool isDark) {
+    return SafeArea(
+      child: BottomNavigationBar(
+        currentIndex: _selectedNav == 'orders'
+            ? 0
+            : _selectedNav == 'dashboard'
+            ? 1
+            : 2,
+        onTap: (index) {
+          setState(() {
+            if (index == 0) _selectedNav = 'orders';
+            if (index == 1) _selectedNav = 'dashboard';
+            if (index == 2) _selectedNav = 'profile';
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt_rounded),
+            label: 'Orders',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_rounded),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+        selectedItemColor: isDark
+            ? AppColors.primaryPurple
+            : const Color(0xFF2563EB),
+        unselectedItemColor: isDark ? Colors.grey[400] : Colors.grey[600],
+        backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+    );
+  }
+
   Widget _buildMainContent(
     ThemeData theme,
     List<BookingSummary> bookings,
     int todayCount,
     int completedCount,
     int pendingCount,
+    bool isDark,
   ) {
     return Center(
       child: ConstrainedBox(
@@ -464,7 +541,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                   : 'My Profile',
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1D4ED8),
+                                color: isDark
+                                    ? AppColors.primaryPurple
+                                    : const Color(0xFF1E3A8A),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -475,7 +554,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                   ? 'View and manage your active orders'
                                   : 'Your personal information and role details',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF6B7280),
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -485,7 +566,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   ),
                   const SizedBox(height: 24),
                   if (_selectedNav == 'profile') ...[
-                    _buildProfileContent(theme),
+                    _buildProfileContent(theme, isDark),
                   ] else if (_selectedNav == 'dashboard') ...[
                     if (isCompact)
                       RepaintBoundary(
@@ -498,7 +579,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                     title: "Today's Orders",
                                     value: todayCount.toString(),
                                     icon: Icons.inventory_2,
-                                    color: const Color(0xFF2563EB),
+                                    color: isDark
+                                        ? AppColors.primaryPurple
+                                        : const Color(0xFF2563EB),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -507,7 +590,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                     title: 'Pending',
                                     value: pendingCount.toString(),
                                     icon: Icons.schedule,
-                                    color: const Color(0xFF0EA5E9),
+                                    color: isDark
+                                        ? AppColors.primaryPurple
+                                        : const Color(0xFF0EA5E9),
                                   ),
                                 ),
                               ],
@@ -520,7 +605,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                     title: 'Completed',
                                     value: completedCount.toString(),
                                     icon: Icons.check_circle,
-                                    color: const Color(0xFF10B981),
+                                    color: isDark
+                                        ? AppColors.success
+                                        : const Color(0xFF10B981),
                                   ),
                                 ),
                               ],
@@ -537,7 +624,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                 title: "Today's Orders",
                                 value: todayCount.toString(),
                                 icon: Icons.inventory_2,
-                                color: const Color(0xFF2563EB),
+                                color: isDark
+                                    ? AppColors.primaryPurple
+                                    : const Color(0xFF2563EB),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -546,7 +635,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                 title: 'Pending',
                                 value: pendingCount.toString(),
                                 icon: Icons.schedule,
-                                color: const Color(0xFF0EA5E9),
+                                color: isDark
+                                    ? AppColors.primaryPurple
+                                    : const Color(0xFF0EA5E9),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -555,7 +646,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                 title: 'Completed',
                                 value: completedCount.toString(),
                                 icon: Icons.check_circle,
-                                color: const Color(0xFF10B981),
+                                color: isDark
+                                    ? AppColors.success
+                                    : const Color(0xFF10B981),
                               ),
                             ),
                           ],
@@ -567,14 +660,18 @@ class _StaffHomePageState extends State<StaffHomePage> {
                         children: [
                           Icon(
                             Icons.assignment_outlined,
-                            color: const Color(0xFF1E3A8A),
+                            color: isDark
+                                ? AppColors.primaryPurple
+                                : const Color(0xFF1E3A8A),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             'Active Jobs',
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E3A8A),
+                              color: isDark
+                                  ? AppColors.primaryPurple
+                                  : const Color(0xFF1E3A8A),
                             ),
                           ),
                         ],
@@ -587,6 +684,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       'Active Orders',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -597,8 +695,15 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 48),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark
+                            ? AppColors.backgroundSecondary
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : Colors.transparent,
+                        ),
                       ),
                       child: const Center(child: CircularProgressIndicator()),
                     )
@@ -610,8 +715,15 @@ class _StaffHomePageState extends State<StaffHomePage> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark
+                            ? AppColors.backgroundSecondary
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : Colors.transparent,
+                        ),
                       ),
                       child: Center(child: Text(_errorText!)),
                     )
@@ -623,8 +735,15 @@ class _StaffHomePageState extends State<StaffHomePage> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark
+                            ? AppColors.backgroundSecondary
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : Colors.transparent,
+                        ),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -639,13 +758,16 @@ class _StaffHomePageState extends State<StaffHomePage> {
                             'No active orders',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             "You don't have any active orders assigned.",
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF6B7280),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -658,26 +780,35 @@ class _StaffHomePageState extends State<StaffHomePage> {
                             (b) => Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: isDark
+                                    ? AppColors.backgroundSecondary
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
+                                  color: isDark
+                                      ? AppColors.borderColor
+                                      : const Color(0xFFE5E7EB),
                                 ),
                               ),
                               child: ListTile(
                                 contentPadding: const EdgeInsets.all(16),
                                 leading: CircleAvatar(
                                   radius: 22,
-                                  backgroundColor: const Color(0xFFE0EAFF),
+                                  backgroundColor: isDark
+                                      ? AppColors.backgroundSurface
+                                      : const Color(0xFFE0EAFF),
                                   child: Icon(
                                     Icons.directions_car_filled_rounded,
-                                    color: const Color(0xFF2563EB),
+                                    color: isDark
+                                        ? AppColors.primaryPurple
+                                        : const Color(0xFF2563EB),
                                   ),
                                 ),
                                 title: Text(
                                   b.vehicleName ?? 'Booking',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black,
                                   ),
                                 ),
                                 subtitle: Column(
@@ -687,7 +818,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                       'Order #${b.orderNumber ?? b.id}',
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            color: const Color(0xFF374151),
+                                            color: isDark
+                                                ? Colors.grey[400]
+                                                : const Color(0xFF374151),
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
@@ -696,21 +829,33 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                       'Status: ${b.status}',
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            color: const Color(0xFF2563EB),
+                                            color: isDark
+                                                ? AppColors.primaryPurple
+                                                : const Color(0xFF2563EB),
                                           ),
                                     ),
                                     if (b.locationAddress != null) ...[
                                       const SizedBox(height: 4),
                                       Text(
                                         b.locationAddress!,
-                                        style: theme.textTheme.bodySmall,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: isDark
+                                                  ? Colors.grey[400]
+                                                  : Colors.black54,
+                                            ),
                                       ),
                                     ],
                                     if (b.date != null) ...[
                                       const SizedBox(height: 4),
                                       Text(
                                         b.date!,
-                                        style: theme.textTheme.bodySmall,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: isDark
+                                                  ? Colors.grey[400]
+                                                  : Colors.black54,
+                                            ),
                                       ),
                                     ],
                                   ],
@@ -734,14 +879,17 @@ class _StaffHomePageState extends State<StaffHomePage> {
     );
   }
 
-  Widget _buildProfileContent(ThemeData theme) {
+  Widget _buildProfileContent(ThemeData theme, bool isDark) {
     final user = _currentUser;
     if (user == null) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 48),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppColors.backgroundSecondary : Colors.white,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark ? AppColors.borderColor : Colors.transparent,
+          ),
         ),
         child: Center(
           child: _isProfileLoading
@@ -749,16 +897,19 @@ class _StaffHomePageState extends State<StaffHomePage> {
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.person_off_rounded,
                       size: 48,
-                      color: Color(0xFF9CA3AF),
+                      color: isDark
+                          ? Colors.grey[600]
+                          : const Color(0xFF9CA3AF),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'No profile data found',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -777,19 +928,25 @@ class _StaffHomePageState extends State<StaffHomePage> {
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(
+              color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+            ),
           ),
           child: Column(
             children: [
               CircleAvatar(
                 radius: 48,
-                backgroundColor: const Color(0xFFE0EAFF),
+                backgroundColor: isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFE0EAFF),
                 child: Icon(
                   Icons.person_rounded,
                   size: 48,
-                  color: const Color(0xFF2563EB),
+                  color: isDark
+                      ? AppColors.primaryPurple
+                      : const Color(0xFF2563EB),
                 ),
               ),
               const SizedBox(height: 16),
@@ -797,13 +954,15 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 user.name,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF111827),
+                  color: isDark ? Colors.white : const Color(0xFF111827),
                 ),
               ),
               Text(
                 user.role.toUpperCase(),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF2563EB),
+                  color: isDark
+                      ? AppColors.primaryPurple
+                      : const Color(0xFF2563EB),
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.1,
                 ),
@@ -815,18 +974,21 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 icon: Icons.email_outlined,
                 label: 'Email Address',
                 value: user.email,
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
               _ProfileDetailItem(
                 icon: Icons.phone_android_rounded,
                 label: 'Phone Number',
                 value: user.phone ?? 'Not provided',
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
               _ProfileDetailItem(
                 icon: Icons.badge_outlined,
                 label: 'Staff ID',
                 value: user.id,
+                isDark: isDark,
               ),
               if (user.subRole != null) ...[
                 const SizedBox(height: 16),
@@ -834,6 +996,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   icon: Icons.work_outline_rounded,
                   label: 'Department',
                   value: user.subRole!,
+                  isDark: isDark,
                 ),
               ],
             ],
@@ -846,6 +1009,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bookings = _bookings;
     final trackingInfo = _trackingService.info.value;
 
@@ -876,7 +1040,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
           return Scaffold(
             appBar: AppBar(
               title: Text(
-                _selectedNav == 'dashboard' ? 'Staff Dashboard' : 'Orders',
+                _selectedNav == 'dashboard'
+                    ? 'Staff Dashboard'
+                    : _selectedNav == 'orders'
+                    ? 'Orders'
+                    : 'My Profile',
               ),
             ),
             drawer: Drawer(
@@ -884,14 +1052,18 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 child: _buildSidebarContent(theme, trackingInfo, true),
               ),
             ),
+            bottomNavigationBar: _buildBottomBar(isDark),
             body: Container(
-              color: const Color(0xFFF3F4F6),
+              color: isDark
+                  ? AppColors.backgroundPrimary
+                  : const Color(0xFFF3F4F6),
               child: _buildMainContent(
                 theme,
                 bookings,
                 todayCount,
                 completedCount,
                 pendingCount,
+                isDark,
               ),
             ),
           );
@@ -905,13 +1077,21 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 Container(
                   width: 260,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: const Border(
-                      right: BorderSide(color: Color(0xFFE5E7EB)),
+                    color: isDark
+                        ? AppColors.backgroundSecondary
+                        : Colors.white,
+                    border: Border(
+                      right: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.03),
                         blurRadius: 20,
                         offset: const Offset(4, 0),
                       ),
@@ -921,13 +1101,16 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 ),
                 Expanded(
                   child: Container(
-                    color: const Color(0xFFF3F4F6),
+                    color: isDark
+                        ? AppColors.backgroundPrimary
+                        : const Color(0xFFF3F4F6),
                     child: _buildMainContent(
                       theme,
                       bookings,
                       todayCount,
                       completedCount,
                       pendingCount,
+                      isDark,
                     ),
                   ),
                 ),
@@ -944,11 +1127,13 @@ class _ProfileDetailItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final bool isDark;
 
   const _ProfileDetailItem({
     required this.icon,
     required this.label,
     required this.value,
+    required this.isDark,
   });
 
   @override
@@ -960,10 +1145,16 @@ class _ProfileDetailItem extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: isDark
+                ? AppColors.backgroundSurface
+                : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: const Color(0xFF4B5563), size: 20),
+          child: Icon(
+            icon,
+            color: isDark ? Colors.grey[400] : const Color(0xFF4B5563),
+            size: 20,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -973,7 +1164,7 @@ class _ProfileDetailItem extends StatelessWidget {
               Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF6B7280),
+                  color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -981,7 +1172,7 @@ class _ProfileDetailItem extends StatelessWidget {
               Text(
                 value,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF111827),
+                  color: isDark ? Colors.white : const Color(0xFF111827),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -997,12 +1188,14 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool isDark;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.label,
     required this.selected,
+    required this.isDark,
     required this.onTap,
   });
 
@@ -1011,18 +1204,24 @@ class _NavItem extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFF2563EB) : Colors.transparent,
+        color: selected
+            ? (isDark ? AppColors.primaryPurple : const Color(0xFF2563EB))
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(999),
       ),
       child: ListTile(
         leading: Icon(
           icon,
-          color: selected ? Colors.white : const Color(0xFF4B5563),
+          color: selected
+              ? Colors.white
+              : (isDark ? Colors.grey[400] : const Color(0xFF4B5563)),
         ),
         title: Text(
           label,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: selected ? Colors.white : const Color(0xFF374151),
+            color: selected
+                ? Colors.white
+                : (isDark ? Colors.grey[300] : const Color(0xFF374151)),
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
@@ -1051,12 +1250,15 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
       ),
       child: Row(
         children: [
@@ -1077,7 +1279,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF6B7280),
+                    color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1085,7 +1287,7 @@ class _StatCard extends StatelessWidget {
                   value,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
+                    color: isDark ? Colors.white : const Color(0xFF111827),
                   ),
                 ),
               ],
@@ -1100,8 +1302,13 @@ class _StatCard extends StatelessWidget {
 class _StatusLine extends StatelessWidget {
   final String label;
   final String value;
+  final bool isDark;
 
-  const _StatusLine({required this.label, required this.value});
+  const _StatusLine({
+    required this.label,
+    required this.value,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1112,14 +1319,14 @@ class _StatusLine extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: const Color(0xFF6B7280),
+            color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
           ),
         ),
         Text(
           value,
           style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF111827),
+            color: isDark ? Colors.grey[300] : const Color(0xFF111827),
           ),
         ),
       ],
