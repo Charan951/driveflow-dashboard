@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../core/app_colors.dart';
+import '../../state/theme_provider.dart';
+import '../app_side_nav_logo.dart';
 
 class MerchantNavItem {
   final IconData icon;
@@ -63,6 +66,7 @@ class MerchantScaffold extends StatefulWidget {
 class _MerchantScaffoldState extends State<MerchantScaffold> {
   final AuthService _authService = AuthService();
   List<MerchantNavItem> _filteredItems = [];
+  bool _isShopOpen = true;
 
   @override
   void initState() {
@@ -80,7 +84,26 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
           }
           return true;
         }).toList();
+        _isShopOpen = user?.isShopOpen ?? true;
       });
+    }
+  }
+
+  Future<void> _toggleShopStatus(bool value) async {
+    final previousStatus = _isShopOpen;
+    setState(() => _isShopOpen = value);
+    try {
+      await _authService.updateProfile({'isShopOpen': value});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(value ? 'Shop is now Open' : 'Shop is now Closed')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isShopOpen = previousStatus);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update shop status')),
+      );
     }
   }
 
@@ -91,7 +114,8 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
       (item) => item.route == currentRoute,
     );
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
@@ -101,11 +125,18 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
         foregroundColor: isDark ? Colors.white : Colors.black,
         title: Text(
           widget.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+          ),
         ),
         actions: widget.actions,
       ),
-      drawer: MerchantDrawer(filteredItems: _filteredItems),
+      drawer: MerchantDrawer(
+        filteredItems: _filteredItems,
+        isShopOpen: _isShopOpen,
+        onShopStatusChanged: _toggleShopStatus,
+      ),
       body: widget.body,
       bottomNavigationBar: _filteredItems.isEmpty
           ? null
@@ -120,128 +151,138 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
 
 class MerchantDrawer extends StatelessWidget {
   final List<MerchantNavItem> filteredItems;
-  const MerchantDrawer({super.key, required this.filteredItems});
+  final bool isShopOpen;
+  final ValueChanged<bool> onShopStatusChanged;
+  const MerchantDrawer({
+    super.key,
+    required this.filteredItems,
+    required this.isShopOpen,
+    required this.onShopStatusChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final AuthService authService = AuthService();
     final currentRoute = ModalRoute.of(context)?.settings.name;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.mode == ThemeMode.dark;
 
     return Drawer(
       backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       child: Column(
         children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.backgroundPrimary : Colors.white,
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? AppColors.borderColor : Colors.grey[200]!,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.primaryPurple.withValues(alpha: 0.1)
-                        : Colors.deepPurple.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.store,
-                    color: isDark ? AppColors.primaryPurple : Colors.deepPurple,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Merchant Portal',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const AppSideNavLogo(),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: filteredItems.map((item) {
-                final bool isActive = currentRoute == item.route;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: ListTile(
-                    leading: Icon(
-                      item.icon,
-                      color: isActive
-                          ? (isDark
-                                ? AppColors.primaryPurple
-                                : Colors.deepPurple)
-                          : Colors.grey[600],
-                    ),
-                    title: Text(
-                      item.label,
-                      style: TextStyle(
-                        fontWeight: isActive
-                            ? FontWeight.bold
-                            : FontWeight.w500,
-                        color: isActive
-                            ? (isDark
-                                  ? AppColors.primaryPurple
-                                  : Colors.deepPurple)
-                            : (isDark ? Colors.grey[400] : Colors.grey[800]),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context); // Close drawer
-                      if (currentRoute != item.route) {
-                        Navigator.pushReplacementNamed(context, item.route);
-                      }
-                    },
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: isActive
-                        ? (isDark
-                              ? AppColors.primaryPurple.withValues(alpha: 0.1)
-                              : Colors.deepPurple.withValues(alpha: 0.1))
-                        : null,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          Divider(color: isDark ? AppColors.borderColor : Colors.grey[200]),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.backgroundSecondary
+                        : AppColors.primaryBlue.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isShopOpen
+                          ? AppColors.success.withValues(alpha: 0.35)
+                          : AppColors.warning.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.storefront_rounded,
+                        size: 18,
+                        color: isShopOpen ? AppColors.success : AppColors.warning,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Shop Status',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isShopOpen ? 'Open' : 'Closed',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isShopOpen
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isShopOpen,
+                        onChanged: onShopStatusChanged,
+                        activeThumbColor: AppColors.success,
+                        activeTrackColor: AppColors.success.withValues(alpha: 0.3),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              onTap: () async {
-                await authService.logout();
-                if (!context.mounted) return;
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (route) => false,
-                );
-              },
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                const SizedBox(height: 12),
+                ...filteredItems.map((item) {
+                  final bool isActive = currentRoute == item.route;
+                  return Column(
+                    children: [
+                      if (item.route == '/merchant-profile') ...[
+                        _MerchantNavTile(
+                          icon: isDark
+                              ? Icons.light_mode_rounded
+                              : Icons.dark_mode_rounded,
+                          label: isDark ? 'Light Mode' : 'Dark Mode',
+                          isActive: false,
+                          isDark: isDark,
+                          onTap: themeProvider.toggleTheme,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: _MerchantNavTile(
+                          icon: item.icon,
+                          label: item.label,
+                          isActive: isActive,
+                          isDark: isDark,
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            if (currentRoute != item.route) {
+                              Navigator.pushReplacementNamed(context, item.route);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+                if (!filteredItems.any((item) => item.route == '/merchant-profile'))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _MerchantNavTile(
+                      icon: isDark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      label: isDark ? 'Light Mode' : 'Dark Mode',
+                      isActive: false,
+                      isDark: isDark,
+                      onTap: themeProvider.toggleTheme,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -311,7 +352,7 @@ class MerchantBottomNav extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
         selectedItemColor: isCurrentRouteInBottomNav
-            ? (isDark ? AppColors.primaryPurple : Colors.deepPurple)
+            ? (isDark ? AppColors.primaryBlue : Colors.deepPurple)
             : Colors.grey[600],
         unselectedItemColor: Colors.grey[600],
         selectedLabelStyle: const TextStyle(
@@ -326,10 +367,60 @@ class MerchantBottomNav extends StatelessWidget {
             label: item.label,
             activeIcon: Icon(
               item.icon,
-              color: isDark ? AppColors.primaryPurple : Colors.deepPurple,
+              color: isDark ? AppColors.primaryBlue : Colors.deepPurple,
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+class _MerchantNavTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _MerchantNavTile({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isActive
+            ? (isDark ? AppColors.primaryBlue : const Color(0xFF2563EB))
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: isActive
+              ? Colors.white
+              : (isDark ? Colors.grey[400] : const Color(0xFF4B5563)),
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive
+                ? Colors.white
+                : (isDark ? Colors.grey[300] : const Color(0xFF374151)),
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        visualDensity: const VisualDensity(horizontal: -1, vertical: -2),
+        onTap: onTap,
       ),
     );
   }

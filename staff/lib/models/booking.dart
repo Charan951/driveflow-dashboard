@@ -135,6 +135,8 @@ class BookingDetail {
   final BookingLocation? location;
   final BookingLocation? merchantLocation;
   final String? vehicleName;
+  final String? vehicleId;
+  final Map<String, dynamic>? vehicleHealthIndicators;
   final List<String> prePickupPhotos;
   final String? paymentStatus;
   final num? totalAmount;
@@ -163,6 +165,8 @@ class BookingDetail {
     this.location,
     this.merchantLocation,
     this.vehicleName,
+    this.vehicleId,
+    this.vehicleHealthIndicators,
     required this.prePickupPhotos,
     this.paymentStatus,
     this.totalAmount,
@@ -232,6 +236,8 @@ class BookingDetail {
     BookingLocation? location,
     BookingLocation? merchantLocation,
     String? vehicleName,
+    String? vehicleId,
+    Map<String, dynamic>? vehicleHealthIndicators,
     List<String>? prePickupPhotos,
     String? paymentStatus,
     num? totalAmount,
@@ -260,6 +266,9 @@ class BookingDetail {
       location: location ?? this.location,
       merchantLocation: merchantLocation ?? this.merchantLocation,
       vehicleName: vehicleName ?? this.vehicleName,
+      vehicleId: vehicleId ?? this.vehicleId,
+      vehicleHealthIndicators:
+          vehicleHealthIndicators ?? this.vehicleHealthIndicators,
       prePickupPhotos: prePickupPhotos ?? this.prePickupPhotos,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       totalAmount: totalAmount ?? this.totalAmount,
@@ -374,6 +383,10 @@ class BookingDetail {
       location: location,
       merchantLocation: merchantLocation,
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
+      vehicleId: vehicle?['_id']?.toString(),
+      vehicleHealthIndicators: vehicle?['healthIndicators'] is Map
+          ? Map<String, dynamic>.from(vehicle!['healthIndicators'] as Map)
+          : null,
       prePickupPhotos: photos,
       paymentStatus: getField('paymentStatus')?.toString(),
       totalAmount: getField('totalAmount') is num

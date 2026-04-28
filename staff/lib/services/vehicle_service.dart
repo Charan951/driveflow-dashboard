@@ -47,4 +47,14 @@ class VehicleService {
     }
     return [];
   }
+
+  Future<void> updateVehicleHealth(
+    String vehicleId,
+    Map<String, dynamic> healthIndicators,
+  ) async {
+    await _api.putJson(
+      '/vehicles/$vehicleId/health',
+      body: {'healthIndicators': healthIndicators},
+    );
+  }
 }

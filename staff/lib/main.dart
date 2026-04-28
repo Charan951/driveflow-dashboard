@@ -14,6 +14,7 @@ import 'services/notification_service.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'pages/order_detail_page.dart';
+import 'pages/notifications_page.dart';
 import 'pages/splash_page.dart';
 import 'pages/merchant/merchant_dashboard.dart';
 import 'pages/merchant/merchant_orders_page.dart';
@@ -276,6 +277,9 @@ class StaffApp extends StatelessWidget {
             const MerchantPlaceholderPage(title: 'Users'),
         '/merchant-profile': (context) => const MerchantProfilePage(),
         '/order': (context) => const StaffOrderDetailPage(),
+        '/notifications': (context) => const NotificationsPage(),
+        '/merchant-notifications': (context) =>
+            const NotificationsPage(isMerchant: true),
       },
     );
   }

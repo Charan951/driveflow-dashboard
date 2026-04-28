@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = false;
+  static const bool useProduction = true;
 
   static const String mapTileUrlTemplate = String.fromEnvironment(
     'MAP_TILE_URL_TEMPLATE',

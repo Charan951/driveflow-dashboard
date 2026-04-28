@@ -86,8 +86,6 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Stack(
         children: [
@@ -159,9 +157,10 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                               Text(
                                 'Welcome Back',
                                 textAlign: TextAlign.center,
-                                style: theme.textTheme.headlineSmall?.copyWith(
+                                style: const TextStyle(
+                                  fontSize: 28,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -293,10 +292,15 @@ class _GlassField extends StatelessWidget {
         onChanged: (_) => onChanged?.call(),
         style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
+          filled: false,
           hintText: hintText,
           hintStyle: const TextStyle(color: Colors.white38, fontSize: 15),
           prefixIcon: Icon(prefixIcon, color: Colors.white38, size: 20),
           suffixIcon: suffix,
+          isDense: true,
+          fillColor: Colors.transparent,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,

@@ -18,12 +18,29 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
   List<BookingSummary> _bookings = [];
   bool _isLoading = true;
   String _filter = 'active';
+  bool _appliedInitialArgs = false;
 
   @override
   void initState() {
     super.initState();
     _load();
     _socketService.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_appliedInitialArgs) return;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final initialFilter = args['filter']?.toString();
+      if (initialFilter == 'active' ||
+          initialFilter == 'completed' ||
+          initialFilter == 'all') {
+        _filter = initialFilter!;
+      }
+    }
+    _appliedInitialArgs = true;
   }
 
   @override
@@ -181,12 +198,12 @@ class _FilterChip extends StatelessWidget {
       selected: selected,
       onSelected: onSelected,
       selectedColor: isDark
-          ? AppColors.primaryPurple.withValues(alpha: 0.2)
+          ? AppColors.primaryBlue.withValues(alpha: 0.2)
           : AppColors.primaryPurple.withValues(alpha: 0.1),
-      checkmarkColor: AppColors.primaryPurple,
+      checkmarkColor: isDark ? AppColors.primaryBlue : AppColors.primaryPurple,
       labelStyle: TextStyle(
         color: selected
-            ? AppColors.primaryPurple
+            ? (isDark ? AppColors.primaryBlue : AppColors.primaryPurple)
             : (isDark ? AppColors.textSecondary : AppColors.textSecondaryLight),
         fontWeight: selected ? FontWeight.bold : FontWeight.normal,
       ),
@@ -344,7 +361,7 @@ class _StatusBadge extends StatelessWidget {
       case 'REACHED_MERCHANT':
       case 'VEHICLE_AT_MERCHANT':
       case 'SERVICE_STARTED':
-        color = AppColors.primaryPurple;
+        color = AppColors.primaryBlue;
         break;
       case 'SERVICE_COMPLETED':
         color = Colors.indigo;

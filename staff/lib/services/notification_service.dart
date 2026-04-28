@@ -41,6 +41,8 @@ class NotificationItem {
   final String type;
   final bool isRead;
   final DateTime createdAt;
+  final String? bookingId;
+  final String? orderId;
 
   NotificationItem({
     required this.id,
@@ -49,9 +51,18 @@ class NotificationItem {
     required this.type,
     required this.isRead,
     required this.createdAt,
+    this.bookingId,
+    this.orderId,
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    final nestedData = json['data'];
+    final Map<String, dynamic> dataMap = nestedData is Map<String, dynamic>
+        ? nestedData
+        : (nestedData is Map ? Map<String, dynamic>.from(nestedData) : <String, dynamic>{});
+    final bookingId = (json['bookingId'] ?? dataMap['bookingId'])?.toString();
+    final orderId =
+        (json['orderId'] ?? dataMap['orderId'] ?? bookingId)?.toString();
     return NotificationItem(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
@@ -61,6 +72,8 @@ class NotificationItem {
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
+      bookingId: bookingId,
+      orderId: orderId,
     );
   }
 }
