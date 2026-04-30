@@ -133,12 +133,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (approvalId == null || approvalId.isEmpty) return;
     if (_approvalActionLoading.contains(item.id)) return;
 
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     setState(() => _approvalActionLoading.add(item.id));
     try {
       await _api.putAny('/approvals/$approvalId', body: {'status': status});
       await _handleMarkAsRead(item);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             status == 'Approved'
@@ -149,12 +151,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       );
       if (item.bookingId != null && item.bookingId!.isNotEmpty) {
-        Navigator.pushNamed(context, '/track', arguments: item.bookingId);
+        if (!context.mounted) return;
+        navigator.pushNamed('/track', arguments: item.bookingId);
       } else {
         _load();
       }
     } catch (e) {
-      if (!mounted) return;
       final message = e is ApiException ? e.message : e.toString();
       final alreadyResolved =
           message.toLowerCase().contains('already resolved') ||
@@ -163,7 +165,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (alreadyResolved) {
         await _handleMarkAsRead(item);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             alreadyResolved
@@ -176,8 +179,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() => _approvalActionLoading.remove(item.id));
+      if (mounted) {
+        setState(() => _approvalActionLoading.remove(item.id));
+      }
     }
   }
 

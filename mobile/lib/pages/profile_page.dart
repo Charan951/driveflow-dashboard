@@ -214,7 +214,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         subtitle: isDark ? 'Dark Mode' : 'Light Mode',
                         trailing: Switch.adaptive(
                           value: isDark,
-                          activeColor: _accentPurple,
+                          activeThumbColor: _accentPurple,
+                          activeTrackColor: _accentPurple.withValues(
+                            alpha: 0.45,
+                          ),
                           onChanged: (_) => themeProvider.toggleTheme(),
                         ),
                       ),

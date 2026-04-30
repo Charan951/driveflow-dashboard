@@ -327,7 +327,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                     selectedLat = position.latitude;
                                     selectedLng = position.longitude;
                                   } catch (e) {
-                                    if (!mounted) return;
+                                    if (!context.mounted) return;
                                     final message = e is ApiException
                                         ? e.message
                                         : 'Failed to fetch current location';

@@ -213,7 +213,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                                       selectedLng = location.lng;
                                     }
                                   } catch (e) {
-                                    if (!mounted) return;
+                                    if (!context.mounted) return;
                                     final message = e is ApiException
                                         ? e.message
                                         : 'Failed to fetch current location';
@@ -449,7 +449,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           await _authService.logout();
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           Navigator.pushNamedAndRemoveUntil(
                             context,
                             '/login',

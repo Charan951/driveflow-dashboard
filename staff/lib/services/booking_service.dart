@@ -129,9 +129,9 @@ class BookingService {
       '/bookings/$id/battery-tire-approval',
       body: {
         'status': status,
-        if (price != null) 'price': price,
-        if (image != null) 'image': image,
-        if (notes != null) 'notes': notes,
+        'price': ?price,
+        'image': ?image,
+        'notes': ?notes,
       },
     );
   }
@@ -149,7 +149,7 @@ class BookingService {
         'name': name,
         'price': price,
         'warrantyMonths': warrantyMonths,
-        if (image != null) 'image': image,
+        'image': ?image,
       },
     );
   }

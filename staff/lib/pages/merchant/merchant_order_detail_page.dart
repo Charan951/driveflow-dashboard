@@ -1709,83 +1709,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     );
   }
 
-  Future<void> _addNewPart() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) =>
-          _AddPartDialog(bookingId: _booking!.id, service: _service),
-    );
-
-    if (result == true) {
-      await _load(_booking!.id);
-    }
-  }
-
-  Widget _buildPartItem(AdditionalPart part) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    part.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-                Text(
-                  'Qty: ${part.quantity}',
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.black87,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '₹${part.price}',
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.black87,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildApprovalBadge(part.approvalStatus),
-              ],
-            ),
-            if (part.oldImage != null || part.image != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    if (part.oldImage != null)
-                      _buildThumbnail(part.oldImage!, 'Old'),
-                    if (part.image != null) ...[
-                      const SizedBox(width: 8),
-                      _buildThumbnail(part.image!, 'New'),
-                    ],
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // _buildNewPartItem is no longer needed
-
   Widget _buildSidePhotoSlot(
     String side,
     String? url,
@@ -1882,44 +1805,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       ],
                     ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApprovalBadge(String? status) {
-    Color color = Colors.grey;
-    IconData icon = Icons.help_outline;
-    if (status == 'Approved') {
-      color = Colors.green;
-      icon = Icons.check_circle;
-    } else if (status == 'Rejected') {
-      color = Colors.red;
-      icon = Icons.cancel;
-    } else {
-      color = Colors.orange;
-      icon = Icons.access_time;
-    }
-    return Icon(icon, color: color, size: 20);
-  }
-
-  Widget _buildThumbnail(String url, String label) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: CachedNetworkImage(
-            imageUrl: url,
-            width: 60,
-            height: 60,
-            fit: BoxFit.cover,
-            placeholder: (context, url) =>
-                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            errorWidget: (context, url, error) =>
-                const Icon(Icons.broken_image),
           ),
         ),
       ],
@@ -2062,7 +1947,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             .where((part) => part.approvalStatus == 'Approved' || part.approved)
             .toList() ??
         [];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -2085,8 +1969,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
           const SizedBox(height: 24),
 
-          // 4. Extra Cost Request
-          // _buildExtraCostSection(isReadOnly),
+          _buildExtraCostSection(isReadOnly),
 
           const SizedBox(height: 32),
 
