@@ -232,8 +232,8 @@ class StaffTrackingService {
           seconds: 3,
         ), // Increased to 3s for better GPS lock stability
         foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationText: "Staff live tracking is active",
-          notificationTitle: "Live Tracking",
+          notificationText: " ",
+          notificationTitle: " ",
           enableWakeLock: true,
         ),
       );

@@ -747,6 +747,21 @@ const TrackServicePage: React.FC = () => {
   const merchantPhone = order.merchant?.phone;
   const merchantLat = order.merchant?.location?.lat;
   const merchantLng = order.merchant?.location?.lng;
+  const hasInspectionPhotos = Boolean(
+    order.inspection &&
+      (order.inspection.frontPhoto ||
+        order.inspection.backPhoto ||
+        order.inspection.leftPhoto ||
+        order.inspection.rightPhoto)
+  );
+  const hasServicePhotos = Boolean(
+    order.serviceExecution?.afterPhotos?.length ||
+      (isBatteryOrTire && Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0) ||
+      order.status === 'SERVICE_COMPLETED' ||
+      order.status === 'COMPLETED' ||
+      order.status === 'DELIVERED'
+  );
+  const hasReplacedParts = Boolean(order.serviceExecution?.serviceParts?.length);
 
   return (
     <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24">
@@ -816,7 +831,7 @@ const TrackServicePage: React.FC = () => {
         <Timeline steps={timelineSteps} vertical={false} className="gap-3 sm:gap-2" />
       </motion.div>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.4fr)_1fr] items-start">
+      <div className="space-y-4 sm:space-y-6">
         {([
           'ASSIGNED',
           'ACCEPTED',
@@ -971,158 +986,167 @@ const TrackServicePage: React.FC = () => {
             </motion.div>
           )}
 
-          {/* Inspection Photos Section */}
-          {order.inspection && (order.inspection.frontPhoto || order.inspection.backPhoto || order.inspection.leftPhoto || order.inspection.rightPhoto) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-2xl border border-border p-6 space-y-4"
-            >
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
-                Vehicle Inspection
-              </h2>
-              <p className="text-sm text-muted-foreground">Photos of your vehicle taken by the service center before starting the service.</p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['front', 'back', 'left', 'right'].map((side) => {
-                  const url = order.inspection?.[`${side}Photo` as keyof typeof order.inspection] as string;
-                  if (!url) return null;
-                  return (
-                    <div key={side} className="space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side} side</span>
-                      <button
-                        type="button"
-                        onClick={() => window.open(url, '_blank')}
-                        className="aspect-square w-full rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                      >
-                        <img src={url} alt={`${side} inspection`} className="w-full h-full object-cover" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {order.inspection.damageReport && (
-                <div className="pt-4 border-t border-border">
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Damage Report / Findings</h4>
-                  <p className="text-sm italic text-muted-foreground">"{order.inspection.damageReport}"</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* Service Photos Section */}
-          {(order.serviceExecution?.afterPhotos?.length || 
-            order.serviceExecution?.serviceParts?.length || 
-            (Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0) ||
-            order.status === 'SERVICE_COMPLETED' ||
-            order.status === 'COMPLETED' ||
-            order.status === 'DELIVERED') ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-2xl border border-border p-6 space-y-4"
-            >
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-primary" />
-                Service Photos
-              </h2>
-              
-              <div className="grid grid-cols-1 gap-6">
-                {/* Battery/Tire Pickup & Installation Photos */}
-                {isBatteryOrTire && Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Pickup & Installation</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {order.prePickupPhotos.map((url, i) => (
-                        <div key={i} className="space-y-1.5">
-                          <button
-                            type="button"
-                            onClick={() => window.open(url, '_blank')}
-                            className="w-full aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                          >
-                            <img src={url} alt={`Step ${i + 1}`} className="w-full h-full object-cover" />
-                          </button>
-                          <p className="text-[10px] font-bold text-center uppercase text-muted-foreground">
-                            {i === 0 ? 'New Part' : i === 1 ? 'Old Part' : `Photo ${i + 1}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Service Completed Photos</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {order.serviceExecution.afterPhotos.map((url, i) => (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Inspection Photos Section */}
+            {hasInspectionPhotos && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card rounded-2xl border border-border p-6 space-y-4"
+              >
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  Vehicle Inspection
+                </h2>
+                <p className="text-sm text-muted-foreground">Photos of your vehicle taken by the service center before starting the service.</p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {['front', 'back', 'left', 'right'].map((side) => {
+                    const url = order.inspection?.[`${side}Photo` as keyof typeof order.inspection] as string;
+                    if (!url) return null;
+                    return (
+                      <div key={side} className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{side} side</span>
                         <button
-                          key={i}
                           type="button"
                           onClick={() => window.open(url, '_blank')}
-                          className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                          className="aspect-square w-full rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
                         >
-                          <img src={url} alt={`After Service ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`${side} inspection`} className="w-full h-full object-cover" />
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Service Parts - Before/After Images */}
-                {order.serviceExecution?.serviceParts && order.serviceExecution.serviceParts.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Replaced Parts</h4>
-                    <div className="space-y-3">
-                      {order.serviceExecution.serviceParts.map((part, i) => (
-                        <div key={i} className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{part.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Qty: {part.quantity} • Price: ₹{part.price}
-                            </p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              part.fromInspection ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {part.fromInspection ? 'From inspection' : 'New discovery'}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            {part.oldImage && (
-                              <div className="flex flex-col items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => window.open(part.oldImage!, '_blank')}
-                                  className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                                >
-                                  <img src={part.oldImage} alt="Before" className="w-full h-full object-cover" />
-                                </button>
-                                <span className="text-xs text-muted-foreground">Before</span>
-                              </div>
-                            )}
-                            {part.image && (
-                              <div className="flex flex-col items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => window.open(part.image!, '_blank')}
-                                  className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
-                                >
-                                  <img src={part.image} alt="After" className="w-full h-full object-cover" />
-                                </button>
-                                <span className="text-xs text-muted-foreground">After</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                {order.inspection?.damageReport && (
+                  <div className="pt-4 border-t border-border">
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Damage Report / Findings</h4>
+                    <p className="text-sm italic text-muted-foreground">"{order.inspection.damageReport}"</p>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* Service Photos Section */}
+            {hasServicePhotos ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card rounded-2xl border border-border p-6 space-y-4"
+              >
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-primary" />
+                  Service Photos
+                </h2>
+                
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Battery/Tire Pickup & Installation Photos */}
+                  {isBatteryOrTire && Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Pickup & Installation</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {order.prePickupPhotos.map((url, i) => (
+                          <div key={i} className="space-y-1.5">
+                            <button
+                              type="button"
+                              onClick={() => window.open(url, '_blank')}
+                              className="w-full aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                            >
+                              <img src={url} alt={`Step ${i + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                            <p className="text-[10px] font-bold text-center uppercase text-muted-foreground">
+                              {i === 0 ? 'New Part' : i === 1 ? 'Old Part' : `Photo ${i + 1}`}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Service Completed Photos</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {order.serviceExecution.afterPhotos.map((url, i) => {
+                          const sideLabels = ['Front', 'Back', 'Left', 'Right'];
+                          const label = sideLabels[i] || `Photo ${i + 1}`;
+                          return (
+                            <div key={i} className="space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block text-center">{label}</span>
+                              <button
+                                type="button"
+                                onClick={() => window.open(url, '_blank')}
+                                className="aspect-square rounded-xl overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                              >
+                                <img src={url} alt={`${label} service`} className="w-full h-full object-cover" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : null}
+          </div>
+
+          {hasReplacedParts && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6 space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-primary" />
+                Replaced Parts
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {order.serviceExecution?.serviceParts?.map((part, i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{part.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Qty: {part.quantity} • Price: ₹{part.price}
+                      </p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        part.fromInspection ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {part.fromInspection ? 'From inspection' : 'New discovery'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {part.oldImage && (
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => window.open(part.oldImage!, '_blank')}
+                            className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                          >
+                            <img src={part.oldImage} alt="Before" className="w-full h-full object-cover" />
+                          </button>
+                          <span className="text-xs text-muted-foreground">Before</span>
+                        </div>
+                      )}
+                      {part.image && (
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => window.open(part.image!, '_blank')}
+                            className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted hover:opacity-90 transition-opacity"
+                          >
+                            <img src={part.image} alt="After" className="w-full h-full object-cover" />
+                          </button>
+                          <span className="text-xs text-muted-foreground">After</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </motion.div>
-          ) : null}
+          )}
 
           {/* Warranty Information - Only for battery/tire services */}
           {isBatteryOrTire && order.batteryTire?.warranty && (
@@ -1171,6 +1195,97 @@ const TrackServicePage: React.FC = () => {
                 </div>
               </div>
             </motion.div>
+          )}
+
+          {order.status !== 'DELIVERED' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card rounded-2xl border border-border p-4"
+              >
+                <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-primary" />
+                  {isCarWashService ? 'Staff Details' : 'Driver Details'}
+                </h2>
+                <div className="flex items-center justify-between">
+                  {(() => {
+                    const staff = order.carWash?.staffAssigned || order.pickupDriver || order.technician;
+                    if (staff) {
+                      return (
+                        <>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {staff.name}
+                            </p>
+                            {staff.phone && (
+                              <p className="text-sm text-muted-foreground">
+                                {staff.phone}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {staff.phone && (
+                              <a
+                                href={`tel:${staff.phone}`}
+                                className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                              >
+                                <Phone className="w-5 h-5 text-foreground" />
+                              </a>
+                            )}
+                          </div>
+                        </>
+                      );
+                    }
+                    return (
+                      <p className="text-sm text-muted-foreground italic">
+                        Your {isCarWashService ? 'staff' : 'driver'} details provided shortly
+                      </p>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+
+              {!isCarWashService && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-card rounded-2xl border border-border p-4"
+                >
+                  <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
+                  <div className="flex items-center justify-between">
+                    {order.merchant ? (
+                      <>
+                        <div>
+                          <p className="font-medium text-foreground">{merchantName}</p>
+                          {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
+                          {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleCallMerchant}
+                            className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
+                          >
+                            <Phone className="w-5 h-5 text-foreground" />
+                          </button>
+                          {isChatEnabled && (
+                            <button
+                              onClick={handleChatMerchant}
+                              className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+                            >
+                              <MessageCircle className="w-5 h-5 text-primary-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Your authorised service center details provide shortly</p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </div>
           )}
 
           <div className="">
@@ -1248,13 +1363,15 @@ const TrackServicePage: React.FC = () => {
 
               <div className="space-y-3">
                 {order.billing?.fileUrl && (isCarWashService || isBatteryOrTire || order.paymentStatus === 'paid') && (
-                  <button
-                    onClick={handleDownloadMerchantInvoice}
-                    className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <ImageIcon className="w-5 h-5" />
-                    Download Merchant Invoice
-                  </button>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleDownloadMerchantInvoice}
+                      className="py-3 px-5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2"
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                      Download Merchant Invoice
+                    </button>
+                  </div>
                 )}
                 
 
@@ -1279,93 +1396,6 @@ const TrackServicePage: React.FC = () => {
             </motion.div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-card rounded-2xl border border-border p-4"
-          >
-            <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Truck className="w-5 h-5 text-primary" />
-              {isCarWashService ? 'Staff Details' : 'Driver Details'}
-            </h2>
-            <div className="flex items-center justify-between">
-              {(() => {
-                const staff = order.carWash?.staffAssigned || order.pickupDriver || order.technician;
-                if (staff) {
-                  return (
-                    <>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {staff.name}
-                        </p>
-                        {staff.phone && (
-                          <p className="text-sm text-muted-foreground">
-                            {staff.phone}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        {staff.phone && (
-                          <a
-                            href={`tel:${staff.phone}`}
-                            className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                          >
-                            <Phone className="w-5 h-5 text-foreground" />
-                          </a>
-                        )}
-                      </div>
-                    </>
-                  );
-                }
-                return (
-                  <p className="text-sm text-muted-foreground italic">
-                    Your {isCarWashService ? 'staff' : 'driver'} details provided shortly
-                  </p>
-                );
-              })()}
-            </div>
-          </motion.div>
-
-          {!isCarWashService && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-card rounded-2xl border border-border p-4"
-            >
-              <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
-              <div className="flex items-center justify-between">
-                {order.merchant ? (
-                  <>
-                    <div>
-                      <p className="font-medium text-foreground">{merchantName}</p>
-                      {merchantEmail && <p className="text-sm text-muted-foreground">{merchantEmail}</p>}
-                      {merchantPhone && <p className="text-sm text-muted-foreground">{merchantPhone}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleCallMerchant}
-                        className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                      >
-                        <Phone className="w-5 h-5 text-foreground" />
-                      </button>
-                      {isChatEnabled && (
-                        <button
-                          onClick={handleChatMerchant}
-                          className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-                        >
-                          <MessageCircle className="w-5 h-5 text-primary-foreground" />
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Your authorised service center details provide shortly</p>
-                )}
-              </div>
-            </motion.div>
-          )}
         </div>
       </div>
 

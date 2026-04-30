@@ -78,8 +78,8 @@ Future<void> _onStart(ServiceInstance service) async {
             seconds: 3,
           ), // Match StaffTrackingService (3s)
           foregroundNotificationConfig: const ForegroundNotificationConfig(
-            notificationText: "Continuous background tracking enabled.",
-            notificationTitle: "Staff Tracking Active",
+            notificationText: " ",
+            notificationTitle: " ",
             enableWakeLock: true,
           ),
         )
@@ -100,17 +100,6 @@ Future<void> _onStart(ServiceInstance service) async {
   ) async {
     final now = DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
-
-    // Update notification content to show active tracking
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        service.setAsForegroundService();
-        service.setForegroundNotificationInfo(
-          title: "Staff Tracking Active",
-          content: "Continuous background tracking enabled.",
-        );
-      }
-    }
 
     final payload = <String, dynamic>{
       'lat': pos.latitude,
