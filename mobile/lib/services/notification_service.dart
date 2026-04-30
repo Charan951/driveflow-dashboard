@@ -56,7 +56,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   await local.show(
     DateTime.now().millisecondsSinceEpoch.remainder(100000),
-    title,
+    NotificationService.normalizeNotificationTitle(title),
     body,
     const NotificationDetails(
       android: AndroidNotificationDetails(
@@ -164,7 +164,9 @@ class NotificationItem {
 
     return NotificationItem(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      title: (json['title'] ?? '').toString(),
+      title: NotificationService.normalizeNotificationTitle(
+        (json['title'] ?? '').toString(),
+      ),
       message: (json['body'] ?? json['message'] ?? '').toString(),
       type: (json['type'] ?? 'info').toString(),
       dataType: data?['type']?.toString(),
@@ -189,6 +191,14 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+
+  static String normalizeNotificationTitle(String title) {
+    final normalized = title.trim().toLowerCase();
+    if (normalized == 'bill updated') {
+      return 'Payment awaiting';
+    }
+    return title;
+  }
 
   Future<FirebaseMessaging> _getMessaging() async {
     if (_messaging != null) return _messaging!;
@@ -473,7 +483,7 @@ class NotificationService {
 
       await _localNotifications.show(
         notification.hashCode,
-        notification.title,
+        normalizeNotificationTitle(notification.title ?? 'Carzzi'),
         notification.body,
         NotificationDetails(
           android: AndroidNotificationDetails(
@@ -575,7 +585,7 @@ class NotificationService {
 
     await _localNotifications.show(
       (DateTime.now().millisecondsSinceEpoch % 100000).toInt(),
-      title,
+      normalizeNotificationTitle(title),
       body,
       platformChannelSpecifics,
       payload: payload,

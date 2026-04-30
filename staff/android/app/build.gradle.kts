@@ -26,7 +26,7 @@ android {
     defaultConfig {
         applicationId = "com.speshway.staff"
         // Initial Play Store Release: 1.0.0 (Build 1)
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName

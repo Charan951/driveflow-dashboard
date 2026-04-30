@@ -71,9 +71,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   int _chatUnreadCount = 0;
   bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
-  final Map<String, PageController> _carouselControllers = {};
-  final Map<String, int> _carouselIndexes = {};
-
   // Performance optimizations
   DateTime? _lastLocationUpdate;
   DateTime? _lastRouteFetch;
@@ -348,9 +345,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       _socketService.emit('leave', 'booking_$_bookingId');
     }
     _approvalsTimer?.cancel();
-    for (final controller in _carouselControllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -1405,12 +1399,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       if (_resolveImageUrl(booking.prePickupPhotos[i]) != null)
                         _PhotoCarouselItem(
                           url: _resolveImageUrl(booking.prePickupPhotos[i])!,
-                          label: isBatteryTire
-                              ? (i == 0
-                                    ? 'New Part'
-                                    : i == 1
-                                    ? 'Old Part'
-                                    : 'Photo ${i + 1}')
+                          label: i == 0
+                              ? 'Front'
+                              : i == 1
+                              ? 'Back'
+                              : i == 2
+                              ? 'Left'
+                              : i == 3
+                              ? 'Right'
                               : 'Photo ${i + 1}',
                         ),
                   ];
@@ -1430,6 +1426,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   final afterCarWashTitle = isEssentialsCarWash
                       ? 'After Service'
                       : 'After Car Wash';
+                  const directionalLabels = ['Front', 'Back', 'Left', 'Right'];
                   void addServicePhotos(
                     List<String> photos,
                     String labelPrefix,
@@ -1440,7 +1437,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       servicePhotoItems.add(
                         _PhotoCarouselItem(
                           url: resolved,
-                          label: '$labelPrefix ${i + 1}',
+                          label: i < directionalLabels.length
+                              ? directionalLabels[i]
+                              : '$labelPrefix ${i + 1}',
                         ),
                       );
                     }
@@ -1458,14 +1457,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         beforeCarWashItems.add(
                           _PhotoCarouselItem(
                             url: resolved,
-                            label: '$beforeCarWashTitle ${i + 1}',
+                            label: directionalLabels[i],
                           ),
                         );
                       } else {
                         afterCarWashItems.add(
                           _PhotoCarouselItem(
                             url: resolved,
-                            label: '$afterCarWashTitle ${i - 3}',
+                            label: directionalLabels[(i - 4) % 4],
                           ),
                         );
                       }
@@ -2737,72 +2736,73 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           ],
                         ),
                       ),
-                      // Driver/Staff Details Section
-                      const SizedBox(height: 16),
-                      (() {
-                        final name =
-                            booking.carWash?.staffName ??
-                            booking.driverName ??
-                            booking.technicianName;
-                        final phone =
-                            booking.carWash?.staffPhone ??
-                            booking.driverPhone ??
-                            booking.technicianPhone;
-
-                        return _buildInfoCard(
-                          context,
-                          title: isCarWash ? 'Staff Details' : 'Driver Details',
-                          icon: isCarWash ? Icons.person : Icons.two_wheeler,
-                          name: name,
-                          phone: phone,
-                          subtitle: name == null
-                              ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
-                              : null,
-                          isDark: isDark,
-                          actions: phone != null
-                              ? [
-                                  _buildCircleActionButton(
-                                    icon: Icons.phone,
-                                    color: const Color(0xFF22C55E),
-                                    bgColor: const Color(0xFFDCFCE7),
-                                    onTap: () =>
-                                        launchUrl(Uri.parse('tel:$phone')),
-                                  ),
-                                ]
-                              : [],
-                        );
-                      })(),
-                      const SizedBox(height: 12),
-                      // Service Center Section - only for non-car wash
-                      if (!isCarWash) ...[
-                        _buildInfoCard(
-                          context,
-                          title: 'Service Center',
-                          icon: Icons.storefront,
-                          name: booking.merchantName,
-                          phone: booking.merchantPhone,
-                          subtitle: booking.merchantName == null
-                              ? 'your authorised service center details provide shortly'
-                              : null,
-                          isDark: isDark,
-                          actions: [
-                            if (booking.merchantPhone != null)
-                              _buildCircleActionButton(
-                                icon: Icons.phone,
-                                color: const Color(0xFF22C55E),
-                                bgColor: const Color(0xFFDCFCE7),
-                                onTap: () => launchUrl(
-                                  Uri.parse('tel:${booking.merchantPhone}'),
-                                ),
-                              ),
-                          ],
-                        ),
+                      if (!isDeliveredStatus) ...[
+                        // Driver/Staff Details Section
                         const SizedBox(height: 16),
+                        (() {
+                          final name =
+                              booking.carWash?.staffName ??
+                              booking.driverName ??
+                              booking.technicianName;
+                          final phone =
+                              booking.carWash?.staffPhone ??
+                              booking.driverPhone ??
+                              booking.technicianPhone;
+
+                          return _buildInfoCard(
+                            context,
+                            title: isCarWash ? 'Staff Details' : 'Driver Details',
+                            icon: isCarWash ? Icons.person : Icons.two_wheeler,
+                            name: name,
+                            phone: phone,
+                            subtitle: name == null
+                                ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
+                                : null,
+                            isDark: isDark,
+                            actions: phone != null
+                                ? [
+                                    _buildCircleActionButton(
+                                      icon: Icons.phone,
+                                      color: const Color(0xFF22C55E),
+                                      bgColor: const Color(0xFFDCFCE7),
+                                      onTap: () =>
+                                          launchUrl(Uri.parse('tel:$phone')),
+                                    ),
+                                  ]
+                                : [],
+                          );
+                        })(),
+                        const SizedBox(height: 12),
+                        // Service Center Section - only for non-car wash
+                        if (!isCarWash) ...[
+                          _buildInfoCard(
+                            context,
+                            title: 'Service Center',
+                            icon: Icons.storefront,
+                            name: booking.merchantName,
+                            phone: booking.merchantPhone,
+                            subtitle: booking.merchantName == null
+                                ? 'your authorised service center details provide shortly'
+                                : null,
+                            isDark: isDark,
+                            actions: [
+                              if (booking.merchantPhone != null)
+                                _buildCircleActionButton(
+                                  icon: Icons.phone,
+                                  color: const Color(0xFF22C55E),
+                                  bgColor: const Color(0xFFDCFCE7),
+                                  onTap: () => launchUrl(
+                                    Uri.parse('tel:${booking.merchantPhone}'),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ],
                       if (inspectionItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _buildAutoPhotoCarouselSection(
-                          sectionKey: 'inspection',
+                        _buildPhotoGridSection(
                           title: 'Vehicle Inspection',
                           subtitle:
                               'Photos of your vehicle taken by the service center before starting the service.',
@@ -2919,8 +2919,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       ],
                       if (prePickupItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _buildAutoPhotoCarouselSection(
-                          sectionKey: 'prePickup',
+                        _buildPhotoGridSection(
                           title: isBatteryTire
                               ? 'Pickup & Installation'
                               : 'Pre-Picked Photos',
@@ -2939,8 +2938,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ),
                         if (beforeCarWashItems.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          _buildAutoPhotoCarouselSection(
-                            sectionKey: 'beforeCarWash',
+                          _buildPhotoGridSection(
                             title: beforeCarWashTitle,
                             items: beforeCarWashItems,
                             isDark: isDark,
@@ -2948,8 +2946,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ],
                         if (afterCarWashItems.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          _buildAutoPhotoCarouselSection(
-                            sectionKey: 'afterCarWash',
+                          _buildPhotoGridSection(
                             title: afterCarWashTitle,
                             items: afterCarWashItems,
                             isDark: isDark,
@@ -2957,8 +2954,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ],
                       ] else if (servicePhotoItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _buildAutoPhotoCarouselSection(
-                          sectionKey: 'servicePhotos',
+                        _buildPhotoGridSection(
                           title: 'Service Photos',
                           items: servicePhotoItems,
                           isDark: isDark,
@@ -3429,51 +3425,23 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  void _ensureCarouselState(String sectionKey, int itemCount) {
-    _carouselIndexes.putIfAbsent(sectionKey, () => 0);
-    _carouselControllers.putIfAbsent(
-      sectionKey,
-      () => PageController(viewportFraction: 0.9),
-    );
-  }
-
-  Widget _buildAutoPhotoCarouselSection({
-    required String sectionKey,
+  Widget _buildPhotoGridSection({
     required String title,
     String? subtitle,
     required List<_PhotoCarouselItem> items,
     required bool isDark,
   }) {
     if (items.isEmpty) return const SizedBox.shrink();
-    _ensureCarouselState(sectionKey, items.length);
-    final controller = _carouselControllers.putIfAbsent(
-      sectionKey,
-      () => PageController(viewportFraction: 0.9),
-    );
-    final currentIndex = (_carouselIndexes[sectionKey] ?? 0) % items.length;
-    final carouselHeight = MediaQuery.of(context).size.height * 0.34;
+    final visibleItems = items.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            Text(
-              '${currentIndex + 1}/${items.length}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-          ],
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 8),
@@ -3485,48 +3453,61 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ),
         ],
         const SizedBox(height: 12),
-        SizedBox(
-          height: carouselHeight.clamp(220.0, 340.0),
-          child: PageView.builder(
-            controller: controller,
-            onPageChanged: (index) {
-              if (!mounted) return;
-              setState(() {
-                _carouselIndexes[sectionKey] = index;
-              });
-            },
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return AnimatedOpacity(
-                duration: const Duration(milliseconds: 250),
-                opacity: index == currentIndex ? 1 : 0.38,
-                child: GestureDetector(
-                  onTap: () => _showImagePreview(item.url),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          CachedNetworkImage(
-                            imageUrl: item.url,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                const Icon(Icons.broken_image, size: 24),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: visibleItems.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1,
+          ),
+          itemBuilder: (context, index) {
+            final item = visibleItems[index];
+            return GestureDetector(
+              onTap: () => _showImagePreview(item.url),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: item.url,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image, size: 24),
+                    ),
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          item.label ?? 'Photo ${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );

@@ -1221,6 +1221,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         booking.location?.address ?? 'Pickup service scheduled';
     final showPayButton =
         booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid';
+    final statusBadgeLabel = showPayButton
+        ? 'Payment awaiting'
+        : _statusLabel(booking.status);
     final payAmount =
         (booking.billing != null && booking.billing!.total > 0)
         ? booking.billing!.total
@@ -1262,7 +1265,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  _statusLabel(booking.status),
+                  statusBadgeLabel,
                   style: TextStyle(
                     color: Color(0xFF4A90E2),
                     fontSize: 10,

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { updateApprovalStatus } from '@/services/approvalService';
 import { toast } from 'sonner';
 import AddPartModal from './merchant/AddPartModal';
+import { useLocation } from 'react-router-dom';
 
 const CARZZI_GREETING_MESSAGE = `Hi 👋 Hope you’re doing well! 
 Welcome to Carzzi Support Chat  🚗 
@@ -50,6 +51,7 @@ interface ChatWidgetProps {
 }
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -95,6 +97,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     'COMPLETED',
     'CANCELLED'
   ].includes(status);
+  const isAdminOrStaffDashboard =
+    location.pathname === '/dashboard' &&
+    (user?.role === 'admin' || user?.role === 'staff');
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -207,7 +212,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     }
   }, [isOpen, isMinimized, messages]);
 
-  if (!isEnabled) return null;
+  if (!isEnabled || isAdminOrStaffDashboard) return null;
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
