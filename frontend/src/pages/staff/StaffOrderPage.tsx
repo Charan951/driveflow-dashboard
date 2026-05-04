@@ -6,7 +6,7 @@ import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
 import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft, MessageCircle } from 'lucide-react';
-import ElapsedTimer from '@/components/ElapsedTimer';
+
 import * as turf from '@turf/turf';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -866,12 +866,7 @@ const StaffOrderPage: React.FC = () => {
               {order.status.replace('_AT_MERCHANT', '')}
             </span>
           </div>
-          {order.assignedAt && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 w-fit px-2 py-1 rounded-md">
-              <span className="uppercase font-bold tracking-wider opacity-70">Elapsed Time</span>
-              <ElapsedTimer startTime={order.assignedAt} className="text-primary font-bold" />
-            </div>
-          )}
+
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
           {isBatteryOrTire || isCarWash ? (

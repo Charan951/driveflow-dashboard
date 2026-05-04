@@ -31,7 +31,7 @@ import { useAuthStore } from '@/store/authStore';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import ChatWidget from '@/components/ChatWidget';
-import ElapsedTimer from '@/components/ElapsedTimer';
+
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getETA, ETAResponse } from '@/services/trackingService';
@@ -828,14 +828,8 @@ const TrackServicePage: React.FC = () => {
         transition={{ delay: 0.15 }}
         className="bg-card rounded-2xl border border-border p-4 sm:p-6"
       >
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className="mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-semibold text-foreground">Status & Workflow</h2>
-          {order.assignedAt && (
-            <div className="flex items-center gap-2 px-2.5 py-1 bg-primary/10 rounded-xl border border-primary/20">
-              <span className="text-[10px] sm:text-xs uppercase font-bold text-primary/70 tracking-wider">Elapsed</span>
-              <ElapsedTimer startTime={order.assignedAt} className="text-primary font-bold text-xs sm:text-sm" />
-            </div>
-          )}
         </div>
         <Timeline steps={timelineSteps} vertical={false} className="gap-3 sm:gap-2" />
       </motion.div>
