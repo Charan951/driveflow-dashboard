@@ -32,22 +32,24 @@ const Footer: React.FC = () => {
               <li><Link to="/careers" className="hover:text-primary transition-colors">Careers</Link></li>
               <li><Link to="/blog" className="hover:text-primary transition-colors">Blog</Link></li>
               <li><Link to="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link></li>
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span>Hyderabad</span>
+              <li className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4" />
-                <span>+91 8143404488</span>
+                <span>+91 9849964945</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <span>support@carzzi.com</span>
+                <span>info@carzzi.com</span>
               </li>
             </ul>
           </div>

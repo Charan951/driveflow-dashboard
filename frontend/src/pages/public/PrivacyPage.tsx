@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Lock, Eye, FileCheck, Database, Server, UserCheck, RefreshCw } from 'lucide-react';
+import { Database, Eye, UserCheck, Share2, Clock, Shield, RefreshCw, CreditCard } from 'lucide-react';
 
 const PrivacyPage = () => {
   return (
@@ -14,100 +14,108 @@ const PrivacyPage = () => {
           {/* Header */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-5xl font-extrabold text-primary tracking-tight">
-              Privacy Policy
+              PRIVACY POLICY & REFUND POLICY
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Your privacy is critical to us.
+              Your data and refund rights
             </p>
           </div>
 
           {/* Content */}
-          <div className="bg-card border border-border rounded-3xl p-8 md:p-12 space-y-8 shadow-sm">
+          <div className="bg-card border border-border rounded-3xl p-8 md:p-12 space-y-10 shadow-sm">
             
-            <div className="text-muted-foreground leading-relaxed space-y-4 mb-8">
-              <p>
-                Likewise, we have built up this Policy with the end goal you should see how we gather, utilize, impart and reveal and make utilization of individual data. The following blueprints our privacy policy.
-              </p>
-            </div>
-
-            <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <Eye className="w-6 h-6 text-primary" />
-                Information Collection Purpose
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Before or at the time of collecting personal information, we will identify the purposes for which information is being collected.
-              </p>
-            </section>
-
             <section className="space-y-4">
               <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
                 <Database className="w-6 h-6 text-primary" />
-                Usage of Information
+                2. PRIVACY POLICY
               </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We will gather and utilization of individual data singularly with the target of satisfying those reasons indicated by us and for other good purposes, unless we get the assent of the individual concerned or as required by law.
-              </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <Server className="w-6 h-6 text-primary" />
-                Data Retention
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We will just hold individual data the length of essential for the satisfaction of those reasons.
-              </p>
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                2.1 Data Collected
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Personal information, location data, vehicle details, service images, and analytics data.
+                </p>
+              </div>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <FileCheck className="w-6 h-6 text-primary" />
-                Lawful Collection
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We will gather individual data by legal and reasonable means and, where fitting, with the information or assent of the individual concerned.
-              </p>
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                2.2 Usage
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Used for service delivery, analytics, and fraud prevention.
+                </p>
+              </div>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <RefreshCw className="w-6 h-6 text-primary" />
-                Data Accuracy
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Personal information ought to be important to the reasons for which it is to be utilized, and, to the degree essential for those reasons, ought to be exact, finished, and updated.
-              </p>
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                <Eye className="w-6 h-6 text-primary" />
+                2.3 Consent
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Users consent to tracking, OTP communication, and data usage.
+                </p>
+              </div>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <Shield className="w-6 h-6 text-primary" />
-                Security Safeguards
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We will protect individual data by security shields against misfortune or burglary, and also unapproved access, divulgence, duplicating, use or alteration.
-              </p>
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                <Share2 className="w-6 h-6 text-primary" />
+                2.4 Sharing
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Data may be shared with partners, payment gateways, and authorities.
+                </p>
+              </div>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                <Clock className="w-6 h-6 text-primary" />
+                2.5 Retention
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Data retained for 90 days after deletion.
+                </p>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-xl font-semibold flex items-center gap-2 text-foreground">
                 <UserCheck className="w-6 h-6 text-primary" />
-                Transparency
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We will promptly provide customers with access to our policies and procedures for the administration of individual data.
-              </p>
+                2.6 Rights
+              </h3>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <p>
+                  Users can access, correct, or delete their data.
+                </p>
+              </div>
             </section>
 
-            <section className="space-y-4">
+            <section className="space-y-4 pt-8 border-t border-border">
               <h2 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-                <Lock className="w-6 h-6 text-primary" />
-                Commitment
+                <CreditCard className="w-6 h-6 text-primary" />
+                3. REFUND POLICY
               </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                We are focused on leading our business as per these standards with a specific end goal to guarantee that the privacy of individual data is secure and maintained.
-              </p>
+              <div className="text-muted-foreground leading-relaxed space-y-4">
+                <ul className="list-disc list-inside ml-4 space-y-2">
+                  <li>More than 6 hours before service: Full refund</li>
+                  <li>2 to 6 hours before service: Partial refund</li>
+                  <li>Less than 2 hours before service: No refund</li>
+                </ul>
+                <p>
+                  Refunds are processed within 5–7 business days.
+                </p>
+              </div>
             </section>
 
             <div className="pt-8 border-t border-border">

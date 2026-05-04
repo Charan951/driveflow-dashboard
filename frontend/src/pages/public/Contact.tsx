@@ -99,7 +99,7 @@ const Contact = () => {
               {
                 icon: MapPin,
                 title: "Visit Us",
-                details: ["Hyderabad"],
+                details: ["Plot no 71 & 72", "3rd Floor", "Phase IV, IDA Cherlapally", "Hyderabad- 500051"],
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
                 border: "border-blue-200 dark:border-blue-900"
@@ -107,7 +107,7 @@ const Contact = () => {
               {
                 icon: Phone,
                 title: "Call Us",
-                details: ["+91 8143404488"],
+                details: ["+91 9849964945"],
                 color: "text-green-500",
                 bg: "bg-green-500/10",
                 border: "border-green-200 dark:border-green-900"
@@ -115,7 +115,7 @@ const Contact = () => {
               {
                 icon: Mail,
                 title: "Email Us",
-                details: ["support@carzzi.com"],
+                details: ["info@carzzi.com"],
                 color: "text-purple-500",
                 bg: "bg-purple-500/10",
                 border: "border-purple-200 dark:border-purple-900"
@@ -243,7 +243,7 @@ const Contact = () => {
 
       {/* WhatsApp Floating Button */}
       <motion.a
-        href="https://wa.me/918143404488"
+        href="https://wa.me/919849964945"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center z-50"
