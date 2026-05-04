@@ -492,8 +492,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
         }
       }
 
-      await _trackingService.start();
       _updateActiveBookingId();
+      await _trackingService.start();
     }
   }
 
@@ -733,6 +733,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   Future<void> _handleToggleTracking(bool v) async {
     try {
       if (v) {
+        _updateActiveBookingId();
         await _trackingService.start();
       } else {
         await _trackingService.stop();

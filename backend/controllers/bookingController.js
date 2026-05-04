@@ -7,6 +7,10 @@ import { emitEntitySync } from '../utils/syncService.js';
 import { sendEmail } from '../utils/emailService.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
+import {
+  sendLiveTrackingDismissPush,
+  trySendLiveTrackingAssignmentSeed,
+} from '../utils/liveTrackingPush.js';
 import crypto from 'crypto';
 import Message from '../models/Message.js';
 
@@ -57,7 +61,11 @@ export const emitBookingUpdate = (booking) => {
     usersToNotify.forEach(userId => {
       const room = `user_${userId.toString()}`;
       io.to(room).emit('bookingUpdated', booking);
-      io.to(room).emit('bookingCreated', booking); // Also emit bookingCreated for compatibility
+      // Only emit bookingCreated for a true new booking — not on every status sync
+      // (was causing duplicate "New Booking" client notifications per update).
+      if (booking.status === 'CREATED') {
+        io.to(room).emit('bookingCreated', booking);
+      }
     });
 
     // Global Real-time Sync
@@ -611,6 +619,7 @@ export const assignBooking = async (req, res) => {
           { type: 'assignment_update', bookingId }, 
           'order'
         );
+        trySendLiveTrackingAssignmentSeed(updatedBooking).catch(() => {});
       }
     } catch (notifyErr) {
       
@@ -977,6 +986,20 @@ Thank you for choosing Carzzi 🙌`;
 
       // Emit socket event for real-time updates
       emitBookingUpdate(updatedBooking);
+
+      try {
+        if (
+          ['REACHED_CUSTOMER', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(
+            canonTo
+          ) &&
+          updatedBooking.user
+        ) {
+          const u = updatedBooking.user;
+          const uid =
+            typeof u === 'object' && u && u._id ? String(u._id) : String(u);
+          await sendLiveTrackingDismissPush(uid, String(updatedBooking._id));
+        }
+      } catch (_) {}
 
       if (canonTo === 'CANCELLED' && booking.user) {
         try {

@@ -37,6 +37,23 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
+  Future<List<Booking>> listBookingsForVehicle(String vehicleId) async {
+    final res = await _api.getAny(ApiEndpoints.bookingsForVehicle(vehicleId));
+    final items = <Booking>[];
+    if (res is List) {
+      for (final e in res) {
+        try {
+          if (e is Map<String, dynamic>) {
+            items.add(Booking.fromJson(e));
+          } else if (e is Map) {
+            items.add(Booking.fromJson(Map<String, dynamic>.from(e)));
+          }
+        } catch (_) {}
+      }
+    }
+    return items;
+  }
+
   Future<List<Booking>> listMyBookings({bool forceRefresh = false}) async {
     final now = DateTime.now();
     if (!forceRefresh &&

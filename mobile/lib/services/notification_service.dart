@@ -20,12 +20,48 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // For data-only pushes, show a local notification in background/terminated
-  // so users still receive alerts when app is not open.
-  if (message.notification != null) return;
-
   final data = message.data;
   final type = data['type']?.toString();
+
+  final local = FlutterLocalNotificationsPlugin();
+  const initializationSettings = InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(),
+  );
+  await local.initialize(initializationSettings);
+  await PlatformUtils.createAndroidNotificationChannels(local);
+
+  if (type == 'live_tracking_dismiss') {
+    await NotificationService.dismissLiveTrackingNotification(
+      data['bookingId']?.toString(),
+      local,
+    );
+    return;
+  }
+
+  // Collapse live ETA when the booking reaches a terminal leg (system will also show FCM banner).
+  if (message.notification != null) {
+    if (type == 'status') {
+      final st =
+          (data['status']?.toString() ?? data['bookingStatus']?.toString() ?? '')
+              .toUpperCase();
+      if (['REACHED_CUSTOMER', 'DELIVERED', 'COMPLETED', 'CANCELLED']
+          .contains(st)) {
+        await NotificationService.dismissLiveTrackingNotification(
+          data['bookingId']?.toString(),
+          local,
+        );
+      }
+    }
+    return;
+  }
+
+  if (type == 'live_tracking') {
+    await NotificationService.presentLiveTrackingNotification(data, local);
+    return;
+  }
+
+  // Other data-only pushes: show a generic local notification.
   final subType = data['subType']?.toString();
   final status =
       data['status']?.toString() ?? data['bookingStatus']?.toString();
@@ -46,13 +82,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       data['body']?.toString() ??
       data['message']?.toString() ??
       'You have a new update';
-
-  final local = FlutterLocalNotificationsPlugin();
-  const initializationSettings = InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    iOS: DarwinInitializationSettings(),
-  );
-  await local.initialize(initializationSettings);
 
   await local.show(
     DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -82,8 +111,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void _onDidReceiveBackgroundNotificationResponse(
   NotificationResponse response,
 ) {
+  unawaited(_onBackgroundLocalNotificationTap(response));
+}
+
+Future<void> _onBackgroundLocalNotificationTap(
+  NotificationResponse response,
+) async {
+  WidgetsFlutterBinding.ensureInitialized();
   try {
-    NotificationService()._handleNotificationClick(
+    await FlutterLocalNotificationsPlugin().cancelAll();
+  } catch (_) {}
+  try {
+    await NotificationService()._handleNotificationClick(
       response.payload,
       actionId: response.actionId,
     );
@@ -192,12 +231,137 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// FCM often replays the same `live_tracking` data message when the app
+  /// resumes right after the user opened from that notification — suppress
+  /// re-posting for this booking briefly (main isolate).
+  static DateTime? _skipLiveTrackingReshowUntil;
+  static String? _skipLiveTrackingReshowBookingId;
+
+  /// Identical live_tracking payloads in a tight window (e.g. double delivery).
+  static String? _liveTrackingDedupeKey;
+  static DateTime? _liveTrackingDedupeAt;
+
+  static String? _dedupeFcmOpenMessageId;
+  static DateTime? _dedupeFcmOpenAt;
+
+  /// Re-use one tray slot per booking for in-app booking pings (socket + mirrored FCM).
+  /// Namespace separate from [liveTrackingNotificationId] (raw hash).
+  static int inAppBookingSummaryNotificationId(String bookingId) {
+    if (bookingId.isEmpty) return 9100003;
+    final h = Object.hash('inAppBookingSummary', bookingId) & 0x0fffffff;
+    return 1200000000 + h;
+  }
+
+  static String? _inAppBookingDedupeKey;
+  static DateTime? _inAppBookingDedupeAt;
+
+  static bool _dedupeInAppBookingPing(String key) {
+    final now = DateTime.now();
+    if (_inAppBookingDedupeKey == key &&
+        _inAppBookingDedupeAt != null &&
+        now.difference(_inAppBookingDedupeAt!) < const Duration(seconds: 8)) {
+      return true;
+    }
+    _inAppBookingDedupeKey = key;
+    _inAppBookingDedupeAt = now;
+    return false;
+  }
+
   static String normalizeNotificationTitle(String title) {
     final normalized = title.trim().toLowerCase();
     if (normalized == 'bill updated') {
       return 'Payment awaiting';
     }
     return title;
+  }
+
+  /// Stable per-booking id so live ETA updates replace the same notification.
+  static int liveTrackingNotificationId(String bookingId) {
+    if (bookingId.isEmpty) return 9100001;
+    final h = bookingId.hashCode & 0x7fffffff;
+    return h == 0 ? 9100001 : h;
+  }
+
+  static Future<void> dismissLiveTrackingNotification(
+    String? bookingId,
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    if (bookingId == null || bookingId.isEmpty) return;
+    await plugin.cancel(liveTrackingNotificationId(bookingId));
+  }
+
+  static Future<void> presentLiveTrackingNotification(
+    Map<String, dynamic> data,
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    await PlatformUtils.createAndroidNotificationChannels(plugin);
+    final bookingId = data['bookingId']?.toString() ?? '';
+    final now = DateTime.now();
+
+    if (bookingId.isNotEmpty &&
+        _skipLiveTrackingReshowBookingId == bookingId &&
+        _skipLiveTrackingReshowUntil != null &&
+        now.isBefore(_skipLiveTrackingReshowUntil!)) {
+      return;
+    }
+
+    final dm = data['distanceMeters']?.toString() ?? '';
+    final pr = data['progress']?.toString() ?? '';
+    final dedupeKey = '$bookingId|$dm|$pr';
+    if (_liveTrackingDedupeKey == dedupeKey &&
+        _liveTrackingDedupeAt != null &&
+        now.difference(_liveTrackingDedupeAt!) < const Duration(seconds: 6)) {
+      return;
+    }
+    _liveTrackingDedupeKey = dedupeKey;
+    _liveTrackingDedupeAt = now;
+
+    final id = liveTrackingNotificationId(bookingId);
+    final titleRaw = data['title']?.toString().trim();
+    final title = normalizeNotificationTitle(
+      (titleRaw != null && titleRaw.isNotEmpty) ? titleRaw : 'Live tracking',
+    );
+    final bodyRaw = data['body']?.toString().trim();
+    final body = (bodyRaw != null && bodyRaw.isNotEmpty)
+        ? bodyRaw
+        : 'Staff is approaching';
+    final progress =
+        int.tryParse(data['progress']?.toString() ?? '0')?.clamp(0, 100) ?? 0;
+
+    await plugin.show(
+      id,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'tracking_channel',
+          'Live Tracking',
+          channelDescription:
+              'Live distance while staff is driving to you or returning your vehicle.',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+          visibility: NotificationVisibility.public,
+          ongoing: true,
+          autoCancel: false,
+          onlyAlertOnce: true,
+          category: AndroidNotificationCategory.transport,
+          showProgress: true,
+          maxProgress: 100,
+          progress: progress,
+          subText: '$progress% · tap to open map',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: false,
+          presentSound: false,
+          subtitle: '$progress% · $body',
+          threadIdentifier: 'live_track_${bookingId.isEmpty ? 'x' : bookingId}',
+          interruptionLevel: InterruptionLevel.timeSensitive,
+        ),
+      ),
+      payload: jsonEncode(data),
+    );
   }
 
   Future<FirebaseMessaging> _getMessaging() async {
@@ -318,6 +482,10 @@ class NotificationService {
     String? subType,
     String? status,
   }) {
+    if (type == 'live_tracking' || type == 'live_tracking_dismiss') {
+      return true;
+    }
+
     // 1. Booked (CREATED)
     // 2. Assigned (ASSIGNED)
     // 3. Staff Reached (REACHED_CUSTOMER, STAFF_REACHED_MERCHANT)
@@ -341,6 +509,10 @@ class NotificationService {
 
     // Special case for types that imply the allowed statuses
     if (type == 'booking_created' || type == 'order') {
+      return true;
+    }
+
+    if (type == 'assignment_update' || type == 'assignment') {
       return true;
     }
 
@@ -374,7 +546,12 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        _handleNotificationClick(response.payload, actionId: response.actionId);
+        unawaited(
+          _handleNotificationClick(
+            response.payload,
+            actionId: response.actionId,
+          ),
+        );
       },
       onDidReceiveBackgroundNotificationResponse:
           _onDidReceiveBackgroundNotificationResponse,
@@ -383,8 +560,7 @@ class NotificationService {
     // 2. Create Android Notification Channels
     await PlatformUtils.createAndroidNotificationChannels(_localNotifications);
 
-    // 3. Set up FCM listeners
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    // 3. Set up FCM listeners (onBackgroundMessage is registered once in main.dart)
     final messaging = await _getMessaging();
 
     await messaging.setForegroundNotificationPresentationOptions(
@@ -400,13 +576,21 @@ class NotificationService {
 
     // Background/Terminated state message click
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleNotificationClick(jsonEncode(message.data));
+      unawaited(
+        _handleNotificationClick(
+          jsonEncode(message.data),
+          fcmMessageId: message.messageId,
+        ),
+      );
     });
 
     // Handle initial message if app was terminated
     RemoteMessage? initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      _handleNotificationClick(jsonEncode(initialMessage.data));
+      await _handleNotificationClick(
+        jsonEncode(initialMessage.data),
+        fcmMessageId: initialMessage.messageId,
+      );
     }
 
     // 4. Token Management (Listeners only, actual sync happens in syncToken)
@@ -461,6 +645,25 @@ class NotificationService {
     final status =
         data['status']?.toString() ?? data['bookingStatus']?.toString();
 
+    if (type == 'live_tracking_dismiss') {
+      await NotificationService.dismissLiveTrackingNotification(
+        data['bookingId']?.toString(),
+        _localNotifications,
+      );
+      return;
+    }
+
+    if (type == 'live_tracking') {
+      if (!isNotificationAllowed(type: type, subType: subType, status: status)) {
+        return;
+      }
+      await NotificationService.presentLiveTrackingNotification(
+        data,
+        _localNotifications,
+      );
+      return;
+    }
+
     if (!isNotificationAllowed(type: type, subType: subType, status: status)) {
       return;
     }
@@ -472,6 +675,40 @@ class NotificationService {
         notification?.apple?.imageUrl;
 
     if (notification != null) {
+      if (type == 'status') {
+        final st = (status ?? '').toUpperCase();
+        if (['REACHED_CUSTOMER', 'DELIVERED', 'COMPLETED', 'CANCELLED']
+            .contains(st)) {
+          await NotificationService.dismissLiveTrackingNotification(
+            data['bookingId']?.toString(),
+            _localNotifications,
+          );
+        }
+      }
+
+      final bid = data['bookingId']?.toString();
+      const bookingSummaryTypes = <String>{
+        'status',
+        'order',
+        'booking_update',
+        'assignment_update',
+        'assignment',
+        'nearby',
+      };
+      final bool fcmBookingSummary = bid != null &&
+          bid.isNotEmpty &&
+          ((type != null && bookingSummaryTypes.contains(type)) ||
+              (type == null &&
+                  status != null &&
+                  allowedBookingStatuses.contains(status.toUpperCase())));
+      if (fcmBookingSummary) {
+        final st = (status ?? '').toUpperCase();
+        final dk = 'ping|$bid|${type ?? ''}|$st';
+        if (_dedupeInAppBookingPing(dk)) {
+          return;
+        }
+      }
+
       BigPictureStyleInformation? bigPictureStyleInformation;
       if (imageUrl != null && imageUrl.isNotEmpty) {
         // TODO: Download image and save locally for offline display
@@ -481,8 +718,12 @@ class NotificationService {
         );
       }
 
+      final int fcmTrayId = fcmBookingSummary
+          ? inAppBookingSummaryNotificationId(bid)
+          : notification.hashCode;
+
       await _localNotifications.show(
-        notification.hashCode,
+        fcmTrayId,
         normalizeNotificationTitle(notification.title ?? 'Carzzi'),
         notification.body,
         NotificationDetails(
@@ -495,6 +736,7 @@ class NotificationService {
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
             visibility: NotificationVisibility.public,
+            onlyAlertOnce: fcmBookingSummary,
             styleInformation: bigPictureStyleInformation,
             largeIcon: imageUrl != null
                 ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
@@ -549,6 +791,43 @@ class NotificationService {
       }
     }
 
+    String? bookingIdFromPayload;
+    var effectiveType = type;
+    var effectiveStatus = status;
+    if (payload != null) {
+      try {
+        final m = Map<String, dynamic>.from(jsonDecode(payload) as Map);
+        bookingIdFromPayload = m['bookingId']?.toString();
+        effectiveType ??= m['type']?.toString();
+        effectiveStatus ??=
+            (m['status'] ?? m['bookingStatus'])?.toString();
+      } catch (_) {}
+    }
+
+    const bookingSummaryTypes = <String>{
+      'status',
+      'order',
+      'booking_update',
+      'assignment_update',
+      'assignment',
+      'nearby',
+    };
+    final bool useBookingSummarySlot = bookingIdFromPayload != null &&
+        bookingIdFromPayload.isNotEmpty &&
+        ((effectiveType != null &&
+                bookingSummaryTypes.contains(effectiveType)) ||
+            (effectiveType == null &&
+                effectiveStatus != null &&
+                allowedBookingStatuses
+                    .contains(effectiveStatus.toUpperCase())));
+    if (useBookingSummarySlot) {
+      final st = (effectiveStatus ?? '').toUpperCase();
+      final dk = 'ping|$bookingIdFromPayload|${effectiveType ?? ''}|$st';
+      if (_dedupeInAppBookingPing(dk)) {
+        return;
+      }
+    }
+
     BigPictureStyleInformation? bigPictureStyleInformation;
     if (imageUrl != null && imageUrl.isNotEmpty) {
       bigPictureStyleInformation = BigPictureStyleInformation(
@@ -568,6 +847,7 @@ class NotificationService {
           showWhen: true,
           playSound: true,
           icon: '@mipmap/ic_launcher',
+          onlyAlertOnce: useBookingSummarySlot,
           styleInformation: bigPictureStyleInformation,
           largeIcon: imageUrl != null
               ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
@@ -583,8 +863,12 @@ class NotificationService {
       ),
     );
 
+    final int notificationId = useBookingSummarySlot
+        ? inAppBookingSummaryNotificationId(bookingIdFromPayload)
+        : (DateTime.now().millisecondsSinceEpoch % 100000);
+
     await _localNotifications.show(
-      (DateTime.now().millisecondsSinceEpoch % 100000).toInt(),
+      notificationId,
       normalizeNotificationTitle(title),
       body,
       platformChannelSpecifics,
@@ -651,47 +935,85 @@ class NotificationService {
     await _localNotifications.cancel(888);
   }
 
+  /// Removes all notifications for this app from the lock screen / shade
+  /// (local + FCM-displayed), then runs navigation from [payload].
+  Future<void> clearAllNotificationsFromTray() async {
+    if (kIsWeb) return;
+    try {
+      await _localNotifications.cancelAll();
+    } catch (_) {}
+  }
+
   Future<void> _handleNotificationClick(
     String? payload, {
     String? actionId,
+    String? fcmMessageId,
   }) async {
     if (payload == null) return;
+
+    Map<String, dynamic> data;
     try {
-      Map<String, dynamic> data = jsonDecode(payload);
+      data = Map<String, dynamic>.from(jsonDecode(payload) as Map);
+    } catch (_) {
+      await clearAllNotificationsFromTray();
+      return;
+    }
 
-      // Use the rootNavigatorKey from main.dart to navigate
+    if (fcmMessageId != null && fcmMessageId.isNotEmpty) {
+      final now = DateTime.now();
+      if (_dedupeFcmOpenMessageId == fcmMessageId &&
+          _dedupeFcmOpenAt != null &&
+          now.difference(_dedupeFcmOpenAt!) < const Duration(seconds: 5)) {
+        await clearAllNotificationsFromTray();
+        return;
+      }
+      _dedupeFcmOpenMessageId = fcmMessageId;
+      _dedupeFcmOpenAt = now;
+    }
+
+    final String? bookingId = data['bookingId']?.toString();
+    if (bookingId != null && bookingId.isNotEmpty) {
+      _skipLiveTrackingReshowBookingId = bookingId;
+      _skipLiveTrackingReshowUntil = DateTime.now().add(
+        const Duration(seconds: 25),
+      );
+    }
+
+    await clearAllNotificationsFromTray();
+
+    try {
       final context = rootNavigatorKey.currentContext;
-      if (context != null) {
-        final String? bookingId = data['bookingId']?.toString();
-        final String? type = data['type']?.toString();
-        final String? subType = data['subType']?.toString();
+      if (context == null || !context.mounted) return;
 
-        if ((type == 'status' || actionId == 'track_live_action') &&
-            bookingId != null &&
-            bookingId.isNotEmpty) {
-          // Navigate directly to live tracking map
+      final String? type = data['type']?.toString();
+      final String? subType = data['subType']?.toString();
+
+      if ((type == 'status' ||
+              type == 'live_tracking' ||
+              actionId == 'track_live_action') &&
+          bookingId != null &&
+          bookingId.isNotEmpty) {
+        Navigator.pushNamed(context, '/track', arguments: bookingId);
+      } else if (type == 'booking_update' || type == 'status') {
+        if (bookingId != null && bookingId.isNotEmpty) {
           Navigator.pushNamed(context, '/track', arguments: bookingId);
-        } else if (type == 'booking_update' || type == 'status') {
-          if (bookingId != null && bookingId.isNotEmpty) {
-            Navigator.pushNamed(context, '/track', arguments: bookingId);
-          } else {
-            Navigator.pushNamed(context, '/bookings');
-          }
-        } else if (type == 'payment' || subType == 'billing') {
-          Navigator.pushNamed(context, '/payments');
-        } else if (type == 'support') {
-          Navigator.pushNamed(context, '/support');
-        } else if (type == 'promotion') {
-          Navigator.pushNamed(context, '/speshway-dashboard');
-        } else if (type == 'approval' || type == 'approval_request') {
-          if (bookingId != null && bookingId.isNotEmpty) {
-            Navigator.pushNamed(context, '/track', arguments: bookingId);
-          } else {
-            Navigator.pushNamed(context, '/notifications');
-          }
+        } else {
+          Navigator.pushNamed(context, '/bookings');
+        }
+      } else if (type == 'payment' || subType == 'billing') {
+        Navigator.pushNamed(context, '/payments');
+      } else if (type == 'support') {
+        Navigator.pushNamed(context, '/support');
+      } else if (type == 'promotion') {
+        Navigator.pushNamed(context, '/speshway-dashboard');
+      } else if (type == 'approval' || type == 'approval_request') {
+        if (bookingId != null && bookingId.isNotEmpty) {
+          Navigator.pushNamed(context, '/track', arguments: bookingId);
         } else {
           Navigator.pushNamed(context, '/notifications');
         }
+      } else {
+        Navigator.pushNamed(context, '/notifications');
       }
     } catch (e) {
       // Ignore

@@ -187,6 +187,16 @@ export const sendPushToTopic = async (topic, title, body, data = {}, type = 'gen
  * @param {string} userId - Recipient ID
  * @param {object} data - Data payload
  */
+/** FCM data payloads must use string values only. */
+const fcmStringData = (data) =>
+  Object.fromEntries(
+    Object.entries(data).map(([k, v]) => [k, v == null ? '' : String(v)])
+  );
+
+/**
+ * High-priority data-only push (no DB notification row). Used for live
+ * tracking updates so the client can refresh one notification in place.
+ */
 export const sendSilentPush = async (userId, data = {}) => {
   try {
     const user = await User.findById(userId);
@@ -194,7 +204,7 @@ export const sendSilentPush = async (userId, data = {}) => {
 
     const tokens = user.fcmTokens.map(t => t.token);
     const message = {
-      data: { ...data, silent: 'true' },
+      data: fcmStringData({ ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' }),
       tokens,
       android: { priority: 'high' },
       apns: {

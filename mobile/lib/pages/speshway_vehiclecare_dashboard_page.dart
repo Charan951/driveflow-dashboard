@@ -1032,6 +1032,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                         AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildQuickServices()),
                         AppSpacing.verticalSection,
+                        RepaintBoundary(child: _buildMyVehicles()),
+                        AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildRecentServices()),
                       ],
                     ),
@@ -1602,6 +1604,288 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         ),
       ],
     );
+  }
+
+  String _myVehicleStatusBadgeLabel(String? status) {
+    final s = (status ?? '').trim();
+    if (s.isEmpty) return 'Idle';
+    return s;
+  }
+
+  Widget _buildMyVehicles() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('My Vehicles', style: titleStyle),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/vehicles');
+              },
+              child: Text(
+                'View all',
+                style: TextStyle(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.85)
+                      : AppColors.primaryBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        AppSpacing.verticalMedium,
+        if (_vehicles.isEmpty)
+          _FrostedCard(
+            borderRadius: 16,
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.directions_car_outlined,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.7)
+                      : AppColors.textPrimaryLight,
+                ),
+                AppSpacing.horizontalMedium,
+                Expanded(
+                  child: Text(
+                    'No vehicles yet. Add one to book services faster.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : AppColors.textSecondaryLight,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 112,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: _vehicles.length,
+              separatorBuilder: (context, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final v = _vehicles[index];
+                final cardWidth = MediaQuery.sizeOf(context).width * 0.7;
+                final variant = (v.variant ?? '').trim();
+                final yearPlate = v.year > 0
+                    ? '${v.year} · ${v.licensePlate.toUpperCase()}'
+                    : v.licensePlate.toUpperCase();
+                final statusBadge = _myVehicleStatusBadgeLabel(v.status);
+                final thumbBg = isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE8E8ED);
+                final thumbBorder = isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.06);
+                final iconColor = isDark
+                    ? Colors.white.withValues(alpha: 0.45)
+                    : const Color(0xFF5C5C66);
+
+                return SizedBox(
+                  width: cardWidth,
+                  child: _AnimatedDashboardCard(
+                    onTap: () {
+                      Navigator.of(context).pushNamed(
+                        '/vehicle-detail',
+                        arguments: v,
+                      );
+                    },
+                    child: _FrostedCard(
+                      borderRadius: 16,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 88,
+                            height: 88,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: thumbBg,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: thumbBorder),
+                                  ),
+                                  child: const SizedBox.expand(),
+                                ),
+                                Positioned(
+                                  left: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? const Color(0xFF2A2A30)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(999),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: isDark ? 0.35 : 0.08,
+                                          ),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.12,
+                                              )
+                                            : Colors.black.withValues(
+                                                alpha: 0.06,
+                                              ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      statusBadge,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 10,
+                                            letterSpacing: 0.2,
+                                            color: isDark
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.85,
+                                                  )
+                                                : const Color(0xFF3D3D47),
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                Center(
+                                  child: Icon(
+                                    _vehicleTypeIcon(v.type),
+                                    size: 38,
+                                    color: iconColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  v.make.trim().toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.4,
+                                        height: 1.05,
+                                        fontSize: 20,
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  v.model.trim().toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.35,
+                                        height: 1.1,
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.72,
+                                              )
+                                            : const Color(0xFF475569),
+                                      ),
+                                ),
+                                if (variant.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    variant,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primaryBlue,
+                                          height: 1.1,
+                                        ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  yearPlate,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.2,
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.5,
+                                              )
+                                            : const Color(0xFF94A3B8),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: isDark ? Colors.white38 : Colors.black26,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  IconData _vehicleTypeIcon(String? type) {
+    final t = type?.toLowerCase() ?? '';
+    if (t.contains('bike')) return Icons.two_wheeler_outlined;
+    return Icons.directions_car_filled_outlined;
   }
 
   Widget _buildRecentServices() {

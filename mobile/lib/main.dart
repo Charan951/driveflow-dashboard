@@ -17,6 +17,8 @@ import 'pages/support_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/main_navigation_page.dart';
 import 'pages/my_vehicles_page.dart';
+import 'pages/vehicle_detail_page.dart';
+import 'models/vehicle.dart';
 import 'pages/add_vehicle_page.dart';
 import 'pages/my_bookings_page.dart';
 import 'pages/profile_page.dart';
@@ -86,6 +88,7 @@ void onStart(ServiceInstance service) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Registered once here (not again in NotificationService.initialize).
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   final authProvider = AuthProvider();
@@ -433,6 +436,16 @@ class MyApp extends StatelessWidget {
               '/bookings': (_) => const MyBookingsPage(),
               '/payments': (_) => const MyPaymentsPage(),
               '/vehicles': (_) => const MyVehiclesPage(),
+              '/vehicle-detail': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                if (args is Vehicle) {
+                  return VehicleDetailPage(vehicle: args);
+                }
+                return Scaffold(
+                  appBar: AppBar(title: const Text('Vehicle')),
+                  body: const Center(child: Text('Vehicle not found')),
+                );
+              },
               '/add-vehicle': (_) => const AddVehiclePage(),
               '/notifications': (_) => const NotificationsPage(),
               '/essentials': (_) => const _TabRedirect(index: 1),

@@ -68,6 +68,9 @@ class StaffTrackingService {
 
   Future<void> setActiveBookingId(String? id) async {
     _activeBookingId = id;
+    if (_isTracking) {
+      await BackgroundTracking.start(bookingId: id);
+    }
   }
 
   void setAutoStatusTarget({
@@ -84,6 +87,7 @@ class StaffTrackingService {
     if (_isTracking) {
       // Re-assert online status even if already tracking
       _updateOnlineStatus(true);
+      await BackgroundTracking.start(bookingId: _activeBookingId);
       return;
     }
     _isTracking = true;
@@ -101,10 +105,10 @@ class StaffTrackingService {
     await _ensureSocket();
     await _startPositionStream();
 
-    // Trigger an immediate position update and server sync
-    _triggerImmediateSync();
-
     await BackgroundTracking.start(bookingId: _activeBookingId);
+
+    // Trigger an immediate position update and server sync (after bookingId is wired)
+    _triggerImmediateSync();
 
     // Start periodic heartbeat (every 1 minute instead of 2 for better responsiveness)
     _heartbeatTimer?.cancel();

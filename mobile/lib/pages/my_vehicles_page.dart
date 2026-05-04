@@ -443,27 +443,37 @@ class _VehicleCardState extends State<_VehicleCard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final v = widget.vehicle;
     final accent = _accentForType(v.type);
-    return Container(
-      padding: AppSpacing.edgeInsetsAllDefault,
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.backgroundSecondary
-            : AppColors.backgroundSecondaryLight,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
-        ),
-        boxShadow: [
-          BoxShadow(
+        onTap: () {
+          Navigator.of(context).pushNamed(
+            '/vehicle-detail',
+            arguments: v,
+          );
+        },
+        child: Container(
+          padding: AppSpacing.edgeInsetsAllDefault,
+          decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundSecondaryLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.4)
+                    : Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Stack(
+          child: Stack(
         children: [
           Positioned.fill(
             child: Align(
@@ -569,6 +579,8 @@ class _VehicleCardState extends State<_VehicleCard> {
             ],
           ),
         ],
+      ),
+        ),
       ),
     );
   }

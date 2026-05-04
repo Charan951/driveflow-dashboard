@@ -113,6 +113,7 @@ class Vehicle {
       if (insurance != null) 'insurance': insurance!.toJson(),
       'documents': documents.map((e) => e.toJson()).toList(),
       if (location != null) 'location': location!.toJson(),
+      if (healthIndicators != null) 'healthIndicators': healthIndicators,
     };
   }
 }

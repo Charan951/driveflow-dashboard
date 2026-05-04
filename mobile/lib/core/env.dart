@@ -43,6 +43,9 @@ class ApiEndpoints {
   static const String notificationsRegisterToken = '/users/device-token';
   static const String services = '/services';
   static const String vehicles = '/vehicles';
+  static String vehicleById(String id) => '/vehicles/$id';
+  static String bookingsForVehicle(String vehicleId) =>
+      '/bookings/vehicle/$vehicleId';
   static const String fetchVehicleDetails = '/vehicles/fetch-details';
   static const String vehicleReferenceSearch = '/vehicle-reference/search';
   static const String bookings = '/bookings';

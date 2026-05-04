@@ -4,6 +4,7 @@ import Vehicle from '../models/Vehicle.js';
 import axios from 'axios';
 import { getIO } from '../socket.js';
 import { sendPushToUser } from '../utils/pushService.js';
+import { trySendLiveTrackingPush } from '../utils/liveTrackingPush.js';
 
 // In-memory throttle to avoid spamming "nearby" notifications
 const lastNearNotifyAt = new Map(); // bookingId -> timestamp(ms)
@@ -194,7 +195,9 @@ export const updateUserLocation = async (req, res) => {
 
           try {
             // Near-arrival detection and notification (300m) for pickup phases
-            const booking = await Booking.findById(bookingId).select('user location status').populate('user','_id');
+            const booking = await Booking.findById(bookingId)
+              .select('user location status pickupDriver technician carWash')
+              .populate('user', '_id');
             const bLoc = booking?.location;
             const bLat = typeof bLoc === 'object' ? bLoc?.lat : null;
             const bLng = typeof bLoc === 'object' ? bLoc?.lng : null;
@@ -214,6 +217,17 @@ export const updateUserLocation = async (req, res) => {
                 }
                 lastNearNotifyAt.set(String(bookingId), Date.now());
               }
+            }
+
+            // Uber-style live distance + progress (throttled data push → local notification on device)
+            if (booking && isLatValid && isLngValid) {
+              await trySendLiveTrackingPush({
+                bookingId,
+                staffId: req.user._id,
+                staffLat: lat ?? user.location?.lat,
+                staffLng: lng ?? user.location?.lng,
+                bookingLean: booking,
+              });
             }
           } catch (e) {
             

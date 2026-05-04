@@ -606,6 +606,8 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                   AppSpacing.verticalDefault,
                   _QuickServicesSection(services: _services),
                   AppSpacing.verticalDefault,
+                  _MyVehiclesSection(vehicles: _vehicles),
+                  AppSpacing.verticalDefault,
                   _RecentBookingsSection(
                     bookings: _bookings,
                     reviews: _reviews,
@@ -1253,6 +1255,254 @@ class _QuickServicesSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MyVehiclesSection extends StatelessWidget {
+  final List<Vehicle> vehicles;
+
+  const _MyVehiclesSection({required this.vehicles});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'My Vehicles',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/vehicles');
+              },
+              child: const Text('View all'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (vehicles.isEmpty)
+          Text(
+            'No vehicles yet. Add one to book services faster.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: isDark
+                  ? AppColors.textSecondary
+                  : AppColors.textSecondaryLight,
+            ),
+          )
+        else
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: vehicles.length,
+              separatorBuilder: (context, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final v = vehicles[index];
+                final cardWidth = MediaQuery.sizeOf(context).width * 0.7;
+                return SizedBox(
+                  width: cardWidth,
+                  child: _MyVehicleCarouselCard(
+                    vehicle: v,
+                    onTap: () {
+                      Navigator.of(context).pushNamed(
+                        '/vehicle-detail',
+                        arguments: v,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MyVehicleCarouselCard extends StatelessWidget {
+  final Vehicle vehicle;
+  final VoidCallback onTap;
+
+  const _MyVehicleCarouselCard({
+    required this.vehicle,
+    required this.onTap,
+  });
+
+  Color _accentForType(String? type) {
+    final t = type?.toLowerCase() ?? '';
+    if (t.contains('bike')) return const Color(0xFF22D3EE);
+    return AppColors.primaryBlue;
+  }
+
+  String _typeLabel(String? type) {
+    if (type == null || type.trim().isEmpty) return 'VEHICLE';
+    final t = type.toLowerCase();
+    if (t.contains('car')) return 'CAR';
+    if (t.contains('bike')) return 'BIKE';
+    return type.toUpperCase();
+  }
+
+  IconData _iconForType(String? type) {
+    final t = type?.toLowerCase() ?? '';
+    if (t.contains('bike')) return Icons.two_wheeler_outlined;
+    return Icons.directions_car_filled_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = _accentForType(vehicle.type);
+    final title =
+        '${vehicle.make} ${vehicle.model}${vehicle.variant != null && vehicle.variant!.trim().isNotEmpty ? ' ${vehicle.variant}' : ''}';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderColor
+                  : AppColors.borderColorLight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: isDark
+                            ? AppColors.backgroundSurface
+                            : AppColors.backgroundSurfaceLight,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : AppColors.borderColorLight,
+                        ),
+                      ),
+                      child: Icon(_iconForType(vehicle.type), color: accent),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.textPrimary
+                                      : AppColors.textPrimaryLight,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${vehicle.licensePlate.toUpperCase()} · ${vehicle.year}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? AppColors.textSecondary
+                                      : AppColors.textSecondaryLight,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: isDark ? Colors.white38 : Colors.black26,
+                      size: 22,
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: accent.withValues(alpha: 0.1),
+                        border: Border.all(
+                          color: accent.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        _typeLabel(vehicle.type),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    if (vehicle.fuelType != null &&
+                        vehicle.fuelType!.trim().isNotEmpty)
+                      Text(
+                        vehicle.fuelType!.trim(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    if (vehicle.color != null &&
+                        vehicle.color!.trim().isNotEmpty)
+                      Text(
+                        vehicle.color!.trim(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

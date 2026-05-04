@@ -56,6 +56,13 @@ class VehicleService {
     _lastFetchAt = null;
   }
 
+  Future<Vehicle> getVehicleById(String id) async {
+    final res = await _api.getAny(ApiEndpoints.vehicleById(id));
+    if (res is Map<String, dynamic>) return Vehicle.fromJson(res);
+    if (res is Map) return Vehicle.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
   Future<Vehicle> addVehicle({
     required String licensePlate,
     required String make,

@@ -175,6 +175,12 @@ class SocketService extends ValueNotifier<String?> {
           final mapData = data is Map<String, dynamic>
               ? data
               : Map<String, dynamic>.from(data as Map);
+          final bookingStatus =
+              (mapData['status'] ?? 'CREATED').toString().toUpperCase();
+          if (bookingStatus != 'CREATED') {
+            notifyListeners();
+            return;
+          }
           final bookingId = (mapData['_id'] ?? '').toString();
           final orderNum =
               (mapData['orderNumber'] ??
