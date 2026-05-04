@@ -30,7 +30,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import * as turf from '@turf/turf';
-import ChatWidget from '@/components/ChatWidget';
+
 
 const BookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1310,16 +1310,7 @@ const BookingDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
-      {booking?._id && (
-        <ChatWidget 
-          bookingId={booking._id} 
-          status={booking.status} 
-          onUpdate={async () => {
-            const data = await bookingService.getBookingById(booking._id);
-            setBooking(data);
-          }} 
-        />
-      )}
+
     </div>
   );
 };

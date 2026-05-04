@@ -357,33 +357,49 @@ export const updateVehicleHealth = async (req, res) => {
       }
 
       const { healthIndicators } = req.body;
+      
       if (healthIndicators) {
         if (!vehicle.healthIndicators) {
           vehicle.healthIndicators = {};
         }
 
-        const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
-        keys.forEach(key => {
-          if (healthIndicators[key] !== undefined) {
-            const indicator = healthIndicators[key];
-            const existing = vehicle.healthIndicators[key] || {};
-            
-            // If newValue is 0, we treat it as a service reset
-            // If it's not 0, we update it but maybe it's just a manual adjustment
-            const newValue = typeof indicator === 'object' ? (indicator.value ?? 0) : indicator;
-            const isReset = newValue === 0;
-
+        // Check if it's a complete reset request
+        if (healthIndicators.resetAll) {
+          const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
+          keys.forEach(key => {
             vehicle.healthIndicators[key] = {
-              value: newValue,
+              value: 0,
               lastUpdated: Date.now(),
-              // Only update lastServiceDate/Km if it's a reset or it was never set
-              lastServiceDate: isReset || !existing.lastServiceDate ? Date.now() : existing.lastServiceDate,
-              lastServiceKm: isReset || !existing.lastServiceDate ? (vehicle.mileage || 0) : (existing.lastServiceKm || 0),
-              fixedKm: typeof indicator === 'object' ? (indicator.fixedKm ?? existing.fixedKm ?? 0) : (existing.fixedKm ?? 0),
-              fixedDays: typeof indicator === 'object' ? (indicator.fixedDays ?? existing.fixedDays ?? 0) : (existing.fixedDays ?? 0)
+              lastServiceDate: null,
+              lastServiceKm: 0,
+              fixedKm: 0,
+              fixedDays: 0
             };
-          }
-        });
+          });
+        } else {
+          const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
+          keys.forEach(key => {
+            if (healthIndicators[key] !== undefined) {
+              const indicator = healthIndicators[key];
+              const existing = vehicle.healthIndicators[key] || {};
+              
+              // If newValue is 0, we treat it as a service reset
+              // If it's not 0, we update it but maybe it's just a manual adjustment
+              const newValue = typeof indicator === 'object' ? (indicator.value ?? 0) : indicator;
+              const isReset = newValue === 0;
+
+              vehicle.healthIndicators[key] = {
+                value: newValue,
+                lastUpdated: Date.now(),
+                // Only update lastServiceDate/Km if it's a reset or it was never set
+                lastServiceDate: isReset || !existing.lastServiceDate ? Date.now() : existing.lastServiceDate,
+                lastServiceKm: isReset || !existing.lastServiceDate ? (vehicle.mileage || 0) : (existing.lastServiceKm || 0),
+                fixedKm: typeof indicator === 'object' ? (indicator.fixedKm ?? existing.fixedKm ?? 0) : (existing.fixedKm ?? 0),
+                fixedDays: typeof indicator === 'object' ? (indicator.fixedDays ?? existing.fixedDays ?? 0) : (existing.fixedDays ?? 0)
+              };
+            }
+          });
+        }
 
         // Mark modified to ensure Mongoose saves the nested object
         vehicle.markModified('healthIndicators');

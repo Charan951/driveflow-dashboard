@@ -81,10 +81,10 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
   ];
 
   return (
-    <div className="bg-[#111827] text-white rounded-3xl p-6 shadow-xl space-y-6 max-w-md w-full">
+    <div className="bg-card text-foreground rounded-3xl p-6 shadow-xl space-y-6 max-w-md w-full border border-border">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xl font-bold tracking-tight">Vehicle Health Indicators</h3>
-        <div className="flex items-center gap-1 text-[10px] text-gray-400 bg-gray-800/50 px-2 py-1 rounded-full border border-gray-700">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded-full border border-border">
             <Info className="w-3 h-3" />
             Merchant Update Only
         </div>
@@ -102,10 +102,10 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
             >
               <div className="flex justify-between items-end">
                 <div className="flex items-center gap-3">
-                  <span className="text-xl grayscale-[0.5]">{indicator.icon}</span>
+                  <span className="text-xl">{indicator.icon}</span>
                   <div className="flex flex-col">
-                    <span className="font-semibold text-gray-200 text-sm">{indicator.label}</span>
-                    <div className="flex gap-3 text-[10px] text-gray-400 font-medium">
+                    <span className="font-semibold text-foreground text-sm">{indicator.label}</span>
+                    <div className="flex gap-3 text-[10px] text-muted-foreground font-medium">
                       {indicator.fixedKm !== undefined && (
                         <span>{indicator.fixedKm.toLocaleString()} KM</span>
                       )}
@@ -117,16 +117,16 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
                 </div>
                 <div className="flex flex-col items-end">
                   <span className={`font-mono font-bold text-sm ${
-                    indicator.value > 80 ? 'text-red-400' : 
-                    indicator.value > 50 ? 'text-orange-400' : 
-                    'text-blue-400'
+                    indicator.value > 80 ? 'text-red-600' : 
+                    indicator.value > 50 ? 'text-orange-600' : 
+                    'text-blue-600'
                   }`}>
                     {indicator.value}%
                   </span>
                 </div>
               </div>
               
-              <div className="h-2 w-full bg-gray-800/50 rounded-full overflow-hidden border border-gray-800">
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${indicator.value}%` }}
@@ -134,7 +134,7 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
                   className={`h-full rounded-full relative ${
                     indicator.value > 80 ? 'bg-gradient-to-r from-red-600 to-red-400' : 
                     indicator.value > 50 ? 'bg-gradient-to-r from-orange-600 to-orange-400' : 
-                    'bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                    'bg-gradient-to-r from-blue-600 to-blue-400'
                   }`}
                 >
                   <div className="absolute inset-0 bg-white/10 animate-pulse" />
@@ -145,8 +145,8 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
         })}
       </div>
 
-      <div className="pt-4 border-t border-gray-800/50">
-        <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+      <div className="pt-4 border-t border-border">
+        <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
           Health stats are updated by certified merchants during service inspections.
           Values reflect the remaining lifecycle based on time and mileage.
         </p>

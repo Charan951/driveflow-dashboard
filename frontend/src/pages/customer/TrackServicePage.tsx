@@ -286,6 +286,14 @@ const TrackServicePage: React.FC = () => {
         }
       });
 
+      socketService.on('global:sync', (data: any) => {
+        if (!data) return;
+        const entity = (data as any).entity;
+        if (entity === 'booking') {
+          fetchOrder();
+        }
+      });
+
       socketService.on('newApproval', (newApproval: ApprovalRequest) => {
         // Refresh approvals list when a new one arrives
         fetchPendingApprovals();
@@ -297,6 +305,7 @@ const TrackServicePage: React.FC = () => {
         socketService.off('liveLocation');
         socketService.off('nearbyStaff');
         socketService.off('bookingUpdated');
+        socketService.off('global:sync');
         socketService.off('newApproval');
         // Don't disconnect socket fully as it might be used elsewhere, 
         // but socketService.disconnect() usually handles ref counting or single instance logic. 

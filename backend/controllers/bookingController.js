@@ -711,6 +711,33 @@ export const updateBookingStatus = async (req, res) => {
         if (!booking.billing?.fileUrl) {
           return res.status(400).json({ message: 'Please upload invoice before marking service as completed' });
         }
+
+        // Reset vehicle health indicators when general service is completed
+        if (isGeneralService && booking.vehicle) {
+          const Vehicle = (await import('../models/Vehicle.js')).default;
+          const vehicle = await Vehicle.findById(booking.vehicle);
+          if (vehicle) {
+            const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
+            keys.forEach(key => {
+              if (!vehicle.healthIndicators) {
+                vehicle.healthIndicators = {};
+              }
+              vehicle.healthIndicators[key] = {
+                value: 0,
+                lastUpdated: Date.now(),
+                lastServiceDate: Date.now(),
+                lastServiceKm: vehicle.mileage || 0,
+                fixedKm: vehicle.healthIndicators[key]?.fixedKm || 0,
+                fixedDays: vehicle.healthIndicators[key]?.fixedDays || 0
+              };
+            });
+            vehicle.markModified('healthIndicators');
+            await vehicle.save();
+            
+            // Emit sync event so customer and merchant get updated data
+            emitEntitySync('vehicle', 'updated', vehicle);
+          }
+        }
       }
 
       if (canonTo === 'VEHICLE_PICKED') {

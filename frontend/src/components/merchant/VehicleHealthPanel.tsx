@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ShieldCheck, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Slider } from '@/components/ui/slider';
@@ -9,6 +9,27 @@ interface VehicleHealthPanelProps {
   booking: Booking;
   onUpdate: () => void;
 }
+
+const calculateDisplayValue = (indicator: any, currentKm: number) => {
+  if (!indicator?.lastServiceDate) return indicator?.value ?? 0;
+
+  const now = new Date();
+  const lastDate = new Date(indicator.lastServiceDate);
+  const lastDateMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffTime = Math.abs(nowMidnight.getTime() - lastDateMidnight.getTime());
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  const lastKm = indicator.lastServiceKm || 0;
+  const diffKm = Math.max(0, currentKm - lastKm);
+  const fixedKm = indicator.fixedKm || 0;
+  const fixedDays = indicator.fixedDays || 0;
+
+  const progressFromDays = fixedDays > 0 ? Math.min(100, (diffDays / fixedDays) * 100) : 0;
+  const progressFromKm = fixedKm > 0 ? Math.min(100, (diffKm / fixedKm) * 100) : 0;
+
+  return Math.round(Math.max(progressFromDays, progressFromKm));
+};
 
 const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpdate }) => {
   const vehicle = booking.vehicle as unknown as Vehicle;
@@ -42,6 +63,64 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
     },
   });
 
+  useEffect(() => {
+    if (vehicle?.healthIndicators) {
+      setHealth({
+        generalService: {
+            value: vehicle.healthIndicators.generalService?.value ?? 0,
+            fixedKm: vehicle.healthIndicators.generalService?.fixedKm ?? 0,
+            fixedDays: vehicle.healthIndicators.generalService?.fixedDays ?? 0
+        },
+        brakePads: {
+            value: vehicle.healthIndicators.brakePads?.value ?? 0,
+            fixedKm: vehicle.healthIndicators.brakePads?.fixedKm ?? 0,
+            fixedDays: vehicle.healthIndicators.brakePads?.fixedDays ?? 0
+        },
+        tires: {
+            value: vehicle.healthIndicators.tires?.value ?? 0,
+            fixedKm: vehicle.healthIndicators.tires?.fixedKm ?? 0,
+            fixedDays: vehicle.healthIndicators.tires?.fixedDays ?? 0
+        },
+        battery: {
+            value: vehicle.healthIndicators.battery?.value ?? 0,
+            fixedKm: vehicle.healthIndicators.battery?.fixedKm ?? 0,
+            fixedDays: vehicle.healthIndicators.battery?.fixedDays ?? 0
+        },
+        wiperBlade: {
+            value: vehicle.healthIndicators.wiperBlade?.value ?? 0,
+            fixedKm: vehicle.healthIndicators.wiperBlade?.fixedKm ?? 0,
+            fixedDays: vehicle.healthIndicators.wiperBlade?.fixedDays ?? 0
+        },
+      });
+    }
+  }, [vehicle]);
+
+  const displayHealth = useMemo(() => {
+    const currentKm = vehicle?.mileage || 0;
+    return {
+      generalService: calculateDisplayValue(
+        { ...health.generalService, lastServiceDate: vehicle?.healthIndicators?.generalService?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.generalService?.lastServiceKm },
+        currentKm
+      ),
+      brakePads: calculateDisplayValue(
+        { ...health.brakePads, lastServiceDate: vehicle?.healthIndicators?.brakePads?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.brakePads?.lastServiceKm },
+        currentKm
+      ),
+      tires: calculateDisplayValue(
+        { ...health.tires, lastServiceDate: vehicle?.healthIndicators?.tires?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.tires?.lastServiceKm },
+        currentKm
+      ),
+      battery: calculateDisplayValue(
+        { ...health.battery, lastServiceDate: vehicle?.healthIndicators?.battery?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.battery?.lastServiceKm },
+        currentKm
+      ),
+      wiperBlade: calculateDisplayValue(
+        { ...health.wiperBlade, lastServiceDate: vehicle?.healthIndicators?.wiperBlade?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.wiperBlade?.lastServiceKm },
+        currentKm
+      ),
+    };
+  }, [health, vehicle]);
+
   const handleSliderChange = (key: keyof typeof health, value: number[]) => {
     setHealth(prev => ({
       ...prev,
@@ -63,6 +142,32 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
         ...prev,
         [key]: { ...prev[key], fixedDays: value }
     }));
+  };
+
+  const handleResetHealth = async () => {
+    if (!vehicle?._id) {
+        toast.error('Vehicle ID not found');
+        return;
+    }
+
+    setLoading(true);
+    try {
+      await vehicleService.updateVehicleHealth(vehicle._id, { resetAll: true });
+      const resetHealth = {
+        generalService: { value: 0, fixedKm: 0, fixedDays: 0 },
+        brakePads: { value: 0, fixedKm: 0, fixedDays: 0 },
+        tires: { value: 0, fixedKm: 0, fixedDays: 0 },
+        battery: { value: 0, fixedKm: 0, fixedDays: 0 },
+        wiperBlade: { value: 0, fixedKm: 0, fixedDays: 0 },
+      };
+      setHealth(resetHealth);
+      toast.success('All vehicle health indicators reset successfully');
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to reset vehicle health');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveHealth = async () => {
@@ -132,8 +237,8 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                             </div>
                         </div>
                     </div>
-                    <span className={`text-sm font-bold ${health[indicator.key].value > 80 ? 'text-red-500' : health[indicator.key].value > 50 ? 'text-orange-500' : 'text-green-600'}`}>
-                        {health[indicator.key].value}%
+                    <span className={`text-sm font-bold ${displayHealth[indicator.key] > 80 ? 'text-red-500' : displayHealth[indicator.key] > 50 ? 'text-orange-500' : 'text-green-600'}`}>
+                        {displayHealth[indicator.key]}%
                     </span>
                 </div>
                 <Slider
@@ -145,7 +250,7 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                 />
                 <p className="text-[10px] text-muted-foreground italic flex justify-between items-center">
                     <span>
-                      Last updated: {vehicle?.healthIndicators?.[indicator.key as keyof typeof vehicle.healthIndicators]?.lastUpdated ? new Date(vehicle.healthIndicators[indicator.key as keyof typeof vehicle.healthIndicators]!.lastUpdated).toLocaleDateString() : 'Never'}
+                      Last updated: {vehicle?.healthIndicators?.[indicator.key as keyof typeof vehicle.healthIndicators]?.lastServiceDate ? new Date(vehicle.healthIndicators[indicator.key as keyof typeof vehicle.healthIndicators]!.lastServiceDate).toLocaleDateString() : 'Never'}
                     </span>
                     <div className="flex gap-4">
                       <span>
@@ -160,7 +265,14 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
         ))}
       </div>
 
-      <div className="pt-4 border-t flex justify-end">
+      <div className="pt-4 border-t flex justify-between items-center">
+        <button
+            onClick={handleResetHealth}
+            disabled={loading}
+            className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+            Reset All
+        </button>
         <button
             onClick={handleSaveHealth}
             disabled={loading}

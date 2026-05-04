@@ -90,13 +90,7 @@ const OrderDetail: React.FC = () => {
     try {
       const data = await bookingService.getBookingById(id);
       
-      // If payment is completed, go back to home page for merchant
-      if (data.paymentStatus === 'paid' && 
-          ['SERVICE_COMPLETED', 'CAR_WASH_COMPLETED', 'COMPLETED', 'DELIVERED'].includes(data.status)) {
-        toast.success('Payment completed. Returning to home page.');
-        navigate('/');
-        return;
-      }
+
 
       const previousQCStatus = booking?.qc?.completedAt;
       const newQCStatus = data.qc?.completedAt;

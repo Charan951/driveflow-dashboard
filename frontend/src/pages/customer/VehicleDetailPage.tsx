@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
@@ -7,47 +7,42 @@ import { toast } from 'sonner';
 import { 
   Car, 
   Calendar, 
-  MapPin, 
   FileText, 
-  Shield, 
   ArrowLeft,
-  Navigation,
   Clock,
   Activity
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleHealthIndicators from '@/components/VehicleHealthIndicators';
+import { useQuery } from '@tanstack/react-query';
 
 const CustomerVehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (!id) return;
-        const [vehicleData, bookingsData] = await Promise.all([
-          vehicleService.getVehicleById(id),
-          bookingService.getVehicleBookings(id)
-        ]);
-        setVehicle(vehicleData);
-        setBookings(bookingsData);
-      } catch (error) {
-        console.error(error);
-        toast.error('Failed to load vehicle details');
-        navigate('/add-vehicle');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: vehicle, isLoading: vehicleLoading, error: vehicleError } = useQuery({
+    queryKey: ['vehicle', id],
+    queryFn: () => id ? vehicleService.getVehicleById(id) : Promise.reject('No vehicle ID'),
+    enabled: !!id,
+    staleTime: 0, // Always refetch when cache invalidated
+  });
 
-    if (id) {
-      fetchData();
+  const { data: bookings, isLoading: bookingsLoading } = useQuery({
+    queryKey: ['vehicleBookings', id],
+    queryFn: () => id ? bookingService.getVehicleBookings(id) : Promise.reject('No vehicle ID'),
+    enabled: !!id,
+    staleTime: 0, // Always refetch when cache invalidated
+  });
+
+  const isLoading = vehicleLoading || bookingsLoading;
+
+  React.useEffect(() => {
+    if (vehicleError) {
+      console.error(vehicleError);
+      toast.error('Failed to load vehicle details');
+      navigate('/add-vehicle');
     }
-  }, [id, navigate]);
+  }, [vehicleError, navigate]);
 
   if (isLoading || !vehicle) {
     return (
@@ -136,17 +131,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
              </div>
           </div>
           
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-3">
-             <button className="p-4 bg-card border border-border rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-muted transition-all shadow-sm hover:shadow-md group">
-                <Navigation className="w-6 h-6 text-blue-500 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold">Track Live</span>
-             </button>
-             <button className="p-4 bg-card border border-border rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-muted transition-all shadow-sm hover:shadow-md group">
-                <FileText className="w-6 h-6 text-orange-500 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold">Service Record</span>
-             </button>
-          </div>
+
         </div>
 
         {/* Main Content - Tabs */}
@@ -161,24 +146,6 @@ const CustomerVehicleDetailPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Service History
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="documents"
-                  className="px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary transition-all font-medium text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Documents
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="tracking"
-                  className="px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary transition-all font-medium text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Live Tracking
                   </div>
                 </TabsTrigger>
                 <TabsTrigger 
@@ -253,56 +220,6 @@ const CustomerVehicleDetailPage: React.FC = () => {
                    ))}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-card p-5 rounded-2xl border border-border flex items-start gap-4 shadow-sm hover:shadow-md transition-all">
-                     <div className="p-3 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-xl">
-                        <Shield className="w-6 h-6" />
-                     </div>
-                     <div className="flex-1">
-                        <h3 className="font-bold mb-1">Essentials</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Keep your vehicle ready with important essentials and documents.</p>
-                        <button className="text-sm text-primary hover:underline font-bold flex items-center gap-1">
-                          View Details <ArrowLeft className="w-3 h-3 rotate-180" />
-                        </button>
-                     </div>
-                  </div>
-                  <div className="bg-card p-5 rounded-2xl border border-border flex items-start gap-4 shadow-sm hover:shadow-md transition-all">
-                     <div className="p-3 bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded-xl">
-                        <FileText className="w-6 h-6" />
-                     </div>
-                     <div className="flex-1">
-                        <h3 className="font-bold mb-1">RC Certificate</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Registration Certificate for {vehicle.licensePlate}</p>
-                        <button className="text-sm text-primary hover:underline font-bold flex items-center gap-1">
-                          View Details <ArrowLeft className="w-3 h-3 rotate-180" />
-                        </button>
-                     </div>
-                  </div>
-               </div>
-            </TabsContent>
-
-            <TabsContent value="tracking" className="mt-0 focus-visible:outline-none">
-              <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
-                <div className="bg-muted/30 h-[400px] flex items-center justify-center flex-col p-6 text-center">
-                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
-                    <MapPin className="w-10 h-10 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">Live Tracking</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto mb-6">Live location data is only available when your vehicle is in service or on route.</p>
-                  {vehicle.status === 'On Route' ? (
-                     <div className="px-6 py-3 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-2xl text-sm font-bold animate-pulse shadow-sm">
-                        Vehicle is currently On Route
-                     </div>
-                  ) : (
-                    <div className="px-6 py-3 bg-muted text-muted-foreground rounded-2xl text-sm font-medium border border-border">
-                      Tracking Unavailable
-                    </div>
-                  )}
-                </div>
-              </div>
             </TabsContent>
 
           </Tabs>

@@ -85,7 +85,6 @@ const TrackServicePage = lazyRetry(() => import("./pages/customer/TrackServicePa
 const ChatPage = lazyRetry(() => import("./pages/customer/ChatPage"));
 const TiresBatteryPage = lazyRetry(() => import("./pages/customer/TiresBatteryPage"));
 const CarWashPage = lazyRetry(() => import("./pages/customer/CarWashPage"));
-const DocumentsPage = lazyRetry(() => import("./pages/customer/DocumentsPage"));
 const ProfilePage = lazyRetry(() => import("./pages/customer/ProfilePage"));
 const SupportPage = lazyRetry(() => import("./pages/customer/SupportPage"));
 const CustomerVehicleDetailPage = lazyRetry(() => import("./pages/customer/VehicleDetailPage"));
@@ -191,7 +190,6 @@ const App = () => (
               <Route path="/chat/:id" element={<ChatPage />} />
               <Route path="/tires-battery" element={<TiresBatteryPage />} />
               <Route path="/car-wash" element={<CarWashPage />} />
-              <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/support" element={<SupportPage />} />
             </Route>

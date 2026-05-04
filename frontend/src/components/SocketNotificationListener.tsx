@@ -286,6 +286,7 @@ const SocketNotificationListener = () => {
       if (!data) return;
       const entityRaw = (data as any).entity;
       const actionRaw = (data as any).action;
+      const entityData = (data as any).data;
       const entity = typeof entityRaw === 'string' ? entityRaw.toLowerCase() : '';
       const action = typeof actionRaw === 'string' ? actionRaw.toLowerCase() : '';
 
@@ -295,7 +296,7 @@ const SocketNotificationListener = () => {
       const entityQueryMap: Record<string, string[]> = {
         'booking': ['bookings', 'booking', 'dashboard'],
         'ticket': ['tickets', 'ticket', 'dashboard'],
-        'vehicle': ['vehicles', 'tracking', 'dashboard'],
+        'vehicle': ['vehicles', 'vehicle', 'tracking', 'dashboard'],
         'user': ['users', 'user', 'dashboard', 'profile'],
         'approval': ['approvals', 'dashboard'],
         'payment': ['payments', 'dashboard'],
@@ -313,10 +314,34 @@ const SocketNotificationListener = () => {
         queryClient.invalidateQueries({ queryKey: [key] });
       });
 
+      // Special handling for specific entities with IDs
+      if (entity === 'vehicle' && entityData?._id) {
+        // Invalidate specific vehicle query
+        queryClient.invalidateQueries({ queryKey: ['vehicle', entityData._id] });
+        // Invalidate vehicle bookings
+        queryClient.invalidateQueries({ queryKey: ['vehicleBookings', entityData._id] });
+      }
+
+      if (entity === 'booking' && entityData?._id) {
+        queryClient.invalidateQueries({ queryKey: ['booking', entityData._id] });
+      }
+
       // Special handling for some actions
       if (action === 'deleted_all' && entity === 'notification') {
         queryClient.setQueryData(['notifications'], []);
       }
+    };
+
+    const handleVehicleSync = (data: any) => {
+      if (!data || !data.data) return;
+      
+      const vehicleId = data.data._id;
+      if (vehicleId) {
+        queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] });
+        queryClient.invalidateQueries({ queryKey: ['vehicleBookings', vehicleId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
 
     socketService.on('notification', handleNotification);
@@ -330,6 +355,7 @@ const SocketNotificationListener = () => {
     socketService.on('vehicleDeleted', handleVehicleDeleted);
     socketService.on('liveLocation', handleLiveLocation);
     socketService.on('global:sync', handleGlobalSync);
+    socketService.on('sync:vehicle', handleVehicleSync);
 
     return () => {
       socketService.off('connect');
@@ -344,6 +370,7 @@ const SocketNotificationListener = () => {
       socketService.off('vehicleDeleted', handleVehicleDeleted);
       socketService.off('liveLocation', handleLiveLocation);
       socketService.off('global:sync', handleGlobalSync);
+      socketService.off('sync:vehicle', handleVehicleSync);
     };
   }, [queryClient, user, userRole, navigate, addNotification, updateUser]);
 

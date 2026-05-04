@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
-import ChatWidget from '@/components/ChatWidget';
+
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
@@ -1325,13 +1325,7 @@ const StaffOrderPage: React.FC = () => {
           })()}
         </TabsContent>
       </Tabs>
-      {order?._id && (
-        <ChatWidget 
-          bookingId={order._id} 
-          status={order.status} 
-          onUpdate={fetchOrder} 
-        />
-      )}
+
     </div>
   );
 };

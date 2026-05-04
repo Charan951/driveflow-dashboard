@@ -110,8 +110,10 @@ vehicleSchema.methods.calculateHealth = function() {
     const indicator = vehicle.healthIndicators[key];
     if (indicator && indicator.lastServiceDate) {
       const lastDate = new Date(indicator.lastServiceDate);
-      const diffTime = Math.abs(now - lastDate);
-      // We use floor here because Day 1 should be 0 days passed
+      // Normalize dates to midnight to get accurate day difference
+      const lastDateMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+      const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffTime = Math.abs(nowMidnight - lastDateMidnight);
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       const lastKm = indicator.lastServiceKm || 0;

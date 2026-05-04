@@ -22,11 +22,11 @@ export interface Vehicle {
     nextService?: string;
     user?: string | { _id: string; name: string; email: string; phone?: string }; // User ID or Populated User
     healthIndicators?: {
-        generalService?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
-        brakePads?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
-        tires?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
-        battery?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
-        wiperBlade?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number };
+        generalService?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };
+        brakePads?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };
+        tires?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };
+        battery?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };
+        wiperBlade?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };
     };
 }
 

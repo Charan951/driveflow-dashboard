@@ -34,7 +34,6 @@ const customerMenuItems = [
   { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
   { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
   { icon: Shield, label: 'Essentials', path: '/book-service?category=Essentials' },
-  { icon: FileText, label: 'Documents', path: '/documents' },
   { icon: User, label: 'Profile', path: '/profile' },
   { icon: HeadphonesIcon, label: 'Support', path: '/support' },
 ];
