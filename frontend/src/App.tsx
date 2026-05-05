@@ -64,7 +64,9 @@ const ForgotPasswordPage = lazyRetry(() => import("./pages/public/ForgotPassword
 const ResetPasswordPage = lazyRetry(() => import("./pages/public/ResetPasswordPage"));
 const AboutUs = lazyRetry(() => import("./pages/public/AboutUs"));
 const Careers = lazyRetry(() => import("./pages/public/Careers"));
+const CareerDetail = lazyRetry(() => import("./pages/public/CareerDetail"));
 const Blog = lazyRetry(() => import("./pages/public/Blog"));
+const BlogDetail = lazyRetry(() => import("./pages/public/BlogDetail"));
 const Contact = lazyRetry(() => import("./pages/public/Contact"));
 const FAQs = lazyRetry(() => import("./pages/public/FAQs"));
 const PublicServices = lazyRetry(() => import("./pages/public/PublicServices"));
@@ -115,13 +117,13 @@ const AdminFeedbackPage = lazyRetry(() => import("./pages/admin/AdminFeedbackPag
 const AdminNotificationsPage = lazyRetry(() => import("./pages/admin/AdminNotificationsPage"));
 const AdminReportsPage = lazyRetry(() => import("./pages/admin/AdminReportsPage"));
 const AdminRolesPage = lazyRetry(() => import("./pages/admin/AdminRolesPage"));
-const AdminSettingsPage = lazyRetry(() => import("./pages/admin/AdminSettingsPage"));
 const AdminHeroImagesPage = lazyRetry(() => import("./pages/admin/AdminHeroImagesPage"));
 const AdminAuditPage = lazyRetry(() => import("./pages/admin/AdminAuditPage"));
 const AdminUsersPage = lazyRetry(() => import("./pages/admin/AdminUsersPage"));
 const AdminUserDetailPage = lazyRetry(() => import("./pages/admin/UserDetailPage"));
 const AdminVehiclesPage = lazyRetry(() => import("./pages/admin/AdminVehiclesPage"));
 const AdminVehicleDetailPage = lazyRetry(() => import("./pages/admin/VehicleDetailPage"));
+const AdminCareerDetailPage = lazyRetry(() => import("./pages/admin/AdminCareerDetailPage"));
 
 // Merchant Pages
 const MerchantDashboard = lazyRetry(() => import("./pages/merchant/Dashboard"));
@@ -141,7 +143,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <SocketNotificationListener />
         <Suspense fallback={<PageLoader />}>
           <Routes>
@@ -150,7 +157,9 @@ const App = () => (
             <Route path="/" element={<HomePage />} />
             <Route path="/about-us" element={<AboutUs />} />
             <Route path="/careers" element={<Careers />} />
+            <Route path="/careers/:id" element={<CareerDetail />} />
             <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:id" element={<BlogDetail />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/faqs" element={<FAQs />} />
             <Route path="/services" element={<PublicServices />} />
@@ -231,8 +240,8 @@ const App = () => (
               <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
               <Route path="/admin/reports" element={<AdminReportsPage />} />
               <Route path="/admin/roles" element={<AdminRolesPage />} />
-              <Route path="/admin/settings" element={<AdminSettingsPage />} />
               <Route path="/admin/hero-images" element={<AdminHeroImagesPage />} />
+              <Route path="/admin/careers/:id" element={<AdminCareerDetailPage />} />
               <Route path="/admin/audit" element={<AdminAuditPage />} />
             </Route>
           </Route>

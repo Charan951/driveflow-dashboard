@@ -1,8 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, MapPin, Phone, Mail } from 'lucide-react';
+import { heroService } from '@/services/heroService';
 
 const Footer: React.FC = () => {
+  const [contactDetails, setContactDetails] = useState({
+    address: 'Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051',
+    mobileNumber: '+91 9849964945',
+    email: 'info@carzzi.com',
+  });
+
+  useEffect(() => {
+    const fetchContactDetails = async () => {
+      try {
+        const data = await heroService.getHeroSettings();
+        if (data.contactDetails) {
+          setContactDetails({
+            address: data.contactDetails.address || contactDetails.address,
+            mobileNumber: data.contactDetails.mobileNumber || contactDetails.mobileNumber,
+            email: data.contactDetails.email || contactDetails.email,
+          });
+        }
+      } catch (error) {
+        // keep default fallback values
+      }
+    };
+    fetchContactDetails();
+  }, []);
+
   return (
     <footer className="py-12 bg-card border-t border-border">
       <div className="container mx-auto px-4">
@@ -41,15 +66,15 @@ const Footer: React.FC = () => {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051</span>
+                <span>{contactDetails.address}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4" />
-                <span>+91 9849964945</span>
+                <span>{contactDetails.mobileNumber}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <span>info@carzzi.com</span>
+                <span>{contactDetails.email}</span>
               </li>
             </ul>
           </div>

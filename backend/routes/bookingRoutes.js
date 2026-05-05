@@ -21,6 +21,9 @@ import {
   batteryTireApproval,
   addWarranty,
   updateMessageApprovalStatus,
+  getAvailableSlots,
+  getAdminSlotsForDate,
+  updateAdminSlotBlocks,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -31,6 +34,8 @@ router.route('/')
   .get(protect, merchant, getAllBookings);
 
 router.route('/mybookings').get(protect, getMyBookings);
+router.route('/available-slots').get(protect, getAvailableSlots);
+router.route('/admin/slots').get(protect, admin, getAdminSlotsForDate).put(protect, admin, updateAdminSlotBlocks);
 router.route('/user/:userId').get(protect, getUserBookings);
 router.route('/vehicle/:vehicleId').get(protect, getVehicleBookings);
 router.route('/merchant/:merchantId').get(protect, merchant, getMerchantBookings);

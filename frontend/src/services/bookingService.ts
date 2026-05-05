@@ -158,6 +158,14 @@ export interface BookingDetailsUpdate {
   prePickupPhotos?: Booking['prePickupPhotos'];
 }
 
+export interface SlotAvailabilityResponse {
+  date: string;
+  allSlots: string[];
+  availableSlots: string[];
+  blockedSlots?: string[];
+  bookedSlots?: string[];
+}
+
 export const bookingService = {
   createBooking: async (data: {
     vehicleId: string;
@@ -176,6 +184,21 @@ export const bookingService = {
 
   getMyBookings: async () => {
     const response = await api.get('/bookings/mybookings');
+    return response.data;
+  },
+
+  getAvailableSlots: async (date: string): Promise<SlotAvailabilityResponse> => {
+    const response = await api.get('/bookings/available-slots', { params: { date } });
+    return response.data;
+  },
+
+  getAdminSlots: async (date: string): Promise<{ date: string; allSlots: string[]; blockedSlots: string[]; bookedSlots: string[] }> => {
+    const response = await api.get('/bookings/admin/slots', { params: { date } });
+    return response.data;
+  },
+
+  updateAdminBlockedSlots: async (date: string, blockedSlots: string[]) => {
+    const response = await api.put('/bookings/admin/slots', { date, blockedSlots });
     return response.data;
   },
 

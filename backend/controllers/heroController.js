@@ -13,10 +13,22 @@ export const getHeroSettings = async (req, res) => {
       // Return defaults if not in S3 yet
       return res.json({
         homeSlides: [],
-        pageHeroes: {}
+        pageHeroes: {},
+        contactDetails: {
+          address: 'Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051',
+          mobileNumber: '+91 9849964945',
+          email: 'info@carzzi.com',
+        },
       });
     }
-    res.json(data);
+    res.json({
+      ...data,
+      contactDetails: {
+        address: data?.contactDetails?.address || 'Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051',
+        mobileNumber: data?.contactDetails?.mobileNumber || '+91 9849964945',
+        email: data?.contactDetails?.email || 'info@carzzi.com',
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -27,10 +39,15 @@ export const getHeroSettings = async (req, res) => {
 // @access  Private/Admin
 export const updateHeroSettings = async (req, res) => {
   try {
-    const { homeSlides, pageHeroes } = req.body;
+    const { homeSlides, pageHeroes, contactDetails } = req.body;
     const config = {
       homeSlides,
       pageHeroes,
+      contactDetails: {
+        address: contactDetails?.address || '',
+        mobileNumber: contactDetails?.mobileNumber || '',
+        email: contactDetails?.email || '',
+      },
       updatedAt: new Date().toISOString()
     };
     

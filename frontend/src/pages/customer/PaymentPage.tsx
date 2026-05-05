@@ -89,7 +89,7 @@ const PaymentPage: React.FC = () => {
   const handlePaymentSuccess = (paymentData: any) => {
     setIsLoading(false);
     toast.success('Payment successful! Your service booking has been created.');
-    navigate(`/track/${paymentData.bookingId || paymentData.booking?._id}`, { replace: true });
+    navigate('/dashboard', { replace: true });
   };
 
   const handlePaymentFailure = (error: any) => {

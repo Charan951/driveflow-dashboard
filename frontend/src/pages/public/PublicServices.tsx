@@ -223,74 +223,79 @@ const PublicServices = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-border"
               >
-                <div className="flex flex-col lg:flex-row">
-                  {/* Left Side: Large Image */}
-                  <div className="lg:w-1/2 relative h-[300px] lg:h-auto min-h-[400px]">
-                    <img 
-                      src={(service.image && service.image.trim() !== '') ? service.image : getServiceFallbackImage(service.category)} 
-                      alt={service.name} 
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:bg-gradient-to-r" />
-                    <div className="absolute bottom-8 left-8 text-white">
-                      <div className="bg-primary/90 backdrop-blur-md px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest mb-4 inline-block">
-                        {service.category}
-                      </div>
-                      <h2 className="text-4xl font-black">{service.name}</h2>
+                <div className="flex flex-col">
+                  {/* Row 1: Image + Title/Description */}
+                  <div className="flex flex-col lg:flex-row gap-0">
+                  <div className="lg:w-1/2 p-6 lg:p-8 flex items-start justify-center">
+                    <div className="relative rounded-3xl border border-border/70 bg-muted/30 overflow-hidden p-3 w-full max-w-[520px]">
+                      <img
+                        src={(service.image && service.image.trim() !== '') ? service.image : getServiceFallbackImage(service.category)}
+                        alt={service.name}
+                        className="w-full h-auto max-h-[420px] object-contain"
+                      />
                     </div>
                   </div>
 
-                  {/* Right Side: Details */}
-                  <div className="lg:w-1/2 p-10 lg:p-14 space-y-10 flex flex-col justify-between">
-                    <div className="space-y-8">
+                  <div className="lg:w-1/2 p-8 lg:p-10">
+                    <div className="space-y-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <h2 className="text-3xl md:text-4xl font-extrabold leading-tight text-foreground">{service.name}</h2>
+                        <span className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap">
+                          {service.category}
+                        </span>
+                      </div>
+
                       <div>
                         <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">Description</h3>
-                        <p className="text-xl text-foreground/80 leading-relaxed font-medium italic">
+                        <p className="text-lg md:text-xl text-foreground/85 leading-relaxed font-medium italic">
                           "{service.description}"
                         </p>
                       </div>
-
-                      {service.features && service.features.length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-6">What's Included</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {service.features.map((feature, i) => (
-                              <div key={i} className="flex items-center gap-3 bg-muted/50 p-4 rounded-2xl border border-border/50 group hover:border-primary/50 transition-colors">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                  <CheckCircle className="w-5 h-5 text-primary" />
-                                </div>
-                                <span className="text-sm font-semibold text-foreground/90">{feature}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
+                  </div>
+                </div>
 
-                    <div className="pt-10 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-8">
-                      <div className="flex items-center gap-6">
-                        <div className="text-center sm:text-left">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Service Price</p>
-                          <p className="text-4xl font-black text-primary">₹{service.price}</p>
-                        </div>
-                        <div className="h-10 w-px bg-border hidden sm:block" />
-                        <div className="text-center sm:text-left">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Duration</p>
-                          <div className="flex items-center gap-2 text-foreground/80 font-bold">
-                            <Clock className="w-4 h-4 text-primary" />
-                            {service.duration} mins
+                  {/* Row 2: What's Included */}
+                  {service.features && service.features.length > 0 && (
+                    <div className="px-8 lg:px-10 pt-2 pb-6">
+                      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-6">What's Included</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {service.features.map((feature, i) => (
+                          <div key={i} className="flex items-center gap-3 bg-muted/50 p-4 rounded-2xl border border-border/50 group hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                              <CheckCircle className="w-5 h-5 text-primary" />
+                            </div>
+                            <span className="text-sm font-semibold text-foreground/90">{feature}</span>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Row 3: Bottom details row */}
+                  <div className="mx-8 lg:mx-10 mb-8 lg:mb-10 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-8">
+                    <div className="flex items-center gap-6">
+                      <div className="text-center sm:text-left">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Service Price</p>
+                        <p className="text-4xl font-black text-primary">₹{service.price}</p>
+                      </div>
+                      <div className="h-10 w-px bg-border hidden sm:block" />
+                      <div className="text-center sm:text-left">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Duration</p>
+                        <div className="flex items-center gap-2 text-foreground/80 font-bold">
+                          <Clock className="w-4 h-4 text-primary" />
+                          {service.duration} mins
                         </div>
                       </div>
-                      
-                      <button 
-                        onClick={() => handleBookNow(service)}
-                        className="w-full sm:w-auto px-10 py-5 bg-primary text-primary-foreground rounded-2xl font-black text-lg hover:bg-primary/90 transition-all hover:scale-105 shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
-                      >
-                        Book Now
-                        <ArrowRight className="w-5 h-5" />
-                      </button>
                     </div>
+                    
+                    <button 
+                      onClick={() => handleBookNow(service)}
+                      className="w-full sm:w-auto px-10 py-5 bg-primary text-primary-foreground rounded-2xl font-black text-lg hover:bg-primary/90 transition-all hover:scale-105 shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+                    >
+                      Book Now
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -316,7 +321,7 @@ const PublicServices = () => {
                 <img 
                   src={(service.image && service.image.trim() !== '') ? service.image : getServiceFallbackImage(service.category)} 
                   alt={service.name} 
-                  className="w-full h-[400px] object-cover transform group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-[400px] object-contain transform group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg">
                   <Car className="w-8 h-8 text-primary" />

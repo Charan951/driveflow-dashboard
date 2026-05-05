@@ -14,6 +14,16 @@ router.post('/', protect, (req, res, next) => {
   });
 }, uploadFile);
 
+// Public upload for resumes/career applications
+router.post('/public', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || 'File upload failed' });
+    }
+    next();
+  });
+}, uploadFile);
+
 // Upload multiple files
 router.post('/multiple', protect, (req, res, next) => {
   console.log('Multiple upload request received');

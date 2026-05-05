@@ -6,6 +6,10 @@ import {
   Plus, 
   Save, 
   RefreshCw, 
+  FileText,
+  Eye,
+  Pencil,
+  Briefcase,
   Image as ImageIcon,
   Layout,
   Type,
@@ -19,7 +23,10 @@ import {
 import { heroService, HeroSlide, PageHero } from '@/services/heroService';
 import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
+import { blogService, BlogPost, BlogCategory } from '@/services/blogService';
+import { careerService, Career } from '@/services/careerService';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const PAGES = [
   { id: 'about', label: 'About Us' },
@@ -32,16 +39,52 @@ const PAGES = [
 ];
 
 const AdminHeroImagesPage = () => {
+  const navigate = useNavigate();
   const [homeSlides, setHomeSlides] = useState<HeroSlide[]>([]);
   const [pageHeroes, setPageHeroes] = useState<Record<string, PageHero>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeUploadTarget, setActiveUploadTarget] = useState<{ type: 'home' | 'page', id?: string | number }>({ type: 'home' });
+  const [activeUploadTarget, setActiveUploadTarget] = useState<{ type: 'home' | 'page' | 'blog', id?: string | number }>({ type: 'home' });
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [blogCategories, setBlogCategories] = useState<BlogCategory[]>([]);
+  const [careers, setCareers] = useState<Career[]>([]);
+  const [activeManagerTab, setActiveManagerTab] = useState<'blog' | 'careers'>('blog');
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [previewBlog, setPreviewBlog] = useState<BlogPost | null>(null);
+  const [blogForm, setBlogForm] = useState({
+    _id: '',
+    title: '',
+    excerpt: '',
+    content: '',
+    image: '',
+    author: '',
+    category: '',
+    readTime: '',
+    tags: '',
+    isPublished: true,
+  });
+  const [contactDetails, setContactDetails] = useState({
+    address: '',
+    mobileNumber: '',
+    email: '',
+  });
+  const [careerForm, setCareerForm] = useState({
+    _id: '',
+    title: '',
+    department: '',
+    location: '',
+    type: '',
+    salary: '',
+    shortDescription: '',
+    applyUrl: '',
+    isActive: true,
+  });
 
   useEffect(() => {
-    fetchHeroSettings();
+    fetchAllData();
 
     // Socket Setup
     socketService.connect();
@@ -52,8 +95,8 @@ const AdminHeroImagesPage = () => {
       const entity = (data as any).entity;
       const action = (data as any).action;
       
-      if (entity === 'hero' && action) {
-        fetchHeroSettings();
+      if ((entity === 'hero' || entity === 'blog' || entity === 'blogCategory' || entity === 'career') && action) {
+        fetchAllData();
       }
     };
 
@@ -65,9 +108,14 @@ const AdminHeroImagesPage = () => {
     };
   }, []);
 
-  const fetchHeroSettings = async () => {
+  const fetchAllData = async () => {
     try {
-      const data = await heroService.getHeroSettings();
+      const [data, categoriesData, blogsData, careersData] = await Promise.all([
+        heroService.getHeroSettings(),
+        blogService.getAdminCategories(),
+        blogService.getAdminBlogs(),
+        careerService.getAdminCareers(),
+      ]);
       
       // Home slides
       if (data.homeSlides && Array.isArray(data.homeSlides)) {
@@ -92,8 +140,19 @@ const AdminHeroImagesPage = () => {
       if (data.pageHeroes) {
         setPageHeroes(data.pageHeroes);
       }
+      if (data.contactDetails) {
+        setContactDetails({
+          address: data.contactDetails.address || '',
+          mobileNumber: data.contactDetails.mobileNumber || '',
+          email: data.contactDetails.email || '',
+        });
+      }
+
+      setBlogCategories(categoriesData);
+      setBlogs(blogsData);
+      setCareers(careersData);
     } catch (error) {
-      toast.error('Failed to load hero settings from S3');
+      toast.error('Failed to load website content');
     } finally {
       setLoading(false);
     }
@@ -128,7 +187,7 @@ const AdminHeroImagesPage = () => {
     });
   };
 
-  const triggerUpload = (type: 'home' | 'page', id?: string | number) => {
+  const triggerUpload = (type: 'home' | 'page' | 'blog', id?: string | number) => {
     setActiveUploadTarget({ type, id });
     fileInputRef.current?.click();
   };
@@ -144,6 +203,8 @@ const AdminHeroImagesPage = () => {
         handleUpdateSlide(activeUploadTarget.id, 'image', res.url);
       } else if (activeUploadTarget.type === 'page' && activeUploadTarget.id !== undefined) {
         handleUpdatePageHero(activeUploadTarget.id.toString(), 'image', res.url);
+      } else if (activeUploadTarget.type === 'blog') {
+        setBlogForm((prev) => ({ ...prev, image: res.url }));
       }
       toast.success('Image uploaded successfully');
     } catch (error) {
@@ -158,7 +219,8 @@ const AdminHeroImagesPage = () => {
     try {
       await heroService.updateHeroSettings({
         homeSlides,
-        pageHeroes
+        pageHeroes,
+        contactDetails,
       });
       toast.success('Hero settings saved to S3 successfully');
     } catch (error) {
@@ -176,6 +238,224 @@ const AdminHeroImagesPage = () => {
       setHomeSlides(newSlides);
     }
   };
+
+  const resetBlogForm = () => {
+    setBlogForm({
+      _id: '',
+      title: '',
+      excerpt: '',
+      content: '',
+      image: '',
+      author: '',
+      category: blogCategories[0]?._id || '',
+      readTime: '',
+      tags: '',
+      isPublished: true,
+    });
+  };
+
+  const editBlog = (blog: BlogPost) => {
+    setBlogForm({
+      _id: blog._id,
+      title: blog.title || '',
+      excerpt: blog.excerpt || '',
+      content: blog.content || '',
+      image: blog.image || '',
+      author: blog.author || '',
+      category: typeof blog.category === 'string' ? blog.category : blog.category?._id || '',
+      readTime: blog.readTime || '',
+      tags: Array.isArray(blog.tags) ? blog.tags.join(', ') : '',
+      isPublished: !!blog.isPublished,
+    });
+  };
+
+  const handleSaveBlog = async () => {
+    if (!blogForm.title || !blogForm.excerpt || !blogForm.content || !blogForm.category) {
+      toast.error('Title, excerpt, content and category are required');
+      return;
+    }
+
+    try {
+      const payload = {
+        title: blogForm.title,
+        excerpt: blogForm.excerpt,
+        content: blogForm.content,
+        image: blogForm.image,
+        author: blogForm.author,
+        category: blogForm.category,
+        readTime: blogForm.readTime,
+        isPublished: blogForm.isPublished,
+        tags: blogForm.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      };
+
+      if (blogForm._id) {
+        await blogService.updateBlog(blogForm._id, payload);
+        toast.success('Blog updated');
+      } else {
+        await blogService.createBlog(payload);
+        toast.success('Blog created');
+      }
+
+      resetBlogForm();
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to save blog');
+    }
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    try {
+      await blogService.deleteBlog(id);
+      toast.success('Blog deleted');
+      if (blogForm._id === id) {
+        resetBlogForm();
+      }
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to delete blog');
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    try {
+      await blogService.createCategory(categoryForm);
+      toast.success('Category created');
+      setCategoryForm({ name: '', description: '' });
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to create category');
+    }
+  };
+
+  const handleSaveCategoryEdit = async () => {
+    if (!editingCategoryId) return;
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    try {
+      await blogService.updateCategory(editingCategoryId, {
+        name: categoryForm.name,
+        description: categoryForm.description,
+      });
+      toast.success('Category updated');
+      setEditingCategoryId(null);
+      setCategoryForm({ name: '', description: '' });
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update category');
+    }
+  };
+
+  const handleEditCategory = (category: BlogCategory) => {
+    setEditingCategoryId(category._id);
+    setCategoryForm({
+      name: category.name || '',
+      description: category.description || '',
+    });
+  };
+
+  const openBlogPreview = (blog: BlogPost) => {
+    setPreviewBlog(blog);
+  };
+
+  const resetCareerForm = () => {
+    setCareerForm({
+      _id: '',
+      title: '',
+      department: '',
+      location: '',
+      type: '',
+      salary: '',
+      shortDescription: '',
+      applyUrl: '',
+      isActive: true,
+    });
+  };
+
+  const editCareer = (career: Career) => {
+    setCareerForm({
+      _id: career._id,
+      title: career.title || '',
+      department: career.department || '',
+      location: career.location || '',
+      type: career.type || '',
+      salary: career.salary || '',
+      shortDescription: career.shortDescription || '',
+      applyUrl: career.applyUrl || '',
+      isActive: career.isActive,
+    });
+    setActiveManagerTab('careers');
+  };
+
+  const handleSaveCareer = async () => {
+    if (!careerForm.title || !careerForm.department || !careerForm.location || !careerForm.type) {
+      toast.error('Title, department, location and type are required');
+      return;
+    }
+    try {
+      const payload = {
+        title: careerForm.title,
+        department: careerForm.department,
+        location: careerForm.location,
+        type: careerForm.type,
+        salary: careerForm.salary,
+        shortDescription: careerForm.shortDescription,
+        applyUrl: careerForm.applyUrl,
+        isActive: careerForm.isActive,
+      };
+      if (careerForm._id) {
+        await careerService.updateCareer(careerForm._id, payload);
+        toast.success('Career updated');
+      } else {
+        await careerService.createCareer(payload);
+        toast.success('Career created');
+      }
+      resetCareerForm();
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to save career');
+    }
+  };
+
+  const handleDeleteCareer = async (id: string) => {
+    try {
+      await careerService.deleteCareer(id);
+      toast.success('Career deleted');
+      if (careerForm._id === id) {
+        resetCareerForm();
+      }
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to delete career');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await blogService.deleteCategory(id);
+      toast.success('Category deleted');
+      if (blogForm.category === id) {
+        setBlogForm((prev) => ({ ...prev, category: '' }));
+      }
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to delete category');
+    }
+  };
+
+  useEffect(() => {
+    if (!blogForm._id && !blogForm.category && blogCategories.length > 0) {
+      setBlogForm((prev) => ({ ...prev, category: blogCategories[0]._id }));
+    }
+  }, [blogCategories, blogForm._id, blogForm.category]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -398,6 +678,39 @@ const AdminHeroImagesPage = () => {
                           placeholder="Enter banner description..."
                         />
                       </div>
+                      {page.id === 'contact' && (
+                        <>
+                          <div>
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Address</label>
+                            <textarea
+                              value={contactDetails.address}
+                              onChange={(e) => setContactDetails((prev) => ({ ...prev, address: e.target.value }))}
+                              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none"
+                              placeholder="Enter address"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Mobile Number</label>
+                            <input
+                              type="text"
+                              value={contactDetails.mobileNumber}
+                              onChange={(e) => setContactDetails((prev) => ({ ...prev, mobileNumber: e.target.value }))}
+                              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                              placeholder="+91 9876543210"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Email</label>
+                            <input
+                              type="email"
+                              value={contactDetails.email}
+                              onChange={(e) => setContactDetails((prev) => ({ ...prev, email: e.target.value }))}
+                              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                              placeholder="support@carzzi.com"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -405,7 +718,234 @@ const AdminHeroImagesPage = () => {
             })}
           </div>
         </section>
+
+        {/* Content Manager tabs - kept at bottom intentionally */}
+        <section>
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 bg-emerald-500/10 rounded-lg">
+              <FileText className="w-6 h-6 text-emerald-600" />
+            </div>
+            <h2 className="text-xl font-bold">Content Manager</h2>
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => setActiveManagerTab('blog')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeManagerTab === 'blog' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            >
+              Blog Content
+            </button>
+            <button
+              onClick={() => setActiveManagerTab('careers')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeManagerTab === 'careers' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            >
+              Careers
+            </button>
+          </div>
+
+          {activeManagerTab === 'blog' ? (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+                <h3 className="font-bold text-lg">Categories</h3>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Category name"
+                  className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                />
+                <textarea
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description (optional)"
+                  className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none"
+                />
+                <button
+                  onClick={editingCategoryId ? handleSaveCategoryEdit : handleCreateCategory}
+                  className="w-full bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                >
+                  {editingCategoryId ? 'Save Category' : 'Add Category'}
+                </button>
+
+                <div className="space-y-2 pt-2 max-h-64 overflow-y-auto pr-1">
+                  {blogCategories.map((category) => (
+                    <div key={category._id} className="flex items-center justify-between bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{category.name}</p>
+                        {category.description ? (
+                          <p className="text-[11px] text-muted-foreground truncate">{category.description}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditCategory(category)}
+                          className="p-1.5 rounded-md hover:bg-background text-primary"
+                          title="Edit category"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(category._id)}
+                          className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
+                          title="Delete category"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-lg">{blogForm._id ? 'Edit Blog' : 'Create Blog'}</h3>
+                  <button onClick={resetBlogForm} className="text-sm text-primary hover:underline">New Blog</button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Blog title" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={blogForm.author} onChange={(e) => setBlogForm((prev) => ({ ...prev, author: e.target.value }))} placeholder="Author" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <select value={blogForm.category} onChange={(e) => setBlogForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all">
+                    <option value="">Select category</option>
+                    {blogCategories.map((category) => (<option key={category._id} value={category._id}>{category.name}</option>))}
+                  </select>
+                  <input type="text" value={blogForm.readTime} onChange={(e) => setBlogForm((prev) => ({ ...prev, readTime: e.target.value }))} placeholder="Read time (e.g. 5 min read)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+
+                <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none" />
+                <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[150px] resize-y" />
+                <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL" className="flex-1 min-w-[220px] px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <button onClick={() => triggerUpload('blog')} className="px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors">Upload Image</button>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={blogForm.isPublished} onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} />
+                    Published
+                  </label>
+                  <button onClick={handleSaveBlog} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
+                    {blogForm._id ? 'Update Blog' : 'Create Blog'}
+                  </button>
+                </div>
+
+                <div className="space-y-2 pt-3 border-t border-border max-h-72 overflow-y-auto pr-1">
+                  {blogs.map((blog) => (
+                    <div key={blog._id} className="flex items-center justify-between gap-3 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${blog.isPublished ? 'bg-emerald-500' : 'bg-amber-500'}`} title={blog.isPublished ? 'Published' : 'Draft'} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{blog.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{typeof blog.category === 'string' ? '' : blog.category?.name} • {blog.isPublished ? 'Published' : 'Draft'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openBlogPreview(blog)} className="p-1.5 rounded-md hover:bg-background text-muted-foreground hover:text-foreground" title="Preview blog"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => editBlog(blog)} className="p-1.5 rounded-md hover:bg-background text-primary" title="Edit blog"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteBlog(blog._id)} className="p-1.5 rounded-md hover:bg-red-50 text-red-600" title="Delete blog"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-lg">{careerForm._id ? 'Edit Career' : 'Create Career'}</h3>
+                  <button onClick={resetCareerForm} className="text-sm text-primary hover:underline">New Career</button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input type="text" value={careerForm.title} onChange={(e) => setCareerForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Job title" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={careerForm.department} onChange={(e) => setCareerForm((prev) => ({ ...prev, department: e.target.value }))} placeholder="Department" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={careerForm.location} onChange={(e) => setCareerForm((prev) => ({ ...prev, location: e.target.value }))} placeholder="Location" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={careerForm.type} onChange={(e) => setCareerForm((prev) => ({ ...prev, type: e.target.value }))} placeholder="Type (e.g. Full-time)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={careerForm.salary} onChange={(e) => setCareerForm((prev) => ({ ...prev, salary: e.target.value }))} placeholder="Salary (e.g. ₹8L - ₹12L)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={careerForm.applyUrl} onChange={(e) => setCareerForm((prev) => ({ ...prev, applyUrl: e.target.value }))} placeholder="Apply URL (optional)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+
+                <textarea value={careerForm.shortDescription} onChange={(e) => setCareerForm((prev) => ({ ...prev, shortDescription: e.target.value }))} placeholder="Short description" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none" />
+
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={careerForm.isActive} onChange={(e) => setCareerForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
+                    Active
+                  </label>
+                  <button onClick={handleSaveCareer} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
+                    {careerForm._id ? 'Update Career' : 'Create Career'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-3">
+                <h3 className="font-bold text-lg">Posted Careers</h3>
+                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                  {careers.map((career) => (
+                    <div key={career._id} className="flex items-center justify-between gap-2 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
+                      <button
+                        onClick={() => navigate(`/admin/careers/${career._id}`)}
+                        className="min-w-0 text-left flex-1"
+                        title="Open job details and applications"
+                      >
+                        <p className="font-medium text-sm truncate">{career.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{career.department} • {career.isActive ? 'Active' : 'Inactive'}</p>
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => editCareer(career)} className="p-1.5 rounded-md hover:bg-background text-primary" title="Edit career"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteCareer(career._id)} className="p-1.5 rounded-md hover:bg-red-50 text-red-600" title="Delete career"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
+
+      {previewBlog && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-card/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
+              <h3 className="font-bold text-lg">Blog Preview</h3>
+              <button
+                onClick={() => setPreviewBlog(null)}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
+                title="Close preview"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {previewBlog.image ? (
+                <img
+                  src={previewBlog.image}
+                  alt={previewBlog.title}
+                  className="w-full h-56 object-cover rounded-xl border border-border"
+                />
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="px-2 py-1 rounded-full bg-muted border border-border">
+                  {typeof previewBlog.category === 'string' ? previewBlog.category : previewBlog.category?.name}
+                </span>
+                <span>{previewBlog.isPublished ? 'Published' : 'Draft'}</span>
+                <span>•</span>
+                <span>{previewBlog.readTime || '5 min read'}</span>
+                <span>•</span>
+                <span>{previewBlog.author}</span>
+              </div>
+
+              <h4 className="text-2xl font-bold leading-tight">{previewBlog.title}</h4>
+              <p className="text-muted-foreground">{previewBlog.excerpt}</p>
+              <div className="whitespace-pre-wrap leading-7 text-sm">{previewBlog.content}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hidden File Input */}
       <input 

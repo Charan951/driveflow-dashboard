@@ -9,12 +9,10 @@ import {
   Store, 
   Map, 
   DollarSign, 
-  FileText, 
   Package, 
   Headphones, 
   Star, 
   BarChart, 
-  Settings, 
   FileClock,
   LogOut,
   X,
@@ -42,10 +40,8 @@ const adminMenuItems = [
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
   { icon: Layout, label: 'Edit website', path: '/admin/hero-images' },
   { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },
-  { icon: FileText, label: 'Documents', path: '/admin/documents' },
-  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
+  // { icon: FileText, label: 'Documents', path: '/admin/documents' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
-  { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 const adminBottomNavItems: NavItem[] = [

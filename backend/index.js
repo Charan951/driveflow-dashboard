@@ -35,6 +35,8 @@ import heroRoutes from './routes/heroRoutes.js';
 import vehicleReferenceRoutes from './routes/vehicleReferenceRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
+import careerRoutes from './routes/careerRoutes.js';
 
 dotenv.config();
 
@@ -168,6 +170,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/hero', heroRoutes);
+app.use('/api/blogs', blogRoutes);
+app.use('/api/careers', careerRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/vehicle-reference', vehicleReferenceRoutes);

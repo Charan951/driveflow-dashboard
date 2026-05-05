@@ -326,11 +326,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
           context.read<SocketService>().sendEvent('booking_created');
 
-          Navigator.pushReplacementNamed(
+          Navigator.pushNamedAndRemoveUntil(
             context,
-            '/track',
-            arguments:
-                result['bookingId'] ?? result['data']?['booking']?['_id'],
+            '/customer',
+            (route) => false,
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2321,8 +2320,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         return;
       }
 
-      final booking = res as Booking;
-
       // Send a socket event to trigger a refresh on the dashboard
       context.read<SocketService>().sendEvent('booking_created');
 
@@ -2332,8 +2329,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ),
       );
 
-      // Navigate to track page (using Replacement to prevent back button coming here)
-      Navigator.pushReplacementNamed(context, '/track', arguments: booking.id);
+      // Navigate to dashboard/home after booking confirmation
+      Navigator.pushNamedAndRemoveUntil(context, '/customer', (route) => false);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

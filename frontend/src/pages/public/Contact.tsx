@@ -17,6 +17,11 @@ const Contact = () => {
     message: ""
   });
   const [loading, setLoading] = useState(false);
+  const [contactDetails, setContactDetails] = useState({
+    address: "Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051",
+    mobileNumber: "+91 9849964945",
+    email: "info@carzzi.com"
+  });
 
   useEffect(() => {
     fetchHero();
@@ -33,10 +38,19 @@ const Contact = () => {
           subtitle: pageHero.subtitle || hero.subtitle
         });
       }
+      if (data.contactDetails) {
+        setContactDetails({
+          address: data.contactDetails.address || contactDetails.address,
+          mobileNumber: data.contactDetails.mobileNumber || contactDetails.mobileNumber,
+          email: data.contactDetails.email || contactDetails.email,
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch contact hero from S3', error);
     }
   };
+
+  const whatsappNumber = contactDetails.mobileNumber.replace(/\D/g, "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +113,7 @@ const Contact = () => {
               {
                 icon: MapPin,
                 title: "Visit Us",
-                details: ["Plot no 71 & 72", "3rd Floor", "Phase IV, IDA Cherlapally", "Hyderabad- 500051"],
+                details: [contactDetails.address],
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
                 border: "border-blue-200 dark:border-blue-900"
@@ -107,7 +121,7 @@ const Contact = () => {
               {
                 icon: Phone,
                 title: "Call Us",
-                details: ["+91 9849964945"],
+                details: [contactDetails.mobileNumber],
                 color: "text-green-500",
                 bg: "bg-green-500/10",
                 border: "border-green-200 dark:border-green-900"
@@ -115,7 +129,7 @@ const Contact = () => {
               {
                 icon: Mail,
                 title: "Email Us",
-                details: ["info@carzzi.com"],
+                details: [contactDetails.email],
                 color: "text-purple-500",
                 bg: "bg-purple-500/10",
                 border: "border-purple-200 dark:border-purple-900"
@@ -243,7 +257,7 @@ const Contact = () => {
 
       {/* WhatsApp Floating Button */}
       <motion.a
-        href="https://wa.me/919849964945"
+        href={`https://wa.me/${whatsappNumber || "919849964945"}`}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center z-50"
@@ -253,7 +267,9 @@ const Contact = () => {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
       >
-        <MessageSquare className="w-7 h-7" />
+        <svg viewBox="0 0 24 24" className="w-7 h-7 fill-current" aria-hidden="true">
+          <path d="M20.52 3.48A11.86 11.86 0 0 0 12.03 0C5.41 0 .03 5.38.03 12c0 2.12.56 4.2 1.62 6.03L0 24l6.19-1.62A11.94 11.94 0 0 0 12.03 24c6.62 0 12-5.38 12-12 0-3.2-1.25-6.2-3.51-8.52ZM12.03 21.8c-1.85 0-3.67-.5-5.27-1.45l-.38-.23-3.67.96.98-3.58-.25-.37A9.75 9.75 0 0 1 2.23 12c0-5.4 4.4-9.8 9.8-9.8 2.62 0 5.08 1.02 6.92 2.87a9.7 9.7 0 0 1 2.85 6.93c0 5.4-4.39 9.8-9.77 9.8Zm5.37-7.34c-.29-.14-1.72-.85-1.99-.95-.27-.1-.47-.14-.67.15-.19.28-.76.95-.93 1.14-.17.19-.34.21-.63.07-.29-.14-1.22-.45-2.32-1.43-.86-.77-1.44-1.71-1.61-2-.17-.28-.02-.44.12-.58.13-.13.29-.34.43-.5.15-.17.19-.29.29-.48.1-.2.05-.37-.02-.52-.07-.14-.67-1.63-.92-2.24-.24-.58-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37s-1.04 1.01-1.04 2.46 1.06 2.85 1.21 3.05c.14.19 2.08 3.17 5.03 4.45.7.3 1.26.48 1.69.61.71.23 1.35.2 1.86.12.57-.08 1.72-.7 1.96-1.37.24-.67.24-1.25.17-1.37-.08-.12-.27-.19-.56-.34Z" />
+        </svg>
       </motion.a>
     </div>
   );

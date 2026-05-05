@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
   import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
 import {
@@ -159,33 +159,54 @@ const PublicNavbar: React.FC = () => {
                           {link.name}
                         </NavigationMenuTrigger>
                         <NavigationMenuContent>
-                          <div className="grid grid-cols-2 w-[500px] p-6 gap-6 bg-card border border-border shadow-2xl rounded-2xl">
+                          <div className="w-[720px] p-5 bg-card/95 backdrop-blur-xl border border-border shadow-2xl rounded-3xl">
+                            <div className="flex items-center justify-between px-2 pb-4 border-b border-border/70">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">Explore Services</p>
+                                <p className="text-xs text-muted-foreground">Choose a service category to continue</p>
+                              </div>
+                              <div className="inline-flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Best picks
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-4">
                             {serviceCategories.filter(c => c.items.length > 0).map((category) => (
-                              <div key={category.title} className="space-y-3">
-                                <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{category.title}</h4>
-                                <div className="flex flex-col gap-2">
-                                  {category.items.length > 0 ? (
-                                    category.items.map((item) => (
-                                      <NavigationMenuLink key={item.name} asChild>
-                                        <Link 
-                                          to={item.path}
-                                          className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
-                                          {item.name}
-                                        </Link>
-                                      </NavigationMenuLink>
-                                    ))
-                                  ) : (
-                                    <NavigationMenuLink asChild>
-                                      <Link 
-                                        to={category.path!}
-                                        className="text-sm text-muted-foreground hover:text-primary transition-colors py-1">
-                                        View Essentials
+                              <div
+                                key={category.title}
+                                className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 hover:border-primary/30 hover:bg-primary/5 transition-all"
+                              >
+                                <h4 className="text-[11px] font-extrabold text-primary uppercase tracking-[0.12em] mb-2.5">
+                                  {category.title}
+                                </h4>
+                                <div className="flex flex-col gap-1.5 max-h-[168px] overflow-y-auto pr-1">
+                                  {category.items.map((item) => (
+                                    <NavigationMenuLink key={item.name} asChild>
+                                      <Link
+                                        to={item.path}
+                                        className="text-[13px] text-foreground/85 hover:text-primary transition-colors py-1 rounded-md hover:bg-background/80 px-2"
+                                      >
+                                        {item.name}
                                       </Link>
                                     </NavigationMenuLink>
-                                  )}
+                                  ))}
                                 </div>
                               </div>
                             ))}
+                            </div>
+
+                            <div className="pt-4 mt-4 border-t border-border/70 flex items-center justify-between">
+                              <p className="text-xs text-muted-foreground">Need help picking a package?</p>
+                              <NavigationMenuLink asChild>
+                                <Link
+                                  to="/services"
+                                  className="text-sm font-semibold text-primary hover:underline"
+                                >
+                                  View all services
+                                </Link>
+                              </NavigationMenuLink>
+                            </div>
                           </div>
                         </NavigationMenuContent>
                       </NavigationMenuItem>

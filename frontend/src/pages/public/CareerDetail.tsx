@@ -1,0 +1,158 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
+import { careerService, Career } from '@/services/careerService';
+import { uploadService } from '@/services/uploadService';
+import { toast } from 'sonner';
+
+const CareerDetail: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const [career, setCareer] = useState<Career | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    mobileNumber: '',
+    resumeUrl: '',
+    additionalMessage: '',
+  });
+
+  useEffect(() => {
+    const fetchCareer = async () => {
+      try {
+        if (!id) return;
+        const data = await careerService.getCareerById(id);
+        setCareer(data);
+      } catch (error) {
+        setCareer(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCareer();
+  }, [id]);
+
+  const onUploadResume = async (file?: File) => {
+    if (!file) return;
+    try {
+      setUploadingResume(true);
+      const uploaded = await uploadService.uploadPublicFile(file);
+      setForm((prev) => ({ ...prev, resumeUrl: uploaded.url || '' }));
+      toast.success('Resume uploaded');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Resume upload failed');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    if (!form.name || !form.email || !form.mobileNumber || !form.resumeUrl) {
+      toast.error('Please complete all required fields');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await careerService.applyForCareer(id, form);
+      toast.success('Application submitted successfully');
+      setForm({
+        name: '',
+        email: '',
+        mobileNumber: '',
+        resumeUrl: '',
+        additionalMessage: '',
+      });
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to submit application');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!career) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-center p-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-3">Job not found</h1>
+          <Link to="/careers" className="text-primary hover:underline">Back to careers</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <div className="container mx-auto px-4 py-12">
+        <Link to="/careers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="w-4 h-4" />
+          Back to careers
+        </Link>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-3xl font-bold">{career.title}</h1>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${career.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                {career.isActive ? 'Active' : 'Closed'}
+              </span>
+            </div>
+            {career.shortDescription ? (
+              <p className="text-muted-foreground">{career.shortDescription}</p>
+            ) : null}
+            <div className="grid sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2"><Briefcase className="w-4 h-4" /> {career.department}</span>
+              <span className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {career.location}</span>
+              <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> {career.type}</span>
+              <span className="flex items-center gap-2"><span className="text-sm font-semibold">₹</span> {career.salary || 'As per company standards'}</span>
+            </div>
+          </motion.div>
+
+          <motion.form
+            onSubmit={onSubmit}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4"
+          >
+            <h2 className="text-2xl font-bold">Apply for this role</h2>
+            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Name" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email address" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input value={form.mobileNumber} onChange={(e) => setForm((prev) => ({ ...prev, mobileNumber: e.target.value }))} placeholder="Mobile number" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF)</label>
+              <div className="flex items-center gap-3">
+                <label className="px-4 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer inline-flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  {uploadingResume ? 'Uploading...' : 'Choose File'}
+                  <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => onUploadResume(e.target.files?.[0])} />
+                </label>
+                <span className="text-xs text-muted-foreground truncate">{form.resumeUrl ? 'Resume uploaded' : 'No file uploaded'}</span>
+              </div>
+            </div>
+
+            <textarea value={form.additionalMessage} onChange={(e) => setForm((prev) => ({ ...prev, additionalMessage: e.target.value }))} placeholder="Additional message (optional)" className="w-full px-4 py-2 min-h-[100px] bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none" />
+
+            <button type="submit" disabled={submitting || uploadingResume || !career.isActive} className="w-full px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 font-semibold">
+              {submitting ? 'Submitting...' : 'Submit Application'}
+            </button>
+          </motion.form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CareerDetail;

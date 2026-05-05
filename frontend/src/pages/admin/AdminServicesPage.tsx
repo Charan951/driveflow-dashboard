@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash, Upload, Loader2, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash, Upload, Loader2, Calendar, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
 import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
+import { bookingService } from '@/services/bookingService';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const AdminServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [activeTab, setActiveTab] = useState<'quick-services' | 'slots'>('quick-services');
+  const [selectedSlotDate, setSelectedSlotDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [allSlots, setAllSlots] = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
+  const [slotLoading, setSlotLoading] = useState(false);
+  const [slotSaving, setSlotSaving] = useState(false);
 
   const fetchServices = async () => {
     try {
@@ -92,76 +101,201 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
+  const fetchAdminSlots = async () => {
+    if (!selectedSlotDate) return;
+    try {
+      setSlotLoading(true);
+      const data = await bookingService.getAdminSlots(selectedSlotDate);
+      setAllSlots(Array.isArray(data.allSlots) ? data.allSlots : []);
+      setBookedSlots(Array.isArray(data.bookedSlots) ? data.bookedSlots : []);
+      setBlockedSlots(Array.isArray(data.blockedSlots) ? data.blockedSlots : []);
+    } catch (error) {
+      toast.error('Failed to fetch slots');
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'slots') {
+      fetchAdminSlots();
+    }
+  }, [activeTab, selectedSlotDate]);
+
+  const toggleBlockedSlot = (slot: string) => {
+    if (bookedSlots.includes(slot)) return;
+    setBlockedSlots((prev) =>
+      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot]
+    );
+  };
+
+  const handleSaveBlockedSlots = async () => {
+    if (!selectedSlotDate) return;
+    try {
+      setSlotSaving(true);
+      await bookingService.updateAdminBlockedSlots(selectedSlotDate, blockedSlots);
+      toast.success('Slot blocks updated');
+      fetchAdminSlots();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update blocked slots');
+    } finally {
+      setSlotSaving(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quick services</h1>
-        <button
-          onClick={() => {
-            setSelectedService(null);
-            setShowModal(true);
-          }}
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Add Service
-        </button>
+        {activeTab === 'quick-services' && (
+          <button
+            onClick={() => {
+              setSelectedService(null);
+              setShowModal(true);
+            }}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Service
+          </button>
+        )}
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div className="space-y-4">
-          {services.map((service) => (
-            <motion.div
-              key={service._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card p-4 rounded-lg shadow-sm border border-border"
-            >
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <img src={service.image} alt={service.name} className="w-12 h-12 sm:w-16 sm:h-16 rounded-md object-cover shrink-0" />
-                  <div className="min-w-0">
-                    <h2 className="text-base sm:text-lg font-semibold truncate">{service.name}</h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{service.category}</p>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quick-services' | 'slots')}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="quick-services">Quick Services</TabsTrigger>
+          <TabsTrigger value="slots">Slots</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="quick-services" className="space-y-4">
+          {loading ? (
+            <p>Loading...</p>
+          ) : (
+            <div className="space-y-4">
+              {services.map((service) => (
+                <motion.div
+                  key={service._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-card p-4 rounded-lg shadow-sm border border-border"
+                >
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                      <img src={service.image} alt={service.name} className="w-12 h-12 sm:w-16 sm:h-16 rounded-md object-cover shrink-0" />
+                      <div className="min-w-0">
+                        <h2 className="text-base sm:text-lg font-semibold truncate">{service.name}</h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{service.category}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`quick-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Quick Service</Label>
+                        <Switch
+                          id={`quick-${service._id}`}
+                          checked={service.isQuickService}
+                          onCheckedChange={() => handleToggleQuickService(service)}
+                          className="scale-75 sm:scale-100"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedService(service);
+                            setShowModal(true);
+                          }}
+                          className="p-2 sm:px-3 sm:py-1 text-sm bg-muted text-muted-foreground rounded-md transition-colors hover:bg-muted/80"
+                          title="Edit Service"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(service._id)}
+                          className="p-2 sm:px-3 sm:py-1 text-sm bg-destructive text-destructive-foreground rounded-md transition-colors hover:bg-destructive/80"
+                          title="Delete Service"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={`quick-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Quick Service</Label>
-                    <Switch
-                      id={`quick-${service._id}`}
-                      checked={service.isQuickService}
-                      onCheckedChange={() => handleToggleQuickService(service)}
-                      className="scale-75 sm:scale-100"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedService(service);
-                        setShowModal(true);
-                      }}
-                      className="p-2 sm:px-3 sm:py-1 text-sm bg-muted text-muted-foreground rounded-md transition-colors hover:bg-muted/80"
-                      title="Edit Service"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(service._id)}
-                      className="p-2 sm:px-3 sm:py-1 text-sm bg-destructive text-destructive-foreground rounded-md transition-colors hover:bg-destructive/80"
-                      title="Delete Service"
-                    >
-                      <Trash size={14} />
-                    </button>
-                  </div>
-                </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="slots" className="space-y-4">
+          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Slot Management
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Select a date and block available slots. Users will see blocked slots as booked.
+                </p>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={selectedSlotDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setSelectedSlotDate(e.target.value)}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveBlockedSlots}
+                  disabled={slotSaving || slotLoading}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                >
+                  {slotSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  Save Blocks
+                </button>
+              </div>
+            </div>
+
+            {slotLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading slots...</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {allSlots.map((slot) => {
+                    const isBooked = bookedSlots.includes(slot);
+                    const isBlocked = blockedSlots.includes(slot);
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        disabled={isBooked}
+                        onClick={() => toggleBlockedSlot(slot)}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                          isBooked
+                            ? 'bg-muted text-muted-foreground border-border cursor-not-allowed line-through'
+                            : isBlocked
+                            ? 'bg-destructive/10 text-destructive border-destructive/40'
+                            : 'bg-background border-border hover:border-primary/50'
+                        }`}
+                      >
+                        {slot}
+                        <span className="ml-2 text-[11px]">
+                          {isBooked ? '(Booked)' : isBlocked ? '(Blocked)' : ''}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive/70" /> Blocked by admin</span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground" /> Already booked</span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary/70" /> Available</span>
+                </div>
+              </>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {showModal && (
         <ServiceModal

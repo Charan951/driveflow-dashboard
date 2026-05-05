@@ -143,14 +143,14 @@ const AboutUs = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src={hero.image}
             alt="About Us Background" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-background"></div>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         </div>
         
         <div className="container mx-auto px-4 text-center relative z-10 text-white">
@@ -160,21 +160,10 @@ const AboutUs = () => {
             variants={fadeInUp}
             className="max-w-4xl mx-auto"
           >
-            <motion.div 
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-            >
-              <Car className="w-5 h-5" />
-              <span className="text-sm font-medium">Welcome to Carzzi</span>
-            </motion.div>
-            <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-white via-gray-200 to-white bg-clip-text text-transparent">
-                {hero.title}
-              </span>
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+              {hero.title}
             </h1>
-            <p className="text-xl md:text-2xl opacity-90 mb-12 leading-relaxed max-w-2xl mx-auto">
+            <p className="text-xl md:text-2xl opacity-90 max-w-2xl mx-auto leading-relaxed">
               {hero.subtitle}
             </p>
           </motion.div>
@@ -182,7 +171,7 @@ const AboutUs = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-8 bg-gradient-to-r from-primary via-primary/90 to-primary">
+      {/* <section className="py-8 bg-gradient-to-r from-primary via-primary/90 to-primary">
         <div className="container mx-auto px-4">
           <motion.div 
             variants={staggerContainer}
@@ -202,12 +191,13 @@ const AboutUs = () => {
             ))}
           </motion.div>
         </div>
-      </section>
+      </section> */}
 
       {/* Introduction Section */}
-      <section className="py-24 md:py-32">
+      <section className="py-16 -mt-20 relative z-20">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="bg-card/50 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-xl border border-border/50">
+            <div className="grid lg:grid-cols-2 gap-16 items-center">
             <motion.div
               initial="hidden"
               whileInView="visible"
@@ -245,6 +235,7 @@ const AboutUs = () => {
                 Carzzi is owned and operated by <span className="font-bold text-foreground">Hyper Mobility Services</span>, an Indian partnership firm.
               </p>
             </motion.div>
+          </div>
           </div>
         </div>
       </section>

@@ -69,24 +69,24 @@ const defaultHeroSlides = [
   {
     id: 1,
     image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1920",
-    titleWhite: "Vehicle Care",
-    titleBlue: "Reimagined",
-    subtitle: "Experience premium vehicle services at your doorstep. Book, track, and manage all your car needs in one seamless platform."
+    titleWhite: "",
+    titleBlue: "",
+    subtitle: ""
   },
-  {
-    id: 2,
-    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=1920",
-    titleWhite: "Expert",
-    titleBlue: "Maintenance",
-    subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your car like our own."
-  },
-  {
-    id: 3,
-    image: "https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?auto=format&fit=crop&q=80&w=1920",
-    titleWhite: "Premium",
-    titleBlue: "Detailing",
-    subtitle: "Give your vehicle the shine it deserves with our eco-friendly and detailed washing services."
-  }
+  // {
+  //   id: 2,
+  //   image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=1920",
+  //   titleWhite: "Expert",
+  //   titleBlue: "Maintenance",
+  //   subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your car like our own."
+  // },
+  // {
+  //   id: 3,
+  //   image: "https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?auto=format&fit=crop&q=80&w=1920",
+  //   titleWhite: "Premium",
+  //   titleBlue: "Detailing",
+  //   subtitle: "Give your vehicle the shine it deserves with our eco-friendly and detailed washing services."
+  // }
 ];
 
 const HomePage: React.FC = () => {
@@ -243,21 +243,27 @@ const HomePage: React.FC = () => {
               <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
                 {heroSlides[currentSlide]?.subtitle || ''}
               </p>
-              <div className="flex flex-row items-center gap-3 sm:gap-5">
-                <Link
-                  to="/register"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
-                >
-                  Get Started
-                  <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
-                </Link>
-                <Link
-                  to="/about-us"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
-                >
-                  Learn More
-                </Link>
-              </div>
+              {
+                heroSlides === defaultHeroSlides ? (
+                  <></>
+                ) : (
+                  <div className="flex flex-row items-center gap-3 sm:gap-5">
+                    <Link
+                      to="/register"
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
+                    >
+                      Get Started
+                      <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
+                    </Link>   
+                    <Link
+                      to="/about-us"
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
+                    >
+                      Learn More
+                    </Link>
+                  </div>
+                )
+              }
             </motion.div>
           </AnimatePresence>
         </div>
@@ -322,7 +328,7 @@ const HomePage: React.FC = () => {
                     <img 
                       src={service.image} 
                       alt={service.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
                     <div className={`absolute top-4 right-4 p-3 rounded-xl ${service.color} text-white shadow-lg`}>

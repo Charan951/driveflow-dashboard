@@ -3,22 +3,29 @@ import { motion } from "framer-motion";
 import { Briefcase, MapPin, Clock, ArrowRight, Zap, Heart, Users, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
+import { careerService, Career } from "@/services/careerService";
+import { useNavigate } from "react-router-dom";
 
 const Careers = () => {
+  const navigate = useNavigate();
   const [hero, setHero] = useState({
     image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=2000",
     title: "Build the Future of Vehicle Care",
     subtitle: "Join a team of passionate individuals revolutionizing how people maintain their cars. We're looking for dreamers, doers, and problem solvers."
   });
+  const [positions, setPositions] = useState<Career[]>([]);
 
   useEffect(() => {
-    fetchHero();
+    fetchData();
   }, []);
 
-  const fetchHero = async () => {
+  const fetchData = async () => {
     try {
-      const data = await heroService.getHeroSettings();
-      const pageHero = data.pageHeroes?.['careers'];
+      const [heroData, careersData] = await Promise.all([
+        heroService.getHeroSettings(),
+        careerService.getPublicCareers(),
+      ]);
+      const pageHero = heroData.pageHeroes?.['careers'];
       if (pageHero) {
         setHero({
           image: pageHero.image || hero.image,
@@ -26,48 +33,11 @@ const Careers = () => {
           subtitle: pageHero.subtitle || hero.subtitle
         });
       }
+      setPositions(Array.isArray(careersData) ? careersData : []);
     } catch (error) {
-      console.error('Failed to fetch careers hero from S3', error);
+      console.error('Failed to fetch careers page data', error);
+      setPositions([]);
     }
-  };
-
-  const positions = [
-    {
-      id: 1,
-      title: "Senior Service Coordinator",
-      department: "Service Operations",
-      location: "Auto City, AC",
-      type: "Full-time",
-      salary: "₹8L - ₹12L"
-    },
-    {
-      id: 2,
-      title: "Service Advisor",
-      department: "Customer Success",
-      location: "Remote / Hybrid",
-      type: "Full-time",
-      salary: "₹5L - ₹8L"
-    },
-    {
-      id: 3,
-      title: "Backend Developer",
-      department: "Engineering",
-      location: "Remote",
-      type: "Full-time",
-      salary: "₹12L - ₹25L"
-    },
-    {
-      id: 4,
-      title: "Fleet Manager",
-      department: "Logistics",
-      location: "Auto City, AC",
-      type: "Full-time",
-      salary: "₹7L - ₹10L"
-    }
-  ];
-
-  const handleApply = (role: string) => {
-    toast.success(`Application process started for ${role}`);
   };
 
   return (
@@ -169,17 +139,27 @@ const Careers = () => {
           </div>
 
           <div className="space-y-4">
-            {positions.map((job, index) => (
+            {positions.length === 0 ? (
+              <div className="text-center py-12 bg-background rounded-xl border border-border text-muted-foreground">
+                No open positions right now.
+              </div>
+            ) : positions.map((job, index) => (
               <motion.div
-                key={job.id}
+                key={job._id}
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="bg-background p-6 rounded-xl border border-border hover:border-primary/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-6"
+                onClick={() => navigate(`/careers/${job._id}`)}
+                className="bg-background p-6 rounded-xl border border-border hover:border-primary/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer"
               >
                 <div>
-                  <h3 className="text-xl font-bold mb-2">{job.title}</h3>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-bold">{job.title}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${job.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {job.isActive ? 'Active' : 'Closed'}
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Briefcase className="w-4 h-4" /> {job.department}
@@ -191,15 +171,18 @@ const Careers = () => {
                       <Clock className="w-4 h-4" /> {job.type}
                     </span>
                     <span className="flex items-center gap-1">
-                      <DollarSign className="w-4 h-4" /> {job.salary}
+                      <span className="text-sm font-semibold">₹</span> {job.salary}
                     </span>
                   </div>
                 </div>
                 <button 
-                  onClick={() => handleApply(job.title)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/careers/${job._id}`);
+                  }}
                   className="px-6 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg font-medium transition-colors whitespace-nowrap"
                 >
-                  Apply Now
+                  View Details
                 </button>
               </motion.div>
             ))}

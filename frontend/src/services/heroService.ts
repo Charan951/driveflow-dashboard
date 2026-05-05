@@ -19,6 +19,11 @@ export interface PageHero {
 export interface HeroConfig {
   homeSlides: HeroSlide[];
   pageHeroes: Record<string, PageHero>;
+  contactDetails: {
+    address: string;
+    mobileNumber: string;
+    email: string;
+  };
 }
 
 export const heroService = {

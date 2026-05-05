@@ -27,6 +27,23 @@ export const uploadService = {
     return response.data; // { url, filename, ... }
   },
 
+  uploadPublicFile: async (file: File) => {
+    let fileToUpload = file;
+    if (file.type.startsWith('image/')) {
+      try {
+        fileToUpload = await imageCompression(file, compressionOptions);
+      } catch (error) {
+        console.error('Image compression failed:', error);
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
+
+    const response = await api.post('/upload/public', formData);
+    return response.data;
+  },
+
   uploadFiles: async (files: File[]) => {
     const compressedFiles = await Promise.all(
       files.map(async (file) => {

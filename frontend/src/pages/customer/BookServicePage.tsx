@@ -66,6 +66,7 @@ const BookServicePage: React.FC = () => {
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ 
     address: user?.address || '',
     lat: user?.location?.lat,
@@ -254,7 +255,8 @@ const BookServicePage: React.FC = () => {
 
   useEffect(() => {
     if (user && (!user.addresses || !Array.isArray(user.addresses) || user.addresses.length === 0)) {
-      setShowCustomLocation(true);
+      setShowCustomLocation(false);
+      setPickupLocation({ address: '' });
     }
   }, [user]);
 
@@ -275,6 +277,30 @@ const BookServicePage: React.FC = () => {
       setActiveSubCategory('All');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!selectedDate) {
+        setAvailableSlots([]);
+        setSelectedTime(null);
+        return;
+      }
+      try {
+        const dateStr = selectedDate.toISOString().split('T')[0];
+        const data = await bookingService.getAvailableSlots(dateStr);
+        setAvailableSlots(Array.isArray(data?.availableSlots) ? data.availableSlots : []);
+        if (selectedTime && !data.availableSlots.includes(selectedTime)) {
+          setSelectedTime(null);
+          toast.info('Previously selected slot is no longer available. Please select another slot.');
+        }
+      } catch (error) {
+        setAvailableSlots([]);
+        toast.error('Failed to load available slots');
+      }
+    };
+
+    fetchSlots();
+  }, [selectedDate]);
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
@@ -364,7 +390,7 @@ const BookServicePage: React.FC = () => {
         });
       } else {
         toast.success('Booking confirmed! We have scheduled your service.');
-        navigate(`/track/${newBooking._id}`);
+        navigate('/dashboard');
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -681,10 +707,8 @@ const BookServicePage: React.FC = () => {
                               : 'border-border bg-card hover:border-primary/50'
                           }`}
                         >
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                            selectedServices.includes(service._id) ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
-                          }`}>
-                            <img src={service.image} alt={service.name} className="w-full h-full object-cover rounded-xl" />
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shrink-0">
+                            <img src={service.image} alt={service.name} className="w-full h-full object-contain rounded-xl" />
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <span className="font-bold text-base sm:text-lg text-foreground block line-clamp-2">{service.name}</span>
@@ -788,15 +812,45 @@ const BookServicePage: React.FC = () => {
                     selectedTime={selectedTime}
                     onDateChange={setSelectedDate}
                     onTimeChange={setSelectedTime}
+                    availableSlots={availableSlots}
                   />
                 </div>
 
                 <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-                    <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                      <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-                      <span>Customer Location</span>
-                    </h2>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                        <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                        <span>Customer Location</span>
+                      </h2>
+                      {!showCustomLocation && user?.addresses?.length > 0 && !pickupLocation.address && (
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          Please select a saved address or enter a custom address.
+                        </p>
+                      )}
+                    </div>
+                    {user?.addresses && user.addresses.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomLocation(!showCustomLocation);
+                          if (!showCustomLocation) {
+                            setPickupLocation({ address: '' });
+                          }
+                        }}
+                        className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/15 transition-colors"
+                      >
+                        {showCustomLocation ? 'Cancel Custom' : '+ Add Custom'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/profile')}
+                        className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/15 transition-colors"
+                      >
+                        + Add Address
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-4 sm:space-y-6">
@@ -837,47 +891,25 @@ const BookServicePage: React.FC = () => {
                     )}
 
                     <div className={cn("pt-3 sm:pt-4", user?.addresses?.length > 0 && "border-t border-border/50")}>
-                      {user?.addresses?.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
-                          <label className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest">
-                            Or Enter Custom Address
-                          </label>
-                          <button
-                            onClick={() => {
-                              setShowCustomLocation(!showCustomLocation);
-                              if (!showCustomLocation) {
-                                setPickupLocation({ address: '' });
-                              }
-                            }}
-                            className="text-xs font-bold text-primary uppercase tracking-tight hover:underline self-start sm:self-auto"
-                          >
-                            {showCustomLocation ? 'Cancel' : '+ Add Custom'}
-                          </button>
-                        </div>
-                      )}
-
-                      {(showCustomLocation || !user?.addresses || user.addresses.length === 0) ? (
+                      {(showCustomLocation && user?.addresses && user.addresses.length > 0) ? (
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-muted/30 rounded-xl sm:rounded-2xl border-2 border-border overflow-hidden p-3 sm:p-4"
                         >
-                          {(!user?.addresses || user.addresses.length === 0) && (
-                             <label className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest block mb-3 sm:mb-4">
-                               Enter Pickup Address
-                             </label>
-                          )}
                           <LocationPicker 
                             value={pickupLocation} 
                             onChange={setPickupLocation}
                             mapClassName="h-[250px] sm:h-[300px] w-full rounded-lg sm:rounded-xl mt-3 sm:mt-4 border-2 border-border shadow-inner"
                           />
                         </motion.div>
-                      ) : !pickupLocation.address && (
-                        <div className="text-center py-6 sm:py-8 bg-muted/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-border">
-                          <p className="text-xs sm:text-sm text-muted-foreground font-medium px-4">Please select a saved address or enter a custom address.</p>
+                      ) : (!user?.addresses || user.addresses.length === 0) ? (
+                        <div className="text-center py-8 sm:py-10 bg-muted/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-border">
+                          <p className="text-sm text-muted-foreground font-medium px-4">
+                            No saved addresses found. Add an address in your profile to continue booking.
+                          </p>
                         </div>
-                      )}
+                      ) : null}
 
                       {pickupLocation.address && !showCustomLocation && user?.addresses?.length > 0 && (
                         <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-primary/5 rounded-xl sm:rounded-2xl border-2 border-primary/20">

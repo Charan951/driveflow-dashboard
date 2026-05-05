@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
+import SlotBlock from '../models/SlotBlock.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
 import { getIO, emitChatMessage } from '../socket.js';
@@ -13,6 +14,74 @@ import {
 } from '../utils/liveTrackingPush.js';
 import crypto from 'crypto';
 import Message from '../models/Message.js';
+
+const SLOT_INTERVAL_MINUTES = 30;
+const SLOT_START_HOUR = 8;
+const SLOT_END_HOUR = 19;
+const BLOCKING_STATUSES = {
+  $nin: ['DELIVERED', 'COMPLETED', 'CANCELLED'],
+};
+
+const formatTo12HourSlot = (date) => {
+  const hours24 = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+};
+
+const getDayBounds = (dateInput) => {
+  const date = new Date(dateInput);
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+const getAllSlotsForDate = (dateInput) => {
+  const base = new Date(dateInput);
+  const slots = [];
+  const start = new Date(base);
+  start.setHours(SLOT_START_HOUR, 0, 0, 0);
+  const end = new Date(base);
+  end.setHours(SLOT_END_HOUR, 0, 0, 0);
+
+  for (let current = new Date(start); current < end; current.setMinutes(current.getMinutes() + SLOT_INTERVAL_MINUTES)) {
+    slots.push(formatTo12HourSlot(new Date(current)));
+  }
+  return slots;
+};
+
+const getBlockedSlotsForDate = async (dateInput) => {
+  const { start, end } = getDayBounds(dateInput);
+  const blocks = await SlotBlock.find({
+    date: { $gte: start, $lte: end },
+  }).select('slot');
+  return new Set(blocks.map((b) => b.slot));
+};
+
+const isSlotAvailable = async (date) => {
+  const slotStart = new Date(date);
+  const slotEnd = new Date(slotStart.getTime() + SLOT_INTERVAL_MINUTES * 60 * 1000);
+  const slotLabel = formatTo12HourSlot(slotStart);
+  const { start, end } = getDayBounds(slotStart);
+
+  const blockedSlot = await SlotBlock.findOne({
+    date: { $gte: start, $lte: end },
+    slot: slotLabel,
+  }).select('_id');
+  if (blockedSlot) {
+    return false;
+  }
+
+  const conflict = await Booking.findOne({
+    status: BLOCKING_STATUSES,
+    date: { $gte: slotStart, $lt: slotEnd },
+  }).select('_id status date');
+
+  return !conflict;
+};
 
 export const emitBookingUpdate = (booking) => {
   try {
@@ -125,6 +194,16 @@ export const createBooking = async (req, res) => {
   const { vehicleId, serviceIds, date, notes, location } = req.body;
 
   try {
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid booking date' });
+    }
+
+    const slotAvailable = await isSlotAvailable(parsedDate);
+    if (!slotAvailable) {
+      return res.status(409).json({ message: 'Selected slot is not available' });
+    }
+
     // Pickup address is now always required
     const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
     if (!hasAddress) {
@@ -313,6 +392,146 @@ export const createBooking = async (req, res) => {
        return res.status(400).json({ message: messages.join(', ') });
     }
     res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Get available slots for a date
+// @route   GET /api/bookings/available-slots?date=YYYY-MM-DD
+// @access  Private
+export const getAvailableSlots = async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ message: 'date query param is required' });
+    }
+
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid date' });
+    }
+
+    const { start, end } = getDayBounds(parsedDate);
+    const bookings = await Booking.find({
+      status: BLOCKING_STATUSES,
+      date: { $gte: start, $lte: end },
+    }).select('date');
+
+    const bookedSlots = new Set(
+      bookings
+        .map((booking) => new Date(booking.date))
+        .map((slotDate) => formatTo12HourSlot(slotDate))
+    );
+
+    const blockedSlots = await getBlockedSlotsForDate(parsedDate);
+    const allSlots = getAllSlotsForDate(parsedDate);
+    const unavailableSlots = new Set([...bookedSlots, ...blockedSlots]);
+    const availableSlots = allSlots.filter((slot) => !unavailableSlots.has(slot));
+
+    res.json({
+      date: start.toISOString(),
+      allSlots,
+      availableSlots,
+      blockedSlots: Array.from(blockedSlots),
+      bookedSlots: Array.from(bookedSlots),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get slots state for admin for a date
+// @route   GET /api/bookings/admin/slots?date=YYYY-MM-DD
+// @access  Private/Admin
+export const getAdminSlotsForDate = async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ message: 'date query param is required' });
+    }
+
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid date' });
+    }
+
+    const { start, end } = getDayBounds(parsedDate);
+    const bookings = await Booking.find({
+      status: BLOCKING_STATUSES,
+      date: { $gte: start, $lte: end },
+    }).select('date');
+
+    const slotBlocks = await SlotBlock.find({
+      date: { $gte: start, $lte: end },
+    }).select('slot');
+
+    const bookedSlots = new Set(
+      bookings
+        .map((booking) => new Date(booking.date))
+        .map((slotDate) => formatTo12HourSlot(slotDate))
+    );
+    const blockedSlots = new Set(slotBlocks.map((s) => s.slot));
+    const allSlots = getAllSlotsForDate(parsedDate);
+
+    res.json({
+      date: start.toISOString(),
+      allSlots,
+      bookedSlots: Array.from(bookedSlots),
+      blockedSlots: Array.from(blockedSlots),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Replace admin-blocked slots for a date
+// @route   PUT /api/bookings/admin/slots
+// @access  Private/Admin
+export const updateAdminSlotBlocks = async (req, res) => {
+  try {
+    const { date, blockedSlots = [] } = req.body || {};
+    if (!date) {
+      return res.status(400).json({ message: 'date is required' });
+    }
+    if (!Array.isArray(blockedSlots)) {
+      return res.status(400).json({ message: 'blockedSlots must be an array' });
+    }
+
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid date' });
+    }
+
+    const allSlots = getAllSlotsForDate(parsedDate);
+    const invalidSlots = blockedSlots.filter((slot) => !allSlots.includes(slot));
+    if (invalidSlots.length > 0) {
+      return res.status(400).json({ message: `Invalid slots: ${invalidSlots.join(', ')}` });
+    }
+
+    const { start, end } = getDayBounds(parsedDate);
+    await SlotBlock.deleteMany({ date: { $gte: start, $lte: end } });
+
+    if (blockedSlots.length > 0) {
+      await SlotBlock.insertMany(
+        blockedSlots.map((slot) => ({
+          date: start,
+          slot,
+          blockedBy: req.user._id,
+        }))
+      );
+    }
+
+    emitEntitySync('slotBlock', 'updated', {
+      date: start.toISOString(),
+      blockedSlots,
+    });
+
+    res.json({
+      date: start.toISOString(),
+      blockedSlots,
+      message: 'Slots updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

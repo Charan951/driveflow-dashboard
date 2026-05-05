@@ -33,7 +33,7 @@ const ServiceDetailsPage: React.FC = () => {
       ) : service ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
-            <img src={service.image} alt={service.name} className="w-full h-auto rounded-lg shadow-lg" />
+            <img src={service.image} alt={service.name} className="w-full h-auto object-contain rounded-lg shadow-lg" />
           </div>
           <div>
             <h1 className="text-3xl font-bold mb-2">{service.name}</h1>
