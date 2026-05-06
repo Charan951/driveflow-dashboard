@@ -1,35 +1,18 @@
 /// <reference types="vite/client" />
 
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }) => void;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
-  theme?: {
-    color?: string;
-  };
+interface CashfreeCheckoutOptions {
+  paymentSessionId: string;
+  redirectTarget?: '_self' | '_blank' | '_top' | '_modal';
 }
 
-interface RazorpayInstance {
-  open: () => void;
+interface CashfreeInstance {
+  checkout: (options: CashfreeCheckoutOptions) => Promise<any>;
 }
 
-interface RazorpayConstructor {
-  new (options: RazorpayOptions): RazorpayInstance;
+interface CashfreeInitializer {
+  (config: { mode: 'sandbox' | 'production' }): CashfreeInstance;
 }
 
 interface Window {
-  Razorpay: RazorpayConstructor;
+  Cashfree: CashfreeInitializer;
 }

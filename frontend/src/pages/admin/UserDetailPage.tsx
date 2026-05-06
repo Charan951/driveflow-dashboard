@@ -270,7 +270,7 @@ const AdminUserDetailPage: React.FC = () => {
                               </span>
                             </td>
                             <td className="p-4 text-right font-medium">
-                              ${booking.totalAmount}
+                              ₹{booking.totalAmount}
                             </td>
                           </tr>
                         ))}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { bookingService, Booking } from '@/services/bookingService';
 import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/hooks/use-tracking';
@@ -17,6 +17,7 @@ import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { setActiveBookingId, startTracking, stopTracking, isTracking, location: staffLocation } = useTracking();
   const [order, setOrder] = useState<Booking | null>(null);
@@ -435,6 +436,13 @@ const StaffOrderPage: React.FC = () => {
         }
     }
   }, [id]);
+
+  useEffect(() => {
+    if (order?.status === 'REACHED_MERCHANT') {
+      toast.info('Vehicle has reached merchant. Redirecting to dashboard.');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [order?.status, navigate]);
 
   // Auto-status update when reaching customer or merchant location
   useEffect(() => {

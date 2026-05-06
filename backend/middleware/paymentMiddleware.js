@@ -49,15 +49,9 @@ export const validateCreateOrder = [
 
 // Validation middleware for verify payment
 export const validateVerifyPayment = [
-  body('razorpay_order_id')
+  body('orderId')
     .notEmpty()
-    .withMessage('Razorpay order ID is required'),
-  body('razorpay_payment_id')
-    .notEmpty()
-    .withMessage('Razorpay payment ID is required'),
-  body('razorpay_signature')
-    .notEmpty()
-    .withMessage('Razorpay signature is required'),
+    .withMessage('Cashfree order ID is required'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -101,7 +95,8 @@ export const validateRefund = [
 
 // Webhook signature verification middleware
 export const verifyWebhookSignature = (req, res, next) => {
-  const signature = req.get('X-Razorpay-Signature');
+  const signature = req.get('x-webhook-signature');
+  const timestamp = req.get('x-webhook-timestamp');
   
   if (!signature) {
     return res.status(400).json({
@@ -125,6 +120,7 @@ export const verifyWebhookSignature = (req, res, next) => {
     // Fallback if express.json was used instead of express.raw
     req.rawBody = JSON.stringify(req.body);
   }
-  
+  req.cashfreeSignature = signature;
+  req.cashfreeTimestamp = timestamp;
   next();
 };

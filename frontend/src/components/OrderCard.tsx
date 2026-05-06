@@ -124,7 +124,7 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
         </div>
         <div className="flex items-center gap-2">
           {price !== undefined && (
-            <span className="font-semibold text-primary">${price}</span>
+            <span className="font-semibold text-primary">₹{price}</span>
           )}
           <ChevronRight className="w-5 h-5 text-muted-foreground" />
         </div>

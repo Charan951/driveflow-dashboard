@@ -202,6 +202,16 @@ export const bookingService = {
     return response.data;
   },
 
+  getAvailableServicePincodes: async (): Promise<{ availablePincodes: string[] }> => {
+    const response = await api.get('/bookings/available-service-pincodes');
+    return response.data;
+  },
+
+  updateAvailableServicePincodes: async (availablePincodes: string[]) => {
+    const response = await api.put('/bookings/admin/available-service-pincodes', { availablePincodes });
+    return response.data;
+  },
+
   // Admin/Garage
   getAllBookings: async () => {
     const response = await api.get('/bookings');

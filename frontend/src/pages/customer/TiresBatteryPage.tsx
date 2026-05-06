@@ -205,7 +205,7 @@ const TiresBatteryPage: React.FC = () => {
                   <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">{tire.description}</p>
                   <div className="mt-auto">
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-base sm:text-lg font-bold text-primary">${tire.price}</span>
+                      <span className="text-base sm:text-lg font-bold text-primary">₹{tire.price}</span>
                       {tire.stock > 0 ? (
                         <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">
                           In Stock: {tire.stock}
@@ -305,7 +305,7 @@ const TiresBatteryPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-base sm:text-lg font-bold text-primary">${battery.price}</span>
+                        <span className="text-base sm:text-lg font-bold text-primary">₹{battery.price}</span>
                         <button
                           onClick={() => handleOrder(battery.name)}
                           disabled={battery.stock === 0}

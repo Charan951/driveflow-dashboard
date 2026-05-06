@@ -53,7 +53,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = memo(({
       
       <div className="flex items-center justify-between">
         {price !== undefined && (
-          <span className="text-lg font-bold text-primary">${price}</span>
+          <span className="text-lg font-bold text-primary">₹{price}</span>
         )}
         {duration && (
           <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">

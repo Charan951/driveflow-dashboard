@@ -4,20 +4,18 @@ import { Booking } from './bookingService';
 // Payment interfaces
 export interface PaymentOrder {
   orderId: string;
+  paymentSessionId: string;
   amount: number;
   currency: string;
   paymentId: string;
-  key: string;
+  environment: 'sandbox' | 'production';
   tempBookingData?: Record<string, unknown>;
   isTemporaryBooking?: boolean;
 }
 
 export interface PaymentVerification {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
+  orderId: string;
   bookingId?: string;
-  tempBookingData?: Record<string, unknown>;
 }
 
 export interface PaymentData {
@@ -29,9 +27,8 @@ export interface PaymentData {
   amount: number;
   currency: string;
   status: 'created' | 'attempted' | 'paid' | 'failed' | 'refunded' | 'partial_refund';
-  razorpayOrderId: string;
-  razorpayPaymentId?: string;
-  razorpaySignature?: string;
+  cashfreeOrderId?: string;
+  cashfreePaymentId?: string;
   failureReason?: string;
   refundId?: string;
   refundAmount: number;
@@ -67,7 +64,7 @@ export interface PaymentHistory {
 
 export const paymentService = {
   /**
-   * Create Razorpay order
+   * Create Cashfree order
    */
   createOrder: async (bookingId?: string, amount?: number, currency = 'INR', tempBookingData?: Record<string, unknown>): Promise<PaymentOrder> => {
     const requestData: Record<string, unknown> = { 
@@ -89,17 +86,10 @@ export const paymentService = {
   },
 
   /**
-   * Verify payment with Razorpay
+   * Verify payment with Cashfree
    */
   verifyPayment: async (data: PaymentVerification) => {
-    const requestData: any = { ...data };
-    
-    // Ensure bookingId is removed if it's empty
-    if (!data.bookingId || data.bookingId.trim() === '') {
-      delete requestData.bookingId;
-    }
-
-    const response = await api.post('/payments/verify', requestData);
+    const response = await api.post('/payments/verify', data);
     return response.data;
   },
 
@@ -149,5 +139,15 @@ export const paymentService = {
       reason
     });
     return response.data;
+  },
+
+  retryPayment: async (orderId: string): Promise<PaymentOrder> => {
+    const response = await api.post('/payments/retry', { orderId });
+    return response.data.data;
+  },
+
+  getUserOrders: async () => {
+    const response = await api.get('/payments/orders');
+    return response.data.data;
   }
 };

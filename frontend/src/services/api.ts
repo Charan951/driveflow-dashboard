@@ -6,7 +6,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('token');
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -68,6 +68,7 @@ api.interceptors.response.use(
         // Clear session and redirect for other 401 errors
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('auth-storage');
+        localStorage.removeItem('token');
         
         // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {

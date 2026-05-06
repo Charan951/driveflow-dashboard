@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import SlotBlock from '../models/SlotBlock.js';
+import AvailableServicePincode from '../models/AvailableServicePincode.js';
 import Counter from '../models/Counter.js';
 import User from '../models/User.js';
 import { getIO, emitChatMessage } from '../socket.js';
@@ -20,6 +21,18 @@ const SLOT_START_HOUR = 8;
 const SLOT_END_HOUR = 19;
 const BLOCKING_STATUSES = {
   $nin: ['DELIVERED', 'COMPLETED', 'CANCELLED'],
+};
+
+const normalizePincode = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  return digits.length === 6 ? digits : null;
+};
+
+const extractPincodeFromAddress = (address) => {
+  const match = String(address || '').match(/(\d{6})(?!\d)/);
+  return normalizePincode(match ? match[1] : null);
 };
 
 const formatTo12HourSlot = (date) => {
@@ -199,15 +212,26 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Invalid booking date' });
     }
 
-    const slotAvailable = await isSlotAvailable(parsedDate);
-    if (!slotAvailable) {
-      return res.status(409).json({ message: 'Selected slot is not available' });
-    }
-
     // Pickup address is now always required
     const hasAddress = location && typeof location.address === 'string' && location.address.trim().length > 0;
     if (!hasAddress) {
       return res.status(400).json({ message: 'Pickup address is required' });
+    }
+
+    const bookingPincode = extractPincodeFromAddress(location.address);
+    if (!bookingPincode) {
+      return res.status(400).json({ message: 'Pickup address must contain a valid 6-digit pincode' });
+    }
+
+    const availablePincodes = await AvailableServicePincode.find({}).select('pincode').lean();
+    const allowedSet = new Set(availablePincodes.map((p) => p.pincode));
+    if (allowedSet.size > 0 && !allowedSet.has(bookingPincode)) {
+      return res.status(409).json({ message: 'Service is not available for the selected pincode' });
+    }
+
+    const slotAvailable = await isSlotAvailable(parsedDate);
+    if (!slotAvailable) {
+      return res.status(409).json({ message: 'Selected slot is not available' });
     }
 
     const Service = (await import('../models/Service.js')).default;
@@ -529,6 +553,58 @@ export const updateAdminSlotBlocks = async (req, res) => {
       date: start.toISOString(),
       blockedSlots,
       message: 'Slots updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get available service pincodes
+// @route   GET /api/bookings/available-service-pincodes
+// @access  Private
+export const getAvailableServicePincodes = async (_req, res) => {
+  try {
+    const blocks = await AvailableServicePincode.find({}).select('pincode').sort({ pincode: 1 }).lean();
+    res.json({
+      availablePincodes: blocks.map((b) => b.pincode),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Replace available service pincodes list
+// @route   PUT /api/bookings/admin/available-service-pincodes
+// @access  Private/Admin
+export const updateAvailableServicePincodes = async (req, res) => {
+  try {
+    const { availablePincodes = [] } = req.body || {};
+    if (!Array.isArray(availablePincodes)) {
+      return res.status(400).json({ message: 'availablePincodes must be an array' });
+    }
+
+    const normalizedPincodes = Array.from(
+      new Set(availablePincodes.map((p) => normalizePincode(p)).filter(Boolean))
+    );
+
+    await AvailableServicePincode.deleteMany({});
+
+    if (normalizedPincodes.length > 0) {
+      await AvailableServicePincode.insertMany(
+        normalizedPincodes.map((pincode) => ({
+          pincode,
+          updatedBy: req.user._id,
+        }))
+      );
+    }
+
+    emitEntitySync('availableServicePincode', 'updated', {
+      availablePincodes: normalizedPincodes,
+    });
+
+    res.json({
+      availablePincodes: normalizedPincodes,
+      message: 'Available service pincodes updated successfully',
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -1036,7 +1036,7 @@ const BookingDetailPage: React.FC = () => {
                <div className="space-y-4">
                  <div className="space-y-2">
                    <label className="text-sm font-medium flex items-center gap-2">
-                      <UserIcon className="w-4 h-4 text-muted-foreground" /> Car Wash Staff
+                      <UserIcon className="w-4 h-4 text-muted-foreground" /> Staff
                    </label>
                    <select 
                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"

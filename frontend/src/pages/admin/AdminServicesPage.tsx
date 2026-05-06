@@ -15,13 +15,27 @@ const AdminServicesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [activeTab, setActiveTab] = useState<'quick-services' | 'slots'>('quick-services');
+  const [activeTab, setActiveTab] = useState<'quick-services' | 'slots' | 'available-pincodes'>('quick-services');
   const [selectedSlotDate, setSelectedSlotDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [allSlots, setAllSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
   const [slotLoading, setSlotLoading] = useState(false);
   const [slotSaving, setSlotSaving] = useState(false);
+  const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
+  const [availableServicePincodeInput, setAvailableServicePincodeInput] = useState('');
+  const [availableServiceSaving, setAvailableServiceSaving] = useState(false);
+
+  const parsePincodes = (input: string): string[] => {
+    const raw = String(input || '');
+    const parts = raw
+      .split(/[,\s]+/g)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => p.replace(/\D/g, ''))
+      .filter((p) => p.length === 6);
+    return Array.from(new Set(parts));
+  };
 
   const fetchServices = async () => {
     try {
@@ -116,9 +130,23 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
+  const fetchAvailableServicePincodes = async () => {
+    try {
+      const data = await bookingService.getAvailableServicePincodes();
+      const list = Array.isArray(data?.availablePincodes) ? data.availablePincodes : [];
+      setAvailableServicePincodes(list);
+      setAvailableServicePincodeInput('');
+    } catch (error) {
+      toast.error('Failed to load available service pincodes');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'slots') {
       fetchAdminSlots();
+    }
+    if (activeTab === 'available-pincodes') {
+      fetchAvailableServicePincodes();
     }
   }, [activeTab, selectedSlotDate]);
 
@@ -143,6 +171,29 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
+  const handleSaveAvailableServicePincodes = async () => {
+    try {
+      setAvailableServiceSaving(true);
+      await bookingService.updateAvailableServicePincodes(availableServicePincodes);
+      toast.success('Available service pincodes updated');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update available service pincodes');
+    } finally {
+      setAvailableServiceSaving(false);
+    }
+  };
+
+  const addPincodesFromInput = () => {
+    const parsed = parsePincodes(availableServicePincodeInput);
+    if (parsed.length === 0) return;
+    setAvailableServicePincodes((prev) => Array.from(new Set([...prev, ...parsed])));
+    setAvailableServicePincodeInput('');
+  };
+
+  const removeAvailablePincode = (pincode: string) => {
+    setAvailableServicePincodes((prev) => prev.filter((p) => p !== pincode));
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -161,10 +212,11 @@ const AdminServicesPage: React.FC = () => {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quick-services' | 'slots')}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quick-services' | 'slots' | 'available-pincodes')}>
         <TabsList className="mb-6">
           <TabsTrigger value="quick-services">Quick Services</TabsTrigger>
           <TabsTrigger value="slots">Slots</TabsTrigger>
+          <TabsTrigger value="available-pincodes">Available Pincodes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="quick-services" className="space-y-4">
@@ -293,6 +345,70 @@ const AdminServicesPage: React.FC = () => {
                 </div>
               </>
             )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="available-pincodes" className="space-y-4">
+          <div className="bg-card p-4 sm:p-6 rounded-lg border border-border space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">Available Service Pincodes</h2>
+              <p className="text-sm text-muted-foreground">
+                Only customers from these pincodes can place service bookings.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Add available pincode</Label>
+              <input
+                type="text"
+                value={availableServicePincodeInput}
+                onChange={(e) => setAvailableServicePincodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    addPincodesFromInput();
+                  }
+                }}
+                onBlur={addPincodesFromInput}
+                placeholder="e.g. 500032, 500008"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              {availableServicePincodes.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {availableServicePincodes.map((pincode) => (
+                    <span
+                      key={pincode}
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground"
+                    >
+                      {pincode}
+                      <button
+                        type="button"
+                        onClick={() => removeAvailablePincode(pincode)}
+                        className="rounded-sm px-1 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove ${pincode}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">
+                Active available pincodes: {availableServicePincodes.length > 0 ? availableServicePincodes.join(', ') : 'All pincodes allowed (no restriction)'}
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={handleSaveAvailableServicePincodes}
+                disabled={availableServiceSaving}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {availableServiceSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                Save Available Pincodes
+              </button>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

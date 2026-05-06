@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { userService, User } from '@/services/userService';
 import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
-import { Check, Shield, User as UserIcon, Briefcase, Users, X, Eye, Search, Filter } from 'lucide-react';
+import { Check, Shield, User as UserIcon, Briefcase, Users, X, Eye, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,6 @@ const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
   
   // States for modals
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -153,11 +152,11 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const filteredUsers = users.filter(user => {
+    const isCustomer = user.role === 'customer';
     const matchesSearch = (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
                           (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     
-    return matchesSearch && matchesRole;
+    return isCustomer && matchesSearch;
   });
 
   return (
@@ -165,26 +164,11 @@ const AdminUsersPage: React.FC = () => {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Manage Users</h1>
-            <p className="text-muted-foreground">View and manage all registered users.</p>
+            <h1 className="text-2xl font-bold mb-1">Manage Customers</h1>
+            <p className="text-muted-foreground">View and manage all registered customers.</p>
           </div>
           
           <div className="flex items-center gap-3">
-             <div className="relative">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="pl-9 pr-4 py-2 appearance-none rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="user">Customers</option>
-                  <option value="merchant">Merchants</option>
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admins</option>
-                </select>
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-             </div>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input

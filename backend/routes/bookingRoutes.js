@@ -24,6 +24,8 @@ import {
   getAvailableSlots,
   getAdminSlotsForDate,
   updateAdminSlotBlocks,
+  getAvailableServicePincodes,
+  updateAvailableServicePincodes,
 } from '../controllers/bookingController.js';
 import { getBookingInvoice } from '../controllers/bookingInvoiceController.js';
 
@@ -35,7 +37,9 @@ router.route('/')
 
 router.route('/mybookings').get(protect, getMyBookings);
 router.route('/available-slots').get(protect, getAvailableSlots);
+router.route('/available-service-pincodes').get(protect, getAvailableServicePincodes);
 router.route('/admin/slots').get(protect, admin, getAdminSlotsForDate).put(protect, admin, updateAdminSlotBlocks);
+router.route('/admin/available-service-pincodes').put(protect, admin, updateAvailableServicePincodes);
 router.route('/user/:userId').get(protect, getUserBookings);
 router.route('/vehicle/:vehicleId').get(protect, getVehicleBookings);
 router.route('/merchant/:merchantId').get(protect, merchant, getMerchantBookings);

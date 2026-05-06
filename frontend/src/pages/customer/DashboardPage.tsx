@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Car, 
@@ -10,7 +10,8 @@ import {
   ArrowRight,
   Wrench,
   Droplets,
-  Battery
+  Battery,
+  Package
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import VehicleCard from '@/components/VehicleCard';
@@ -90,6 +91,15 @@ const DashboardPage: React.FC = () => {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const shouldShowAssignmentToast = Boolean((location.state as { showAssignmentToast?: boolean } | null)?.showAssignmentToast);
+    if (shouldShowAssignmentToast) {
+      toast.success('Relax while we are assigning the best professional for picking your car');
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   // Update greeting every minute
   useEffect(() => {
@@ -374,6 +384,20 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors" />
               </Link>
+
+              <Link
+                to="/book-service?category=Essentials"
+                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-purple-500 hover:bg-purple-50 transition-all"
+              >
+                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                  <Package className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground">Essentials</p>
+                  <p className="text-sm text-muted-foreground">Quick utility & care services</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-purple-500 transition-colors" />
+              </Link>
             </div>
           </DialogContent>
         </Dialog>
@@ -472,7 +496,7 @@ const DashboardPage: React.FC = () => {
                   <Car className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-foreground text-center line-clamp-2 mb-1">{service.name}</p>
-                <p className="text-xs text-muted-foreground">${service.price}</p>
+                <p className="text-xs text-muted-foreground">₹{service.price}</p>
               </Link>
             </motion.div>
           ))}
@@ -643,7 +667,7 @@ const DashboardPage: React.FC = () => {
             <Button
               onClick={() => {
                 setIsNoVehicleDialogOpen(false);
-                navigate('/vehicles/add');
+                navigate('/add-vehicle');
               }}
               className="w-full rounded-xl"
             >

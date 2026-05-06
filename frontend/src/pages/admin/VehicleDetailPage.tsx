@@ -249,7 +249,7 @@ const VehicleDetailPage: React.FC = () => {
                             </div>
                          </div>
                          <div className="text-right">
-                            <div className="font-bold mb-1">${booking.totalAmount}</div>
+                            <div className="font-bold mb-1">₹{booking.totalAmount}</div>
                             <span className={`px-2 py-0.5 rounded text-xs font-medium 
                                   ${booking.status === 'DELIVERED' || booking.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                                     booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :

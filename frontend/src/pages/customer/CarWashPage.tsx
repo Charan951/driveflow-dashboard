@@ -11,6 +11,11 @@ import { bookingService } from '@/services/bookingService';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 
+const extractPincodeFromAddress = (address?: string) => {
+  const match = String(address || '').match(/(\d{6})(?!\d)/);
+  return match ? match[1] : null;
+};
+
 const CarWashPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -25,6 +30,13 @@ const CarWashPage: React.FC = () => {
   const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
+  const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
+  const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
+  const isSelectedLocationAllowed = Boolean(
+    !selectedLocationPincode ||
+    availableServicePincodes.length === 0 ||
+    availableServicePincodes.includes(selectedLocationPincode)
+  );
 
   useEffect(() => {
     fetchData();
@@ -39,12 +51,14 @@ const CarWashPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [servicesData, vehiclesData] = await Promise.all([
+      const [servicesData, vehiclesData, blockedPincodesData] = await Promise.all([
         serviceService.getServices(undefined, 'Wash'),
-        vehicleService.getVehicles()
+        vehicleService.getVehicles(),
+        bookingService.getAvailableServicePincodes(),
       ]);
       setServices(servicesData);
       setVehicles(vehiclesData);
+      setAvailableServicePincodes(Array.isArray(blockedPincodesData?.availablePincodes) ? blockedPincodesData.availablePincodes : []);
       if (vehiclesData.length > 0) {
         setSelectedVehicle(vehiclesData[0]._id);
       }
@@ -70,6 +84,10 @@ const CarWashPage: React.FC = () => {
 
     if (!pickupLocation.address.trim()) {
       toast.error('Please select a pickup location');
+      return;
+    }
+    if (!isSelectedLocationAllowed) {
+      toast.error('Service booking is not enabled for this pincode');
       return;
     }
 
@@ -174,7 +192,7 @@ const CarWashPage: React.FC = () => {
               )}
 
               <div className="flex items-center justify-between mb-4 mt-auto">
-                <span className="text-2xl sm:text-3xl font-bold text-primary">${pkg.price}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-primary">₹{pkg.price}</span>
               </div>
 
               <motion.button
@@ -213,7 +231,7 @@ const CarWashPage: React.FC = () => {
               <div className="sticky top-0 flex items-center justify-between p-4 border-b border-border bg-card z-10">
                 <div>
                   <h2 className="font-semibold text-base sm:text-lg truncate">Book {selectedPackageData?.name}</h2>
-                  <p className="text-sm text-muted-foreground">${selectedPackageData?.price}</p>
+                  <p className="text-sm text-muted-foreground">₹{selectedPackageData?.price}</p>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
@@ -274,13 +292,26 @@ const CarWashPage: React.FC = () => {
                   {user?.addresses && user.addresses.length > 0 && (
                     <div className="space-y-2">
                       {user.addresses.map((addr, index) => (
+                        (() => {
+                          const pin = extractPincodeFromAddress(addr.address);
+                          const isBlockedAddress = Boolean(
+                            pin &&
+                            availableServicePincodes.length > 0 &&
+                            !availableServicePincodes.includes(pin)
+                          );
+                          return (
                         <button
                           key={index}
+                          disabled={isBlockedAddress}
                           onClick={() => {
+                            if (isBlockedAddress) return;
                             setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
                             setShowCustomLocation(false);
                           }}
                           className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-colors text-left ${
+                            isBlockedAddress
+                              ? 'border-border opacity-60 cursor-not-allowed bg-muted/20'
+                              :
                             pickupLocation.address === addr.address && !showCustomLocation
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:bg-muted/50'
@@ -292,8 +323,13 @@ const CarWashPage: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground text-sm truncate">{addr.label}</p>
                             <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
+                            {isBlockedAddress && (
+                              <p className="text-[11px] font-semibold text-destructive mt-1">Service not enabled for this pincode</p>
+                            )}
                           </div>
                         </button>
+                          );
+                        })()
                       ))}
                     </div>
                   )}
@@ -321,6 +357,13 @@ const CarWashPage: React.FC = () => {
                       />
                     </div>
                   )}
+                  {pickupLocation.address && !isSelectedLocationAllowed && (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2">
+                      <p className="text-xs font-semibold text-destructive">
+                        Service booking is not enabled for this pincode. Please choose another location.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -328,7 +371,7 @@ const CarWashPage: React.FC = () => {
               <div className="sticky bottom-0 p-4 border-t border-border bg-card">
                 <button
                   onClick={handleConfirmBooking}
-                  disabled={!selectedDate || !selectedTime || !selectedVehicle || !pickupLocation.address || isBooking}
+                  disabled={!selectedDate || !selectedTime || !selectedVehicle || !pickupLocation.address || !isSelectedLocationAllowed || isBooking}
                   className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px]"
                 >
                   {isBooking ? (

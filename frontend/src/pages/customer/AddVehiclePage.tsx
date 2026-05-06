@@ -38,6 +38,12 @@ const AddVehiclePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!isLoadingVehicles && vehicles.length === 0) {
+      setShowForm(true);
+    }
+  }, [isLoadingVehicles, vehicles]);
+
+  useEffect(() => {
     const fetchTireDetails = async () => {
       if (formData.make && formData.model && formData.variant && formData.variant.trim() !== '') {
         setIsFetchingTires(true);
@@ -367,18 +373,6 @@ const AddVehiclePage: React.FC = () => {
               />
             </motion.div>
           ))}
-          <motion.div variants={staggerItem} className="w-full">
-            <button
-              onClick={() => setShowForm(true)}
-              className="w-full flex flex-col items-center justify-center p-6 bg-muted/50 border-2 border-dashed border-border rounded-2xl hover:border-primary hover:bg-muted transition-colors"
-            >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-              </div>
-              <p className="font-medium text-foreground text-sm sm:text-base">Add Vehicle</p>
-              <p className="text-xs sm:text-sm text-muted-foreground text-center px-4">Register a new vehicle</p>
-            </button>
-          </motion.div>
         </motion.div>
       )}
 

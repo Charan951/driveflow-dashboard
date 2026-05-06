@@ -40,6 +40,11 @@ const COMMON_TIRE_SIZES = [
   '195/55 R16', '205/55 R16', '215/60 R16', '225/45 R17', '235/45 R18'
 ];
 
+const extractPincodeFromAddress = (address?: string) => {
+  const match = String(address || '').match(/(\d{6})(?!\d)/);
+  return match ? match[1] : null;
+};
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 const BookingSkeleton = () => (
@@ -80,9 +85,16 @@ const BookServicePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
 
   const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
   const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
+  const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
+  const isSelectedLocationAllowed = Boolean(
+    !selectedLocationPincode ||
+    availableServicePincodes.length === 0 ||
+    availableServicePincodes.includes(selectedLocationPincode)
+  );
   const totalPrice = selectedServicesData.reduce((sum, service) => {
     if (!service) return sum;
     const qty = serviceQuantities[service._id] || 1;
@@ -105,14 +117,16 @@ const BookServicePage: React.FC = () => {
   const fetchData = async () => {
     try {
       setIsDataLoading(true);
-      const [servicesData, vehiclesData] = await Promise.all([
+      const [servicesData, vehiclesData, blockedPincodesData] = await Promise.all([
         serviceService.getServices(),
         vehicleService.getVehicles(),
+        bookingService.getAvailableServicePincodes(),
       ]);
       console.log('Services loaded:', servicesData);
       console.log('Vehicles loaded:', vehiclesData);
       setServices(Array.isArray(servicesData) ? servicesData : []);
       setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
+      setAvailableServicePincodes(Array.isArray(blockedPincodesData?.availablePincodes) ? blockedPincodesData.availablePincodes : []);
     } catch (error) {
       console.error('Failed to fetch data in BookServicePage:', error);
       toast.error('Failed to load booking data');
@@ -129,7 +143,7 @@ const BookServicePage: React.FC = () => {
       case 1: return selectedServices.length > 0;
       case 2: {
         const isScheduleComplete = selectedDate !== null && selectedTime !== null;
-        const isAddressComplete = pickupLocation.address.trim() !== '';
+        const isAddressComplete = pickupLocation.address.trim() !== '' && isSelectedLocationAllowed;
         return isScheduleComplete && isAddressComplete;
       }
       case 3: return true;
@@ -302,6 +316,12 @@ const BookServicePage: React.FC = () => {
     fetchSlots();
   }, [selectedDate]);
 
+  useEffect(() => {
+    if (!isSelectedLocationAllowed) {
+      setSelectedTime(null);
+    }
+  }, [isSelectedLocationAllowed]);
+
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -312,6 +332,10 @@ const BookServicePage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!selectedVehicle || !selectedDate || !selectedTime) return;
+    if (!isSelectedLocationAllowed) {
+      toast.error('Selected location is not enabled for service booking');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -390,7 +414,11 @@ const BookServicePage: React.FC = () => {
         });
       } else {
         toast.success('Booking confirmed! We have scheduled your service.');
-        navigate('/dashboard');
+        navigate('/dashboard', {
+          state: {
+            showAssignmentToast: true
+          }
+        });
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -861,15 +889,28 @@ const BookServicePage: React.FC = () => {
                         </label>
                         <div className="grid grid-cols-1 gap-3">
                           {user.addresses.map((addr, index) => (
+                            (() => {
+                              const pin = extractPincodeFromAddress(addr.address);
+                              const isBlockedAddress = Boolean(
+                                pin &&
+                                availableServicePincodes.length > 0 &&
+                                !availableServicePincodes.includes(pin)
+                              );
+                              return (
                             <button
                               key={index}
                               type="button"
+                              disabled={isBlockedAddress}
                               onClick={() => {
+                                if (isBlockedAddress) return;
                                 setPickupLocation({ address: addr.address, lat: addr.lat, lng: addr.lng });
                                 setShowCustomLocation(false);
                                 toast.success(`Selected ${addr.label}`);
                               }}
                               className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all text-left ${
+                                isBlockedAddress
+                                  ? 'border-border bg-muted/20 opacity-60 cursor-not-allowed'
+                                  :
                                 pickupLocation.address === addr.address && !showCustomLocation
                                   ? 'border-primary bg-primary/5 shadow-md'
                                   : 'border-border bg-muted/20 hover:border-primary/30'
@@ -883,8 +924,13 @@ const BookServicePage: React.FC = () => {
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-foreground text-sm sm:text-base truncate">{addr.label}</p>
                                 <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
+                                {isBlockedAddress && (
+                                  <p className="text-[11px] font-semibold text-destructive mt-1">Service not enabled for this pincode</p>
+                                )}
                               </div>
                             </button>
+                              );
+                            })()
                           ))}
                         </div>
                       </div>
@@ -919,7 +965,20 @@ const BookServicePage: React.FC = () => {
                            <div className="min-w-0">
                              <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Selected Location</p>
                              <p className="text-sm font-bold text-foreground leading-relaxed break-words">{pickupLocation.address}</p>
+                             {!isSelectedLocationAllowed && (
+                               <p className="text-xs text-destructive mt-1 font-semibold">
+                                 This location pincode is not enabled for service booking. Select another location.
+                               </p>
+                             )}
                            </div>
+                        </div>
+                      )}
+
+                      {pickupLocation.address && !isSelectedLocationAllowed && (
+                        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2">
+                          <p className="text-xs font-semibold text-destructive">
+                            Service booking is not enabled for this pincode. Please choose another location.
+                          </p>
                         </div>
                       )}
                     </div>

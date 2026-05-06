@@ -6,8 +6,10 @@ import {
   getPaymentStatus,
   getPaymentHistory,
   processRefund,
-  getAllPayments
-} from '../controllers/paymentController.js';
+  getAllPayments,
+  retryPayment,
+  getUserOrders
+} from '../controllers/cashfreePaymentController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import {
   paymentRateLimit,
@@ -28,8 +30,10 @@ router.use(protect); // All routes below require authentication
 // Payment operations
 router.post('/create-order', paymentRateLimit, validateCreateOrder, createOrder);
 router.post('/verify', validateVerifyPayment, verifyPayment);
+router.post('/retry', paymentRateLimit, retryPayment);
 router.get('/status/:id', getPaymentStatus);
 router.get('/history', getPaymentHistory);
+router.get('/orders', getUserOrders);
 
 // Admin only routes
 router.post('/refund', admin, validateRefund, processRefund);

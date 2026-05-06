@@ -16,6 +16,18 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  cashfreeOrderId: {
+    type: String,
+    index: true
+  },
+  cashfreePaymentId: {
+    type: String,
+    index: true,
+    sparse: true
+  },
+  cfPaymentSessionId: {
+    type: String
+  },
   paymentId: {
     type: String
   },
@@ -30,12 +42,22 @@ const paymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['created', 'attempted', 'paid', 'failed', 'refunded', 'partial_refund'],
+    enum: ['created', 'attempted', 'paid', 'failed', 'pending', 'user_dropped', 'expired', 'refunded', 'partial_refund'],
     default: 'created'
+  },
+  paymentMethod: {
+    type: String,
+    default: 'UNKNOWN'
+  },
+  bankReference: {
+    type: String
+  },
+  transactionId: {
+    type: String
   },
   razorpayOrderId: {
     type: String,
-    required: true
+    required: false
   },
   razorpayPaymentId: {
     type: String
@@ -57,6 +79,15 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
+  gatewayResponse: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  retryCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   webhookEvents: [{
     eventId: String,
     event: String,
@@ -74,6 +105,8 @@ paymentSchema.index({ userId: 1, createdAt: -1 });
 paymentSchema.index({ bookingId: 1 });
 paymentSchema.index({ razorpayOrderId: 1 });
 paymentSchema.index({ razorpayPaymentId: 1 }, { sparse: true }); // Only index non-null values
+paymentSchema.index({ cashfreeOrderId: 1 });
+paymentSchema.index({ cashfreePaymentId: 1 }, { sparse: true });
 paymentSchema.index({ status: 1 });
 
 // Virtual for payment URL (if needed)

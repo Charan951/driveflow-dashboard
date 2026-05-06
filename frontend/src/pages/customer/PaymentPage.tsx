@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
-import RazorpayPayment from '@/components/RazorpayPayment';
-import { paymentService } from '@/services/paymentService';
+import CashfreePayment from '@/components/CashfreePayment';
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,30 +26,29 @@ const PaymentPage: React.FC = () => {
       return;
     }
 
-    // Load Razorpay script
-    const loadRazorpayScript = () => {
+    // Load Cashfree script
+    const loadCashfreeScript = () => {
       return new Promise((resolve, reject) => {
-        // Check if Razorpay is already loaded
-        if (window.Razorpay) {
+        if (window.Cashfree) {
           resolve(true);
           return;
         }
 
         const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
         script.onload = () => {
           resolve(true);
         };
         script.onerror = () => {
-          console.error('Failed to load Razorpay script');
-          reject(new Error('Failed to load Razorpay script'));
+          console.error('Failed to load Cashfree script');
+          reject(new Error('Failed to load Cashfree script'));
         };
         document.body.appendChild(script);
       });
     };
 
-    loadRazorpayScript().catch((error) => {
-      console.error('Razorpay script loading error:', error);
+    loadCashfreeScript().catch((error) => {
+      console.error('Cashfree script loading error:', error);
       toast.error('Failed to load payment gateway. Please refresh the page.');
     });
   }, [location.state, navigate]);
@@ -89,7 +87,12 @@ const PaymentPage: React.FC = () => {
   const handlePaymentSuccess = (paymentData: any) => {
     setIsLoading(false);
     toast.success('Payment successful! Your service booking has been created.');
-    navigate('/dashboard', { replace: true });
+    navigate('/dashboard', {
+      replace: true,
+      state: {
+        showAssignmentToast: true
+      }
+    });
   };
 
   const handlePaymentFailure = (error: any) => {
@@ -221,17 +224,12 @@ const PaymentPage: React.FC = () => {
         transition={{ delay: 0.3 }}
         className="pt-4 space-y-4"
       >
-        {/* Razorpay Payment Component */}
+        {/* Cashfree Payment Component */}
         {user && (
-          <RazorpayPayment
+          <CashfreePayment
             bookingId={tempBookingId || undefined}
             amount={tempBookingData.totalAmount}
             tempBookingData={tempBookingData}
-            userDetails={{
-              name: user.name,
-              email: user.email,
-              phone: user.phone || ''
-            }}
             onSuccess={handlePaymentSuccess}
             onFailure={handlePaymentFailure}
             disabled={isLoading}
@@ -248,7 +246,7 @@ const PaymentPage: React.FC = () => {
         className="text-center text-xs text-muted-foreground space-y-1"
       >
         <p>🔒 Your payment information is secure and encrypted</p>
-        <p>Powered by Razorpay - India's most trusted payment gateway</p>
+        <p>Powered by Cashfree Payments</p>
       </motion.div>
     </div>
   );

@@ -86,7 +86,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             {amount !== undefined && (
               <div className={cn('p-3 rounded-xl', isSelf ? 'bg-primary-foreground/10' : 'bg-muted')}>
                 <p className={cn('text-lg font-bold', isSelf ? 'text-primary-foreground' : 'text-primary')}>
-                  ${amount}
+                  ₹{amount}
                 </p>
               </div>
             )}
