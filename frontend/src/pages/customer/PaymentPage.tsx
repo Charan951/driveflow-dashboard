@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc } from 'lucide-react';
+import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc, Tag, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import CashfreePayment from '@/components/CashfreePayment';
+import { couponService, ValidatedCoupon, Coupon } from '@/services/couponService';
+import { socketService } from '@/services/socket';
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +15,10 @@ const PaymentPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [tempBookingData, setTempBookingData] = useState<any>(null);
   const [tempBookingId, setTempBookingId] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCoupon['coupon'] | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
 
   useEffect(() => {
     // Get temp booking data from navigation state
@@ -53,6 +59,34 @@ const PaymentPage: React.FC = () => {
     });
   }, [location.state, navigate]);
 
+  // Load coupons when tempBookingData is available
+  useEffect(() => {
+    if (tempBookingData) {
+      loadCoupons();
+    }
+  }, [tempBookingData]);
+
+  // Listen for coupon updates via socket
+  useEffect(() => {
+    socketService.connect();
+
+    const globalSyncHandler = (data: any) => {
+      if (!data) return;
+      const entity = (data as any).entity;
+      const action = (data as any).action;
+
+      if (entity === 'coupon' && action) {
+        loadCoupons();
+      }
+    };
+
+    socketService.on('global:sync', globalSyncHandler);
+
+    return () => {
+      socketService.off('global:sync', globalSyncHandler);
+    };
+  }, []);
+
   // Determine service type for display
   const getServiceInfo = () => {
     if (!tempBookingData) {
@@ -84,6 +118,50 @@ const PaymentPage: React.FC = () => {
 
   const serviceInfo = getServiceInfo();
 
+  const calculateFinalAmount = () => {
+    if (!tempBookingData) return 0;
+    const baseAmount = tempBookingData.totalAmount;
+    if (appliedCoupon) {
+      return Math.max(0, baseAmount - appliedCoupon.discountAmount);
+    }
+    return baseAmount;
+  };
+
+  const loadCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const coupons = await couponService.getCoupons();
+      const activeCoupons = coupons.filter(coupon => coupon.isActive);
+      setAvailableCoupons(activeCoupons);
+    } catch (error) {
+      console.error('Failed to load coupons:', error);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const applyCouponByCode = async (code: string) => {
+    setValidatingCoupon(true);
+    try {
+      const result = await couponService.validateCoupon(code, tempBookingData.totalAmount);
+      if (result.valid && result.coupon) {
+        setAppliedCoupon(result.coupon);
+        toast.success('Coupon applied successfully!');
+      } else {
+        toast.error(result.message || 'Invalid coupon');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to apply coupon');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    toast.info('Coupon removed');
+  };
+
   const handlePaymentSuccess = (paymentData: any) => {
     setIsLoading(false);
     toast.success('Payment successful! Your service booking has been created.');
@@ -98,7 +176,7 @@ const PaymentPage: React.FC = () => {
   const handlePaymentFailure = (error: any) => {
     setIsLoading(false);
     console.error('Payment Error:', error);
-    // Error is already toasted in RazorpayPayment component
+    // Error is already toasted in CashfreePayment component
   };
 
   if (!tempBookingData) {
@@ -192,6 +270,107 @@ const PaymentPage: React.FC = () => {
         </div>
       </motion.div>
 
+      {/* Coupon Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="bg-card rounded-2xl border border-border p-4 sm:p-6"
+      >
+        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2">
+          <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          Apply Coupon
+        </h2>
+
+        <div className="space-y-4">
+          {loadingCoupons ? (
+            <div className="text-center py-4 text-muted-foreground">
+              Loading coupons...
+            </div>
+          ) : availableCoupons.length > 0 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Available coupons:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {availableCoupons.map((coupon, index) => {
+                  const isSelected = appliedCoupon?._id === coupon._id;
+                  const colors = [
+                    'from-blue-500 to-blue-600',
+                    'from-purple-500 to-purple-600',
+                    'from-pink-500 to-pink-600',
+                    'from-indigo-500 to-indigo-600',
+                    'from-teal-500 to-teal-600',
+                    'from-orange-500 to-orange-600',
+                    'from-red-500 to-red-600',
+                    'from-green-500 to-green-600',
+                    'from-cyan-500 to-cyan-600',
+                    'from-lime-500 to-lime-600',
+                    'from-emerald-500 to-emerald-600',
+                    'from-violet-500 to-violet-600'
+                  ];
+                  const colorIndex = index % colors.length;
+                  const bgGradient = colors[colorIndex];
+                  
+                  return (
+                    <button
+                      key={coupon._id}
+                      onClick={() => applyCouponByCode(coupon.code)}
+                      disabled={validatingCoupon}
+                      className={`relative overflow-hidden rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] ${
+                        isSelected ? 'ring-4 ring-green-400 ring-offset-2' : ''
+                      }`}
+                    >
+                      <div className={`bg-gradient-to-br ${bgGradient} p-5 text-white text-left`}>
+                        {isSelected && (
+                          <div className="absolute top-2 right-2">
+                            <CheckCircle className="w-6 h-6 text-yellow-300" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <Tag className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-3xl font-bold">Upto {coupon.discountPercentage}% off</p>
+                          </div>
+                        </div>
+                        <p className="font-bold text-lg mb-1">{coupon.code}</p>
+                        {coupon.description && (
+                          <p className="text-sm opacity-90 mb-2">{coupon.description}</p>
+                        )}
+                        {coupon.minOrderAmount > 0 && (
+                          <p className="text-xs opacity-80">Min. order: ₹{coupon.minOrderAmount}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {appliedCoupon && (
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-800">{appliedCoupon.code}</p>
+                      <p className="text-xs text-green-600">{appliedCoupon.description || `${appliedCoupon.discountPercentage}% off`}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={removeCoupon}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              No coupons available at this time
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       {/* Payment Details */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -209,10 +388,17 @@ const PaymentPage: React.FC = () => {
             <span className="text-sm sm:text-base">Service Amount</span>
             <span className="font-semibold text-sm sm:text-base">₹{tempBookingData.totalAmount}</span>
           </div>
+
+          {appliedCoupon && (
+            <div className="flex justify-between text-green-600">
+              <span className="text-sm sm:text-base">Discount ({appliedCoupon.discountPercentage}%)</span>
+              <span className="font-semibold text-sm sm:text-base">-₹{appliedCoupon.discountAmount}</span>
+            </div>
+          )}
           
           <div className="flex justify-between text-foreground pt-3 border-t border-border">
             <span className="font-semibold text-sm sm:text-base">Total Amount</span>
-            <span className="text-lg sm:text-xl font-bold text-primary">₹{tempBookingData.totalAmount}</span>
+            <span className="text-lg sm:text-xl font-bold text-primary">₹{calculateFinalAmount()}</span>
           </div>
         </div>
       </motion.div>
@@ -228,8 +414,16 @@ const PaymentPage: React.FC = () => {
         {user && (
           <CashfreePayment
             bookingId={tempBookingId || undefined}
-            amount={tempBookingData.totalAmount}
-            tempBookingData={tempBookingData}
+            amount={calculateFinalAmount()}
+            tempBookingData={{
+              ...tempBookingData,
+              totalAmount: calculateFinalAmount(),
+              customerEmail: user.email,
+              customerPhone: user.phone,
+              coupon: appliedCoupon?._id || null,
+              discountAmount: appliedCoupon?.discountAmount || 0,
+              finalAmount: calculateFinalAmount()
+            }}
             onSuccess={handlePaymentSuccess}
             onFailure={handlePaymentFailure}
             disabled={isLoading}

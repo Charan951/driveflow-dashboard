@@ -6,7 +6,6 @@ const availableServicePincodeSchema = mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      index: true,
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,

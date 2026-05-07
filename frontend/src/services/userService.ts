@@ -37,6 +37,10 @@ export interface User {
 }
 
 export const userService = {
+  getProfile: async () => {
+    const response = await api.get('/users/me');
+    return response.data;
+  },
   getAllUsers: async (filters?: { role?: string; subRole?: string }) => {
     const params = new URLSearchParams();
     if (filters?.role) {

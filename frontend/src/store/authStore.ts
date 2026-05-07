@@ -57,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('hasSeenNoVehicleModal');
         localStorage.removeItem('token');
+        localStorage.removeItem('auth-storage');
         set({ user: null, isAuthenticated: false, role: null });
       },
       updateUser: (data) =>
@@ -70,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

@@ -230,7 +230,7 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
                   <div>
                     <p className="font-medium">₹{payment.amount}</p>
                     <p className="text-sm text-gray-500">
-                      {payment.razorpayPaymentId || payment.paymentId || 'N/A'}
+                      {payment.cashfreePaymentId || payment.paymentId || 'N/A'}
                     </p>
                   </div>
                 </div>

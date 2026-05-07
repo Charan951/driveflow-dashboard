@@ -133,6 +133,14 @@ userSchema.pre('save', async function () {
     }
   }
 
+  // Mark addresses and paymentMethods as modified if they're being updated
+  if (this.isModified('addresses')) {
+    this.markModified('addresses');
+  }
+  if (this.isModified('paymentMethods')) {
+    this.markModified('paymentMethods');
+  }
+
   // Encrypt password if modified
   if (!this.isModified('password')) {
     return;

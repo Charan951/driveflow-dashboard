@@ -141,6 +141,19 @@ const bookingSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Coupon',
+      default: null
+    },
+    discountAmount: {
+      type: Number,
+      default: 0
+    },
+    finalAmount: {
+      type: Number,
+      required: true
+    },
     media: [{
       type: String, // URLs to images/videos
     }],
@@ -200,7 +213,7 @@ const bookingSchema = mongoose.Schema(
       default: 'pending',
     },
     paymentId: {
-      type: String, // Razorpay payment ID
+      type: String, // Cash Free Payment payment ID
     },
     platformFee: {
       type: Number,

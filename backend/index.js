@@ -37,6 +37,7 @@ import auditRoutes from './routes/auditRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import careerRoutes from './routes/careerRoutes.js';
+import couponRoutes from './routes/couponRoutes.js';
 
 dotenv.config();
 
@@ -175,6 +176,7 @@ app.use('/api/careers', careerRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/vehicle-reference', vehicleReferenceRoutes);
+app.use('/api/coupons', couponRoutes);
 
 // API health check
 app.get('/api/health', (_, res) => {

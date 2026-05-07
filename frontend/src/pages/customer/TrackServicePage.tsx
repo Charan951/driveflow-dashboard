@@ -120,6 +120,14 @@ const TrackServicePage: React.FC = () => {
       const cat = (service as any).category.toLowerCase();
       return cat.includes('essentials');
     });
+
+  const isGeneralService = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof (service as any) !== 'object') return false;
+      const cat = (service as any).category;
+      const name = (service as any).name?.toLowerCase() || '';
+      return cat === 'Periodic' || cat === 'Services' || name.includes('general service');
+    });
   
   const activeStatusFlow: readonly BookingStatus[] = getFlowForService(Array.isArray(order?.services) ? order.services : []);
 
@@ -620,8 +628,8 @@ const TrackServicePage: React.FC = () => {
   const handlePayment = async () => {
     if (!order || !user) return;
     
-    // Check if Razorpay is loaded
-    if (!(window as any).Razorpay) {
+    // Check if Cashfree is loaded
+    if (!(window as any).Cashfree) {
       toast.error('Payment gateway not loaded. Please refresh the page.');
       return;
     }
@@ -629,7 +637,7 @@ const TrackServicePage: React.FC = () => {
     setIsPaymentLoading(true);
 
     try {
-      // Use Razorpay for payment
+      // Use Cashfree for payment
       const orderData = await paymentService.createOrder(order._id, order.totalAmount);
       
       const options = {
@@ -643,9 +651,9 @@ const TrackServicePage: React.FC = () => {
           try {
             // Verify payment
             const verificationData = {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+              cashfree_order_id: response.cashfree_order_id,
+              cashfree_payment_id: response.cashfree_payment_id,
+              cashfree_signature: response.cashfree_signature,
               bookingId: order._id
             };
 
@@ -681,8 +689,8 @@ const TrackServicePage: React.FC = () => {
         }
       };
 
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
+      const cashfree = new (window as any).Cashfree(options);
+      cashfree.open();
       
     } catch (error: any) {
       console.error("Payment Error", error);
@@ -1373,6 +1381,18 @@ const TrackServicePage: React.FC = () => {
                     >
                       <ImageIcon className="w-5 h-5" />
                       Download Merchant Invoice
+                    </button>
+                  </div>
+                )}
+
+                {order.paymentStatus === 'paid' && !isGeneralService && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleDownloadMerchantInvoice}
+                      className="py-3 px-5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors inline-flex items-center justify-center gap-2"
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                      Download Invoice
                     </button>
                   </div>
                 )}

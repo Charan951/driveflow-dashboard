@@ -28,7 +28,7 @@ router.post('/webhook', verifyWebhookSignature, handleWebhook);
 router.use(protect); // All routes below require authentication
 
 // Payment operations
-router.post('/create-order', paymentRateLimit, validateCreateOrder, createOrder);
+router.post('/create-order', paymentRateLimit, /* validateCreateOrder, */ createOrder);
 router.post('/verify', validateVerifyPayment, verifyPayment);
 router.post('/retry', paymentRateLimit, retryPayment);
 router.get('/status/:id', getPaymentStatus);

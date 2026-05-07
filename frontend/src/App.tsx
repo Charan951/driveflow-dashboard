@@ -5,10 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import React, { Suspense, lazy } from "react";
 
-// Development testing
-if (import.meta.env.DEV) {
-  import("./utils/testRazorpay");
-}
+
 
 // Helper for lazy loading with retry on failure (useful for new deployments)
 const lazyRetry = (componentImport: () => Promise<any>) => {
@@ -101,6 +98,7 @@ const StaffProfilePage = lazyRetry(() => import("./pages/staff/StaffProfilePage"
 // Admin Pages
 const AdminDashboard = lazyRetry(() => import("./pages/admin/Dashboard"));
 const AdminServicesPage = lazyRetry(() => import("./pages/admin/AdminServicesPage"));
+const AdminCouponsPage = lazyRetry(() => import("./pages/admin/AdminCouponsPage"));
 const AdminBookingsPage = lazyRetry(() => import("./pages/admin/AdminBookingsPage"));
 const AdminBookingDetailPage = lazyRetry(() => import("./pages/admin/BookingDetailPage"));
 const AdminStaffPage = lazyRetry(() => import("./pages/admin/AdminStaffPage"));
@@ -226,6 +224,7 @@ const App = () => (
               <Route path="/admin/bookings" element={<AdminBookingsPage />} />
               <Route path="/admin/bookings/:id" element={<AdminBookingDetailPage />} />
               <Route path="/admin/services" element={<AdminServicesPage />} />
+              <Route path="/admin/coupons" element={<AdminCouponsPage />} />
               
               <Route path="/admin/staff" element={<AdminStaffPage />} />
               <Route path="/admin/merchants" element={<AdminMerchantsPage />} />

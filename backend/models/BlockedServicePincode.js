@@ -6,7 +6,6 @@ const blockedServicePincodeSchema = mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      index: true,
     },
     blockedBy: {
       type: mongoose.Schema.Types.ObjectId,

@@ -13,9 +13,9 @@ async function testPaymentService() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Database connected');
 
-    // Test Razorpay instance creation
-    console.log('✅ Razorpay service initialized');
-    console.log('📋 Razorpay Key ID:', process.env.RAZORPAY_KEY_ID?.substring(0, 10) + '...');
+    // Test Cashfree instance creation
+    console.log('✅ Cashfree service initialized');
+    console.log('📋 Cashfree App ID:', process.env.CASHFREE_APP_ID?.substring(0, 10) + '...');
 
     // Test signature verification
     const testSignature = paymentService.verifyPaymentSignature(

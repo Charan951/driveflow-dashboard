@@ -81,7 +81,9 @@ export const paymentService = {
       requestData.bookingId = bookingId;
     }
 
+    console.log('paymentService.createOrder request data:', requestData);
     const response = await api.post('/payments/create-order', requestData);
+    console.log('paymentService.createOrder response data:', response.data);
     return response.data.data;
   },
 

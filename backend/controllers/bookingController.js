@@ -303,6 +303,9 @@ export const createBooking = async (req, res) => {
           notes,
           location,
           totalAmount,
+          finalAmount: totalAmount,
+          discountAmount: 0,
+          coupon: null,
           // Mark as battery/tire service if applicable
           ...(isBatteryTireService && {
             batteryTire: {
@@ -1310,7 +1313,7 @@ Thank you for choosing Carzzi 🙌`;
       if (updatedBooking.user && updatedBooking.user.email) {
         sendEmail(
           updatedBooking.user.email,
-          'Booking Status Update - Speshway',
+          'Booking Status Update - Carzzi',
           `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
         ).catch(() => {});
       }

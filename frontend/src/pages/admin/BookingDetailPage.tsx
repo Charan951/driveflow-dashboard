@@ -69,6 +69,42 @@ const BookingDetailPage: React.FC = () => {
       return cat.includes('battery') || cat.includes('tyre') || cat.includes('tire');
     }), [booking?.services]);
 
+  const isGeneralService = React.useMemo(() => 
+    Array.isArray(booking?.services) && 
+    (booking!.services as Service[]).some(service => {
+      const cat = service.category;
+      const name = service.name?.toLowerCase() || '';
+      return cat === 'Periodic' || cat === 'Services' || name.includes('general service');
+    }), [booking?.services]);
+
+  const handleDownloadInvoice = async () => {
+    if (!booking?._id) return;
+
+    // If merchant has uploaded a file, prioritize that
+    if (booking.billing?.fileUrl) {
+      window.open(booking.billing.fileUrl, '_blank');
+      return;
+    }
+
+    try {
+      toast.info('Generating invoice...');
+      const response = await bookingService.getBookingInvoice(booking._id);
+      
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice-${booking.orderNumber || booking._id.slice(-6).toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoice downloaded successfully');
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      toast.error('Failed to download invoice. Please try again later.');
+    }
+  };
+
   // Memoized sorted lists
   const sortedMerchants = React.useMemo(() => {
     const targetLat = typeof booking?.location === 'object' ? (booking.location as any).lat : null;
@@ -656,6 +692,15 @@ const BookingDetailPage: React.FC = () => {
                       {booking.paymentStatus}
                    </span>
                 </div>
+                {booking.paymentStatus === 'paid' && !isGeneralService && (
+                  <button
+                    onClick={handleDownloadInvoice}
+                    className="w-full mt-2 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Invoice
+                  </button>
+                )}
              </div>
           </div>
 

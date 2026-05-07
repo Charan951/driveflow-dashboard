@@ -9,7 +9,7 @@ import paymentService from '../services/paymentService.js';
 import { logAudit } from './auditController.js';
 
 /**
- * @desc    Create Razorpay order
+ * @desc    Create Cash Free Payment order
  * @route   POST /api/payments/create-order
  * @access  Private
  */
@@ -99,25 +99,25 @@ export const createOrder = async (req, res) => {
 };
 
 /**
- * @desc    Verify Razorpay payment
+ * @desc    Verify Cash Free Payment payment
  * @route   POST /api/payments/verify
  * @access  Private
  */
 export const verifyPayment = async (req, res) => {
   try {
     const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
-      razorpay_signature, 
+      cashfree_order_id, 
+      cashfree_payment_id, 
+      cashfree_signature, 
       bookingId,
       tempBookingData 
     } = req.body;
 
     // Verify payment and process results (includes creating booking if temp data exists)
     const { payment, booking } = await paymentService.processSuccessfulPayment(
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
+      cashfree_order_id,
+      cashfree_payment_id,
+      cashfree_signature
     );
 
     // If a new booking was created (for Car Wash, Battery, Tires etc.)
@@ -266,13 +266,13 @@ export const verifyPayment = async (req, res) => {
 };
 
 /**
- * @desc    Handle Razorpay webhook
+ * @desc    Handle Cash Free Payment webhook
  * @route   POST /api/payments/webhook
  * @access  Public (but verified)
  */
 export const handleWebhook = async (req, res) => {
   try {
-    const signature = req.get('X-Razorpay-Signature');
+    const signature = req.get('X-Cashfree-Signature');
     const body = req.rawBody; // Use original raw body string
 
     const result = await paymentService.processWebhookEvent(req.body, signature, body);
@@ -286,7 +286,7 @@ export const handleWebhook = async (req, res) => {
         action: 'WEBHOOK_PROCESSED',
         targetModel: 'Payment',
         targetId: result.payment?._id,
-        details: { event: req.body.event, paymentId: result.payment?.razorpayPaymentId },
+        details: { event: req.body.event, paymentId: result.payment?.cashfreePaymentId },
         ipAddress: req.ip
       });
     }

@@ -21,10 +21,6 @@ const isValidObjectId = (value) => {
 
 // Validation middleware for create order
 export const validateCreateOrder = [
-  body('amount')
-    .optional({ values: 'falsy' })
-    .isFloat({ min: 1 })
-    .withMessage('Amount must be a positive number'),
   body('currency')
     .optional({ values: 'falsy' })
     .isIn(['INR', 'USD'])
@@ -34,7 +30,25 @@ export const validateCreateOrder = [
     .isObject()
     .withMessage('Temp booking data must be an object'),
   (req, res, next) => {
+    console.log('validateCreateOrder req.body:', req.body);
+    
+    // Custom validation: check that either amount or tempBookingData.totalAmount is valid
+    const { amount, tempBookingData } = req.body;
+    const hasValidAmount = amount !== undefined && amount !== null && Number(amount) >= 1;
+    const hasValidTempAmount = tempBookingData?.totalAmount !== undefined && tempBookingData?.totalAmount !== null && Number(tempBookingData.totalAmount) >= 1;
+    
+    console.log('validateCreateOrder: hasValidAmount:', hasValidAmount, 'hasValidTempAmount:', hasValidTempAmount);
+    
+    if (!hasValidAmount && !hasValidTempAmount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed: Either amount or tempBookingData.totalAmount must be a positive number',
+        errors: [{ path: 'amount', msg: 'Amount or tempBookingData.totalAmount is required' }]
+      });
+    }
+    
     const errors = validationResult(req);
+    console.log('validateCreateOrder express-validator errors:', errors.array());
     if (!errors.isEmpty()) {
       const errorDetails = errors.array().map(err => `${err.path}: ${err.msg}`).join(', ');
       return res.status(400).json({

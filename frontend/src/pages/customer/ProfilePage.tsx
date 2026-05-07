@@ -35,18 +35,20 @@ const ProfilePage: React.FC = () => {
   const [newPayment, setNewPayment] = useState({ type: 'card', label: '', details: '' });
 
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchData = async () => {
         try {
-            const data = await vehicleService.getVehicles();
-            setMyVehicles(data);
+            const [vehicles, userData] = await Promise.all([
+                vehicleService.getVehicles(),
+                userService.getProfile()
+            ]);
+            setMyVehicles(vehicles);
+            updateUser(userData);
         } catch (error) {
-            console.error('Failed to fetch vehicles', error);
+            console.error('Failed to fetch data', error);
         }
     };
     if (user) {
-        fetchVehicles();
-        // Refresh user data to ensure we have latest addresses/payments
-        // (Assuming auth check does this or we can force fetch)
+        fetchData();
     }
   }, [user]);
 

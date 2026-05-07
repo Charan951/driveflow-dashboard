@@ -282,7 +282,7 @@ const PublicNavbar: React.FC = () => {
                   to="/" 
                   className="flex items-center gap-2">
                   <img
-                      src="/speshway-logo.png"
+                      src="/carzzilogo.png"
                       alt="Carzzi"
                       className="w-10 h-10 rounded-lg object-cover mt-1"
                       onError={(e) => {

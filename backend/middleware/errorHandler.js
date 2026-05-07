@@ -77,15 +77,15 @@ export const errorHandler = (err, req, res, next) => {
     error = new PaymentError(message, 401, 'TOKEN_EXPIRED');
   }
 
-  // Razorpay errors
+  // Cashfree errors
   if (err.error && err.error.code) {
-    const razorpayErrorMap = {
+    const cashfreeErrorMap = {
       'BAD_REQUEST_ERROR': 400,
       'GATEWAY_ERROR': 502,
       'SERVER_ERROR': 500
     };
-    const statusCode = razorpayErrorMap[err.error.code] || 500;
-    error = new PaymentError(err.error.description || 'Payment gateway error', statusCode, 'RAZORPAY_ERROR');
+    const statusCode = cashfreeErrorMap[err.error.code] || 500;
+    error = new PaymentError(err.error.description || 'Payment gateway error', statusCode, 'CASHFREE_ERROR');
   }
 
   res.status(error.statusCode || 500).json({

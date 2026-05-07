@@ -6,6 +6,15 @@ const paymentSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  coupon: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+    default: null
+  },
+  discountAmount: {
+    type: Number,
+    default: 0
+  },
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',
@@ -17,12 +26,10 @@ const paymentSchema = new mongoose.Schema({
     unique: true
   },
   cashfreeOrderId: {
-    type: String,
-    index: true
+    type: String
   },
   cashfreePaymentId: {
     type: String,
-    index: true,
     sparse: true
   },
   cfPaymentSessionId: {
@@ -46,7 +53,7 @@ const paymentSchema = new mongoose.Schema({
     default: 'created'
   },
   paymentMethod: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed,
     default: 'UNKNOWN'
   },
   bankReference: {
@@ -55,14 +62,7 @@ const paymentSchema = new mongoose.Schema({
   transactionId: {
     type: String
   },
-  razorpayOrderId: {
-    type: String,
-    required: false
-  },
-  razorpayPaymentId: {
-    type: String
-  },
-  razorpaySignature: {
+  cashfreeSignature: {
     type: String
   },
   failureReason: {
@@ -103,8 +103,6 @@ const paymentSchema = new mongoose.Schema({
 // Indexes for better query performance
 paymentSchema.index({ userId: 1, createdAt: -1 });
 paymentSchema.index({ bookingId: 1 });
-paymentSchema.index({ razorpayOrderId: 1 });
-paymentSchema.index({ razorpayPaymentId: 1 }, { sparse: true }); // Only index non-null values
 paymentSchema.index({ cashfreeOrderId: 1 });
 paymentSchema.index({ cashfreePaymentId: 1 }, { sparse: true });
 paymentSchema.index({ status: 1 });

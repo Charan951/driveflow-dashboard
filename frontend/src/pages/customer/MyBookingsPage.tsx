@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wrench, Shield } from 'lucide-react';
+import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wrench, Shield, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -170,6 +170,24 @@ const MyBookingsPage = () => {
     setReviewOpen(true);
   };
 
+  const handleDownloadInvoice = async (booking: Booking) => {
+    try {
+      const blob = await bookingService.getBookingInvoice(booking._id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carzzi-invoice-${booking._id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      toast.error('Failed to download invoice');
+    }
+  };
+
   const submitReview = async () => {
     if (!selectedBooking) return;
 
@@ -305,22 +323,38 @@ const MyBookingsPage = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="capitalize flex items-center justify-between">
+                    <TableCell className="capitalize flex items-center justify-between gap-2">
                       <span>{booking.paymentStatus}</span>
-                      {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReviewClick(booking);
-                            }}
-                            className="flex items-center gap-1"
-                        >
-                            <MessageSquarePlus className="w-4 h-4" />
-                            Review
-                        </Button>
-                      )}
+                      <div className="flex gap-2">
+                        {booking.paymentStatus === 'paid' && (
+                          <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadInvoice(booking);
+                              }}
+                              className="flex items-center gap-1"
+                          >
+                              <FileText className="w-4 h-4" />
+                              Invoice
+                          </Button>
+                        )}
+                        {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
+                          <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReviewClick(booking);
+                              }}
+                              className="flex items-center gap-1"
+                          >
+                              <MessageSquarePlus className="w-4 h-4" />
+                              Review
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )})}
@@ -411,8 +445,22 @@ const MyBookingsPage = () => {
                     </div>
                   </div>
 
-                  {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
-                    <div className="flex gap-2">
+                  <div className="flex gap-2">
+                    {booking.paymentStatus === 'paid' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadInvoice(booking);
+                        }}
+                        className="flex-1"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Invoice
+                      </Button>
+                    )}
+                    {(booking.status === 'DELIVERED' || booking.status === 'COMPLETED') && (
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -425,8 +473,8 @@ const MyBookingsPage = () => {
                         <MessageSquarePlus className="w-4 h-4 mr-2" />
                         Review
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </Card>
               );
             })}

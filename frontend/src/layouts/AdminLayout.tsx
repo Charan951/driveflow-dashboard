@@ -19,7 +19,8 @@ import {
   Menu,
   Bell,
   Home,
-  Layout
+  Layout,
+  Tag
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ const adminMenuItems = [
   { icon: Headphones, label: 'Support', path: '/admin/support' },
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },
   { icon: Package, label: 'Quick services', path: '/admin/services' },
+  { icon: Tag, label: 'Coupons', path: '/admin/coupons' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
   { icon: Layout, label: 'Edit website', path: '/admin/hero-images' },
   { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },

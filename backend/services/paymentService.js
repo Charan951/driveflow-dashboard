@@ -5,6 +5,7 @@ import Payment from '../models/Payment.js';
 import Order from '../models/Order.js';
 import Refund from '../models/Refund.js';
 import Booking from '../models/Booking.js';
+import Coupon from '../models/Coupon.js';
 import { emitBookingUpdate } from '../controllers/bookingController.js';
 
 class PaymentService {
@@ -18,6 +19,7 @@ class PaymentService {
    * Create Cashfree order + local order/payment records
    */
   async createOrder(userId, bookingId, amount, currency = 'INR', tempBookingData = null) {
+    console.log('PaymentService.createOrder called with:', { userId, bookingId, amount, currency, tempBookingData });
     const normalizedBookingId =
       bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
 
@@ -29,25 +31,31 @@ class PaymentService {
       if (booking.paymentStatus === 'paid') throw new Error('Payment already completed for this booking');
     }
 
-    const activeOrder = await Order.findOne({
-      userId,
-      bookingId: normalizedBookingId,
-      paymentStatus: { $in: ['created', 'pending'] },
-      expiresAt: { $gt: new Date() }
-    });
-    if (activeOrder) {
-      throw new Error('Active payment already exists. Please complete or retry.');
-    }
+
 
     const orderId = `ord_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    
+    // Format phone number to 10 digits
+    const formatPhone = (phone) => {
+      if (!phone) return '9999999999';
+      const digits = String(phone).replace(/\D/g, '');
+      if (digits.length >= 10) {
+        return digits.slice(-10);
+      }
+      return '9999999999';
+    };
+    
+    const customerPhone = formatPhone(tempBookingData?.customerPhone);
+    const customerEmail = tempBookingData?.customerEmail || 'no-reply@driveflow.local';
+    
     const request = {
       order_id: orderId,
       order_amount: Number(amount),
       order_currency: currency,
       customer_details: {
         customer_id: String(userId),
-        customer_email: tempBookingData?.customerEmail || 'no-reply@driveflow.local',
-        customer_phone: tempBookingData?.customerPhone || '9999999999'
+        customer_email: customerEmail,
+        customer_phone: customerPhone
       },
       order_meta: {
         return_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback?order_id={order_id}`
@@ -55,8 +63,10 @@ class PaymentService {
       order_expiry_time: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       order_note: normalizedBookingId ? `booking:${normalizedBookingId}` : 'temp-booking'
     };
+    console.log('Cashfree PGCreateOrder request:', request);
 
     const cfRes = await this.cashfree.PGCreateOrder(request);
+    console.log('Cashfree PGCreateOrder response:', cfRes);
     const { payment_session_id: paymentSessionId, cf_order_id: cfOrderId, order_expiry_time: orderExpiryTime } = cfRes.data;
 
     const order = await Order.create({
@@ -79,6 +89,8 @@ class PaymentService {
       amount,
       currency,
       status: 'created',
+      coupon: tempBookingData?.coupon || null,
+      discountAmount: tempBookingData?.discountAmount || 0,
       gatewayResponse: cfRes.data,
       metadata: {
         bookingDetails: booking
@@ -106,6 +118,10 @@ class PaymentService {
       const Counter = (await import('../models/Counter.js')).default;
       const orderNumber = await Counter.next('booking');
       
+      const totalAmount = tempData.totalAmount;
+      const discountAmount = tempData.discountAmount || 0;
+      const finalAmount = tempData.finalAmount || totalAmount;
+
       const booking = new Booking({
         user: userId,
         vehicle: tempData.vehicleId,
@@ -114,7 +130,10 @@ class PaymentService {
         orderNumber,
         notes: tempData.notes,
         location: tempData.location,
-        totalAmount: tempData.totalAmount,
+        totalAmount: totalAmount,
+        coupon: tempData.coupon || null,
+        discountAmount: discountAmount,
+        finalAmount: finalAmount,
         paymentStatus: 'paid',
         status: 'CREATED',
         paymentId: paymentId,
@@ -128,18 +147,32 @@ class PaymentService {
         }
       });
 
-      // Calculate platform commission (10%)
+      // Calculate platform commission (10%) based on final amount
       const commissionRate = 0.10;
-      booking.platformFee = tempData.totalAmount * commissionRate;
-      booking.merchantEarnings = tempData.totalAmount - booking.platformFee;
+      booking.platformFee = finalAmount * commissionRate;
+      booking.merchantEarnings = finalAmount - booking.platformFee;
 
       await booking.save();
+
+      // Increment coupon usage if coupon was applied
+      if (tempData.coupon) {
+        try {
+          const coupon = await Coupon.findById(tempData.coupon);
+          if (coupon) {
+            coupon.usageCount += 1;
+            await coupon.save();
+          }
+        } catch (couponError) {
+          console.error('Error incrementing coupon usage:', couponError);
+        }
+      }
       
       // Emit socket update
       const populated = await Booking.findById(booking._id)
         .populate('user', 'id name email phone')
         .populate('vehicle')
         .populate('services')
+        .populate('coupon')
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
         .populate('technician', 'name email phone')

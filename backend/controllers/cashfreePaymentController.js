@@ -7,10 +7,17 @@ import { logAudit } from './auditController.js';
 
 export const createOrder = async (req, res) => {
   try {
+    console.log('createOrder request body:', req.body);
     const { bookingId, amount, currency = 'INR', tempBookingData } = req.body;
     const userId = req.user._id;
+    console.log('User ID:', userId);
     const safeBookingId = bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
-    const orderAmount = amount || tempBookingData?.totalAmount;
+    console.log('Safe booking ID:', safeBookingId);
+    let orderAmount = Number(amount || tempBookingData?.totalAmount);
+    if (isNaN(orderAmount) || orderAmount < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid order amount' });
+    }
+    console.log('Order amount:', orderAmount);
     const orderData = await paymentService.createOrder(userId, safeBookingId, orderAmount, currency, tempBookingData || null);
     await logAudit({
       user: userId,
@@ -22,6 +29,7 @@ export const createOrder = async (req, res) => {
     });
     res.status(201).json({ success: true, message: 'Cashfree order created successfully', data: orderData });
   } catch (error) {
+    console.error('Create order error in controller:', error);
     res.status(400).json({ success: false, message: error.message || 'Failed to create order' });
   }
 };

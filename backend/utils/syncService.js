@@ -53,6 +53,12 @@ export const emitEntitySync = (entityName, action, data) => {
       io.to(`booking_${bookingId.toString()}`).emit('global:sync', payload);
     }
 
+    // 7. Special case for coupons: broadcast to ALL connected clients
+    if (entityName === 'coupon') {
+      io.emit(eventName, payload);
+      io.emit('global:sync', payload);
+    }
+
     console.log(`[Sync] Emitted ${action} for ${entityName}`);
   } catch (err) {
     console.error(`[Sync Error] Failed to emit sync event for ${entityName}:`, err.message);
