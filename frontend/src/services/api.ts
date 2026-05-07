@@ -6,7 +6,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -69,6 +69,7 @@ api.interceptors.response.use(
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('auth-storage');
         localStorage.removeItem('token');
+        localStorage.removeItem('auth-storage');
         
         // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {

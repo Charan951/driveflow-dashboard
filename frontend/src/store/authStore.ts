@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+const AUTH_PERSIST_KEY = 'auth-storage';
+
+/** One-time: move auth from localStorage so existing tabs keep login after this change. */
+const migrateAuthToSessionStorage = () => {
+  try {
+    if (!sessionStorage.getItem(AUTH_PERSIST_KEY) && localStorage.getItem(AUTH_PERSIST_KEY)) {
+      sessionStorage.setItem(AUTH_PERSIST_KEY, localStorage.getItem(AUTH_PERSIST_KEY)!);
+      localStorage.removeItem(AUTH_PERSIST_KEY);
+    }
+    if (!sessionStorage.getItem('token') && localStorage.getItem('token')) {
+      sessionStorage.setItem('token', localStorage.getItem('token')!);
+      localStorage.removeItem('token');
+    }
+  } catch {
+    /* private mode / quota */
+  }
+};
+migrateAuthToSessionStorage();
+
 export type UserRole = 'customer' | 'staff' | 'merchant' | 'admin' | null;
 export type UserSubRole = 'Driver' | 'Support' | 'Manager' | null;
 
@@ -56,8 +75,9 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('hasSeenNoVehicleModal');
+        sessionStorage.removeItem(AUTH_PERSIST_KEY);
         localStorage.removeItem('token');
-        localStorage.removeItem('auth-storage');
+        localStorage.removeItem(AUTH_PERSIST_KEY);
         set({ user: null, isAuthenticated: false, role: null });
       },
       updateUser: (data) =>
@@ -70,8 +90,8 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => localStorage),
+      name: AUTH_PERSIST_KEY,
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );

@@ -353,7 +353,8 @@ const AdminServicesPage: React.FC = () => {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold">Available Service Pincodes</h2>
               <p className="text-sm text-muted-foreground">
-                Only customers from these pincodes can place service bookings.
+                Customers can book only from these pincodes. Until you add at least one pincode, service bookings
+                stay disabled on the customer app.
               </p>
             </div>
 
@@ -394,7 +395,14 @@ const AdminServicesPage: React.FC = () => {
                 </div>
               )}
               <div className="text-[11px] text-muted-foreground">
-                Active available pincodes: {availableServicePincodes.length > 0 ? availableServicePincodes.join(', ') : 'All pincodes allowed (no restriction)'}
+                Active allowed pincodes:{' '}
+                {availableServicePincodes.length > 0 ? (
+                  availableServicePincodes.join(', ')
+                ) : (
+                  <span className="font-medium text-amber-700 dark:text-amber-500">
+                    None — customer bookings are disabled until you add at least one pincode and save.
+                  </span>
+                )}
               </div>
             </div>
 

@@ -30,7 +30,11 @@ export const createOrder = async (req, res) => {
     res.status(201).json({ success: true, message: 'Cashfree order created successfully', data: orderData });
   } catch (error) {
     console.error('Create order error in controller:', error);
-    res.status(400).json({ success: false, message: error.message || 'Failed to create order' });
+    const gatewayMessage = error.response?.data?.message || error.response?.data?.code;
+    res.status(400).json({
+      success: false,
+      message: gatewayMessage || error.message || 'Failed to create order'
+    });
   }
 };
 

@@ -78,6 +78,9 @@ const RegisterPage: React.FC = () => {
         phone: data.phone,
         role: data.role,
         subRole: data.subRole,
+        addresses: data.addresses ?? [],
+        location: data.location,
+        address: data.address ?? data.location?.address ?? '',
       });
       toast.success('Account created successfully!');
       

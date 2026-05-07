@@ -176,7 +176,8 @@ const StaffOrderPage: React.FC = () => {
 
     try {
       setIsUpdating(true);
-      
+      let latestBooking: Booking | undefined;
+
       const isCarWashNow = Array.isArray(order?.services) && 
         order.services.some(service => 
           typeof service === 'object' && (
@@ -204,7 +205,7 @@ const StaffOrderPage: React.FC = () => {
             setIsUpdating(false);
             return;
           }
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'CAR_WASH_COMPLETED') {
           // For car wash completion, check for after photos
           const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
@@ -215,7 +216,7 @@ const StaffOrderPage: React.FC = () => {
           }
           // For car wash completion, just update status (no OTP generation yet)
           try {
-            await bookingService.updateBookingStatus(order._id, newStatus);
+            latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
           } catch (error) {
             console.error('Car wash completion error:', error);
             toast.error('Failed to complete car wash');
@@ -231,6 +232,7 @@ const StaffOrderPage: React.FC = () => {
               
               // Refresh order to get the OTP
               const refreshedOrder = await bookingService.getBookingById(order._id);
+              latestBooking = refreshedOrder;
               setOrder(refreshedOrder);
             }
             
@@ -242,7 +244,8 @@ const StaffOrderPage: React.FC = () => {
             }
             
             // Verify OTP (backend will automatically update status to DELIVERED)
-            await bookingService.verifyDeliveryOtp(order._id, otp);
+            const cwVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
+            latestBooking = cwVerify.booking ?? latestBooking;
           } catch (error) {
             console.error('Car wash delivery completion error:', error);
             toast.error('Failed to complete delivery');
@@ -250,12 +253,12 @@ const StaffOrderPage: React.FC = () => {
             return;
           }
         } else {
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         }
       } else if (isBatteryOrTireNow) {
         // Handle battery/tire specific status updates
         if (newStatus === 'PICKUP_BATTERY_TIRE') {
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'INSTALLATION') {
           const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
           if (photos.length < 2) {
@@ -263,7 +266,7 @@ const StaffOrderPage: React.FC = () => {
             setIsUpdating(false);
             return;
           }
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERY') {
           // For battery/tire delivery, generate OTP first
           try {
@@ -273,7 +276,7 @@ const StaffOrderPage: React.FC = () => {
             }
             
             // Update status to DELIVERY (this will generate OTP in backend)
-            await bookingService.updateBookingStatus(order._id, newStatus);
+            latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
           } catch (error) {
             console.error('Battery/tire delivery error:', error);
             toast.error('Failed to start delivery');
@@ -287,9 +290,10 @@ const StaffOrderPage: React.FC = () => {
             setIsUpdating(false);
             return;
           }
-          await bookingService.verifyDeliveryOtp(order._id, otp);
+          const btVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
+          latestBooking = btVerify.booking ?? latestBooking;
         } else {
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         }
       } else {
         // Handle regular service status updates
@@ -300,20 +304,21 @@ const StaffOrderPage: React.FC = () => {
             setIsUpdating(false);
             return;
           }
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERED') {
           const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
           if (!otp) {
             setIsUpdating(false);
             return;
           }
-          await bookingService.verifyDeliveryOtp(order._id, otp);
+          const regVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
+          latestBooking = regVerify.booking ?? latestBooking;
         } else {
-          await bookingService.updateBookingStatus(order._id, newStatus);
+          latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         }
       }
 
-      const updated = await bookingService.getBookingById(order._id);
+      const updated = latestBooking ?? (await bookingService.getBookingById(order._id));
       setOrder(updated);
       toast.success(`Order updated to ${newStatus.replace('_', ' ')}`);
 

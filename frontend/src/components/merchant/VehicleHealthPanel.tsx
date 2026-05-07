@@ -4,34 +4,16 @@ import { toast } from 'sonner';
 import { Slider } from '@/components/ui/slider';
 import { vehicleService, Vehicle } from '../../services/vehicleService';
 import { Booking } from '../../services/bookingService';
+import { calculateHealthDisplayPercent, dailyDecayPercentFromBaseline } from '@/lib/vehicleHealthRemaining';
 
 interface VehicleHealthPanelProps {
   booking: Booking;
   onUpdate: () => void;
+  /** When set, called after successful "Save health" instead of onUpdate (use for refetch + tab change). */
+  onHealthStatsSaved?: () => void | Promise<void>;
 }
 
-const calculateDisplayValue = (indicator: any, currentKm: number) => {
-  if (!indicator?.lastServiceDate) return indicator?.value ?? 0;
-
-  const now = new Date();
-  const lastDate = new Date(indicator.lastServiceDate);
-  const lastDateMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffTime = Math.abs(nowMidnight.getTime() - lastDateMidnight.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-  const lastKm = indicator.lastServiceKm || 0;
-  const diffKm = Math.max(0, currentKm - lastKm);
-  const fixedKm = indicator.fixedKm || 0;
-  const fixedDays = indicator.fixedDays || 0;
-
-  const progressFromDays = fixedDays > 0 ? Math.min(100, (diffDays / fixedDays) * 100) : 0;
-  const progressFromKm = fixedKm > 0 ? Math.min(100, (diffKm / fixedKm) * 100) : 0;
-
-  return Math.round(Math.max(progressFromDays, progressFromKm));
-};
-
-const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpdate }) => {
+const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpdate, onHealthStatsSaved }) => {
   const vehicle = booking.vehicle as unknown as Vehicle;
   const [loading, setLoading] = useState(false);
 
@@ -97,27 +79,33 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
 
   const displayHealth = useMemo(() => {
     const currentKm = vehicle?.mileage || 0;
+    const baselineAt = vehicle?.healthPercentBaselineAt;
+    const serverPct =
+      vehicle?.healthPercentDisplay != null && !Number.isNaN(Number(vehicle.healthPercentDisplay))
+        ? Math.max(0, Math.min(100, Math.round(Number(vehicle.healthPercentDisplay))))
+        : null;
+    const baselinePct =
+      serverPct != null ? serverPct : baselineAt ? dailyDecayPercentFromBaseline(baselineAt) : null;
+
+    const row = (key: keyof typeof health) =>
+      baselinePct != null
+        ? baselinePct
+        : calculateHealthDisplayPercent(
+            {
+              ...health[key],
+              lastServiceDate: vehicle?.healthIndicators?.[key]?.lastServiceDate,
+              lastServiceKm: vehicle?.healthIndicators?.[key]?.lastServiceKm,
+            },
+            currentKm,
+            baselineAt
+          );
+
     return {
-      generalService: calculateDisplayValue(
-        { ...health.generalService, lastServiceDate: vehicle?.healthIndicators?.generalService?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.generalService?.lastServiceKm },
-        currentKm
-      ),
-      brakePads: calculateDisplayValue(
-        { ...health.brakePads, lastServiceDate: vehicle?.healthIndicators?.brakePads?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.brakePads?.lastServiceKm },
-        currentKm
-      ),
-      tires: calculateDisplayValue(
-        { ...health.tires, lastServiceDate: vehicle?.healthIndicators?.tires?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.tires?.lastServiceKm },
-        currentKm
-      ),
-      battery: calculateDisplayValue(
-        { ...health.battery, lastServiceDate: vehicle?.healthIndicators?.battery?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.battery?.lastServiceKm },
-        currentKm
-      ),
-      wiperBlade: calculateDisplayValue(
-        { ...health.wiperBlade, lastServiceDate: vehicle?.healthIndicators?.wiperBlade?.lastServiceDate, lastServiceKm: vehicle?.healthIndicators?.wiperBlade?.lastServiceKm },
-        currentKm
-      ),
+      generalService: row('generalService'),
+      brakePads: row('brakePads'),
+      tires: row('tires'),
+      battery: row('battery'),
+      wiperBlade: row('wiperBlade'),
     };
   }, [health, vehicle]);
 
@@ -180,7 +168,11 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
     try {
       await vehicleService.updateVehicleHealth(vehicle._id, health);
       toast.success('Vehicle health indicators updated successfully');
-      onUpdate();
+      if (onHealthStatsSaved) {
+        await onHealthStatsSaved();
+      } else {
+        onUpdate();
+      }
     } catch (error) {
       toast.error('Failed to update vehicle health');
     } finally {
@@ -210,7 +202,25 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 py-4">
-        {indicators.map((indicator) => (
+        {indicators.map((indicator) => {
+            const row = health[indicator.key];
+            const baselineAt = vehicle?.healthPercentBaselineAt;
+            const hasInterval = row.fixedKm > 0 || row.fixedDays > 0;
+            const useAutoPercent = !!baselineAt || hasInterval;
+            const remaining = displayHealth[indicator.key];
+            const pctClass = useAutoPercent
+              ? remaining <= 20
+                ? 'text-red-500'
+                : remaining <= 50
+                  ? 'text-orange-500'
+                  : 'text-green-600'
+              : remaining > 80
+                ? 'text-red-500'
+                : remaining > 50
+                  ? 'text-orange-500'
+                  : 'text-green-600';
+
+            return (
             <div key={indicator.key} className="space-y-4">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
@@ -237,16 +247,26 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                             </div>
                         </div>
                     </div>
-                    <span className={`text-sm font-bold ${displayHealth[indicator.key] > 80 ? 'text-red-500' : displayHealth[indicator.key] > 50 ? 'text-orange-500' : 'text-green-600'}`}>
-                        {displayHealth[indicator.key]}%
+                    <span className={`text-sm font-bold ${pctClass}`}>
+                        {remaining}%
                     </span>
                 </div>
                 <Slider
-                    value={[health[indicator.key].value]}
-                    onValueChange={(val) => handleSliderChange(indicator.key, val)}
+                    value={[useAutoPercent ? remaining : health[indicator.key].value]}
+                    onValueChange={(val) => {
+                      if (!useAutoPercent) handleSliderChange(indicator.key, val);
+                    }}
                     max={100}
                     step={1}
-                    className="cursor-pointer"
+                    disabled={useAutoPercent}
+                    title={
+                      baselineAt
+                        ? 'All indicators: 100% on last health save, then −1% per calendar day'
+                        : hasInterval
+                          ? 'Remaining life from Fixed KM / Fixed Days vs last service date and mileage'
+                          : 'Manual wear % (set Fixed KM or Fixed Days for automatic remaining life)'
+                    }
+                    className={useAutoPercent ? 'cursor-default opacity-95' : 'cursor-pointer'}
                 />
                 <p className="text-[10px] text-muted-foreground italic flex justify-between items-center">
                     <span>
@@ -262,7 +282,8 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                     </div>
                 </p>
             </div>
-        ))}
+            );
+        })}
       </div>
 
       <div className="pt-4 border-t flex justify-between items-center">

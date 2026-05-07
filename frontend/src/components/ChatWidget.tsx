@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, X, Minimize2, Maximize2, Plus, AlertTriangle } from 'lucide-react';
+import { MessagesSquare, Send, X, Minimize2, Maximize2, Plus, AlertTriangle } from 'lucide-react';
 import { socketService } from '@/services/socket';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -48,9 +48,11 @@ interface ChatWidgetProps {
   bookingId: string;
   status: string;
   onUpdate?: () => void;
+  /** When true, the FAB is not rendered and sockets are not joined (general workshop before service start). */
+  forceHidden?: boolean;
 }
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, forceHidden = false }) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -109,8 +111,10 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     }
   };
 
+  const chatActive = isEnabled && !forceHidden;
+
   useEffect(() => {
-    if (!isEnabled) {
+    if (!chatActive) {
       setIsOpen(false);
       return;
     }
@@ -194,8 +198,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     return () => {
       socketService.off('receiveMessage', handleReceiveMessage);
       socketService.off('loadMessages', handleLoadMessages);
+      socketService.leaveRoom(`booking_${bookingId}`);
     };
-  }, [bookingId, isEnabled]);
+  }, [bookingId, chatActive]);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -212,7 +217,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
     }
   }, [isOpen, isMinimized, messages]);
 
-  if (!isEnabled || isAdminOrStaffDashboard) return null;
+  if (!chatActive || isAdminOrStaffDashboard) return null;
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +282,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
           }}
         />
       )}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      <div className="fixed bottom-6 right-6 z-[720] flex flex-col items-end">
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -329,7 +334,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
                     {messages.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground/60">
                         <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center mb-2">
-                          <MessageSquare className="w-5 h-5 opacity-40" />
+                          <MessagesSquare className="w-5 h-5 opacity-40" />
                         </div>
                         <p className="text-[10px] font-medium">Start a conversation.</p>
                       </div>
@@ -447,11 +452,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate }) 
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300",
+            "relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300",
             isOpen ? "bg-destructive text-destructive-foreground rotate-90" : "bg-primary text-primary-foreground"
           )}
+          aria-label={isOpen ? 'Close service chat' : 'Open service chat with workshop'}
         >
-          {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+          {isOpen ? <X className="w-6 h-6" /> : <MessagesSquare className="w-6 h-6" strokeWidth={2} />}
           {!isOpen && unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background">
               {unreadCount}

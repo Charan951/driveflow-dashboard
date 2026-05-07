@@ -176,7 +176,7 @@ const MyBookingsPage = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `carzzi-invoice-${booking._id}.pdf`;
+      a.download = 'carzzi_invoice.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();

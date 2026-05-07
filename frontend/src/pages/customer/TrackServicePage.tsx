@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MessageCircle, 
   Phone, 
   MapPin, 
   Car,
@@ -17,7 +16,8 @@ import {
   Wrench,
   Shield,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Download
 } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/services/approvalService';
@@ -31,6 +31,7 @@ import { useAuthStore } from '@/store/authStore';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import ChatWidget from '@/components/ChatWidget';
+import { forceHideChatUntilGeneralServiceStarted, forceHideChatWhenServiceCompleted, canCustomerSeeDeliveryOtp } from '@/lib/bookingGeneralServiceChat';
 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -101,7 +102,6 @@ const TrackServicePage: React.FC = () => {
   const [platformComment, setPlatformComment] = useState('');
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
-  const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
   const [isMapMaximized, setIsMapMaximized] = useState(false);
 
@@ -160,7 +160,6 @@ const TrackServicePage: React.FC = () => {
                 const hasExistingReviews = existingReviews && existingReviews.length > 0;
                 
                 if (!hasExistingReviews) {
-                  setDeliveryConfirmed(true);
                   // Show rating modal only if no reviews exist
                   setShowRatingModal(true);
                 } else {
@@ -446,62 +445,6 @@ const TrackServicePage: React.FC = () => {
       }
   };
 
-  const handleConfirmDelivery = async () => {
-    if (!order?._id) return;
-    try {
-      const otp = window.prompt('Enter the 4-digit delivery OTP sent to you');
-      if (!otp) {
-        toast.error('Please enter the OTP to confirm delivery');
-        return;
-      }
-      
-      // Check if this is a battery/tire service
-      const isBatteryOrTireService = Array.isArray(order.services) && 
-        order.services.some(service => 
-          typeof service === 'object' && (
-            service.category === 'Battery' || 
-            service.category === 'Tyres' || 
-            service.category === 'Tyre & Battery'
-          )
-        );
-      
-      await bookingService.verifyDeliveryOtp(order._id, otp);
-      
-      // Update status based on service type
-      const finalStatus = isBatteryOrTireService ? 'COMPLETED' : 'DELIVERED';
-      await bookingService.updateBookingStatus(order._id, finalStatus);
-      setOrder(prev => prev ? { ...prev, status: finalStatus } : null);
-      setDeliveryConfirmed(true);
-      
-      // Check if feedback has already been submitted before showing modal
-      const localFeedbackSubmitted = localStorage.getItem(`feedback_submitted_${order._id}`) === 'true';
-      if (!localFeedbackSubmitted) {
-        try {
-          const existingReviews = await reviewService.getBookingReviews(order._id);
-          const hasExistingReviews = existingReviews && existingReviews.length > 0;
-          
-          if (!hasExistingReviews) {
-            setShowRatingModal(true);
-          } else {
-            setHasSubmittedFeedback(true);
-            localStorage.setItem(`feedback_submitted_${order._id}`, 'true');
-          }
-        } catch (reviewError) {
-          console.error("Failed to check existing reviews", reviewError);
-          setHasSubmittedFeedback(true);
-        }
-      } else {
-        setHasSubmittedFeedback(true);
-      }
-      
-      toast.success('Delivery confirmed! Order completed.');
-    } catch (error) {
-      const err = error as { response?: { data?: { message?: string } } };
-      console.error('Failed to confirm delivery', err);
-      toast.error(err?.response?.data?.message || 'Failed to confirm delivery');
-    }
-  };
-
   const handleSubmitRating = async () => {
     // For car wash services, only platform rating is required
     if (isCarWashService) {
@@ -578,25 +521,6 @@ const TrackServicePage: React.FC = () => {
 
 
 
-  const isChatEnabled = order && [
-    'SERVICE_STARTED',
-    'CAR_WASH_STARTED',
-    'INSTALLATION',
-    'On Hold'
-  ].includes(order.status);
-
-  const handleChatMerchant = () => {
-    const phone = merchantPhone ? merchantPhone.replace(/\D/g, '') : '';
-    if (phone) {
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I have a query about order #${order?.orderNumber ?? order?._id}`)}`;
-      window.open(url, '_blank');
-      return;
-    }
-    if (order?._id) {
-      navigate(`/chat/${order._id}`);
-    }
-  };
-
   const handleDownloadMerchantInvoice = async () => {
     if (!order?._id) return;
     
@@ -613,7 +537,7 @@ const TrackServicePage: React.FC = () => {
       const url = window.URL.createObjectURL(new Blob([response]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoice-${order.orderNumber || order._id.slice(-6).toUpperCase()}.pdf`);
+      link.setAttribute('download', 'carzzi_invoice.pdf');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -859,7 +783,7 @@ const TrackServicePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             layout
-            className={`bg-card rounded-2xl border border-border overflow-hidden w-full transition-all duration-500 ease-in-out ${
+            className={`bg-card rounded-2xl border border-border overflow-hidden w-full transition-all duration-500 ease-in-out relative z-0 isolate ${
               isMapMaximized ? 'lg:col-span-2' : ''
             }`}
           >
@@ -1280,14 +1204,6 @@ const TrackServicePage: React.FC = () => {
                           >
                             <Phone className="w-5 h-5 text-foreground" />
                           </button>
-                          {isChatEnabled && (
-                            <button
-                              onClick={handleChatMerchant}
-                              className="p-3 bg-primary rounded-xl hover:bg-primary/90 transition-colors"
-                            >
-                              <MessageCircle className="w-5 h-5 text-primary-foreground" />
-                            </button>
-                          )}
                         </div>
                       </>
                     ) : (
@@ -1379,7 +1295,7 @@ const TrackServicePage: React.FC = () => {
                       onClick={handleDownloadMerchantInvoice}
                       className="py-3 px-5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2"
                     >
-                      <ImageIcon className="w-5 h-5" />
+                      <Download className="w-5 h-5" />
                       Download Merchant Invoice
                     </button>
                   </div>
@@ -1391,7 +1307,7 @@ const TrackServicePage: React.FC = () => {
                       onClick={handleDownloadMerchantInvoice}
                       className="py-3 px-5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors inline-flex items-center justify-center gap-2"
                     >
-                      <ImageIcon className="w-5 h-5" />
+                      <Download className="w-5 h-5" />
                       Download Invoice
                     </button>
                   </div>
@@ -1403,10 +1319,16 @@ const TrackServicePage: React.FC = () => {
                   <div className="space-y-2">
                     <button
                       className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={handlePayment}
+                      onClick={() => {
+                        if (isGeneralService) {
+                          navigate('/payment', { state: { payExistingBookingId: order._id } });
+                          return;
+                        }
+                        void handlePayment();
+                      }}
                       disabled={isPaymentLoading || (!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status))}
                     >
-                      {isPaymentLoading ? 'Processing...' : (isCarWashService ? `Pay Now to Confirm ${isEssentials ? 'Service' : 'Car Wash'}` : 'Pay Now')}
+                      {isPaymentLoading && !isGeneralService ? 'Processing...' : (isCarWashService ? `Pay Now to Confirm ${isEssentials ? 'Service' : 'Car Wash'}` : 'Pay Now')}
                     </button>
                     {!isCarWashService && !isBatteryOrTire && !['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                       <p className="text-[11px] text-center text-muted-foreground">
@@ -1417,6 +1339,25 @@ const TrackServicePage: React.FC = () => {
                 )}
               </div>
             </motion.div>
+
+            {order.deliveryOtp?.code && canCustomerSeeDeliveryOtp(order) && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="bg-card rounded-2xl border border-dashed border-primary/40 p-6 text-center space-y-2 mt-4"
+              >
+                <p className="text-xs uppercase tracking-wide text-primary/80">Delivery OTP</p>
+                <p className="text-3xl font-mono font-semibold text-primary tracking-widest">
+                  {order.deliveryOtp.code}
+                </p>
+                <p className="text-[11px] text-muted-foreground max-w-md mx-auto">
+                  {isCarWashService
+                    ? 'Share this code with our staff when they complete your service handover.'
+                    : 'Share this code only with our staff when they return your vehicle.'}
+                </p>
+              </motion.div>
+            )}
           </div>
 
         </div>
@@ -1452,60 +1393,6 @@ const TrackServicePage: React.FC = () => {
           >
             <Star className="w-5 h-5" />
             {isCarWashService ? 'Give Feedback for Admin' : 'Give Feedback for Merchant & Admin'}
-          </button>
-        </motion.div>
-      )}
-
-      {((order.status === 'SERVICE_COMPLETED' || order.status === 'OUT_FOR_DELIVERY') || 
-        (order.deliveryOtp?.code && ['CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'DELIVERY', 'INSTALLATION', 'SERVICE_STARTED', 'SERVICE_COMPLETED'].includes(order.status))) && !deliveryConfirmed && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-card rounded-2xl border border-border p-6 text-center"
-        >
-          <h2 className="text-xl font-bold text-foreground mb-2">
-            {isCarWashService 
-              ? (order.status === 'CAR_WASH_STARTED' 
-                ? (isEssentials ? 'Service in Progress' : 'Car Wash in Progress') 
-                : (isEssentials ? 'Service Completed' : 'Car Wash Completed'))
-              : (order.status === 'SERVICE_COMPLETED' ? 'Payment awaiting to dispatch vehicle' : 
-                 order.status === 'SERVICE_STARTED' ? 'Service in Progress' :
-                 order.status === 'INSTALLATION' ? 'Installation in Progress' : 'Vehicle Ready')
-            }
-          </h2>
-          <p className="text-muted-foreground mb-3">
-            {isCarWashService 
-              ? (order.status === 'CAR_WASH_STARTED' 
-                ? (isEssentials ? 'Your service is in progress.' : 'Your car wash service is in progress.') 
-                : (isEssentials ? 'Your service is completed and ready for confirmation.' : 'Your car wash service is completed and ready for confirmation.'))
-              : (order.status === 'SERVICE_COMPLETED' ? 'Please complete the payment to proceed with vehicle dispatch.' : 
-                 order.status === 'SERVICE_STARTED' ? 'Your service is in progress.' :
-                 order.status === 'INSTALLATION' ? 'Your installation is in progress.' : 'Your vehicle is ready for pickup/delivery.')
-            }
-          </p>
-          
-          {order.deliveryOtp?.code && (order.status === 'OUT_FOR_DELIVERY' || order.status === 'CAR_WASH_COMPLETED' || order.status === 'DELIVERY' || order.status === 'CAR_WASH_STARTED' || order.status === 'SERVICE_STARTED' || order.status === 'INSTALLATION' || order.status === 'SERVICE_COMPLETED') && (
-            <div className="mb-4 inline-flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-primary/80">
-                Delivery OTP
-              </p>
-              <p className="mt-1 text-2xl font-mono font-semibold text-primary">
-                {order.deliveryOtp.code}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {isCarWashService 
-                  ? 'Share this code with our staff to confirm service completion.'
-                  : 'Share this code only with our staff at the time of delivery.'
-                }
-              </p>
-            </div>
-          )}
-          <button
-            onClick={handleConfirmDelivery}
-            className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors"
-          >
-            Confirm Receipt
           </button>
         </motion.div>
       )}
@@ -1619,7 +1506,16 @@ const TrackServicePage: React.FC = () => {
       </AnimatePresence>
 
       {/* Floating Chat Widget */}
-      {order?._id && <ChatWidget bookingId={order._id} status={order.status} onUpdate={fetchOrder} />}
+      {order?._id && (
+        <ChatWidget
+          bookingId={order._id}
+          status={order.status}
+          onUpdate={fetchOrder}
+          forceHidden={
+            forceHideChatUntilGeneralServiceStarted(order) || forceHideChatWhenServiceCompleted(order)
+          }
+        />
+      )}
     </div>
   );
 };

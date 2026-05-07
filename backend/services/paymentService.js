@@ -6,7 +6,15 @@ import Order from '../models/Order.js';
 import Refund from '../models/Refund.js';
 import Booking from '../models/Booking.js';
 import Coupon from '../models/Coupon.js';
+import AvailableServicePincode from '../models/AvailableServicePincode.js';
 import { emitBookingUpdate } from '../controllers/bookingController.js';
+
+const extractPincodeFromAddress = (address) => {
+  const match = String(address || '').match(/(\d{6})(?!\d)/);
+  if (!match) return null;
+  const digits = String(match[1]).replace(/\D/g, '');
+  return digits.length === 6 ? digits : null;
+};
 
 class PaymentService {
   constructor() {
@@ -60,7 +68,8 @@ class PaymentService {
       order_meta: {
         return_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback?order_id={order_id}`
       },
-      order_expiry_time: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      // Cashfree requires expiry strictly > 15 minutes (see order_expiry_time_invalid)
+      order_expiry_time: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
       order_note: normalizedBookingId ? `booking:${normalizedBookingId}` : 'temp-booking'
     };
     console.log('Cashfree PGCreateOrder request:', request);
@@ -77,7 +86,7 @@ class PaymentService {
       currency,
       paymentSessionId,
       gatewayResponse: cfRes.data,
-      expiresAt: orderExpiryTime ? new Date(orderExpiryTime) : new Date(Date.now() + 15 * 60 * 1000)
+      expiresAt: orderExpiryTime ? new Date(orderExpiryTime) : new Date(Date.now() + 20 * 60 * 1000)
     });
 
     const payment = await Payment.create({
@@ -115,6 +124,21 @@ class PaymentService {
    */
   async createBookingFromTempData(tempData, userId, paymentId) {
     try {
+      const bookingPincode = extractPincodeFromAddress(tempData?.location?.address);
+      if (!bookingPincode) {
+        throw new Error('Pickup address must contain a valid 6-digit pincode');
+      }
+      const availablePincodes = await AvailableServicePincode.find({}).select('pincode').lean();
+      const allowedSet = new Set(availablePincodes.map((p) => p.pincode));
+      if (allowedSet.size === 0) {
+        throw new Error(
+          'Service booking is not available. Allowed service areas have not been configured.'
+        );
+      }
+      if (!allowedSet.has(bookingPincode)) {
+        throw new Error('Service is not available for the selected pincode');
+      }
+
       const Counter = (await import('../models/Counter.js')).default;
       const orderNumber = await Counter.next('booking');
       

@@ -26,11 +26,12 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
+import { userService } from '@/services/userService';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalYmd, startOfLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
 import { Info } from 'lucide-react';
 
 const steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
@@ -60,7 +61,7 @@ const BookServicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [activeSubCategory, setActiveSubCategory] = useState<'Tyres' | 'Battery' | 'All' | null>(null);
   const [showCustomLocation, setShowCustomLocation] = useState(false);
@@ -69,7 +70,7 @@ const BookServicePage: React.FC = () => {
   const [tireSizes, setTireSizes] = useState<Record<string, string>>({});
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => startOfLocalDay());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ 
@@ -86,14 +87,17 @@ const BookServicePage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
+  const [pincodesReady, setPincodesReady] = useState(false);
 
   const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
   const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
   const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
+  const noServiceAreasConfigured = pincodesReady && availableServicePincodes.length === 0;
   const isSelectedLocationAllowed = Boolean(
-    !selectedLocationPincode ||
-    availableServicePincodes.length === 0 ||
-    availableServicePincodes.includes(selectedLocationPincode)
+    selectedLocationPincode &&
+      (!pincodesReady ||
+        (availableServicePincodes.length > 0 &&
+          availableServicePincodes.includes(selectedLocationPincode)))
   );
   const totalPrice = selectedServicesData.reduce((sum, service) => {
     if (!service) return sum;
@@ -114,6 +118,34 @@ const BookServicePage: React.FC = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    if (!user?._id) return;
+    const hasSaved = Array.isArray(user.addresses) && user.addresses.length > 0;
+    if (hasSaved) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await userService.getProfile();
+        if (cancelled || !profile) return;
+        const list = profile.addresses || [];
+        if (list.length > 0) {
+          updateUser({
+            addresses: list,
+            location: profile.location,
+            address: profile.location?.address || user?.address,
+          });
+        }
+      } catch {
+        /* optional: session may be invalid */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?._id, user?.addresses, updateUser]);
+
   const fetchData = async () => {
     try {
       setIsDataLoading(true);
@@ -132,8 +164,10 @@ const BookServicePage: React.FC = () => {
       toast.error('Failed to load booking data');
       setServices([]);
       setVehicles([]);
+      setAvailableServicePincodes([]);
     } finally {
       setIsDataLoading(false);
+      setPincodesReady(true);
     }
   };
 
@@ -270,7 +304,6 @@ const BookServicePage: React.FC = () => {
   useEffect(() => {
     if (user && (!user.addresses || !Array.isArray(user.addresses) || user.addresses.length === 0)) {
       setShowCustomLocation(false);
-      setPickupLocation({ address: '' });
     }
   }, [user]);
 
@@ -300,10 +333,15 @@ const BookServicePage: React.FC = () => {
         return;
       }
       try {
-        const dateStr = selectedDate.toISOString().split('T')[0];
+        const dateStr = formatLocalYmd(selectedDate);
         const data = await bookingService.getAvailableSlots(dateStr);
-        setAvailableSlots(Array.isArray(data?.availableSlots) ? data.availableSlots : []);
-        if (selectedTime && !data.availableSlots.includes(selectedTime)) {
+        const raw = Array.isArray(data?.availableSlots) ? data.availableSlots : [];
+        const filtered = raw.filter(
+          (slot: string) =>
+            !isSameLocalCalendarDay(selectedDate) || !isSlotStartInPast(selectedDate, slot)
+        );
+        setAvailableSlots(filtered);
+        if (selectedTime && !filtered.includes(selectedTime)) {
           setSelectedTime(null);
           toast.info('Previously selected slot is no longer available. Please select another slot.');
         }
@@ -315,6 +353,13 @@ const BookServicePage: React.FC = () => {
 
     fetchSlots();
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!selectedDate || !selectedTime) return;
+    if (isSameLocalCalendarDay(selectedDate) && isSlotStartInPast(selectedDate, selectedTime)) {
+      setSelectedTime(null);
+    }
+  }, [selectedDate, selectedTime]);
 
   useEffect(() => {
     if (!isSelectedLocationAllowed) {
@@ -332,8 +377,18 @@ const BookServicePage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!selectedVehicle || !selectedDate || !selectedTime) return;
+    if (isSameLocalCalendarDay(selectedDate) && isSlotStartInPast(selectedDate, selectedTime)) {
+      toast.error('Please choose a time from now onward.');
+      return;
+    }
     if (!isSelectedLocationAllowed) {
-      toast.error('Selected location is not enabled for service booking');
+      toast.error(
+        noServiceAreasConfigured
+          ? 'Service not available at this area.'
+          : !selectedLocationPincode
+            ? 'Pickup address must include a valid 6-digit pincode.'
+            : 'Selected location is not enabled for service booking.'
+      );
       return;
     }
 
@@ -827,23 +882,9 @@ const BookServicePage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 3: Schedule */}
+            {/* Step 3: Location & schedule */}
             {currentStep === 2 && (
               <div className="space-y-6 sm:space-y-8">
-                <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
-                  <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-                    <span>Select Schedule</span>
-                  </h2>
-                  <SlotPicker
-                    selectedDate={selectedDate}
-                    selectedTime={selectedTime}
-                    onDateChange={setSelectedDate}
-                    onTimeChange={setSelectedTime}
-                    availableSlots={availableSlots}
-                  />
-                </div>
-
                 <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                     <div>
@@ -892,9 +933,10 @@ const BookServicePage: React.FC = () => {
                             (() => {
                               const pin = extractPincodeFromAddress(addr.address);
                               const isBlockedAddress = Boolean(
-                                pin &&
-                                availableServicePincodes.length > 0 &&
-                                !availableServicePincodes.includes(pin)
+                                pincodesReady &&
+                                  (availableServicePincodes.length === 0 ||
+                                    !pin ||
+                                    !availableServicePincodes.includes(pin))
                               );
                               return (
                             <button
@@ -924,9 +966,20 @@ const BookServicePage: React.FC = () => {
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-foreground text-sm sm:text-base truncate">{addr.label}</p>
                                 <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
-                                {isBlockedAddress && (
-                                  <p className="text-[11px] font-semibold text-destructive mt-1">Service not enabled for this pincode</p>
-                                )}
+                                {isBlockedAddress &&
+                                  (noServiceAreasConfigured ? (
+                                    <p className="text-[11px] font-semibold text-destructive mt-1">
+                                      Service not available at this area.
+                                    </p>
+                                  ) : !pin ? (
+                                    <p className="text-[11px] font-semibold text-destructive mt-1">
+                                      Address must include a valid 6-digit pincode
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] font-semibold text-destructive mt-1">
+                                      Service not enabled for this pincode
+                                    </p>
+                                  ))}
                               </div>
                             </button>
                               );
@@ -967,7 +1020,11 @@ const BookServicePage: React.FC = () => {
                              <p className="text-sm font-bold text-foreground leading-relaxed break-words">{pickupLocation.address}</p>
                              {!isSelectedLocationAllowed && (
                                <p className="text-xs text-destructive mt-1 font-semibold">
-                                 This location pincode is not enabled for service booking. Select another location.
+                                 {noServiceAreasConfigured
+                                   ? 'Service not available at this area.'
+                                   : !selectedLocationPincode
+                                     ? 'This address needs a valid 6-digit pincode for service booking.'
+                                     : 'This location pincode is not enabled for service booking. Select another location.'}
                                </p>
                              )}
                            </div>
@@ -977,12 +1034,30 @@ const BookServicePage: React.FC = () => {
                       {pickupLocation.address && !isSelectedLocationAllowed && (
                         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2">
                           <p className="text-xs font-semibold text-destructive">
-                            Service booking is not enabled for this pincode. Please choose another location.
+                            {noServiceAreasConfigured
+                              ? 'Service not available at this area.'
+                              : !selectedLocationPincode
+                                ? 'Add a complete address with a 6-digit pincode, or update it in your profile.'
+                                : 'Service booking is not enabled for this pincode. Please choose another location.'}
                           </p>
                         </div>
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div className="bg-card rounded-2xl border-2 border-border p-4 sm:p-6 lg:p-8 shadow-sm">
+                  <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                    <span>Select Schedule</span>
+                  </h2>
+                  <SlotPicker
+                    selectedDate={selectedDate}
+                    selectedTime={selectedTime}
+                    onDateChange={setSelectedDate}
+                    onTimeChange={setSelectedTime}
+                    availableSlots={availableSlots}
+                  />
                 </div>
               </div>
             )}

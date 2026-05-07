@@ -11,14 +11,43 @@ interface BillUploadPanelProps {
   onUploadComplete: () => void;
 }
 
+/** Parts line already reflected on `booking.totalAmount` after inspection/parts save — do not add again as "base". */
+const getRecordedPartsTotal = (b: Booking): number => {
+  const fromBilling = b.billing?.partsTotal;
+  if (fromBilling != null && fromBilling !== '') {
+    const n = Number(fromBilling);
+    if (!Number.isNaN(n)) return n;
+  }
+  if (Array.isArray(b.parts) && b.parts.length > 0) {
+    return b.parts.reduce((acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 0), 0);
+  }
+  return 0;
+};
+
+const getBaseServiceAmount = (b: Booking) =>
+  Math.max(0, (b.totalAmount || 0) - getRecordedPartsTotal(b));
+
 const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComplete }) => {
+  const recordedParts = getRecordedPartsTotal(booking);
+  const baseAtInit = getBaseServiceAmount(booking);
+  const partsAtInit =
+    booking.billing?.partsTotal != null && booking.billing.partsTotal !== ''
+      ? Number(booking.billing.partsTotal)
+      : recordedParts;
+  const labourAtInit = Number(booking.billing?.labourCost) || 0;
+  const gstAtInit = Number(booking.billing?.gst) || 0;
+  const initialTotal =
+    booking.billing?.total != null && booking.billing.total !== ''
+      ? Number(booking.billing.total)
+      : baseAtInit + partsAtInit + labourAtInit + gstAtInit;
+
   const [formData, setFormData] = useState({
     invoiceNumber: booking.billing?.invoiceNumber || '',
     invoiceDate: booking.billing?.invoiceDate ? new Date(booking.billing.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    partsCost: booking.billing?.partsTotal || '',
-    labourCost: booking.billing?.labourCost || '',
-    gst: booking.billing?.gst || '',
-    totalAmount: (parseFloat(booking.billing?.total?.toString() || (booking.totalAmount + (booking.billing?.partsTotal || 0) + (booking.billing?.labourCost || 0) + (booking.billing?.gst || 0)).toString())).toString(),
+    partsCost: partsAtInit > 0 ? String(partsAtInit) : '',
+    labourCost: booking.billing?.labourCost != null ? String(booking.billing.labourCost) : '',
+    gst: booking.billing?.gst != null ? String(booking.billing.gst) : '',
+    totalAmount: String(Number.isFinite(initialTotal) ? initialTotal : baseAtInit + partsAtInit + labourAtInit + gstAtInit),
   });
   const [file, setFile] = useState<File | null>(null);
   const [isUploaded, setIsUploaded] = useState(!!booking.billing?.fileUrl);
@@ -27,18 +56,21 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   // Sync form data with booking prop changes (e.g. when parts are added in Inspection)
   React.useEffect(() => {
     setFormData(prev => {
-        const partsCost = booking.billing?.partsTotal || prev.partsCost || 0;
+        const partsNum =
+          booking.billing?.partsTotal != null && booking.billing.partsTotal !== ''
+            ? Number(booking.billing.partsTotal)
+            : getRecordedPartsTotal(booking) || parseFloat(String(prev.partsCost)) || 0;
         const labourCost = parseFloat(prev.labourCost.toString() || '0');
         const gst = parseFloat(prev.gst.toString() || '0');
-        const baseAmount = booking.totalAmount || 0;
-        
+        const baseAmount = getBaseServiceAmount(booking);
+
         return {
             ...prev,
-            partsCost: partsCost.toString(),
-            totalAmount: (baseAmount + parseFloat(partsCost.toString()) + labourCost + gst).toString()
+            partsCost: partsNum > 0 ? String(partsNum) : prev.partsCost,
+            totalAmount: (baseAmount + partsNum + labourCost + gst).toString()
         };
     });
-  }, [booking.billing?.partsTotal, booking.totalAmount]);
+  }, [booking.billing?.partsTotal, booking.totalAmount, booking.parts]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,7 +81,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             const parts = parseFloat(newData.partsCost.toString()) || 0;
             const labour = parseFloat(newData.labourCost.toString()) || 0;
             const gst = parseFloat(newData.gst.toString()) || 0;
-            const baseAmount = booking.totalAmount || 0;
+            const baseAmount = getBaseServiceAmount(booking);
             newData.totalAmount = (baseAmount + parts + labour + gst).toString();
         }
         return newData;

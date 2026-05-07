@@ -67,15 +67,15 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[990]"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar — above Leaflet map panes (popup/tooltip ~700) on track/order pages */}
         <aside
           className={cn(
-            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-[1000] transition-transform duration-300 flex flex-col',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >

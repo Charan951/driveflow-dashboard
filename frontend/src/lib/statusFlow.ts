@@ -129,3 +129,17 @@ export const getFlowForService = (services: any[]): readonly BookingStatus[] => 
     }
   }
 };
+
+/** Status immediately before DELIVERED, or before COMPLETED when the flow has no DELIVERED (e.g. battery/tire). */
+export function getPreTerminalDeliveryStatus(services: any[]): BookingStatus | null {
+  const flow = getFlowForService(services);
+  const deliveredIdx = flow.indexOf('DELIVERED' as BookingStatus);
+  if (deliveredIdx > 0) {
+    return flow[deliveredIdx - 1] as BookingStatus;
+  }
+  const completedIdx = flow.indexOf('COMPLETED' as BookingStatus);
+  if (completedIdx > 0) {
+    return flow[completedIdx - 1] as BookingStatus;
+  }
+  return null;
+}

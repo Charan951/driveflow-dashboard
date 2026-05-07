@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalYmd, startOfLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 
 interface SlotPickerProps {
@@ -25,10 +25,26 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
   availableSlots = allSlots,
   className,
 }) => {
-  const selectedDateValue = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+  const selectedDateValue = selectedDate ? formatLocalYmd(selectedDate) : '';
   const hasSelectedSlot = Boolean(selectedDate && selectedTime);
-  const availableCount = allSlots.filter((slot) => availableSlots.includes(slot)).length;
-  const bookedCount = allSlots.length - availableCount;
+  /** On today, past times are omitted from the list entirely (not shown as disabled). */
+  const visibleSlots =
+    selectedDate && isSameLocalCalendarDay(selectedDate)
+      ? allSlots.filter((slot) => !isSlotStartInPast(selectedDate, slot))
+      : allSlots;
+
+  const isSlotSelectable = (slot: string) => {
+    const fromApi = availableSlots.includes(slot);
+    if (!fromApi) return false;
+    if (selectedDate && isSameLocalCalendarDay(selectedDate) && isSlotStartInPast(selectedDate, slot)) {
+      return false;
+    }
+    return true;
+  };
+  const availableCount = selectedDate
+    ? visibleSlots.filter((slot) => isSlotSelectable(slot)).length
+    : 0;
+  const bookedCount = selectedDate ? visibleSlots.length - availableCount : 0;
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -42,12 +58,16 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
           <div className="relative group rounded-2xl border border-border/80 bg-muted/20 p-2">
             <input
               type="date"
-              min={new Date().toISOString().split('T')[0]}
+              min={formatLocalYmd(startOfLocalDay())}
               value={selectedDateValue}
               onChange={(e) => {
-                const date = new Date(e.target.value);
+                const v = e.target.value;
+                if (!v) return;
+                const [y, mo, d] = v.split('-').map(Number);
+                if (!y || !mo || !d) return;
+                const date = new Date(y, mo - 1, d);
                 if (!isNaN(date.getTime())) {
-                  onDateChange(date);
+                  onDateChange(startOfLocalDay(date));
                 }
               }}
               onClick={(e) => (e.currentTarget as any).showPicker?.()}
@@ -96,11 +116,13 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                   <option value="" disabled>
                     Select an available slot
                   </option>
-                  {allSlots.map((slot) => {
+                  {visibleSlots.map((slot) => {
                     const isAvailable = availableSlots.includes(slot);
+                    const isSelectable = isSlotSelectable(slot);
                     return (
-                      <option key={slot} value={slot} disabled={!isAvailable}>
-                        {slot}{isAvailable ? '' : ' (Booked)'}
+                      <option key={slot} value={slot} disabled={!isSelectable}>
+                        {slot}
+                        {!isAvailable ? ' (Booked)' : ''}
                       </option>
                     );
                   })}
@@ -118,7 +140,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
               <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary inline-block" /> Available</span>
               <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground inline-block" /> Booked</span>
               {selectedDate && (
-                <span>{availableSlots.length} slots available</span>
+                <span>{availableCount} slots bookable</span>
               )}
             </div>
           </div>

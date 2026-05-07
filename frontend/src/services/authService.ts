@@ -22,20 +22,24 @@ export interface ResetPasswordData {
     password: string;
 }
 
+const setSessionToken = (token: string) => {
+    sessionStorage.setItem('token', token);
+    localStorage.removeItem('token');
+    localStorage.removeItem('auth-storage');
+};
+
 export const authService = {
     register: async (data: RegisterData) => {
         const response = await api.post('/auth/register', data);
         if (response.data.token) {
-            sessionStorage.setItem('token', response.data.token);
-            localStorage.setItem('token', response.data.token);
+            setSessionToken(response.data.token);
         }
         return response.data;
     },
     login: async (data: LoginData) => {
         const response = await api.post('/auth/login', data);
         if (response.data.token) {
-            sessionStorage.setItem('token', response.data.token);
-            localStorage.setItem('token', response.data.token);
+            setSessionToken(response.data.token);
         }
         return response.data;
     },
@@ -47,8 +51,7 @@ export const authService = {
             const response = await api.post('/auth/google', { idToken });
             
             if (response.data.token) {
-                sessionStorage.setItem('token', response.data.token);
-                localStorage.setItem('token', response.data.token);
+                setSessionToken(response.data.token);
             }
             return response.data;
         } catch (error) {
@@ -68,5 +71,6 @@ export const authService = {
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('auth-storage');
         localStorage.removeItem('token');
+        localStorage.removeItem('auth-storage');
     },
 };

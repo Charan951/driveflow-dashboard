@@ -167,6 +167,8 @@ const CustomerVehicleDetailPage: React.FC = () => {
                      <VehicleHealthIndicators 
                         healthIndicators={vehicle.healthIndicators} 
                         mileage={vehicle.mileage}
+                        healthPercentBaselineAt={vehicle.healthPercentBaselineAt}
+                        healthPercentDisplay={vehicle.healthPercentDisplay}
                      />
                   </div>
                </div>

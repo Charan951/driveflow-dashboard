@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUS_LABELS } from '@/lib/statusFlow';
+import { canCustomerSeeDeliveryOtp } from '@/lib/bookingGeneralServiceChat';
 
 const DashboardSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-8 animate-pulse">
@@ -440,7 +441,7 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {upcomingBooking.deliveryOtp?.code && (
+          {upcomingBooking.deliveryOtp?.code && canCustomerSeeDeliveryOtp(upcomingBooking) && (
             <div className="mb-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-white/40 bg-white/10 px-4 py-2">
               <p className="text-[10px] uppercase tracking-wide text-white/80">
                   Delivery OTP

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, User as UserIcon, Calendar, Wrench, Car, AlertTriangle, MapPin, Navigation, Camera } from 'lucide-react';
@@ -35,6 +35,7 @@ import { Vehicle } from '@/services/vehicleService';
 import { User } from '@/services/userService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ChatWidget from '@/components/ChatWidget';
+import { forceHideChatUntilGeneralServiceStarted, forceHideChatWhenServiceCompleted } from '@/lib/bookingGeneralServiceChat';
 
 // Panels
 import StatusControlPanel from '../../components/merchant/StatusControlPanel';
@@ -83,6 +84,8 @@ const OrderDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [staffLocation, setStaffLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const [isInitialTabSet, setIsInitialTabSet] = useState(false);
 
   const fetchBooking = useCallback(async (sourceTab?: string) => {
@@ -104,17 +107,29 @@ const OrderDetail: React.FC = () => {
       if (previousStatus !== 'SERVICE_STARTED' && newStatus === 'SERVICE_STARTED' && !data.batteryTire?.isBatteryTireService) {
         setActiveTab('inspection');
       }
-      // Auto-switch to Service tab when Inspection is completed
-      else if (data.inspection?.completedAt && activeTab !== 'service' && activeTab !== 'qc') {
-        setActiveTab('service');
-      }
-      // Auto-switch to QC tab when Service data is saved
+      // After Save Service Data — must run before the inspection→service branch: fetchBooking's closure
+      // can have a stale activeTab (tab switch does not refresh the callback deps), which would otherwise
+      // re-select "service" and skip this transition.
       else if (sourceTab === 'service') {
         setActiveTab('qc');
       }
-      // Auto-switch to Billing tab when QC is completed (only for non-battery/tire services)
-      else if (!previousQCStatus && newQCStatus && !data.batteryTire?.isBatteryTireService) {
+      // After Save health stats — same priority as service save (avoid stale activeTab branches).
+      else if (sourceTab === 'health') {
         setActiveTab('billing');
+      }
+      // QC→Health must run before inspection→service: fetchBooking's closure can have a stale `activeTab`
+      // (tab is not in useCallback deps), so after confirming QC the old branch could incorrectly force "service".
+      else if (!previousQCStatus && newQCStatus && !data.batteryTire?.isBatteryTireService) {
+        setActiveTab('health');
+      }
+      // Auto-switch to Service tab when Inspection is completed
+      else if (
+        data.inspection?.completedAt &&
+        !data.qc?.completedAt &&
+        activeTabRef.current !== 'service' &&
+        activeTabRef.current !== 'qc'
+      ) {
+        setActiveTab('service');
       }
       
       // Set initial tab based on booking state ONLY ONCE on first load
@@ -122,7 +137,7 @@ const OrderDetail: React.FC = () => {
         if (data.batteryTire?.isBatteryTireService) {
           setActiveTab('overview');
         } else if (data.qc?.completedAt) {
-          setActiveTab('billing');
+          setActiveTab('health');
         } else if (data.inspection?.completedAt) {
           setActiveTab('service');
         } else if (data.status === 'SERVICE_STARTED') {
@@ -540,7 +555,11 @@ const OrderDetail: React.FC = () => {
             {/* Health Tab */}
             {!booking.batteryTire?.isBatteryTireService && (!isCarWashService || hasApprovedParts) && (
                 <TabsContent value="health" className="mt-8">
-                    <VehicleHealthPanel booking={booking} onUpdate={fetchBooking} />
+                    <VehicleHealthPanel
+                      booking={booking}
+                      onUpdate={fetchBooking}
+                      onHealthStatsSaved={() => fetchBooking('health')}
+                    />
                 </TabsContent>
             )}
 
@@ -554,7 +573,14 @@ const OrderDetail: React.FC = () => {
       </motion.div>
       
       {/* Floating Chat Widget */}
-      <ChatWidget bookingId={booking._id} status={booking.status} onUpdate={fetchBooking} />
+      <ChatWidget
+        bookingId={booking._id}
+        status={booking.status}
+        onUpdate={fetchBooking}
+        forceHidden={
+          forceHideChatUntilGeneralServiceStarted(booking) || forceHideChatWhenServiceCompleted(booking)
+        }
+      />
     </motion.div>
   );
 };

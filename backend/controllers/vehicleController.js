@@ -1,5 +1,6 @@
 import Vehicle from '../models/Vehicle.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { attachHealthPercentDisplay } from '../utils/vehicleHealthDisplay.js';
 import axios from 'axios';
 
 // ... (existing imports)
@@ -11,7 +12,12 @@ export const getAllVehicles = async (req, res) => {
   try {
     const vehicles = await Vehicle.find({}).populate('user', 'name email phone');
     vehicles.forEach(v => v.calculateHealth());
-    res.json(vehicles);
+    const out = vehicles.map((v) => {
+      const o = v.toObject({ virtuals: true });
+      attachHealthPercentDisplay(o);
+      return o;
+    });
+    res.json(out);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -34,7 +40,9 @@ export const getVehicleById = async (req, res) => {
       }
 
       vehicle.calculateHealth();
-      res.json(vehicle);
+      const o = vehicle.toObject({ virtuals: true });
+      attachHealthPercentDisplay(o);
+      res.json(o);
     } else {
       res.status(404).json({ message: 'Vehicle not found' });
     }
@@ -60,7 +68,12 @@ export const getUserVehicles = async (req, res) => {
 
     const vehicles = await Vehicle.find({ user: userId });
     vehicles.forEach(v => v.calculateHealth());
-    res.json(vehicles);
+    const out = vehicles.map((v) => {
+      const o = v.toObject({ virtuals: true });
+      attachHealthPercentDisplay(o);
+      return o;
+    });
+    res.json(out);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -73,7 +86,12 @@ export const getVehicles = async (req, res) => {
   try {
     const vehicles = await Vehicle.find({ user: req.user._id });
     vehicles.forEach(v => v.calculateHealth());
-    res.json(vehicles);
+    const out = vehicles.map((v) => {
+      const o = v.toObject({ virtuals: true });
+      attachHealthPercentDisplay(o);
+      return o;
+    });
+    res.json(out);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -401,14 +419,20 @@ export const updateVehicleHealth = async (req, res) => {
           });
         }
 
+        // All indicators show 100% after any health save; UI drops 1% per calendar day from this moment.
+        vehicle.healthPercentBaselineAt = new Date();
+        vehicle.markModified('healthPercentBaselineAt');
+
         // Mark modified to ensure Mongoose saves the nested object
         vehicle.markModified('healthIndicators');
         const updatedVehicle = await vehicle.save();
-        
+
         // Emit sync event
         emitEntitySync('vehicle', 'updated', updatedVehicle);
-        
-        res.json(updatedVehicle);
+
+        const o = updatedVehicle.toObject({ virtuals: true });
+        attachHealthPercentDisplay(o);
+        res.json(o);
       } else {
         res.status(400).json({ message: 'No health indicators provided' });
       }

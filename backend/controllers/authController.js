@@ -32,6 +32,9 @@ export const registerUser = async (req, res) => {
         role: user.role,
         subRole: user.subRole,
         phone: user.phone,
+        addresses: user.addresses || [],
+        location: user.location,
+        address: user.location?.address || '',
         token: generateToken(user._id),
       });
     } else {
@@ -63,6 +66,8 @@ export const loginUser = async (req, res) => {
         phone: user.phone,
         isShopOpen: user.isShopOpen,
         location: user.location,
+        addresses: user.addresses || [],
+        address: user.location?.address || '',
         isOnline: user.isOnline,
         token: generateToken(user._id),
       });
@@ -112,6 +117,8 @@ export const googleLogin = async (req, res) => {
       phone: user.phone,
       isShopOpen: user.isShopOpen,
       location: user.location,
+      addresses: user.addresses || [],
+      address: user.location?.address || '',
       isOnline: user.isOnline,
       token: generateToken(user._id),
     });

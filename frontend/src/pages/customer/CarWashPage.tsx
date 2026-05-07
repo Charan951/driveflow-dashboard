@@ -31,11 +31,14 @@ const CarWashPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
+  const [pincodesReady, setPincodesReady] = useState(false);
   const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
+  const noServiceAreasConfigured = pincodesReady && availableServicePincodes.length === 0;
   const isSelectedLocationAllowed = Boolean(
-    !selectedLocationPincode ||
-    availableServicePincodes.length === 0 ||
-    availableServicePincodes.includes(selectedLocationPincode)
+    selectedLocationPincode &&
+      (!pincodesReady ||
+        (availableServicePincodes.length > 0 &&
+          availableServicePincodes.includes(selectedLocationPincode)))
   );
 
   useEffect(() => {
@@ -65,8 +68,10 @@ const CarWashPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load services');
+      setAvailableServicePincodes([]);
     } finally {
       setIsLoading(false);
+      setPincodesReady(true);
     }
   };
 
@@ -87,7 +92,11 @@ const CarWashPage: React.FC = () => {
       return;
     }
     if (!isSelectedLocationAllowed) {
-      toast.error('Service booking is not enabled for this pincode');
+      toast.error(
+        noServiceAreasConfigured
+          ? 'Service not available at this area.'
+          : 'Service booking is not enabled for this pincode.'
+      );
       return;
     }
 
@@ -295,9 +304,10 @@ const CarWashPage: React.FC = () => {
                         (() => {
                           const pin = extractPincodeFromAddress(addr.address);
                           const isBlockedAddress = Boolean(
-                            pin &&
-                            availableServicePincodes.length > 0 &&
-                            !availableServicePincodes.includes(pin)
+                            pincodesReady &&
+                              (availableServicePincodes.length === 0 ||
+                                !pin ||
+                                !availableServicePincodes.includes(pin))
                           );
                           return (
                         <button
@@ -323,9 +333,20 @@ const CarWashPage: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground text-sm truncate">{addr.label}</p>
                             <p className="text-xs text-muted-foreground line-clamp-2">{addr.address}</p>
-                            {isBlockedAddress && (
-                              <p className="text-[11px] font-semibold text-destructive mt-1">Service not enabled for this pincode</p>
-                            )}
+                            {isBlockedAddress &&
+                              (noServiceAreasConfigured ? (
+                                <p className="text-[11px] font-semibold text-destructive mt-1">
+                                  Service not available at this area.
+                                </p>
+                              ) : !pin ? (
+                                <p className="text-[11px] font-semibold text-destructive mt-1">
+                                  Address must include a valid 6-digit pincode
+                                </p>
+                              ) : (
+                                <p className="text-[11px] font-semibold text-destructive mt-1">
+                                  Service not enabled for this pincode
+                                </p>
+                              ))}
                           </div>
                         </button>
                           );
@@ -360,7 +381,11 @@ const CarWashPage: React.FC = () => {
                   {pickupLocation.address && !isSelectedLocationAllowed && (
                     <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2">
                       <p className="text-xs font-semibold text-destructive">
-                        Service booking is not enabled for this pincode. Please choose another location.
+                        {noServiceAreasConfigured
+                          ? 'Service not available at this area.'
+                          : !selectedLocationPincode
+                            ? 'Add a complete address with a 6-digit pincode, or update it in your profile.'
+                            : 'Service booking is not enabled for this pincode. Please choose another location.'}
                       </p>
                     </div>
                   )}

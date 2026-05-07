@@ -22,17 +22,17 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/uploads': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
           changeOrigin: true,
           secure: false,
         },
         '/api': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
           changeOrigin: true,
           secure: false,
         },
         '/socket.io': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5000',
+          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
           ws: true,
           changeOrigin: true,
           secure: false,

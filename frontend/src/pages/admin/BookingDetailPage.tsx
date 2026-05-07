@@ -93,7 +93,7 @@ const BookingDetailPage: React.FC = () => {
       const url = window.URL.createObjectURL(new Blob([response]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoice-${booking.orderNumber || booking._id.slice(-6).toUpperCase()}.pdf`);
+      link.setAttribute('download', 'carzzi_invoice.pdf');
       document.body.appendChild(link);
       link.click();
       link.remove();

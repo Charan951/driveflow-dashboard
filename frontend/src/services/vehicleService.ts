@@ -20,6 +20,10 @@ export interface Vehicle {
     status?: 'Idle' | 'On Route' | 'In Service';
     lastService?: string;
     nextService?: string;
+    /** Set on any health save; UI shows 100% minus 1 per calendar day since this moment for all indicators. */
+    healthPercentBaselineAt?: string | Date;
+    /** Server-computed display % for baseline mode (same for all indicators). Prefer over client-only decay when present. */
+    healthPercentDisplay?: number;
     user?: string | { _id: string; name: string; email: string; phone?: string }; // User ID or Populated User
     healthIndicators?: {
         generalService?: { value: number; lastUpdated: string; fixedKm: number; fixedDays: number; lastServiceKm?: number; lastServiceDate?: string };

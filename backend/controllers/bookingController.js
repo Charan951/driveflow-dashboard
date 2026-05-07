@@ -15,6 +15,7 @@ import {
 } from '../utils/liveTrackingPush.js';
 import crypto from 'crypto';
 import Message from '../models/Message.js';
+import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDisplay.js';
 
 const SLOT_INTERVAL_MINUTES = 30;
 const SLOT_START_HOUR = 8;
@@ -100,14 +101,15 @@ export const emitBookingUpdate = (booking) => {
   try {
     const io = getIO();
     const bookingId = booking._id.toString();
-    
+    const payload = attachHealthPercentToBookingPayload(booking);
+
     // Notify admin
-    io.to('admin').emit('bookingUpdated', booking);
-    
+    io.to('admin').emit('bookingUpdated', payload);
+
     // Also notify admin specifically about new bookings
     if (booking.status === 'CREATED') {
-      io.to('admin').emit('bookingCreated', booking);
-      
+      io.to('admin').emit('bookingCreated', payload);
+
       // Save notification to history and send push to admins
       sendPushToRole(
         'admin',
@@ -117,8 +119,8 @@ export const emitBookingUpdate = (booking) => {
         'order'
       );
     } else if (booking.status === 'CANCELLED') {
-      io.to('admin').emit('bookingCancelled', booking);
-      
+      io.to('admin').emit('bookingCancelled', payload);
+
       sendPushToRole(
         'admin',
         'Booking Cancelled',
@@ -127,10 +129,10 @@ export const emitBookingUpdate = (booking) => {
         'order'
       );
     }
-    
+
     // Notify specific booking room
-    io.to(`booking_${bookingId}`).emit('bookingUpdated', booking);
-    
+    io.to(`booking_${bookingId}`).emit('bookingUpdated', payload);
+
     // Notify relevant users
     const usersToNotify = [
       booking.user?._id || booking.user,
@@ -142,16 +144,16 @@ export const emitBookingUpdate = (booking) => {
 
     usersToNotify.forEach(userId => {
       const room = `user_${userId.toString()}`;
-      io.to(room).emit('bookingUpdated', booking);
+      io.to(room).emit('bookingUpdated', payload);
       // Only emit bookingCreated for a true new booking — not on every status sync
       // (was causing duplicate "New Booking" client notifications per update).
       if (booking.status === 'CREATED') {
-        io.to(room).emit('bookingCreated', booking);
+        io.to(room).emit('bookingCreated', payload);
       }
     });
 
     // Global Real-time Sync
-    emitEntitySync('booking', booking.status === 'CREATED' ? 'created' : 'updated', booking);
+    emitEntitySync('booking', booking.status === 'CREATED' ? 'created' : 'updated', payload);
   } catch (err) {
     // Error handling
   }
@@ -200,6 +202,81 @@ const isEssentialsBooking = async (booking) => {
   }
 };
 
+/** Greeting + automated status chat lines — run off the critical path so PUT /status returns quickly. */
+const queueChatAutomationForBookingStatus = (savedBooking, canonTo) => {
+  const chatEnabledStatuses = ['SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'On Hold'];
+  if (!chatEnabledStatuses.includes(canonTo)) {
+    return Promise.resolve();
+  }
+  return (async () => {
+    try {
+      let systemUser = await User.findOne({ role: 'admin' });
+      if (!systemUser) {
+        systemUser = await User.findOne({ role: { $regex: /^admin$/i } });
+      }
+
+      if (!systemUser) return;
+
+      const existingGreeting = await Message.findOne({
+        bookingId: savedBooking._id,
+        text: /Welcome to Carzzi Support Chat/
+      });
+
+      if (!existingGreeting) {
+        const greetingText = `Hi 👋 Hope you’re doing well! 
+Welcome to Carzzi Support Chat  🚗 
+Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts submitted. 
+If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
+Thank you for choosing Carzzi 🙌`;
+
+        const greetingMessage = new Message({
+          bookingId: savedBooking._id,
+          sender: systemUser._id,
+          text: greetingText,
+          recipientRole: 'customer'
+        });
+        await greetingMessage.save();
+
+        const populatedGreeting = await greetingMessage.populate('sender', '_id name role');
+        emitChatMessage(savedBooking._id, populatedGreeting);
+      }
+
+      const existingStatusMessage = await Message.findOne({
+        bookingId: savedBooking._id,
+        text: new RegExp(`^${canonTo.replace(/_/g, ' ')}`, 'i')
+      });
+
+      if (!existingStatusMessage) {
+        let statusText = '';
+        if (canonTo === 'SERVICE_STARTED') statusText = "Service has started for your vehicle. Our technician is working on it.";
+        else if (canonTo === 'CAR_WASH_STARTED') {
+          const isEssentials = await isEssentialsBooking(savedBooking);
+          statusText = isEssentials
+            ? "Service has started for your vehicle. Our staff is working on it."
+            : "Car wash has started for your vehicle. Our staff is working on it.";
+        }
+        else if (canonTo === 'INSTALLATION') statusText = "Installation has started for your vehicle.";
+        else if (canonTo === 'On Hold') statusText = "Your service is currently on hold. We will update you soon.";
+
+        if (statusText) {
+          const statusMessage = new Message({
+            bookingId: savedBooking._id,
+            sender: systemUser._id,
+            text: statusText,
+            recipientRole: 'customer'
+          });
+          await statusMessage.save();
+
+          const populatedStatus = await statusMessage.populate('sender', '_id name role');
+          emitChatMessage(savedBooking._id, populatedStatus);
+        }
+      }
+    } catch (msgErr) {
+      console.error('Error sending automated service started message:', msgErr);
+    }
+  })();
+};
+
 // @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private
@@ -225,7 +302,13 @@ export const createBooking = async (req, res) => {
 
     const availablePincodes = await AvailableServicePincode.find({}).select('pincode').lean();
     const allowedSet = new Set(availablePincodes.map((p) => p.pincode));
-    if (allowedSet.size > 0 && !allowedSet.has(bookingPincode)) {
+    if (allowedSet.size === 0) {
+      return res.status(503).json({
+        message:
+          'Service booking is not available yet. An administrator must add at least one allowed service pincode.',
+      });
+    }
+    if (!allowedSet.has(bookingPincode)) {
       return res.status(409).json({ message: 'Service is not available for the selected pincode' });
     }
 
@@ -792,7 +875,7 @@ export const getBookingById = async (req, res) => {
       );
       
       if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
-        res.json(booking);
+        res.json(attachHealthPercentToBookingPayload(booking));
       } else {
         res.status(401).json({ message: 'Not authorized to view this booking' });
       }
@@ -987,14 +1070,13 @@ export const updateBookingStatus = async (req, res) => {
             verifiedAt: null
           };
 
-          // Send notifications for new OTP
+          // OTP is persisted on booking; notify out-of-band so this request is not blocked on SMTP / push latency
           if (booking.user?.email) {
             const subject = 'Delivery OTP';
             const body = `Your Delivery OTP is ${code}. Use this to confirm service completion/delivery. It expires in 24 hours.`;
-            
-            await sendEmail(booking.user.email, subject, body).catch(() => {});
+            void sendEmail(booking.user.email, subject, body).catch(() => {});
           }
-          await sendPushToUser(booking.user?._id, 'Delivery OTP', `Your Delivery OTP is ${code}`, { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
+          void sendPushToUser(booking.user?._id, 'Delivery OTP', `Your Delivery OTP is ${code}`, { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
         }
       }
 
@@ -1038,7 +1120,9 @@ export const updateBookingStatus = async (req, res) => {
                 fixedDays: vehicle.healthIndicators[key]?.fixedDays || 0
               };
             });
+            vehicle.healthPercentBaselineAt = new Date();
             vehicle.markModified('healthIndicators');
+            vehicle.markModified('healthPercentBaselineAt');
             await vehicle.save();
             
             // Emit sync event so customer and merchant get updated data
@@ -1137,7 +1221,7 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
-      // OTP gating for delivery
+      // OTP gating for delivery — notify out-of-band so staff wait time is not tied to SMTP/push latency
       if (canonTo === 'OUT_FOR_DELIVERY') {
         const code = Math.floor(100000 + Math.random() * 900000).toString().slice(0, 4);
         booking.deliveryOtp = {
@@ -1147,13 +1231,13 @@ export const updateBookingStatus = async (req, res) => {
           verifiedAt: null
         };
         if (booking.user?.email) {
-          await sendEmail(
+          void sendEmail(
             booking.user.email,
             'Delivery OTP',
             `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
-          );
+          ).catch(() => {});
         }
-        await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) });
+        void sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
       }
 
       if (canonTo === 'DELIVERED') {
@@ -1195,82 +1279,24 @@ export const updateBookingStatus = async (req, res) => {
           }
       }
 
+      // Single save: workshop timestamps + status (avoids a second PUT /details from the client)
+      if (canonTo === 'SERVICE_STARTED' && !booking.serviceExecution?.jobStartTime) {
+        if (!booking.serviceExecution) booking.serviceExecution = {};
+        booking.serviceExecution.jobStartTime = new Date();
+        booking.markModified('serviceExecution');
+      }
+      if (canonTo === 'SERVICE_COMPLETED' && !booking.serviceExecution?.jobEndTime) {
+        if (!booking.serviceExecution) booking.serviceExecution = {};
+        booking.serviceExecution.jobEndTime = new Date();
+        booking.markModified('serviceExecution');
+      }
+
       booking.status = canonTo;
       const savedBooking = await booking.save();
 
-      // Automate chat message when service starts or chat is enabled
-      const chatEnabledStatuses = ['SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'On Hold'];
-      if (chatEnabledStatuses.includes(canonTo)) {
-        try {
-          // Find an admin user to act as 'Carzii' system sender
-          let systemUser = await User.findOne({ role: 'admin' });
-          if (!systemUser) {
-            // Fallback: try to find any admin role with case insensitive search or any user if all fails
-            systemUser = await User.findOne({ role: { $regex: /^admin$/i } });
-          }
-          
-          if (systemUser) {
-            // Check if greeting has already been sent for this booking
-            const existingGreeting = await Message.findOne({
-              bookingId: savedBooking._id,
-              text: /Welcome to Carzzi Support Chat/
-            });
-
-            if (!existingGreeting) {
-              const greetingText = `Hi 👋 Hope you’re doing well! 
-Welcome to Carzzi Support Chat  🚗 
-Through this chat, you can easily communicate with your assigned merchant regarding your requests. You will also receive updates here about the approval or rejection of parts submitted. 
-If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we’re here to help you! 
-Thank you for choosing Carzzi 🙌`;
-
-              const greetingMessage = new Message({
-                bookingId: savedBooking._id,
-                sender: systemUser._id,
-                text: greetingText,
-                recipientRole: 'customer'
-              });
-              await greetingMessage.save();
-              
-              const populatedGreeting = await greetingMessage.populate('sender', '_id name role');
-              emitChatMessage(savedBooking._id, populatedGreeting);
-            }
-
-            // Only send status-specific message if it's the first time entering this status
-            const existingStatusMessage = await Message.findOne({
-              bookingId: savedBooking._id,
-              text: new RegExp(`^${canonTo.replace(/_/g, ' ')}`, 'i')
-            });
-
-            if (!existingStatusMessage) {
-              let statusText = '';
-              if (canonTo === 'SERVICE_STARTED') statusText = "Service has started for your vehicle. Our technician is working on it.";
-              else if (canonTo === 'CAR_WASH_STARTED') {
-                const isEssentials = await isEssentialsBooking(savedBooking);
-                statusText = isEssentials 
-                  ? "Service has started for your vehicle. Our staff is working on it."
-                  : "Car wash has started for your vehicle. Our staff is working on it.";
-              }
-              else if (canonTo === 'INSTALLATION') statusText = "Installation has started for your vehicle.";
-              else if (canonTo === 'On Hold') statusText = "Your service is currently on hold. We will update you soon.";
-
-              if (statusText) {
-                const statusMessage = new Message({
-                  bookingId: savedBooking._id,
-                  sender: systemUser._id,
-                  text: statusText,
-                  recipientRole: 'customer'
-                });
-                await statusMessage.save();
-                
-                const populatedStatus = await statusMessage.populate('sender', '_id name role');
-                emitChatMessage(savedBooking._id, populatedStatus);
-              }
-            }
-          }
-        } catch (msgErr) {
-          console.error('Error sending automated service started message:', msgErr);
-        }
-      }
+      setImmediate(() => {
+        void queueChatAutomationForBookingStatus(savedBooking, canonTo);
+      });
 
       // Populate fields before returning to frontend
       const updatedBooking = await Booking.findById(savedBooking._id)
@@ -1367,13 +1393,13 @@ export const generateDeliveryOtp = async (req, res) => {
     await booking.save();
 
     if (booking.user?.email) {
-      await sendEmail(
+      void sendEmail(
         booking.user.email,
         'Delivery OTP',
         `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
-      );
+      ).catch(() => {});
     }
-    await sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) });
+    void sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
     
     // Emit socket update so customer sees the OTP immediately
     const populated = await Booking.findById(booking._id)

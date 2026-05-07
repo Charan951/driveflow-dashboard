@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Clock, AlertCircle } from 'lucide-react';
+import { Activity, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
@@ -19,6 +19,7 @@ const DELAY_REASONS = [
 
 const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
+  const [serviceStartedTransition, setServiceStartedTransition] = useState(false);
   const [showDelayModal, setShowDelayModal] = useState(false);
   const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
   const [delayNote, setDelayNote] = useState('');
@@ -59,27 +60,13 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
         }
     }
 
+    if (status === 'SERVICE_STARTED') {
+      setServiceStartedTransition(true);
+    }
     setLoading(true);
     try {
       await bookingService.updateBookingStatus(booking._id, status);
-      
-      // specific logic for SERVICE_STARTED to set start time
-      if (status === 'SERVICE_STARTED' && !booking.serviceExecution?.jobStartTime) {
-        await bookingService.updateBookingDetails(booking._id, {
-            serviceExecution: {
-                jobStartTime: new Date().toISOString()
-            }
-        });
-      }
-      
-      // Set jobEndTime when moving to SERVICE_COMPLETED
-      if (status === 'SERVICE_COMPLETED' && !booking.serviceExecution?.jobEndTime) {
-          await bookingService.updateBookingDetails(booking._id, {
-              serviceExecution: {
-                  jobEndTime: new Date().toISOString()
-              }
-          });
-      }
+      // jobStartTime / jobEndTime are set server-side on the same request to avoid an extra round-trip
 
       toast.success(`Status updated to ${status}`);
       onUpdate();
@@ -88,6 +75,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
       toast.error(err.response?.data?.message || 'Failed to update status');
     } finally {
       setLoading(false);
+      setServiceStartedTransition(false);
     }
   };
 
@@ -126,7 +114,19 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
   const isWaitingForPayment = booking.status === 'SERVICE_COMPLETED' && booking.paymentStatus !== 'paid';
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm space-y-6">
+    <div className="relative bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm space-y-6">
+      {serviceStartedTransition && (
+        <div
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-background/85 backdrop-blur-sm"
+          role="alert"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <Loader2 className="h-12 w-12 animate-spin text-primary" aria-hidden />
+          <p className="text-base font-semibold text-foreground">Starting service…</p>
+          <p className="text-sm text-muted-foreground">Please wait while we update this order.</p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
           <Activity className="w-5 h-5 text-primary" />
@@ -197,7 +197,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
             booking.status === 'SERVICE_STARTED' && (
                 <div className="flex-1 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-xs md:text-sm flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>Go to <strong>Billing</strong> tab to upload bill and complete service.</span>
+                    <span>Complete <strong>QC Check</strong> and <strong>Health</strong>, then use <strong>Billing</strong> to upload the bill and complete service.</span>
                 </div>
             )
         )}

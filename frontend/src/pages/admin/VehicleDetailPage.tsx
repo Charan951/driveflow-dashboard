@@ -218,7 +218,12 @@ const VehicleDetailPage: React.FC = () => {
 
             <TabsContent value="health" className="space-y-4">
                <div className="flex justify-center py-4">
-                  <VehicleHealthIndicators healthIndicators={vehicle.healthIndicators} />
+                  <VehicleHealthIndicators
+                    healthIndicators={vehicle.healthIndicators}
+                    mileage={vehicle.mileage}
+                    healthPercentBaselineAt={vehicle.healthPercentBaselineAt}
+                    healthPercentDisplay={vehicle.healthPercentDisplay}
+                  />
                </div>
             </TabsContent>
 

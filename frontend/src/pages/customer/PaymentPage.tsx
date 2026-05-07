@@ -7,32 +7,32 @@ import { useAuthStore } from '@/store/authStore';
 import CashfreePayment from '@/components/CashfreePayment';
 import { couponService, ValidatedCoupon, Coupon } from '@/services/couponService';
 import { socketService } from '@/services/socket';
+import { bookingService } from '@/services/bookingService';
+
+type PaymentLocationState = {
+  tempBookingData?: Record<string, unknown>;
+  tempBookingId?: string;
+  /** Pay for an already-created workshop booking (e.g. general service after invoice). */
+  payExistingBookingId?: string;
+};
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const state = location.state as PaymentLocationState | null;
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [tempBookingData, setTempBookingData] = useState<any>(null);
   const [tempBookingId, setTempBookingId] = useState<string>('');
+  const [isPayingExistingBooking, setIsPayingExistingBooking] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCoupon['coupon'] | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
 
   useEffect(() => {
-    // Get temp booking data from navigation state
-    if (location.state?.tempBookingData) {
-      setTempBookingData(location.state.tempBookingData);
-      setTempBookingId(location.state.tempBookingId || '');
-    } else {
-      // If no temp data, redirect back
-      toast.error('No booking data found');
-      navigate('/book-service');
-      return;
-    }
+    const payExistingId = state?.payExistingBookingId;
 
-    // Load Cashfree script
     const loadCashfreeScript = () => {
       return new Promise((resolve, reject) => {
         if (window.Cashfree) {
@@ -57,7 +57,50 @@ const PaymentPage: React.FC = () => {
       console.error('Cashfree script loading error:', error);
       toast.error('Failed to load payment gateway. Please refresh the page.');
     });
-  }, [location.state, navigate]);
+
+    if (payExistingId) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const booking = await bookingService.getBookingById(payExistingId);
+          if (cancelled) return;
+          const billed = booking.billing?.total;
+          const total = typeof billed === 'number' && billed > 0 ? billed : Number(booking.totalAmount) || 0;
+          const loc = booking.location;
+          setTempBookingData({
+            totalAmount: total,
+            date: booking.date,
+            location:
+              typeof loc === 'object' && loc && 'address' in loc
+                ? loc
+                : { address: typeof loc === 'string' ? loc : 'Location not specified' },
+            notes: booking.notes || 'Workshop service',
+            requiresPaymentService: true,
+            services: booking.services,
+          });
+          setTempBookingId(booking._id);
+          setIsPayingExistingBooking(true);
+        } catch {
+          if (!cancelled) {
+            toast.error('Could not load booking for payment');
+            navigate(`/track/${payExistingId}`, { replace: true });
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (state?.tempBookingData) {
+      setTempBookingData(state.tempBookingData);
+      setTempBookingId(state.tempBookingId || '');
+      return;
+    }
+
+    toast.error('No booking data found');
+    navigate('/book-service');
+  }, [state?.payExistingBookingId, state?.tempBookingData, state?.tempBookingId, navigate]);
 
   // Load coupons when tempBookingData is available
   useEffect(() => {
@@ -118,6 +161,9 @@ const PaymentPage: React.FC = () => {
 
   const serviceInfo = getServiceInfo();
 
+  const billAmount = Number(tempBookingData?.totalAmount);
+  const orderSubtotal = Number.isFinite(billAmount) ? billAmount : 0;
+
   const calculateFinalAmount = () => {
     if (!tempBookingData) return 0;
     const baseAmount = tempBookingData.totalAmount;
@@ -164,6 +210,11 @@ const PaymentPage: React.FC = () => {
 
   const handlePaymentSuccess = (paymentData: any) => {
     setIsLoading(false);
+    if (isPayingExistingBooking && tempBookingId) {
+      toast.success('Payment successful!');
+      navigate(`/track/${tempBookingId}`, { replace: true });
+      return;
+    }
     toast.success('Payment successful! Your service booking has been created.');
     navigate('/dashboard', {
       replace: true,
@@ -196,14 +247,24 @@ const PaymentPage: React.FC = () => {
         className="flex items-center gap-3 sm:gap-4"
       >
         <button 
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (isPayingExistingBooking && tempBookingId) {
+              navigate(`/track/${tempBookingId}`);
+            } else {
+              navigate(-1);
+            }
+          }}
           className="p-2 hover:bg-muted rounded-full transition-colors flex-shrink-0"
         >
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-lg sm:text-2xl font-bold text-foreground">Complete Payment</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Complete payment to create your service booking</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            {isPayingExistingBooking
+              ? 'Apply a coupon if you have one, then pay to confirm your workshop bill.'
+              : 'Complete payment to create your service booking'}
+          </p>
         </div>
       </motion.div>
 
@@ -293,6 +354,9 @@ const PaymentPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {availableCoupons.map((coupon, index) => {
                   const isSelected = appliedCoupon?._id === coupon._id;
+                  const minRequired = Number(coupon.minOrderAmount) || 0;
+                  const meetsMinOrder = minRequired === 0 || orderSubtotal >= minRequired;
+                  const isDisabledByMinOrder = !meetsMinOrder;
                   const colors = [
                     'from-blue-500 to-blue-600',
                     'from-purple-500 to-purple-600',
@@ -312,15 +376,31 @@ const PaymentPage: React.FC = () => {
                   
                   return (
                     <button
+                      type="button"
                       key={coupon._id}
-                      onClick={() => applyCouponByCode(coupon.code)}
-                      disabled={validatingCoupon}
-                      className={`relative overflow-hidden rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] ${
-                        isSelected ? 'ring-4 ring-green-400 ring-offset-2' : ''
-                      }`}
+                      onClick={() => {
+                        if (isDisabledByMinOrder) return;
+                        applyCouponByCode(coupon.code);
+                      }}
+                      disabled={validatingCoupon || isDisabledByMinOrder}
+                      aria-disabled={isDisabledByMinOrder}
+                      title={
+                        isDisabledByMinOrder && minRequired > 0
+                          ? `Minimum order ₹${minRequired} required (current ₹${orderSubtotal})`
+                          : undefined
+                      }
+                      className={`relative overflow-hidden rounded-xl text-left transition-all disabled:cursor-not-allowed ${
+                        isDisabledByMinOrder
+                          ? 'opacity-55 grayscale'
+                          : 'transform hover:scale-[1.02] disabled:opacity-50'
+                      } ${isSelected && meetsMinOrder ? 'ring-4 ring-green-400 ring-offset-2' : ''}`}
                     >
-                      <div className={`bg-gradient-to-br ${bgGradient} p-5 text-white text-left`}>
-                        {isSelected && (
+                      <div
+                        className={`bg-gradient-to-br p-5 text-white ${
+                          isDisabledByMinOrder ? 'from-slate-500 to-slate-600' : bgGradient
+                        }`}
+                      >
+                        {isSelected && meetsMinOrder && (
                           <div className="absolute top-2 right-2">
                             <CheckCircle className="w-6 h-6 text-yellow-300" />
                           </div>
@@ -337,8 +417,15 @@ const PaymentPage: React.FC = () => {
                         {coupon.description && (
                           <p className="text-sm opacity-90 mb-2">{coupon.description}</p>
                         )}
-                        {coupon.minOrderAmount > 0 && (
-                          <p className="text-xs opacity-80">Min. order: ₹{coupon.minOrderAmount}</p>
+                        {minRequired > 0 && (
+                          <p className="text-xs opacity-80">
+                            Min. order: ₹{minRequired}
+                            {isDisabledByMinOrder ? (
+                              <span className="block mt-1 font-medium">
+                                Not available — cart is ₹{orderSubtotal}
+                              </span>
+                            ) : null}
+                          </p>
                         )}
                       </div>
                     </button>

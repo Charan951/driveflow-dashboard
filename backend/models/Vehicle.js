@@ -41,6 +41,8 @@ const vehicleSchema = new mongoose.Schema({
   },
   lastService: { type: Date },
   nextService: { type: Date },
+  /** When set, all health UI shows the same %: 100 minus 1 per calendar day since this date (any health save refreshes it). */
+  healthPercentBaselineAt: { type: Date },
   documents: [{
     name: { type: String },
     type: { type: String, enum: ['Registration', 'Battery Warranty', 'Tire Warranty', 'Other'] },
@@ -96,10 +98,11 @@ const vehicleSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Helper to calculate health
+// Helper to calculate health (skipped when daily baseline mode is active)
 vehicleSchema.methods.calculateHealth = function() {
   const vehicle = this;
   if (!vehicle.healthIndicators) return;
+  if (vehicle.healthPercentBaselineAt) return;
 
   const now = new Date();
   const currentKm = vehicle.mileage || 0;
