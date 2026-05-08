@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
    // MUST stay false for testing with rzp_test keys
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5000';
-    return 'http://localhost:5000';
+    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5001';
+    return 'http://localhost:5001';
   }
 
   static String get productionBaseUrl {
@@ -26,13 +26,6 @@ class Env {
   static String get userAgent =>
       'com.speshway.app/1.0.0 (Flutter; Android/iOS)';
 
-  static String get razorpayKey {
-    const key = String.fromEnvironment('RAZORPAY_KEY');
-    if (key.isNotEmpty) return key;
-    // TEST KEY: Matches backend and frontend (rzp_test_RQ739na1YxOpy5)
-    // RED: Replace with LIVE KEY (rzp_live_...) for production
-    return useProduction ? 'REPLACE_WITH_LIVE_KEY' : 'rzp_test_RQ739na1YxOpy5';
-  }
 }
 
 class ApiEndpoints {
@@ -50,6 +43,9 @@ class ApiEndpoints {
   static const String vehicleReferenceSearch = '/vehicle-reference/search';
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
+  static const String bookingsAvailableSlots = '/bookings/available-slots';
+  static const String bookingsAvailableServicePincodes =
+      '/bookings/available-service-pincodes';
   static String bookingById(String id) => '/bookings/$id';
   static const String paymentsCreateOrder = '/payments/create-order';
   static const String paymentsVerifyPayment = '/payments/verify';

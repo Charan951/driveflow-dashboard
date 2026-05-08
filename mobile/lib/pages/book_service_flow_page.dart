@@ -9,7 +9,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 
 import '../models/service.dart';
 import '../core/app_colors.dart';
@@ -21,6 +25,7 @@ import '../services/catalog_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
+import '../services/coupon_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
@@ -46,8 +51,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   final _paymentService = PaymentService();
-  Razorpay? _razorpay;
+  final _socketService = SocketService();
+  final _couponService = CouponService();
+  final _cashfreeGateway = CFPaymentGatewayService();
   Map<String, dynamic>? _currentTempBookingData;
+
+  List<dynamic> _availableCoupons = [];
+  Map<String, dynamic>? _appliedCoupon;
+  bool _loadingCoupons = false;
+  bool _validatingCoupon = false;
 
   List<Vehicle> _vehicles = [];
   List<ServiceItem> _allServices = [];
@@ -60,7 +72,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final Map<String, bool> _isManualSize = {};
   final Map<String, TextEditingController> _tireSizeControllers = {};
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _selectedTime = TimeOfDay.now();
+  String? _selectedTimeSlot;
+  List<String> _availableSlots = [];
+  List<String> _availableServicePincodes = [];
+  bool _pincodesReady = false;
   String? _selectedAddress;
   LatLng? _selectedLatLng;
   bool _showCustomLocation = false;
@@ -69,6 +84,201 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   bool _resolvingAddress = false;
   final MapController _mapController = MapController();
   String? _selectedVehicleOEMTire;
+
+  String? _extractPincode(String? address) {
+    if (address == null) return null;
+    final match = RegExp(r'(\d{6})(?!\d)').firstMatch(address);
+    return match?.group(1);
+  }
+
+  bool _isSameCalendarDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Future<void> _handleGlobalSync(dynamic data) async {
+    if (!mounted || data == null) return;
+    try {
+      final mapData = data is Map<String, dynamic>
+          ? data
+          : Map<String, dynamic>.from(data as Map);
+      final entity = (mapData['entity'] ?? '').toString();
+      final payload = mapData['data'];
+      final payloadMap = payload is Map<String, dynamic>
+          ? payload
+          : (payload is Map ? Map<String, dynamic>.from(payload) : null);
+
+      if (entity == 'availableServicePincode') {
+        final pinsRaw = payloadMap?['availablePincodes'];
+        if (pinsRaw is List) {
+          setState(() {
+            _availableServicePincodes = pinsRaw.map((e) => e.toString()).toList();
+            _pincodesReady = true;
+            if (!_isSelectedLocationAllowed) {
+              _selectedTimeSlot = null;
+            }
+          });
+        } else {
+          final pins = await _bookingService.getAvailableServicePincodes();
+          if (!mounted) return;
+          setState(() {
+            _availableServicePincodes = pins;
+            _pincodesReady = true;
+            if (!_isSelectedLocationAllowed) {
+              _selectedTimeSlot = null;
+            }
+          });
+        }
+        return;
+      }
+
+      if (entity == 'slotBlock') {
+        final dateRaw = payloadMap?['date']?.toString();
+        if (dateRaw != null && dateRaw.isNotEmpty) {
+          final changedDate = DateTime.tryParse(dateRaw);
+          if (changedDate != null && _isSameCalendarDay(changedDate, _selectedDate)) {
+            await _fetchSlotsForDate(_selectedDate);
+          }
+        } else {
+          await _fetchSlotsForDate(_selectedDate);
+        }
+        return;
+      }
+
+      if (entity == 'booking') {
+        final dateRaw = payloadMap?['date']?.toString();
+        if (dateRaw == null || dateRaw.isEmpty) {
+          await _fetchSlotsForDate(_selectedDate);
+          return;
+        }
+        final changedDate = DateTime.tryParse(dateRaw);
+        if (changedDate != null && _isSameCalendarDay(changedDate, _selectedDate)) {
+          await _fetchSlotsForDate(_selectedDate);
+        }
+      }
+
+      if (entity == 'coupon') {
+        await _fetchCoupons();
+      }
+    } catch (_) {}
+  }
+
+  bool get _isSelectedLocationAllowed {
+    final pin = _extractPincode(_selectedAddress);
+    if (pin == null) return false;
+    if (!_pincodesReady) return true;
+    if (_availableServicePincodes.isEmpty) return false;
+    return _availableServicePincodes.contains(pin);
+  }
+
+  DateTime? _composeBookingDateTime() {
+    final slot = _selectedTimeSlot;
+    if (slot == null || slot.isEmpty) return null;
+    final m = RegExp(r'^(\d{1,2}):(\d{2})\s([AP]M)$').firstMatch(slot);
+    if (m == null) return null;
+    var hour = int.tryParse(m.group(1)!);
+    final minute = int.tryParse(m.group(2)!);
+    final period = m.group(3)!;
+    if (hour == null || minute == null) return null;
+    if (period == 'PM' && hour < 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+    return DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      hour,
+      minute,
+    );
+  }
+
+  Future<void> _fetchSlotsForDate(DateTime date) async {
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      var slots = await _bookingService.getAvailableSlots(dateStr);
+
+      final now = DateTime.now();
+      if (_isSameCalendarDay(date, now)) {
+        slots = slots.where((slot) {
+          final m = RegExp(r'^(\d{1,2}):(\d{2})\s([AP]M)$').firstMatch(slot);
+          if (m == null) return true;
+          var hour = int.tryParse(m.group(1)!);
+          final minute = int.tryParse(m.group(2)!);
+          final period = m.group(3)!;
+          if (hour == null || minute == null) return true;
+          if (period == 'PM' && hour < 12) hour += 12;
+          if (period == 'AM' && hour == 12) hour = 0;
+          
+          final slotTime = DateTime(now.year, now.month, now.day, hour, minute);
+          return slotTime.isAfter(now);
+        }).toList();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _availableSlots = slots;
+        if (_selectedTimeSlot != null && !_availableSlots.contains(_selectedTimeSlot)) {
+          _selectedTimeSlot = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _availableSlots = [];
+        _selectedTimeSlot = null;
+      });
+    }
+  }
+
+  Future<void> _fetchCoupons() async {
+    setState(() => _loadingCoupons = true);
+    try {
+      final coupons = await _couponService.getCoupons();
+      if (mounted) {
+        setState(() {
+          _availableCoupons = coupons.where((c) => c['isActive'] == true).toList();
+          _loadingCoupons = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingCoupons = false);
+    }
+  }
+
+  Future<void> _applyCouponByCode(String code, double totalAmount) async {
+    setState(() => _validatingCoupon = true);
+    try {
+      final result = await _couponService.validateCoupon(code, totalAmount);
+      if (mounted) {
+        if (result['valid'] == true && result['coupon'] != null) {
+          setState(() {
+            _appliedCoupon = result['coupon'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Coupon applied successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Invalid coupon')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: Failed to validate coupon: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _validatingCoupon = false);
+      }
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+    });
+  }
 
   Future<void> _autoFillTireSize(String serviceId, Vehicle vehicle) async {
     String format(String v) {
@@ -223,12 +433,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   void initState() {
     super.initState();
     _fetchInitialData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _socketService.init(context.read<AuthProvider>().user);
+      _socketService.on('global:sync', _handleGlobalSync);
+    });
 
     if (!kIsWeb) {
-      _razorpay = Razorpay();
-      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+      _cashfreeGateway.setCallback(_handlePaymentSuccess, _handlePaymentError);
     }
 
     if (widget.initialCategory == 'Tyres' ||
@@ -288,7 +500,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     try {
       context.read<NavigationProvider>().removeListener(_onNavChanged);
     } catch (_) {}
-    _razorpay?.clear();
+    _socketService.off('global:sync', _handleGlobalSync);
     _notesController.dispose();
     for (final controller in _tireSizeControllers.values) {
       controller.dispose();
@@ -296,7 +508,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     super.dispose();
   }
 
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+  void _handlePaymentSuccess(String orderId) async {
     // Show a loading dialog while verifying
     showDialog(
       context: context,
@@ -306,9 +518,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     try {
       final verifyData = {
-        'razorpay_order_id': response.orderId,
-        'razorpay_payment_id': response.paymentId,
-        'razorpay_signature': response.signature,
+        'cashfree_order_id': orderId,
         'tempBookingData': _currentTempBookingData,
       };
 
@@ -351,18 +561,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
   }
 
-  void _handlePaymentError(PaymentFailureResponse response) {
+  void _handlePaymentError(CFErrorResponse response, String orderId) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Payment failed: ${response.message ?? "Unknown error"}'),
+        content: Text(
+          'Payment failed: ${response.getMessage()}. Order: $orderId',
+        ),
         backgroundColor: Colors.red,
       ),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('External wallet: ${response.walletName}')),
     );
   }
 
@@ -393,10 +599,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           debugPrint('Error fetching services: $e');
           return <ServiceItem>[];
         }),
+        _bookingService.getAvailableServicePincodes().catchError((e) {
+          debugPrint('Error fetching available service pincodes: $e');
+          return <String>[];
+        }),
       ]);
 
       final List<Vehicle> vehicles = results[0] as List<Vehicle>;
       final List<ServiceItem> services = results[1] as List<ServiceItem>;
+      final List<String> availablePincodes = results[2] as List<String>;
 
       if (mounted) {
         if (vehicles.isEmpty && services.isEmpty && forceRefresh) {
@@ -411,6 +622,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         setState(() {
           _vehicles = List<Vehicle>.from(vehicles);
           _allServices = services;
+          _availableServicePincodes = availablePincodes;
+          _pincodesReady = true;
           _hasAttemptedFetch = true;
           _error = null; // Clear any previous errors if we got at least something
           
@@ -440,6 +653,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
           _loading = false;
         });
+        await _fetchSlotsForDate(_selectedDate);
+        await _fetchCoupons();
       }
     } catch (e) {
       if (mounted) {
@@ -614,6 +829,24 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   void _handleNext() {
+    if (_currentStep == 2) {
+      if (_selectedTimeSlot == null || _selectedAddress == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select slot and location')),
+        );
+        return;
+      }
+      if (!_isSelectedLocationAllowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Service booking is not enabled for this pincode. Please choose another location.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
     if (_currentStep < _steps.length - 1) {
       setState(() => _currentStep++);
     } else {
@@ -1592,7 +1825,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                             const Duration(days: 90),
                           ),
                         );
-                        if (date != null) setState(() => _selectedDate = date);
+                        if (date != null) {
+                          setState(() {
+                            _selectedDate = date;
+                            _selectedTimeSlot = null;
+                          });
+                          await _fetchSlotsForDate(date);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -1632,47 +1871,64 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: _selectedTime,
-                        );
-                        if (time != null) setState(() => _selectedTime = time);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.grey.shade900
+                            : AppStyles.softBackground,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: isDark
-                              ? Colors.grey.shade900
-                              : AppStyles.softBackground,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.borderColor
-                                : Colors.grey.shade200,
-                          ),
+                              ? AppColors.borderColor
+                              : Colors.grey.shade200,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Time', style: AppStyles.captionStyle),
-                            const SizedBox(height: 4),
-                            Text(
-                              _selectedTime.format(context),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDark
-                                    ? AppColors.textPrimary
-                                    : Colors.black,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Slot', style: AppStyles.captionStyle),
+                          const SizedBox(height: 4),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedTimeSlot,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            hint: const Text('Select an available slot'),
+                            items: _availableSlots
+                                .map(
+                                  (slot) => DropdownMenuItem<String>(
+                                    value: slot,
+                                    child: Text(slot),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedTimeSlot = value;
+                              });
+                            },
+                          ),
+                          if (_availableSlots.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'No slots available for this date',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? Colors.orange.shade300
+                                      : Colors.orange.shade700,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -1759,17 +2015,24 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     .read<AuthProvider>()
                     .user!
                     .addresses[index];
+                final pin = _extractPincode(addr.address);
+                final isBlockedAddress = _pincodesReady &&
+                    (_availableServicePincodes.isEmpty ||
+                        pin == null ||
+                        !_availableServicePincodes.contains(pin));
                 final selected = _selectedAddress == addr.address;
                 return ChoiceChip(
                   label: Text(addr.label),
-                  selected: selected,
+                  selected: selected && !isBlockedAddress,
                   selectedColor: AppStyles.primaryBlue.withValues(alpha: 0.2),
                   labelStyle: TextStyle(
-                    color: selected ? AppStyles.primaryBlue : textColor,
+                    color: isBlockedAddress
+                        ? Colors.red
+                        : (selected ? AppStyles.primaryBlue : textColor),
                     fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   ),
                   onSelected: (v) {
-                    if (v) {
+                    if (v && !isBlockedAddress) {
                       setState(() {
                         _selectedLatLng = LatLng(addr.lat, addr.lng);
                         _selectedAddress = addr.address;
@@ -1823,6 +2086,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               ],
             ),
           ),
+          if (!_isSelectedLocationAllowed)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _availableServicePincodes.isEmpty
+                    ? 'Service is currently unavailable for this area.'
+                    : (_extractPincode(_selectedAddress) == null
+                          ? 'Address must include a valid 6-digit pincode.'
+                          : 'Service booking is not enabled for this pincode.'),
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
         ] else ...[
           Container(
             height: 200,
@@ -1896,6 +2171,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               fontSize: 12,
             ),
           ),
+          if (_selectedAddress != null && !_isSelectedLocationAllowed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _availableServicePincodes.isEmpty
+                    ? 'Service is currently unavailable for this area.'
+                    : (_extractPincode(_selectedAddress) == null
+                          ? 'Address must include a valid 6-digit pincode.'
+                          : 'Service booking is not enabled for this pincode.'),
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
         ],
       ],
     );
@@ -1966,7 +2253,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 'Schedule',
                 DateFormat('EEE, MMM d').format(_selectedDate),
                 Icons.calendar_today_rounded,
-                trailing: _selectedTime.format(context),
+                trailing: _selectedTimeSlot ?? 'Not selected',
               ),
               const Divider(height: 32),
               _buildSummaryRow(
@@ -2046,13 +2333,298 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   Text(
                     '₹${total.toStringAsFixed(0)}',
                     style: const TextStyle(
-                      color: AppStyles.primaryBlue,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
                 ],
               ),
+              if (_appliedCoupon != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Discount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.green,
+                      ),
+                    ),
+                    Text(
+                      '-₹${(_appliedCoupon!['discountAmount'] ?? 0).toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Final Amount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Text(
+                      '₹${(total - ((_appliedCoupon!['discountAmount'] ?? 0) as num).toDouble()).clamp(0, double.infinity).toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: AppStyles.primaryBlue,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Final Amount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Text(
+                      '₹${total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: AppStyles.primaryBlue,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Coupon Section
+        Text(
+          'Apply Coupon',
+          style: AppStyles.headingStyle.copyWith(fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [AppStyles.cardShadow],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_loadingCoupons)
+                const Center(child: CircularProgressIndicator())
+              else if (_availableCoupons.isNotEmpty) ...[
+                const Text(
+                  'Available coupons:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 130,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _availableCoupons.length,
+                    itemBuilder: (context, index) {
+                      final coupon = _availableCoupons[index];
+                      final minRequired = (coupon['minOrderAmount'] ?? 0) as num;
+                      final isSelected = _appliedCoupon?['_id'] == coupon['_id'];
+                      final meetsMinOrder = minRequired == 0 || total >= minRequired;
+                      final isDisabled = !meetsMinOrder || _validatingCoupon;
+
+                      final colors = [
+                        [const Color(0xFF4F46E5), const Color(0xFF4338CA)], // Indigo
+                        [const Color(0xFFE11D48), const Color(0xFFBE123C)], // Rose
+                        [const Color(0xFF059669), const Color(0xFF047857)], // Emerald
+                        [const Color(0xFFD97706), const Color(0xFFB45309)], // Amber
+                        [const Color(0xFF0284C7), const Color(0xFF0369A1)], // Light Blue
+                      ];
+                      final gradientColors = colors[index % colors.length];
+
+                      return Container(
+                        width: 240,
+                        margin: const EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: isDisabled
+                              ? LinearGradient(
+                                  colors: isDark
+                                      ? [Colors.grey.shade800, Colors.grey.shade900]
+                                      : [Colors.grey.shade300, Colors.grey.shade400],
+                                )
+                              : LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: gradientColors,
+                                ),
+                          boxShadow: isDisabled
+                              ? []
+                              : [
+                                  BoxShadow(
+                                    color: gradientColors[0].withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: isDisabled ? null : () => _applyCouponByCode(coupon['code'], total),
+                            child: Stack(
+                              children: [
+                                // Decorative icon background
+                                Positioned(
+                                  right: -10,
+                                  top: -10,
+                                  child: Icon(
+                                    Icons.local_offer_rounded,
+                                    size: 90,
+                                    color: Colors.white.withOpacity(0.1),
+                                  ),
+                                ),
+                                // Content
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            coupon['code'],
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 20,
+                                              letterSpacing: 1.5,
+                                              color: isDisabled ? Colors.grey.shade500 : Colors.white,
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${coupon['discountPercentage']}% OFF',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: isDisabled ? Colors.grey.shade500 : Colors.white.withOpacity(0.95),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      if (minRequired > 0)
+                                        Text(
+                                          'Min. order: ₹$minRequired',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDisabled
+                                                ? (isDark ? Colors.red.shade400 : Colors.red.shade700)
+                                                : Colors.white.withOpacity(0.8),
+                                            fontWeight: isDisabled ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (_appliedCoupon != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.green.withOpacity(0.1) : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.green.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade600,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.check, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _appliedCoupon!['code'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.green.shade700,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                Text(
+                                  'Coupon Applied',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: _removeCoupon,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            backgroundColor: Colors.red.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'REMOVE',
+                            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ] else
+                const Text(
+                  'No coupons available at this time',
+                  style: TextStyle(color: Colors.grey),
+                ),
             ],
           ),
         ),
@@ -2248,7 +2820,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Future<void> _submitBooking() async {
     if (_selectedVehicleId == null ||
         _selectedServiceIds.isEmpty ||
-        _selectedAddress == null) {
+        _selectedAddress == null ||
+        _selectedTimeSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please complete all steps')),
       );
@@ -2274,16 +2847,34 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ? '${_notesController.text}\nServices: $notesWithSizes'
           : notesWithSizes;
 
+      final bookingDateTime = _composeBookingDateTime();
+      if (bookingDateTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a valid slot')),
+        );
+        return;
+      }
+      if (_selectedLatLng == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a valid map location')),
+        );
+        return;
+      }
+      if (!_isSelectedLocationAllowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Service booking is not enabled for this pincode. Please choose another location.',
+            ),
+          ),
+        );
+        return;
+      }
+
       final res = await _bookingService.createBooking(
         vehicleId: _selectedVehicleId!,
         serviceIds: _selectedServiceIds,
-        date: DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          _selectedTime.hour,
-          _selectedTime.minute,
-        ),
+        date: bookingDateTime,
         location: BookingLocation(
           address: _selectedAddress!,
           lat: _selectedLatLng!.latitude,
@@ -2306,7 +2897,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         // Redirect to a payment page or show a payment dialog
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
-          await _processPayment(tempBookingId, tempBookingData: res);
+          // If a coupon is applied, update tempBookingData with coupon details
+          if (_appliedCoupon != null) {
+            final double baseTotal = (res['totalAmount'] as num).toDouble();
+            final double discountAmount = (_appliedCoupon!['discountAmount'] ?? 0).toDouble();
+            final double finalAmount = (baseTotal - discountAmount).clamp(0, double.infinity);
+
+            res['coupon'] = _appliedCoupon!['_id'];
+            res['discountAmount'] = discountAmount;
+            res['finalAmount'] = finalAmount;
+            res['totalAmount'] = finalAmount; // Used as amount in cashfree create order
+          }
+          await _processPayment(tempBookingData: res);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -2344,10 +2946,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
   }
 
-  Future<void> _processPayment(
-    String tempBookingId, {
-    Map<String, dynamic>? tempBookingData,
-  }) async {
+  Future<void> _processPayment({Map<String, dynamic>? tempBookingData}) async {
     // Show a loading dialog
     showDialog(
       context: context,
@@ -2356,7 +2955,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
 
     try {
-      // Create Razorpay order
       final orderData = await _paymentService.createOrder(
         tempBookingData: tempBookingData,
       );
@@ -2364,62 +2962,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
-        final user = context.read<AuthProvider>().user;
         _currentTempBookingData = tempBookingData;
-
-        final razorpayKey =
-            (orderData['key'] ?? orderData['razorpay_key'] ?? Env.razorpayKey)
-                .toString();
         final orderId =
             (orderData['orderId'] ??
                     orderData['order_id'] ??
                     orderData['id'] ??
                     '')
                 .toString();
-        final amount = (orderData['amount'] as num).toInt();
+        final paymentSessionId = (orderData['paymentSessionId'] ?? '').toString();
+        final environment = (orderData['environment'] ?? 'sandbox').toString();
 
-        if (razorpayKey.isEmpty || razorpayKey == 'REPLACE_WITH_LIVE_KEY') {
+        if (orderId.isEmpty || paymentSessionId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Payment is not configured. Please contact support.',
+                'Payment setup failed. Please try again.',
               ),
               backgroundColor: Colors.red,
             ),
           );
           return;
         }
-
-        if (amount <= 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Invalid payment amount. Please refresh and try again.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-
-        final options = {
-          'key': razorpayKey,
-          'amount': amount,
-          'name': 'Carzzi',
-          if (orderId.isNotEmpty) 'order_id': orderId,
-          'description': 'Service Payment',
-          'prefill': {
-            'contact': (user?.phone ?? '').toString(),
-            'email': (user?.email ?? '').toString(),
-          },
-          'external': {
-            'wallets': ['paytm', 'phonepe', 'mobikwik', 'freecharge'],
-          },
-          'timeout': 300, // 5 minutes
-          'retry': {'enabled': true, 'max_count': 1},
-          'theme': {'color': '#2563EB'},
-          'upi': {'flow': 'intent'}, // Force intent flow for UPI
-        };
 
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2428,7 +2991,21 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ),
           );
         } else {
-          _razorpay?.open(options);
+          final session = CFSessionBuilder()
+              .setEnvironment(
+                environment == 'production'
+                    ? CFEnvironment.PRODUCTION
+                    : CFEnvironment.SANDBOX,
+              )
+              .setOrderId(orderId)
+              .setPaymentSessionId(paymentSessionId)
+              .build();
+
+          final cfPayment = CFWebCheckoutPaymentBuilder()
+              .setSession(session)
+              .build();
+
+          _cashfreeGateway.doPayment(cfPayment);
         }
       }
     } catch (e) {

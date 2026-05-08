@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;
+  static const bool useProduction = false;
 
   static const String mapTileUrlTemplate = String.fromEnvironment(
     'MAP_TILE_URL_TEMPLATE',
@@ -15,8 +15,8 @@ class Env {
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5000';
-    return 'http://localhost:5000';
+    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5001';
+    return 'http://localhost:5001';
   }
 
   static String get productionBaseUrl {

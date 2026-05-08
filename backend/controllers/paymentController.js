@@ -105,90 +105,10 @@ export const createOrder = async (req, res) => {
  */
 export const verifyPayment = async (req, res) => {
   try {
-    const { 
-      cashfree_order_id, 
-      cashfree_payment_id, 
-      cashfree_signature, 
-      bookingId,
-      tempBookingData 
-    } = req.body;
+    const orderId = req.body.orderId;
+    const { payment, booking } = await paymentService.processOrderStatus(orderId);
 
-    // Verify payment and process results (includes creating booking if temp data exists)
-    const { payment, booking } = await paymentService.processSuccessfulPayment(
-      cashfree_order_id,
-      cashfree_payment_id,
-      cashfree_signature
-    );
-
-    // If a new booking was created (for Car Wash, Battery, Tires etc.)
-    if (!bookingId && booking) {
-      // The booking was created by the service layer.
-      // We just need to handle notifications here.
-      
-      // Populate for real-time consumers
-      const populated = await Booking.findById(booking._id)
-        .populate('user', 'id name email phone')
-        .populate('vehicle')
-        .populate('services');
-
-      // Emit socket event for real-time updates
-      emitBookingUpdate(populated);
-
-      // Import required models for notifications
-      const Service = (await import('../models/Service.js')).default;
-      const services = await Service.find({ _id: { $in: booking.services } });
-      const serviceNames = services.map(s => s.name).join(', ');
-      const serviceType = services.some(s => s.category === 'Car Wash' || s.category === 'Wash') 
-        ? 'Car Wash' 
-        : services.some(s => s.category === 'Battery' || s.category === 'Tyre & Battery')
-        ? 'Battery'
-        : services.some(s => s.category === 'Essentials')
-        ? 'Essentials'
-        : 'Tire';
-
-      // Send email confirmation
-      if (req.user.email) {
-        const { sendEmail } = await import('../utils/emailService.js');
-        sendEmail(
-          req.user.email,
-          `${serviceType} Service Booking Confirmed`,
-          `Dear ${req.user.name},\n\nYour ${serviceType.toLowerCase()} service booking has been confirmed!\n\nBooking Details:\n- Services: ${serviceNames}\n- Date: ${new Date(booking.date).toLocaleDateString()}\n- Amount Paid: ₹${booking.totalAmount}\n- Order Number: #${booking.orderNumber}\n- Payment ID: ${razorpay_payment_id}\n\nOur team will assign staff to your booking shortly.\n\nThank you for choosing DriveFlow!`
-        ).catch(emailError => console.error('Error sending confirmation email:', emailError));
-      }
-
-      // Send push notification
-      await sendPushToUser(
-        req.user._id,
-        `${serviceType} Booking Confirmed`,
-        `Payment successful! Your service booking #${booking.orderNumber} has been created. We'll assign staff shortly.`,
-        { type: 'service_confirmed', bookingId: booking._id.toString() }
-      );
-
-      // Log audit
-      await logAudit({
-        user: req.user._id,
-        action: 'PAYMENT_VERIFIED_NEW_BOOKING',
-        targetModel: 'Booking',
-        targetId: booking._id,
-        details: { paymentId: razorpay_payment_id, amount: booking.totalAmount },
-        ipAddress: req.ip
-      });
-
-      return res.json({
-        success: true,
-        message: 'Payment verified and booking created successfully',
-        data: {
-          payment,
-          booking,
-          paymentId: razorpay_payment_id,
-          status: 'paid'
-        }
-      });
-    }
-
-    // Handle existing booking payment verification
     if (booking) {
-      // Populate for real-time consumers
       const populated = await Booking.findById(booking._id)
         .populate('user', 'id name email phone')
         .populate('vehicle')
@@ -197,64 +117,31 @@ export const verifyPayment = async (req, res) => {
         .populate('pickupDriver', 'name email phone')
         .populate('technician', 'name email phone')
         .populate('carWash.staffAssigned', 'name email phone');
-
-      // Emit socket event for real-time updates
       emitBookingUpdate(populated);
-
-      // Send notifications
-      const bookingIdStr = String(populated._id);
-      const orderNum = populated.orderNumber || bookingIdStr.slice(-6).toUpperCase();
-      
-      if (booking.carWash?.isCarWashService) {
-        await sendPushToUser(
-          booking.user,
-          'Car Wash Payment Confirmed',
-          `Payment for car wash service #${orderNum} has been confirmed. We'll assign staff shortly.`,
-          { type: 'car_wash_confirmed', bookingId: bookingIdStr }
-        );
-      } else {
-        if (populated.merchant?._id) {
-          await sendPushToUser(
-            populated.merchant._id,
-            'Payment Received',
-            `Payment for booking #${orderNum} has been completed.`,
-            { type: 'payment_update', bookingId: bookingIdStr }
-          );
-        }
-        
-        if (populated.pickupDriver?._id) {
-          await sendPushToUser(
-            populated.pickupDriver._id,
-            'Payment Completed',
-            `Customer has paid for booking #${orderNum}. You can now proceed with delivery.`,
-            { type: 'payment_update', bookingId: bookingIdStr }
-          );
-        }
-      }
     }
 
-    // Log audit
     await logAudit({
       user: req.user._id,
       action: 'PAYMENT_VERIFIED',
       targetModel: 'Payment',
-      targetId: payment._id,
-      details: { paymentId: razorpay_payment_id, bookingId },
-      ipAddress: req.ip
+      targetId: payment?._id,
+      details: { orderId, bookingId: booking?._id },
+      ipAddress: req.ip,
     });
 
-    // Real-time Sync for payment entity
-    emitEntitySync('payment', 'updated', payment);
+    if (payment) {
+      emitEntitySync('payment', 'updated', payment);
+    }
 
     res.json({
       success: true,
-      message: 'Payment verified successfully',
+      message: 'Payment verification synced successfully',
       data: {
         payment,
         booking,
-        paymentId: razorpay_payment_id,
-        status: 'paid'
-      }
+        orderId,
+        status: payment?.status || 'pending',
+      },
     });
   } catch (error) {
     console.error('Payment verification error:', error);

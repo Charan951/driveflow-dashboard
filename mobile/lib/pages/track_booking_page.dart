@@ -9,7 +9,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 
 import '../core/app_colors.dart';
 import '../core/env.dart';
@@ -40,7 +44,7 @@ class _PhotoCarouselItem {
 class _TrackBookingPageState extends State<TrackBookingPage> {
   final _service = BookingService();
   final _paymentService = PaymentService();
-  Razorpay? _razorpay;
+  final _cashfreeGateway = CFPaymentGatewayService();
   final _reviewService = ReviewService();
   final _mapController = MapController();
   final _api = ApiClient();
@@ -85,14 +89,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _setupSocketListeners();
 
     if (!kIsWeb) {
-      _razorpay = Razorpay();
-      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+      _cashfreeGateway.setCallback(_handlePaymentSuccess, _handlePaymentError);
     }
   }
 
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+  void _handlePaymentSuccess(String orderId) async {
     // Show a loading dialog while verifying
     showDialog(
       context: context,
@@ -102,9 +103,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
     try {
       final verifyData = {
-        'razorpay_order_id': response.orderId,
-        'razorpay_payment_id': response.paymentId,
-        'razorpay_signature': response.signature,
+        'cashfree_order_id': orderId,
         'bookingId': _bookingId,
       };
 
@@ -145,18 +144,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
   }
 
-  void _handlePaymentError(PaymentFailureResponse response) {
+  void _handlePaymentError(CFErrorResponse response, String orderId) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Payment failed: ${response.message ?? "Unknown error"}'),
+        content: Text(
+          'Payment failed: ${response.getMessage()}. Order: $orderId',
+        ),
         backgroundColor: Colors.red,
       ),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('External wallet: ${response.walletName}')),
     );
   }
 
@@ -335,7 +330,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   @override
   void dispose() {
-    _razorpay?.clear();
     _socketService.removeListener(_onSocketUpdate);
     _socketService.off('liveLocation');
     _socketService.off('bookingUpdated');
@@ -378,45 +372,20 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
     setState(() => _isPaymentLoading = true);
     try {
-      // Create Razorpay order
       final orderData = await _paymentService.createOrder(
         bookingId: booking.id,
         amount: booking.calculatedTotal,
       );
 
       if (mounted) {
-        final user = context.read<AuthProvider>().user;
-        final razorpayKey =
-            (orderData['key'] ?? orderData['razorpay_key'] ?? Env.razorpayKey)
-                .toString();
         final orderId =
             (orderData['orderId'] ??
                     orderData['order_id'] ??
                     orderData['id'] ??
                     '')
                 .toString();
-        final amount = (orderData['amount'] as num).toInt();
-
-        final options = {
-          'key': razorpayKey,
-          'amount': amount,
-          'name': 'Carzzi',
-          if (orderId.isNotEmpty) 'order_id': orderId,
-          'description': 'Service Payment',
-          'prefill': {
-            'contact': (user?.phone ?? '').toString(),
-            'email': (user?.email ?? '').toString(),
-          },
-          'external': {
-            'wallets': ['paytm', 'phonepe', 'mobikwik', 'freecharge'],
-          },
-          'timeout': 300, // 5 minutes
-          'retry': {'enabled': true, 'max_count': 1},
-          'theme': {'color': '#2563EB'},
-          'upi': {'flow': 'intent'}, // Force intent flow for UPI
-        };
-
-        if (razorpayKey == 'REPLACE_WITH_LIVE_KEY') {}
+        final paymentSessionId = (orderData['paymentSessionId'] ?? '').toString();
+        final environment = (orderData['environment'] ?? 'sandbox').toString();
 
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -424,8 +393,29 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               content: Text('Payments are only available on mobile'),
             ),
           );
+        } else if (orderId.isEmpty || paymentSessionId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment setup failed. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         } else {
-          _razorpay?.open(options);
+          final session = CFSessionBuilder()
+              .setEnvironment(
+                environment == 'production'
+                    ? CFEnvironment.PRODUCTION
+                    : CFEnvironment.SANDBOX,
+              )
+              .setOrderId(orderId)
+              .setPaymentSessionId(paymentSessionId)
+              .build();
+
+          final cfPayment = CFWebCheckoutPaymentBuilder()
+              .setSession(session)
+              .build();
+
+          _cashfreeGateway.doPayment(cfPayment);
         }
       }
     } catch (e) {

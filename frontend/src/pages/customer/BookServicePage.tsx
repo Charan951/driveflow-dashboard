@@ -27,6 +27,7 @@ import { bookingService } from '@/services/bookingService';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
+import { socketService } from '@/services/socket';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
@@ -185,6 +186,37 @@ const BookServicePage: React.FC = () => {
     }
   };
 
+  const refreshSlotsForDate = async (date: Date) => {
+    try {
+      const dateStr = formatLocalYmd(date);
+      const data = await bookingService.getAvailableSlots(dateStr);
+      const raw = Array.isArray(data?.availableSlots) ? data.availableSlots : [];
+      const filtered = raw.filter(
+        (slot: string) =>
+          !isSameLocalCalendarDay(date) || !isSlotStartInPast(date, slot)
+      );
+      setAvailableSlots(filtered);
+      if (selectedTime && !filtered.includes(selectedTime)) {
+        setSelectedTime(null);
+        toast.info('Previously selected slot is no longer available. Please select another slot.');
+      }
+    } catch {
+      setAvailableSlots([]);
+    }
+  };
+
+  const refreshAvailablePincodes = async () => {
+    try {
+      const data = await bookingService.getAvailableServicePincodes();
+      const nextPins = Array.isArray(data?.availablePincodes) ? data.availablePincodes : [];
+      setAvailableServicePincodes(nextPins);
+      setPincodesReady(true);
+    } catch {
+      setAvailableServicePincodes([]);
+      setPincodesReady(true);
+    }
+  };
+
   useEffect(() => {
     const prefillTireSizes = async () => {
       if (selectedVehicle && selectedVehicleData) {
@@ -333,18 +365,7 @@ const BookServicePage: React.FC = () => {
         return;
       }
       try {
-        const dateStr = formatLocalYmd(selectedDate);
-        const data = await bookingService.getAvailableSlots(dateStr);
-        const raw = Array.isArray(data?.availableSlots) ? data.availableSlots : [];
-        const filtered = raw.filter(
-          (slot: string) =>
-            !isSameLocalCalendarDay(selectedDate) || !isSlotStartInPast(selectedDate, slot)
-        );
-        setAvailableSlots(filtered);
-        if (selectedTime && !filtered.includes(selectedTime)) {
-          setSelectedTime(null);
-          toast.info('Previously selected slot is no longer available. Please select another slot.');
-        }
+        await refreshSlotsForDate(selectedDate);
       } catch (error) {
         setAvailableSlots([]);
         toast.error('Failed to load available slots');
@@ -353,6 +374,60 @@ const BookServicePage: React.FC = () => {
 
     fetchSlots();
   }, [selectedDate]);
+
+  useEffect(() => {
+    socketService.connect();
+
+    const onGlobalSync = async (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return;
+      const data = payload as {
+        entity?: string;
+        data?: { date?: string; availablePincodes?: string[] };
+      };
+      const entity = data.entity || '';
+
+      if (entity === 'availableServicePincode') {
+        const pins = data.data?.availablePincodes;
+        if (Array.isArray(pins)) {
+          setAvailableServicePincodes(pins);
+          setPincodesReady(true);
+        } else {
+          await refreshAvailablePincodes();
+        }
+        return;
+      }
+
+      if (entity === 'slotBlock') {
+        if (!selectedDate) return;
+        const changedDateRaw = data.data?.date;
+        if (changedDateRaw) {
+          const changedDate = new Date(changedDateRaw);
+          if (!isNaN(changedDate.getTime()) && !isSameLocalCalendarDay(selectedDate, changedDate)) {
+            return;
+          }
+        }
+        await refreshSlotsForDate(selectedDate);
+        return;
+      }
+
+      if (entity === 'booking' && selectedDate) {
+        const changedDateRaw = data.data?.date;
+        if (!changedDateRaw) {
+          await refreshSlotsForDate(selectedDate);
+          return;
+        }
+        const changedDate = new Date(changedDateRaw);
+        if (!isNaN(changedDate.getTime()) && isSameLocalCalendarDay(selectedDate, changedDate)) {
+          await refreshSlotsForDate(selectedDate);
+        }
+      }
+    };
+
+    socketService.on('global:sync', onGlobalSync);
+    return () => {
+      socketService.off('global:sync', onGlobalSync);
+    };
+  }, [selectedDate, selectedTime]);
 
   useEffect(() => {
     if (!selectedDate || !selectedTime) return;

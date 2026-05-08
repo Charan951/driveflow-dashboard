@@ -63,10 +63,22 @@ export const validateCreateOrder = [
 
 // Validation middleware for verify payment
 export const validateVerifyPayment = [
-  body('orderId')
-    .notEmpty()
-    .withMessage('Cashfree order ID is required'),
   (req, res, next) => {
+    const orderId =
+      req.body?.orderId ||
+      req.body?.cashfree_order_id ||
+      req.body?.cashfreeOrderId;
+    if (!orderId || String(orderId).trim().isEmpty) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed: orderId: Cashfree order ID is required',
+        errors: [{ path: 'orderId', msg: 'Cashfree order ID is required' }],
+      });
+    }
+
+    // Normalize accepted aliases so controllers/services can rely on orderId.
+    req.body.orderId = String(orderId).trim();
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       const errorDetails = errors.array().map(err => `${err.path}: ${err.msg}`).join(', ');

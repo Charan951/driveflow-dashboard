@@ -1,4 +1,13 @@
 PODS:
+  - CashfreeAnalyticsSDK (2.3.3):
+    - CFNetworkSDK (= 2.3.3)
+  - CashfreePG (2.3.7):
+    - CashfreePGUISDK (= 2.3.7)
+  - CashfreePGCoreSDK (2.3.7):
+    - CashfreeAnalyticsSDK (= 2.3.3)
+  - CashfreePGUISDK (2.3.7):
+    - CashfreePGCoreSDK (= 2.3.7)
+  - CFNetworkSDK (2.3.3)
   - device_info_plus (0.0.1):
     - Flutter
   - Firebase/CoreOnly (11.15.0):
@@ -35,6 +44,9 @@ PODS:
     - nanopb (~> 3.30910.0)
   - Flutter (1.0.0)
   - flutter_background_service_ios (0.0.3):
+    - Flutter
+  - flutter_cashfree_pg_sdk (0.0.1):
+    - CashfreePG (= 2.3.7)
     - Flutter
   - flutter_local_notifications (0.0.1):
     - Flutter
@@ -78,12 +90,6 @@ PODS:
   - permission_handler_apple (9.3.0):
     - Flutter
   - PromisesObjC (2.4.0)
-  - razorpay-core-pod (1.0.6)
-  - razorpay-pod (1.5.3):
-    - razorpay-core-pod (= 1.0.6)
-  - razorpay_flutter (1.1.10):
-    - Flutter
-    - razorpay-pod
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -99,17 +105,22 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_background_service_ios (from `.symlinks/plugins/flutter_background_service_ios/ios`)
+  - flutter_cashfree_pg_sdk (from `.symlinks/plugins/flutter_cashfree_pg_sdk/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
-  - razorpay_flutter (from `.symlinks/plugins/razorpay_flutter/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
+    - CashfreeAnalyticsSDK
+    - CashfreePG
+    - CashfreePGCoreSDK
+    - CashfreePGUISDK
+    - CFNetworkSDK
     - Firebase
     - FirebaseCore
     - FirebaseCoreInternal
@@ -119,8 +130,6 @@ SPEC REPOS:
     - GoogleUtilities
     - nanopb
     - PromisesObjC
-    - razorpay-core-pod
-    - razorpay-pod
 
 EXTERNAL SOURCES:
   device_info_plus:
@@ -133,6 +142,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_background_service_ios:
     :path: ".symlinks/plugins/flutter_background_service_ios/ios"
+  flutter_cashfree_pg_sdk:
+    :path: ".symlinks/plugins/flutter_cashfree_pg_sdk/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_secure_storage:
@@ -141,8 +152,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
-  razorpay_flutter:
-    :path: ".symlinks/plugins/razorpay_flutter/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sqflite_darwin:
@@ -151,6 +160,11 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
+  CashfreeAnalyticsSDK: 11f37b2323be07bf07948bd6046b7c19e947ae07
+  CashfreePG: 88c1cdaa0ab8decb1c2e02263cca37eda9f30c59
+  CashfreePGCoreSDK: 0895818f75ea22e347e715a285cf241fe01f4349
+  CashfreePGUISDK: 2e4a3be02dbaf0af48520c573eb08585491b5545
+  CFNetworkSDK: 6a6261de10185efd4d2957583f0cbad395999cac
   device_info_plus: 71ffc6ab7634ade6267c7a93088ed7e4f74e5896
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
@@ -161,6 +175,7 @@ SPEC CHECKSUMS:
   FirebaseMessaging: 3b26e2cee503815e01c3701236b020aa9b576f09
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_background_service_ios: 00d31bdff7b4bfe06d32375df358abe0329cf87e
+  flutter_cashfree_pg_sdk: 44c2ec4c790728b0bae85f5ea9f5cfb10eecdf83
   flutter_local_notifications: ad39620c743ea4c15127860f4b5641649a988100
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
@@ -169,9 +184,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  razorpay-core-pod: 6da5fb4ed280279d665507fdb50e213d793a5fe2
-  razorpay-pod: 4385cf844aa29389313b741e20c72fe668970d49
-  razorpay_flutter: 0e98e4fcaae27ad50e011d85f66d85e0a008754a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b

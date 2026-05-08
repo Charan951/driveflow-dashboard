@@ -1,12 +1,8 @@
--keepclassmembers class * {
-    @com.razorpay.RetainForAllInternalUse *;
-}
-
--keep class com.razorpay.** {
+-keep class com.cashfree.** {
     *;
 }
 
--dontwarn com.razorpay.**
+-dontwarn com.cashfree.**
 
 -keepattributes *Annotation*
 

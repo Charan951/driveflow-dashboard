@@ -46,7 +46,7 @@ class PaymentData {
 class PaymentService {
   final ApiClient _api = ApiClient();
 
-  // Create Razorpay order
+  // Create Cashfree order
   Future<Map<String, dynamic>> createOrder({
     String? bookingId,
     num? amount,

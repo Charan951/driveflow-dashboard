@@ -53,8 +53,12 @@ export const emitEntitySync = (entityName, action, data) => {
       io.to(`booking_${bookingId.toString()}`).emit('global:sync', payload);
     }
 
-    // 7. Special case for coupons: broadcast to ALL connected clients
-    if (entityName === 'coupon') {
+    // 7. Entities that must reach all clients (customer apps included)
+    if (
+      entityName === 'coupon' ||
+      entityName === 'slotBlock' ||
+      entityName === 'availableServicePincode'
+    ) {
       io.emit(eventName, payload);
       io.emit('global:sync', payload);
     }
