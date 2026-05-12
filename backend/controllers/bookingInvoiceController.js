@@ -216,7 +216,7 @@ export const getBookingInvoice = async (req, res) => {
       margin: MARGIN,
       info: {
         Title: `Invoice ${booking.orderNumber || ''}`,
-        Author: 'Carzzi',
+        Author: 'HYPER MOBILITY SERVICES',
         Subject: 'Tax Invoice',
       },
     });
@@ -240,12 +240,7 @@ export const getBookingInvoice = async (req, res) => {
     const logoPath = resolveLogoPath();
     if (logoPath) {
       doc.image(logoPath, MARGIN, 20, { fit: [LOGO_MAX_W, LOGO_MAX_H] });
-    } else {
-      doc.fillColor(COLORS.headerText).font('Helvetica-Bold').fontSize(22).text('Carzzi', MARGIN, 36);
     }
-
-    doc.fillColor(COLORS.headerText).font('Helvetica-Bold').fontSize(26);
-    doc.text('Carzzi', 0, 30, { width: pageWidth, align: 'center' });
 
     doc.fillColor(COLORS.headerMuted).font('Helvetica-Bold').fontSize(10);
     doc.text('TAX INVOICE', contentRight - 200, 28, { width: 200, align: 'right' });
@@ -288,7 +283,7 @@ export const getBookingInvoice = async (req, res) => {
       'Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051, India';
 
     doc.fillColor(COLORS.text).font('Helvetica-Bold').fontSize(11);
-    doc.text('Carzzi', leftX, yL, { width: colW });
+    doc.text('HYPER MOBILITY SERVICES', leftX, yL, { width: colW });
     doc.text(booking.user.name || 'Customer', rightX, yR, { width: colW });
     yL += 14;
     yR += 14;
@@ -298,6 +293,7 @@ export const getBookingInvoice = async (req, res) => {
     yL = top;
     yL = drawInvoiceLabeledField(doc, leftX, yL, 'Email', sellerEmail, colW);
     yL = drawInvoiceLabeledField(doc, leftX, yL, 'Phone number', sellerPhone, colW);
+    yL = drawInvoiceLabeledField(doc, leftX, yL, 'GST Registration No', '36AATFH3060Q1ZO', colW);
     yL = drawInvoiceLabeledField(doc, leftX, yL, 'Address', sellerAddress, colW);
 
     const custEmail = booking.user?.email || '—';
@@ -533,7 +529,7 @@ export const getBookingInvoice = async (req, res) => {
       { width: contentW, align: 'center' }
     );
     y += 22;
-    doc.fillColor(COLORS.muted).fontSize(8).text('Thank you for choosing Carzzi.', MARGIN, y, {
+    doc.fillColor(COLORS.muted).fontSize(8).text('Thank you for choosing HYPER MOBILITY SERVICES.', MARGIN, y, {
       width: contentW,
       align: 'center',
     });
@@ -541,7 +537,7 @@ export const getBookingInvoice = async (req, res) => {
     const rawPdf = await renderPdfToBuffer(doc);
     const securedPdf = await sealPdfBuffer(rawPdf);
 
-    const filename = 'carzzi_invoice.pdf';
+    const filename = 'invoice.pdf';
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', securedPdf.length);

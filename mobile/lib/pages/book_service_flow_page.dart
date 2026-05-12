@@ -111,7 +111,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final pinsRaw = payloadMap?['availablePincodes'];
         if (pinsRaw is List) {
           setState(() {
-            _availableServicePincodes = pinsRaw.map((e) => e.toString()).toList();
+            _availableServicePincodes = pinsRaw
+                .map((e) => e.toString())
+                .toList();
             _pincodesReady = true;
             if (!_isSelectedLocationAllowed) {
               _selectedTimeSlot = null;
@@ -135,7 +137,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final dateRaw = payloadMap?['date']?.toString();
         if (dateRaw != null && dateRaw.isNotEmpty) {
           final changedDate = DateTime.tryParse(dateRaw);
-          if (changedDate != null && _isSameCalendarDay(changedDate, _selectedDate)) {
+          if (changedDate != null &&
+              _isSameCalendarDay(changedDate, _selectedDate)) {
             await _fetchSlotsForDate(_selectedDate);
           }
         } else {
@@ -151,7 +154,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           return;
         }
         final changedDate = DateTime.tryParse(dateRaw);
-        if (changedDate != null && _isSameCalendarDay(changedDate, _selectedDate)) {
+        if (changedDate != null &&
+            _isSameCalendarDay(changedDate, _selectedDate)) {
           await _fetchSlotsForDate(_selectedDate);
         }
       }
@@ -206,7 +210,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           if (hour == null || minute == null) return true;
           if (period == 'PM' && hour < 12) hour += 12;
           if (period == 'AM' && hour == 12) hour = 0;
-          
+
           final slotTime = DateTime(now.year, now.month, now.day, hour, minute);
           return slotTime.isAfter(now);
         }).toList();
@@ -215,7 +219,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (!mounted) return;
       setState(() {
         _availableSlots = slots;
-        if (_selectedTimeSlot != null && !_availableSlots.contains(_selectedTimeSlot)) {
+        if (_selectedTimeSlot != null &&
+            !_availableSlots.contains(_selectedTimeSlot)) {
           _selectedTimeSlot = null;
         }
       });
@@ -234,7 +239,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final coupons = await _couponService.getCoupons();
       if (mounted) {
         setState(() {
-          _availableCoupons = coupons.where((c) => c['isActive'] == true).toList();
+          _availableCoupons = coupons
+              .where((c) => c['isActive'] == true)
+              .toList();
           _loadingCoupons = false;
         });
       }
@@ -264,7 +271,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('Exception: Failed to validate coupon: ', ''))),
+          SnackBar(
+            content: Text(
+              e.toString().replaceAll(
+                'Exception: Failed to validate coupon: ',
+                '',
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -591,11 +605,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     try {
       final List<dynamic> results = await Future.wait([
-        _vehicleService.listMyVehicles(forceRefresh: forceRefresh).catchError((e) {
+        _vehicleService.listMyVehicles(forceRefresh: forceRefresh).catchError((
+          e,
+        ) {
           debugPrint('Error fetching vehicles: $e');
           return <Vehicle>[];
         }),
-        _catalogService.listServices(forceRefresh: forceRefresh).catchError((e) {
+        _catalogService.listServices(forceRefresh: forceRefresh).catchError((
+          e,
+        ) {
           debugPrint('Error fetching services: $e');
           return <ServiceItem>[];
         }),
@@ -625,8 +643,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           _availableServicePincodes = availablePincodes;
           _pincodesReady = true;
           _hasAttemptedFetch = true;
-          _error = null; // Clear any previous errors if we got at least something
-          
+          _error =
+              null; // Clear any previous errors if we got at least something
+
           if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
             _selectedVehicleId = _vehicles.first.id;
 
@@ -2016,7 +2035,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     .user!
                     .addresses[index];
                 final pin = _extractPincode(addr.address);
-                final isBlockedAddress = _pincodesReady &&
+                final isBlockedAddress =
+                    _pincodesReady &&
                     (_availableServicePincodes.isEmpty ||
                         pin == null ||
                         !_availableServicePincodes.contains(pin));
@@ -2441,17 +2461,35 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     itemCount: _availableCoupons.length,
                     itemBuilder: (context, index) {
                       final coupon = _availableCoupons[index];
-                      final minRequired = (coupon['minOrderAmount'] ?? 0) as num;
-                      final isSelected = _appliedCoupon?['_id'] == coupon['_id'];
-                      final meetsMinOrder = minRequired == 0 || total >= minRequired;
+                      final minRequired =
+                          (coupon['minOrderAmount'] ?? 0) as num;
+                      final isSelected =
+                          _appliedCoupon?['_id'] == coupon['_id'];
+                      final meetsMinOrder =
+                          minRequired == 0 || total >= minRequired;
                       final isDisabled = !meetsMinOrder || _validatingCoupon;
 
                       final colors = [
-                        [const Color(0xFF4F46E5), const Color(0xFF4338CA)], // Indigo
-                        [const Color(0xFFE11D48), const Color(0xFFBE123C)], // Rose
-                        [const Color(0xFF059669), const Color(0xFF047857)], // Emerald
-                        [const Color(0xFFD97706), const Color(0xFFB45309)], // Amber
-                        [const Color(0xFF0284C7), const Color(0xFF0369A1)], // Light Blue
+                        [
+                          const Color(0xFF4F46E5),
+                          const Color(0xFF4338CA),
+                        ], // Indigo
+                        [
+                          const Color(0xFFE11D48),
+                          const Color(0xFFBE123C),
+                        ], // Rose
+                        [
+                          const Color(0xFF059669),
+                          const Color(0xFF047857),
+                        ], // Emerald
+                        [
+                          const Color(0xFFD97706),
+                          const Color(0xFFB45309),
+                        ], // Amber
+                        [
+                          const Color(0xFF0284C7),
+                          const Color(0xFF0369A1),
+                        ], // Light Blue
                       ];
                       final gradientColors = colors[index % colors.length];
 
@@ -2463,8 +2501,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           gradient: isDisabled
                               ? LinearGradient(
                                   colors: isDark
-                                      ? [Colors.grey.shade800, Colors.grey.shade900]
-                                      : [Colors.grey.shade300, Colors.grey.shade400],
+                                      ? [
+                                          Colors.grey.shade800,
+                                          Colors.grey.shade900,
+                                        ]
+                                      : [
+                                          Colors.grey.shade300,
+                                          Colors.grey.shade400,
+                                        ],
                                 )
                               : LinearGradient(
                                   begin: Alignment.topLeft,
@@ -2475,7 +2519,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                               ? []
                               : [
                                   BoxShadow(
-                                    color: gradientColors[0].withOpacity(0.3),
+                                    color: gradientColors[0].withValues(
+                                      alpha: 0.3,
+                                    ),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -2485,7 +2531,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            onTap: isDisabled ? null : () => _applyCouponByCode(coupon['code'], total),
+                            onTap: isDisabled
+                                ? null
+                                : () =>
+                                      _applyCouponByCode(coupon['code'], total),
                             child: Stack(
                               children: [
                                 // Decorative icon background
@@ -2495,18 +2544,20 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   child: Icon(
                                     Icons.local_offer_rounded,
                                     size: 90,
-                                    color: Colors.white.withOpacity(0.1),
+                                    color: Colors.white.withValues(alpha: 0.1),
                                   ),
                                 ),
                                 // Content
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             coupon['code'],
@@ -2514,11 +2565,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                               fontWeight: FontWeight.w900,
                                               fontSize: 20,
                                               letterSpacing: 1.5,
-                                              color: isDisabled ? Colors.grey.shade500 : Colors.white,
+                                              color: isDisabled
+                                                  ? Colors.grey.shade500
+                                                  : Colors.white,
                                             ),
                                           ),
                                           if (isSelected)
-                                            const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                                            const Icon(
+                                              Icons.check_circle,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
@@ -2527,7 +2584,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
-                                          color: isDisabled ? Colors.grey.shade500 : Colors.white.withOpacity(0.95),
+                                          color: isDisabled
+                                              ? Colors.grey.shade500
+                                              : Colors.white.withValues(
+                                                  alpha: 0.95,
+                                                ),
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -2537,9 +2598,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: isDisabled
-                                                ? (isDark ? Colors.red.shade400 : Colors.red.shade700)
-                                                : Colors.white.withOpacity(0.8),
-                                            fontWeight: isDisabled ? FontWeight.w600 : FontWeight.normal,
+                                                ? (isDark
+                                                      ? Colors.red.shade400
+                                                      : Colors.red.shade700)
+                                                : Colors.white.withValues(
+                                                    alpha: 0.8,
+                                                  ),
+                                            fontWeight: isDisabled
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                     ],
@@ -2558,7 +2625,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.green.withOpacity(0.1) : Colors.green.shade50,
+                      color: isDark
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.green.shade50,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: Colors.green.shade300,
@@ -2576,7 +2645,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 color: Colors.green.shade600,
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.check, color: Colors.white, size: 20),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Column(
@@ -2607,13 +2680,21 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           onPressed: _removeCoupon,
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            backgroundColor: Colors.red.withOpacity(0.1),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            backgroundColor: Colors.red.withValues(alpha: 0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text(
                             'REMOVE',
-                            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -2900,13 +2981,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           // If a coupon is applied, update tempBookingData with coupon details
           if (_appliedCoupon != null) {
             final double baseTotal = (res['totalAmount'] as num).toDouble();
-            final double discountAmount = (_appliedCoupon!['discountAmount'] ?? 0).toDouble();
-            final double finalAmount = (baseTotal - discountAmount).clamp(0, double.infinity);
+            final double discountAmount =
+                (_appliedCoupon!['discountAmount'] ?? 0).toDouble();
+            final double finalAmount = (baseTotal - discountAmount).clamp(
+              0,
+              double.infinity,
+            );
 
             res['coupon'] = _appliedCoupon!['_id'];
             res['discountAmount'] = discountAmount;
             res['finalAmount'] = finalAmount;
-            res['totalAmount'] = finalAmount; // Used as amount in cashfree create order
+            res['totalAmount'] =
+                finalAmount; // Used as amount in cashfree create order
           }
           await _processPayment(tempBookingData: res);
         } else {
@@ -2969,15 +3055,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     orderData['id'] ??
                     '')
                 .toString();
-        final paymentSessionId = (orderData['paymentSessionId'] ?? '').toString();
+        final paymentSessionId = (orderData['paymentSessionId'] ?? '')
+            .toString();
         final environment = (orderData['environment'] ?? 'sandbox').toString();
 
         if (orderId.isEmpty || paymentSessionId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Payment setup failed. Please try again.',
-              ),
+              content: Text('Payment setup failed. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );

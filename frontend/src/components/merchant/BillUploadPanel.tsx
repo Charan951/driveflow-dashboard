@@ -14,7 +14,7 @@ interface BillUploadPanelProps {
 /** Parts line already reflected on `booking.totalAmount` after inspection/parts save — do not add again as "base". */
 const getRecordedPartsTotal = (b: Booking): number => {
   const fromBilling = b.billing?.partsTotal;
-  if (fromBilling != null && fromBilling !== '') {
+  if (fromBilling != null) {
     const n = Number(fromBilling);
     if (!Number.isNaN(n)) return n;
   }
@@ -31,13 +31,13 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   const recordedParts = getRecordedPartsTotal(booking);
   const baseAtInit = getBaseServiceAmount(booking);
   const partsAtInit =
-    booking.billing?.partsTotal != null && booking.billing.partsTotal !== ''
+    booking.billing?.partsTotal != null
       ? Number(booking.billing.partsTotal)
       : recordedParts;
   const labourAtInit = Number(booking.billing?.labourCost) || 0;
   const gstAtInit = Number(booking.billing?.gst) || 0;
   const initialTotal =
-    booking.billing?.total != null && booking.billing.total !== ''
+    booking.billing?.total != null
       ? Number(booking.billing.total)
       : baseAtInit + partsAtInit + labourAtInit + gstAtInit;
 
@@ -57,7 +57,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   React.useEffect(() => {
     setFormData(prev => {
         const partsNum =
-          booking.billing?.partsTotal != null && booking.billing.partsTotal !== ''
+          booking.billing?.partsTotal != null
             ? Number(booking.billing.partsTotal)
             : getRecordedPartsTotal(booking) || parseFloat(String(prev.partsCost)) || 0;
         const labourCost = parseFloat(prev.labourCost.toString() || '0');

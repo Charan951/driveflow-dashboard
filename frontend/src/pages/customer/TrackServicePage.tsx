@@ -191,29 +191,6 @@ const TrackServicePage: React.FC = () => {
   }, [order]);
 
   useEffect(() => {
-    // Load Razorpay script
-    const loadRazorpayScript = () => {
-      // Check if Razorpay is already loaded
-      if ((window as any).Razorpay) {
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      script.onload = () => {
-        // Razorpay script loaded successfully
-      };
-      script.onerror = () => {
-        console.error('Failed to load Razorpay script');
-      };
-      document.body.appendChild(script);
-    };
-
-    loadRazorpayScript();
-  }, []);
-
-  useEffect(() => {
     fetchOrder();
 
     if (id) {
@@ -553,7 +530,7 @@ const TrackServicePage: React.FC = () => {
     if (!order || !user) return;
     
     // Check if Cashfree is loaded
-    if (!(window as any).Cashfree) {
+    if (!window.Cashfree) {
       toast.error('Payment gateway not loaded. Please refresh the page.');
       return;
     }
@@ -564,61 +541,34 @@ const TrackServicePage: React.FC = () => {
       // Use Cashfree for payment
       const orderData = await paymentService.createOrder(order._id, order.totalAmount);
       
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'DriveFlow',
-        description: 'Service Payment',
-        order_id: orderData.orderId,
-        handler: async (response: any) => {
-          try {
-            // Verify payment
-            const verificationData = {
-              cashfree_order_id: response.cashfree_order_id,
-              cashfree_payment_id: response.cashfree_payment_id,
-              cashfree_signature: response.cashfree_signature,
-              bookingId: order._id
-            };
+      const cashfree = window.Cashfree({ mode: orderData.environment });
+      
+      await cashfree.checkout({
+        paymentSessionId: orderData.paymentSessionId,
+        redirectTarget: '_modal'
+      });
 
-            await paymentService.verifyPayment(verificationData);
-            
-            if (isCarWashService) {
-              toast.success(`Payment Successful! Your ${isEssentials ? 'service' : 'car wash'} booking is now confirmed. Admin will assign staff shortly.`);
-            } else {
-              toast.success('Payment Successful!');
-            }
-            
-            const updatedOrder = await bookingService.getBookingById(order._id);
-            setOrder(updatedOrder);
-          } catch (verificationError: any) {
-            console.error('Payment verification failed:', verificationError);
-            toast.error('Payment verification failed. Please contact support.');
-          } finally {
-            setIsPaymentLoading(false);
-          }
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-          contact: user.phone || ''
-        },
-        theme: {
-          color: '#3B82F6'
-        },
-        modal: {
-          ondismiss: () => {
-            setIsPaymentLoading(false);
-          }
-        }
+      // Verify payment
+      const verificationData = {
+        orderId: orderData.orderId,
+        bookingId: order._id
       };
 
-      const cashfree = new (window as any).Cashfree(options);
-      cashfree.open();
+      await paymentService.verifyPayment(verificationData);
+      
+      if (isCarWashService) {
+        toast.success(`Payment Successful! Your ${isEssentials ? 'service' : 'car wash'} booking is now confirmed. Admin will assign staff shortly.`);
+      } else {
+        toast.success('Payment Successful!');
+      }
+      
+      const updatedOrder = await bookingService.getBookingById(order._id);
+      setOrder(updatedOrder);
       
     } catch (error: any) {
       console.error("Payment Error", error);
-      toast.error(error.response?.data?.message || "Failed to initiate payment");
+      toast.error(error.response?.data?.message || "Failed to process payment");
+    } finally {
       setIsPaymentLoading(false);
     }
   };

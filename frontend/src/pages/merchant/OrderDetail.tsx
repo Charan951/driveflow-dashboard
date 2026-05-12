@@ -404,13 +404,6 @@ const OrderDetail: React.FC = () => {
                                 )}
                             </div>
                             
-                            {booking.notes && (
-                                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">Customer Notes / Issue</p>
-                                    <p className="text-sm">{booking.notes}</p>
-                                </div>
-                            )}
-
                             {booking.revisit?.isRevisit && (
                                 <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg flex items-start gap-3">
                                     <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />

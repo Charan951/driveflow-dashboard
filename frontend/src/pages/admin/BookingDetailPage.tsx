@@ -69,6 +69,15 @@ const BookingDetailPage: React.FC = () => {
       return cat.includes('battery') || cat.includes('tyre') || cat.includes('tire');
     }), [booking?.services]);
 
+  const isEssentialsService = React.useMemo(() => {
+    return Array.isArray(booking?.services) && 
+      (booking!.services as Service[]).some(service => {
+        const name = service.name?.toLowerCase() || '';
+        const category = service.category?.toLowerCase() || '';
+        return name.includes('essentials') || category.includes('essentials');
+      });
+  }, [booking?.services]);
+
   const isGeneralService = React.useMemo(() => 
     Array.isArray(booking?.services) && 
     (booking!.services as Service[]).some(service => {
@@ -567,12 +576,12 @@ const BookingDetailPage: React.FC = () => {
           {isCarWashService && booking.carWash && (booking.carWash.beforeWashPhotos?.length > 0 || booking.carWash.afterWashPhotos?.length > 0) && (
             <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-primary" /> Car Wash Photos
+                <ImageIcon className="w-5 h-5 text-primary" /> {isEssentialsService ? 'Service Photos' : 'Car Wash Photos'}
               </h3>
               
               {booking.carWash.beforeWashPhotos && booking.carWash.beforeWashPhotos.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-muted-foreground">Before Wash Photos</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{isEssentialsService ? 'Before Service Photos' : 'Before Wash Photos'}</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {booking.carWash.beforeWashPhotos.map((url, index) => (
                       <button
@@ -594,7 +603,7 @@ const BookingDetailPage: React.FC = () => {
 
               {booking.carWash.afterWashPhotos && booking.carWash.afterWashPhotos.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-muted-foreground">After Wash Photos</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{isEssentialsService ? 'After Service Photos' : 'After Wash Photos'}</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {booking.carWash.afterWashPhotos.map((url, index) => (
                       <button
@@ -865,12 +874,6 @@ const BookingDetailPage: React.FC = () => {
                 )}
               </div>
             </div>
-            {booking.notes && (
-               <div className="mt-4 pt-4 border-t border-border">
-                  <label className="text-xs text-muted-foreground uppercase font-medium">Customer Notes</label>
-                  <p className="mt-1 text-sm italic">"{booking.notes}"</p>
-               </div>
-            )}
           </div>
 
           {/* Additional Parts - Inspection */}
@@ -1057,15 +1060,6 @@ const BookingDetailPage: React.FC = () => {
                    Assignments & Operations
                 </h3>
                 <div className="flex items-center gap-3">
-                   <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-border">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <input 
-                         type="datetime-local" 
-                         value={assignedAt}
-                         onChange={(e) => setAssignedAt(e.target.value)}
-                         className="bg-transparent border-none text-sm focus:ring-0"
-                      />
-                   </div>
                    <button 
                      onClick={handleAssignment}
                      className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm flex items-center gap-2"
@@ -1088,7 +1082,7 @@ const BookingDetailPage: React.FC = () => {
                       value={selectedCarWashStaff}
                       onChange={(e) => setSelectedCarWashStaff(e.target.value)}
                    >
-                      <option value="">Select Car Wash Staff...</option>
+                      <option value="">{isEssentialsService ? 'Select Staff...' : 'Select Car Wash Staff...'}</option>
                       {carWashStaff.map(s => {
                          let label = s.name;
                          if (s.isOnline) label += " 🟢 (Online)";
