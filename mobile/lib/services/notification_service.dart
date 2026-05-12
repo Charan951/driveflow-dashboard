@@ -1043,6 +1043,11 @@ class NotificationService {
     await _api.putAny('/notifications/$id/read');
   }
 
+  Future<void> deleteNotification(String id) async {
+    if (id.isEmpty) return;
+    await _api.deleteAny('/notifications/$id');
+  }
+
   Future<void> clearAll() async {
     await _api.deleteAny('/notifications/my');
   }

@@ -27,6 +27,6 @@ router.put('/:id/read', protect, markAsRead);
 
 // Generic routes last (to avoid conflicts)
 router.post('/', protect, admin, sendNotification);
-router.delete('/:id', protect, admin, deleteNotification);
+router.delete('/:id', protect, deleteNotification);
 
 export default router;

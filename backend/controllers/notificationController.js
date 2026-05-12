@@ -107,13 +107,18 @@ export const markAsRead = async (req, res) => {
 
 // @desc    Delete a notification
 // @route   DELETE /api/notifications/:id
-// @access  Private/Admin
+// @access  Private
 export const deleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
 
     if (!notification) {
       return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    // Check ownership or admin status
+    if (notification.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(401).json({ message: 'Not authorized' });
     }
 
     const notificationId = notification._id;

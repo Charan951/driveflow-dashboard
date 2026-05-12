@@ -103,6 +103,64 @@ class _NotificationsPageState extends State<NotificationsPage> {
     } catch (_) {}
   }
 
+  Future<void> _handleDelete(NotificationItem item) async {
+    final originalItems = List<NotificationItem>.from(_items);
+    setState(() {
+      _items.removeWhere((n) => n.id == item.id);
+    });
+
+    try {
+      await _service.deleteNotification(item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notification deleted'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = originalItems;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete notification: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleClearAll() async {
+    final originalItems = List<NotificationItem>.from(_items);
+    setState(() {
+      _items = [];
+    });
+
+    try {
+      await _service.clearAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All notifications cleared'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = originalItems;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to clear notifications: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _openNotification(NotificationItem item) async {
     await _handleMarkAsRead(item);
     if (!mounted) return;
@@ -220,6 +278,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
+        actions: [
+          if (_items.isNotEmpty)
+            TextButton(
+              onPressed: _handleClearAll,
+              child: const Text(
+                'Clear All',
+                style: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -283,179 +355,212 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 itemBuilder: (context, index) {
                   final item = _items[index];
                   final color = _typeColor(item.type);
-                  return InkWell(
-                    onTap: () => _openNotification(item),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
+                  return Dismissible(
+                    key: Key('notif_${item.id}'),
+                    direction: DismissDirection.horizontal,
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                        color: AppColors.backgroundSecondary,
+                        color: Colors.redAccent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: item.isRead
-                              ? AppColors.borderColor
-                              : color.withValues(alpha: 0.3),
-                          width: item.isRead ? 1 : 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: color.withValues(alpha: 0.2),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    onDismissed: (direction) => _handleDelete(item),
+                    child: InkWell(
+                      onTap: () => _openNotification(item),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundSecondary,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: item.isRead
+                                ? AppColors.borderColor
+                                : color.withValues(alpha: 0.3),
+                            width: item.isRead ? 1 : 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: color.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Icon(
+                                _typeIcon(item.type),
+                                color: color,
+                                size: 20,
                               ),
                             ),
-                            child: Icon(
-                              _typeIcon(item.type),
-                              color: color,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        item.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: item.isRead
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w800,
-                                              color: item.isRead
-                                                  ? AppColors.textSecondary
-                                                  : AppColors.textPrimary,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${item.createdAt.hour.toString().padLeft(2, '0')}:${item.createdAt.minute.toString().padLeft(2, '0')}',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  item.message,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: item.isRead
-                                            ? AppColors.textMuted
-                                            : AppColors.textSecondary,
-                                      ),
-                                ),
-                                if (_isApprovalRequest(item) &&
-                                    item.approvalId != null &&
-                                    item.approvalId!.isNotEmpty &&
-                                    !item.isRead &&
-                                    !_approvalActionHandled.contains(
-                                      item.id,
-                                    )) ...[
-                                  const SizedBox(height: 10),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: OutlinedButton(
-                                          onPressed:
-                                              _approvalActionLoading.contains(
-                                                item.id,
-                                              )
-                                              ? null
-                                              : () => _handleApprovalAction(
-                                                  item,
-                                                  'Rejected',
-                                                ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.redAccent,
-                                            side: const BorderSide(
-                                              color: Colors.redAccent,
-                                            ),
-                                          ),
-                                          child: const Text('Reject'),
+                                        child: Text(
+                                          item.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: item.isRead
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w800,
+                                                color: item.isRead
+                                                    ? AppColors.textSecondary
+                                                    : AppColors.textPrimary,
+                                              ),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          onPressed:
-                                              _approvalActionLoading.contains(
-                                                item.id,
-                                              )
-                                              ? null
-                                              : () => _handleApprovalAction(
-                                                  item,
-                                                  'Approved',
-                                                ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                AppColors.primaryBlue,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          child: _approvalActionLoading
-                                                  .contains(item.id)
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Colors.white,
-                                                      ),
-                                                )
-                                              : const Text('Approve'),
-                                        ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${item.createdAt.hour.toString().padLeft(2, '0')}:${item.createdAt.minute.toString().padLeft(2, '0')}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (!item.isRead) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(top: 4),
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.5),
-                                    blurRadius: 4,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    item.message,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: item.isRead
+                                              ? AppColors.textMuted
+                                              : AppColors.textSecondary,
+                                        ),
                                   ),
+                                  if (_isApprovalRequest(item) &&
+                                      item.approvalId != null &&
+                                      item.approvalId!.isNotEmpty &&
+                                      !item.isRead &&
+                                      !_approvalActionHandled.contains(
+                                        item.id,
+                                      )) ...[
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed:
+                                                _approvalActionLoading.contains(
+                                                  item.id,
+                                                )
+                                                ? null
+                                                : () => _handleApprovalAction(
+                                                    item,
+                                                    'Rejected',
+                                                  ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.redAccent,
+                                              side: const BorderSide(
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                            child: const Text('Reject'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed:
+                                                _approvalActionLoading.contains(
+                                                  item.id,
+                                                )
+                                                ? null
+                                                : () => _handleApprovalAction(
+                                                    item,
+                                                    'Approved',
+                                                  ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.primaryBlue,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child:
+                                                _approvalActionLoading.contains(
+                                                  item.id,
+                                                )
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
+                                                  )
+                                                : const Text('Approve'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
+                            if (!item.isRead) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(top: 4),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.5),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   );
