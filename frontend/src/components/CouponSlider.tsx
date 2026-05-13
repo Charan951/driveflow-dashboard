@@ -2,28 +2,32 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { couponService, Coupon } from '@/services/couponService';
 import { Ticket } from 'lucide-react';
-
-const COLORS = [
-  'bg-blue-600',
-  'bg-purple-600',
-  'bg-pink-600',
-  'bg-orange-600',
-  'bg-green-600',
-  'bg-indigo-600',
-  'bg-rose-600',
-  'bg-amber-600',
-];
+import { useAuthStore } from '@/store/authStore';
 
 const CouponSlider: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const fetchCoupons = async () => {
       try {
         const data = await couponService.getCoupons();
-        const activeCoupons = data.filter(c => c.isActive);
-        setCoupons(activeCoupons);
+        const filteredCoupons = data.filter(c => {
+          if (!c.isActive) return false;
+
+          // Filter by targeted users
+          if (c.targetUsers && c.targetUsers.length > 0) {
+            const isTargeted = c.targetUsers.some(target => 
+              (user?.email && target.email && target.email.toLowerCase() === user.email.toLowerCase()) ||
+              (user?.phone && target.mobile && target.mobile === user.phone)
+            );
+            if (!isTargeted) return false;
+          }
+
+          return true;
+        });
+        setCoupons(filteredCoupons);
       } catch (error) {
         console.error('Failed to fetch coupons:', error);
         setCoupons([]);
@@ -32,7 +36,7 @@ const CouponSlider: React.FC = () => {
       }
     };
     fetchCoupons();
-  }, []);
+  }, [user]);
 
   if (loading || coupons.length === 0) return null;
   // Create enough copies for a smooth infinite loop

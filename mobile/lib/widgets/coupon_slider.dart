@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/coupon_service.dart';
-import '../core/app_colors.dart';
+import '../state/auth_provider.dart';
 
 class CouponSlider extends StatefulWidget {
   final List<dynamic>? initialCoupons;
@@ -18,17 +19,6 @@ class _CouponSliderState extends State<CouponSlider> {
   Timer? _scrollTimer;
   List<dynamic> _coupons = [];
   bool _loading = true;
-
-  final List<Color> _cardColors = [
-    const Color(0xFF2563EB), // blue-600
-    const Color(0xFF9333EA), // purple-600
-    const Color(0xFFDB2777), // pink-600
-    const Color(0xFFEA580C), // orange-600
-    const Color(0xFF16A34A), // green-600
-    const Color(0xFF4F46E5), // indigo-600
-    const Color(0xFFE11D48), // rose-600
-    const Color(0xFFD97706), // amber-600
-  ];
 
   @override
   void initState() {
@@ -63,6 +53,8 @@ class _CouponSliderState extends State<CouponSlider> {
 
   List<dynamic> _filterActive(List<dynamic> data) {
     final now = DateTime.now();
+    final user = context.read<AuthProvider>().user;
+
     return data.where((c) {
       if (c is! Map) return false;
       final isActive = c['isActive'] == true;
@@ -75,6 +67,24 @@ class _CouponSliderState extends State<CouponSlider> {
           if (validUntil.isBefore(now)) return false;
         } catch (_) {}
       }
+
+      // Filter by targeted users
+      final List<dynamic>? targetUsers = c['targetUsers'];
+      if (targetUsers != null && targetUsers.isNotEmpty) {
+        final bool isTargeted = targetUsers.any((target) {
+          final String? targetEmail = target['email'];
+          final String? targetMobile = target['mobile'];
+
+          return (user?.email != null &&
+                  targetEmail != null &&
+                  targetEmail.toLowerCase() == user!.email.toLowerCase()) ||
+              (user?.phone != null &&
+                  targetMobile != null &&
+                  targetMobile == user!.phone);
+        });
+        if (!isTargeted) return false;
+      }
+
       return true;
     }).toList();
   }
@@ -157,18 +167,18 @@ class _CouponSliderState extends State<CouponSlider> {
               margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [cardColor, cardColor.withOpacity(0.8)],
+                  colors: [cardColor, cardColor.withValues(alpha: 0.8)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: accentColor.withOpacity(0.3),
+                  color: accentColor.withValues(alpha: 0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: cardColor.withOpacity(0.2),
+                    color: cardColor.withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -210,7 +220,9 @@ class _CouponSliderState extends State<CouponSlider> {
                                   Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.1),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(
@@ -241,6 +253,21 @@ class _CouponSliderState extends State<CouponSlider> {
                                   letterSpacing: -0.5,
                                 ),
                               ),
+                              if (coupon['description'] != null &&
+                                  coupon['description'].toString().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    coupon['description'].toString(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: textColor.withValues(alpha: 0.7),
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
 
@@ -250,7 +277,7 @@ class _CouponSliderState extends State<CouponSlider> {
                             decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: textColor.withOpacity(0.1),
+                                  color: textColor.withValues(alpha: 0.1),
                                   width: 1,
                                 ),
                               ),
@@ -331,27 +358,4 @@ class _CouponSliderState extends State<CouponSlider> {
       ),
     );
   }
-}
-
-class _DashPainter extends CustomPainter {
-  final Color color;
-  _DashPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    var paint = Paint()
-      ..color = color
-      ..strokeWidth = 2;
-    var max = size.width;
-    var dashWidth = 5;
-    var dashSpace = 3;
-    double startX = 0;
-    while (startX < max) {
-      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
-      startX += dashWidth + dashSpace;
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

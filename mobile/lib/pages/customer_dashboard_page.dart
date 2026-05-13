@@ -570,6 +570,26 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                     );
                   },
                 ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Special Offers',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/coupons'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: const Text('View All'),
+                    ),
+                  ],
+                ),
                 CouponSlider(initialCoupons: _coupons),
                 AppSpacing.verticalSmall,
                 if (_loading && _vehicles.isEmpty && _bookings.isEmpty)

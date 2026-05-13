@@ -13,12 +13,21 @@ class CouponService {
 
   Future<Map<String, dynamic>> validateCoupon(
     String code,
-    double orderAmount,
-  ) async {
+    double orderAmount, {
+    String? serviceType,
+    String? email,
+    String? mobile,
+  }) async {
     try {
       final res = await _api.postAny(
         '/coupons/validate',
-        body: {'code': code, 'orderAmount': orderAmount},
+        body: {
+          'code': code,
+          'orderAmount': orderAmount,
+          'serviceType': serviceType,
+          'email': email,
+          'mobile': mobile,
+        },
       );
       return res as Map<String, dynamic>;
     } catch (e) {

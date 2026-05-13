@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Battery, Disc, Tag, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Car, Calendar, MapPin, Wrench, Tag, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import CashfreePayment from '@/components/CashfreePayment';
@@ -131,6 +131,29 @@ const PaymentPage: React.FC = () => {
   }, []);
 
   // Determine service type for display
+  const getSelectedServiceType = () => {
+    if (!tempBookingData) return undefined;
+    
+    if (tempBookingData.isCarWashService) return 'Car Wash';
+    if (tempBookingData.isEssentialsService) return 'Essentials';
+    
+    // Check if services are provided in the booking data
+    if (tempBookingData.services && Array.isArray(tempBookingData.services) && tempBookingData.services.length > 0) {
+      const firstService = tempBookingData.services[0];
+      // Check if firstService is an object with a category property
+      const category = (typeof firstService === 'object' && firstService !== null && 'category' in (firstService as any))
+        ? ((firstService as any).category || '').toLowerCase()
+        : '';
+      
+      if (category.includes('periodic') || category.includes('general')) return 'General Service';
+      if (category.includes('wash')) return 'Car Wash';
+      if (category.includes('essential')) return 'Essentials';
+      if (category.includes('tyre') || category.includes('battery')) return 'Tyres and Battery';
+    }
+    
+    return undefined;
+  };
+
   const getServiceInfo = () => {
     if (!tempBookingData) {
       return { type: 'Service', icon: Wrench, color: 'blue' };
@@ -147,12 +170,11 @@ const PaymentPage: React.FC = () => {
     }
     
     // For new payment flow, check service categories from the booking data
-    // This assumes the service data is available in tempBookingData
     if (tempBookingData.requiresPaymentService) {
-      // We can determine the type based on the service names or categories
-      // For now, we'll use a generic approach since we don't have service details
-      // In a real implementation, you'd fetch service details by serviceIds
-      return { type: 'Service', icon: Wrench, color: 'blue' };
+      const serviceType = getSelectedServiceType();
+      if (serviceType) {
+        return { type: serviceType, icon: Wrench, color: 'blue' };
+      }
     }
     
     // Default to generic service
@@ -166,9 +188,10 @@ const PaymentPage: React.FC = () => {
 
   const calculateFinalAmount = () => {
     if (!tempBookingData) return 0;
-    const baseAmount = tempBookingData.totalAmount;
+    const baseAmount = Number(tempBookingData.totalAmount) || 0;
     if (appliedCoupon) {
-      return Math.max(0, baseAmount - appliedCoupon.discountAmount);
+      const discount = Number(appliedCoupon.discountAmount) || 0;
+      return Math.max(0, baseAmount - discount);
     }
     return baseAmount;
   };
@@ -177,8 +200,32 @@ const PaymentPage: React.FC = () => {
     setLoadingCoupons(true);
     try {
       const coupons = await couponService.getCoupons();
-      const activeCoupons = coupons.filter(coupon => coupon.isActive);
-      setAvailableCoupons(activeCoupons);
+      const serviceType = getSelectedServiceType();
+      
+      const filteredCoupons = coupons.filter(coupon => {
+        if (!coupon.isActive) return false;
+        
+        // Filter by service applicability
+        if (serviceType && coupon.applicableServices && coupon.applicableServices.length > 0) {
+          const isAllApplicable = coupon.applicableServices.includes('All');
+          if (!isAllApplicable && !coupon.applicableServices.includes(serviceType)) {
+            return false;
+          }
+        }
+        
+        // Filter by targeted users
+        if (coupon.targetUsers && coupon.targetUsers.length > 0) {
+          const isTargeted = coupon.targetUsers.some(target => 
+            (user?.email && target.email && target.email.toLowerCase() === user.email.toLowerCase()) ||
+            (user?.phone && target.mobile && target.mobile === user.phone)
+          );
+          if (!isTargeted) return false;
+        }
+        
+        return true;
+      });
+      
+      setAvailableCoupons(filteredCoupons);
     } catch (error) {
       console.error('Failed to load coupons:', error);
     } finally {
@@ -189,7 +236,13 @@ const PaymentPage: React.FC = () => {
   const applyCouponByCode = async (code: string) => {
     setValidatingCoupon(true);
     try {
-      const result = await couponService.validateCoupon(code, tempBookingData.totalAmount);
+      const result = await couponService.validateCoupon(
+        code, 
+        tempBookingData.totalAmount,
+        getSelectedServiceType(),
+        user?.email,
+        user?.phone
+      );
       if (result.valid && result.coupon) {
         setAppliedCoupon(result.coupon);
         toast.success('Coupon applied successfully!');

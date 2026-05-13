@@ -24,7 +24,7 @@ export const getCouponById = async (req, res) => {
 
 export const validateCoupon = async (req, res) => {
   try {
-    const { code, orderAmount } = req.body;
+    const { code, orderAmount, serviceType, email, mobile } = req.body;
 
     if (!code) {
       return res.status(400).json({ message: 'Coupon code is required' });
@@ -47,6 +47,31 @@ export const validateCoupon = async (req, res) => {
 
     if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
       return res.status(400).json({ valid: false, message: 'Coupon usage limit reached' });
+    }
+
+    // Check service applicability
+    if (serviceType && coupon.applicableServices && coupon.applicableServices.length > 0) {
+      const isAllApplicable = coupon.applicableServices.includes('All');
+      if (!isAllApplicable && !coupon.applicableServices.includes(serviceType)) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: `Coupon is not applicable for ${serviceType}` 
+        });
+      }
+    }
+
+    // Check targeted users
+    if (coupon.targetUsers && coupon.targetUsers.length > 0) {
+      const isTargeted = coupon.targetUsers.some(user => 
+        (email && user.email && user.email.toLowerCase() === email.toLowerCase()) ||
+        (mobile && user.mobile && user.mobile === mobile)
+      );
+      if (!isTargeted) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: 'This coupon is only available for specific users' 
+        });
+      }
     }
 
     if (orderAmount !== undefined && orderAmount < coupon.minOrderAmount) {
@@ -92,6 +117,8 @@ export const createCoupon = async (req, res) => {
       validFrom, 
       validUntil, 
       isActive, 
+      applicableServices,
+      targetUsers,
       description 
     } = req.body;
 
@@ -124,6 +151,8 @@ export const createCoupon = async (req, res) => {
       validFrom: new Date(validFrom),
       validUntil: new Date(validUntil),
       isActive: isActive !== undefined ? isActive : true,
+      applicableServices: applicableServices || ['All'],
+      targetUsers: targetUsers || [],
       description: description || ''
     });
 
@@ -147,6 +176,8 @@ export const updateCoupon = async (req, res) => {
       validFrom, 
       validUntil, 
       isActive, 
+      applicableServices,
+      targetUsers,
       description 
     } = req.body;
 
@@ -179,6 +210,8 @@ export const updateCoupon = async (req, res) => {
     if (validFrom !== undefined) coupon.validFrom = new Date(validFrom);
     if (validUntil !== undefined) coupon.validUntil = new Date(validUntil);
     if (isActive !== undefined) coupon.isActive = isActive;
+    if (applicableServices !== undefined) coupon.applicableServices = applicableServices;
+    if (targetUsers !== undefined) coupon.targetUsers = targetUsers;
     if (description !== undefined) coupon.description = description;
 
     const updatedCoupon = await coupon.save();

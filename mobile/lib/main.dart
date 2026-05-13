@@ -22,6 +22,7 @@ import 'models/vehicle.dart';
 import 'pages/add_vehicle_page.dart';
 import 'pages/my_bookings_page.dart';
 import 'pages/profile_page.dart';
+import 'pages/coupons_page.dart';
 import 'pages/speshway_vehiclecare_dashboard_page.dart';
 import 'pages/book_service_flow_page.dart';
 import 'services/socket_service.dart';
@@ -451,6 +452,7 @@ class MyApp extends StatelessWidget {
               '/essentials': (_) => const _TabRedirect(index: 1),
               '/support': (_) => const SupportPage(),
               '/profile': (_) => const ProfilePage(),
+              '/coupons': (_) => const CouponsPage(),
               '/car-wash': (_) => const _TabRedirect(index: 3),
               '/tires': (_) => const _TabRedirect(index: 4),
               '/track': (_) => const TrackBookingPage(),

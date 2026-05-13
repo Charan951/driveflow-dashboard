@@ -11,6 +11,8 @@ export interface Coupon {
   validFrom: string;
   validUntil: string;
   isActive: boolean;
+  applicableServices?: string[];
+  targetUsers?: { email?: string; mobile?: string }[];
   description?: string;
   createdAt: string;
   updatedAt: string;
@@ -41,8 +43,8 @@ export const couponService = {
     return response.data;
   },
 
-  validateCoupon: async (code: string, orderAmount: number): Promise<ValidatedCoupon> => {
-    const response = await api.post('/coupons/validate', { code, orderAmount });
+  validateCoupon: async (code: string, orderAmount: number, serviceType?: string, email?: string, mobile?: string): Promise<ValidatedCoupon> => {
+    const response = await api.post('/coupons/validate', { code, orderAmount, serviceType, email, mobile });
     return response.data;
   },
 

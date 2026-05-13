@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash, Calendar, Percent, Tag, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash, Calendar, Percent, Tag, CheckCircle, XCircle, FileUp } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { motion } from 'framer-motion';
 import { couponService, Coupon } from '@/services/couponService';
 import { socketService } from '@/services/socket';
@@ -236,8 +237,96 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
     validFrom: coupon?.validFrom ? new Date(coupon.validFrom).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     validUntil: coupon?.validUntil ? new Date(coupon.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     isActive: coupon?.isActive !== undefined ? coupon.isActive : true,
+    applicableServices: coupon?.applicableServices || ['All'],
+    targetUsers: coupon?.targetUsers || [],
     description: coupon?.description || '',
   });
+
+  const [newUser, setNewUser] = useState({ email: '', mobile: '' });
+
+  const services = ['All', 'General Service', 'Car Wash', 'Essentials', 'Tyres and Battery'];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          toast.error('Excel sheet is empty');
+          return;
+        }
+
+        const newUsers = data.map((row: any) => {
+          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
+          const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
+          return { email: email || undefined, mobile: mobile || undefined };
+        }).filter(user => user.email || user.mobile);
+
+        if (newUsers.length === 0) {
+          toast.error('No valid Email or Phone numbers found in the sheet');
+          return;
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          targetUsers: [...prev.targetUsers, ...newUsers]
+        }));
+        
+        toast.success(`Imported ${newUsers.length} users from Excel`);
+      } catch (err) {
+        toast.error('Failed to parse Excel file');
+        console.error(err);
+      }
+    };
+    reader.onerror = () => toast.error('Failed to read file');
+    reader.readAsBinaryString(file);
+    e.target.value = '';
+  };
+
+  const addUser = () => {
+    if (!newUser.email && !newUser.mobile) {
+      toast.error('Please enter at least email or mobile');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      targetUsers: [...prev.targetUsers, { ...newUser }]
+    }));
+    setNewUser({ email: '', mobile: '' });
+  };
+
+  const removeUser = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      targetUsers: prev.targetUsers.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleServiceToggle = (service: string) => {
+    setFormData(prev => {
+      let newServices;
+      if (service === 'All') {
+        newServices = prev.applicableServices.includes('All') ? [] : ['All'];
+      } else {
+        newServices = prev.applicableServices.filter(s => s !== 'All');
+        if (newServices.includes(service)) {
+          newServices = newServices.filter(s => s !== service);
+        } else {
+          newServices = [...newServices, service];
+        }
+        if (newServices.length === 0) newServices = ['All'];
+      }
+      return { ...prev, applicableServices: newServices };
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -249,11 +338,13 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
     const cleanedData = {
       ...formData,
       maxDiscountAmount: formData.maxDiscountAmount === '' ? null : Number(formData.maxDiscountAmount),
       usageLimit: formData.usageLimit === '' ? null : Number(formData.usageLimit),
       minOrderAmount: Number(formData.minOrderAmount) || 0,
+      targetUsers: formData.targetUsers,
     };
     onSave(cleanedData);
   };
@@ -373,6 +464,112 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
                 />
                 <Label htmlFor="isActive" className="font-semibold cursor-pointer">Active</Label>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold mb-3">Applicable Services</label>
+                <div className="flex flex-wrap gap-2">
+                  {services.map(service => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => handleServiceToggle(service)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        formData.applicableServices.includes(service)
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                      }`}
+                    >
+                      {service}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-semibold text-foreground">Target Users (Email, Mobile)</label>
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg cursor-pointer hover:bg-primary/20 transition-all border border-primary/20 font-medium">
+                    <FileUp size={14} />
+                    <span>Upload Excel</span>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        type="email"
+                        placeholder="Email address"
+                        value={newUser.email}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        type="tel"
+                        placeholder="Mobile number"
+                        value={newUser.mobile}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, mobile: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={addUser}
+                      size="sm"
+                      className="h-9"
+                    >
+                      Add
+                    </Button>
+                  </div>
+
+                  <div className="border border-border rounded-lg overflow-hidden bg-background">
+                    <div className="max-h-[200px] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 sticky top-0 z-10">
+                          <tr className="border-b border-border">
+                            <th className="text-left p-2 font-semibold text-muted-foreground">Email</th>
+                            <th className="text-left p-2 font-semibold text-muted-foreground">Mobile</th>
+                            <th className="w-10 p-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {formData.targetUsers.length > 0 ? (
+                            formData.targetUsers.map((user, index) => (
+                              <tr key={index} className="hover:bg-muted/30 transition-colors">
+                                <td className="p-2 truncate max-w-[150px]" title={user.email}>{user.email || '-'}</td>
+                                <td className="p-2">{user.mobile || '-'}</td>
+                                <td className="p-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeUser(index)}
+                                    className="p-1 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                                  >
+                                    <Trash size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="p-4 text-center text-muted-foreground italic">
+                                No target users added yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="md:col-span-2">

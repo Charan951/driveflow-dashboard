@@ -203,13 +203,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     final categories = selectedServices.map((s) => s.category).toList();
 
-    if (categories.any((c) => c == 'Car Wash' || c == 'Wash'))
+    if (categories.any((c) => c == 'Car Wash' || c == 'Wash')) {
       return 'Car Wash';
+    }
     if (categories.any(
       (c) => c == 'Tyres' || c == 'Battery' || c == 'Tyre & Battery',
-    ))
+    )) {
       return 'Tyres & Battery';
-    if (categories.any((c) => c == 'Essentials')) return 'Essentials';
+    }
+    if (categories.any((c) => c == 'Essentials')) {
+      return 'Essentials';
+    }
 
     return 'General Services';
   }
@@ -261,14 +265,47 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     setState(() => _loadingCoupons = true);
     try {
       final coupons = await _couponService.getCoupons();
-      if (mounted) {
-        setState(() {
-          _availableCoupons = coupons
-              .where((c) => c['isActive'] == true)
-              .toList();
-          _loadingCoupons = false;
-        });
-      }
+      if (!mounted) return;
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.user;
+      final serviceType = _getSelectedServiceType();
+
+      setState(() {
+        _availableCoupons = coupons.where((c) {
+          if (c['isActive'] != true) return false;
+
+          // Filter by service applicability
+          final List<dynamic>? applicableServices = c['applicableServices'];
+          if (serviceType != null &&
+              applicableServices != null &&
+              applicableServices.isNotEmpty) {
+            final bool isAllApplicable = applicableServices.contains('All');
+            if (!isAllApplicable && !applicableServices.contains(serviceType)) {
+              return false;
+            }
+          }
+
+          // Filter by targeted users
+          final List<dynamic>? targetUsers = c['targetUsers'];
+          if (targetUsers != null && targetUsers.isNotEmpty) {
+            final bool isTargeted = targetUsers.any((target) {
+              final String? targetEmail = target['email'];
+              final String? targetMobile = target['mobile'];
+
+              return (user?.email != null &&
+                      targetEmail != null &&
+                      targetEmail.toLowerCase() == user!.email.toLowerCase()) ||
+                  (user?.phone != null &&
+                      targetMobile != null &&
+                      targetMobile == user!.phone);
+            });
+            if (!isTargeted) return false;
+          }
+
+          return true;
+        }).toList();
+        _loadingCoupons = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loadingCoupons = false);
     }
@@ -277,7 +314,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Future<void> _applyCouponByCode(String code, double totalAmount) async {
     setState(() => _validatingCoupon = true);
     try {
-      final result = await _couponService.validateCoupon(code, totalAmount);
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.user;
+
+      final result = await _couponService.validateCoupon(
+        code,
+        totalAmount,
+        serviceType: _getSelectedServiceType(),
+        email: user?.email,
+        mobile: user?.phone,
+      );
       if (mounted) {
         if (result['valid'] == true && result['coupon'] != null) {
           setState(() {
@@ -310,6 +356,29 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         setState(() => _validatingCoupon = false);
       }
     }
+  }
+
+  String? _getSelectedServiceType() {
+    if (_selectedServiceIds.isEmpty) return null;
+
+    final service = _allServices.firstWhere(
+      (s) => s.id == _selectedServiceIds.first,
+      orElse: () => _allServices.first,
+    );
+
+    final category = service.category?.toLowerCase() ?? '';
+
+    if (category.contains('periodic') || category.contains('general')) {
+      return 'General Service';
+    } else if (category.contains('wash')) {
+      return 'Car Wash';
+    } else if (category.contains('essential')) {
+      return 'Essentials';
+    } else if (category.contains('tyre') || category.contains('battery')) {
+      return 'Tyres and Battery';
+    }
+
+    return null;
   }
 
   void _removeCoupon() {
@@ -2453,9 +2522,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         const SizedBox(height: 24),
 
         // Coupon Section
-        Text(
-          'Apply Coupon',
-          style: AppStyles.headingStyle.copyWith(fontSize: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Apply Coupon',
+              style: AppStyles.headingStyle.copyWith(fontSize: 16),
+            ),
+            if (_availableCoupons.isNotEmpty)
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/coupons'),
+                child: const Text('View All'),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         Container(

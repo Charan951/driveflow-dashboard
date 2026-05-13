@@ -42,6 +42,14 @@ const couponSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  applicableServices: {
+    type: [String],
+    default: ['All']
+  },
+  targetUsers: [{
+    email: String,
+    mobile: String
+  }],
   description: {
     type: String,
     default: ''
