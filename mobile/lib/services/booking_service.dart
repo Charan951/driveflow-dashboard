@@ -37,9 +37,9 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
-  Future<List<String>> getAvailableSlots(String date) async {
+  Future<List<String>> getAvailableSlots(String date, {String category = 'All'}) async {
     final res = await _api.getAny(
-      '${ApiEndpoints.bookingsAvailableSlots}?date=$date',
+      '${ApiEndpoints.bookingsAvailableSlots}?date=$date&category=$category',
     );
     if (res is Map<String, dynamic>) {
       final raw = res['availableSlots'];

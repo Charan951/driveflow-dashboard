@@ -16,7 +16,9 @@ import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../state/auth_provider.dart';
+import '../services/coupon_service.dart';
 import '../widgets/customer_drawer.dart';
+import '../widgets/coupon_slider.dart';
 
 class CustomerDashboardPage extends StatefulWidget {
   const CustomerDashboardPage({super.key});
@@ -30,6 +32,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   final _vehicleService = VehicleService();
   final _bookingService = BookingService();
   final _reviewService = ReviewService();
+  final _couponService = CouponService();
   final _scrollController = ScrollController();
   SocketService? _socketService;
   String? _selectedVehicleId;
@@ -42,6 +45,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
+  List<dynamic> _coupons = [];
   List<Map<String, dynamic>> _reviews = [];
   Booking? _upcomingBookingCached;
 
@@ -104,6 +108,10 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
       if (decoded is! Map) return;
       final map = Map<String, dynamic>.from(decoded);
 
+      final coupons = (map['coupons'] as List? ?? [])
+          .where((c) => c is Map && c['isActive'] == true)
+          .toList();
+
       final vehicles = <Vehicle>[];
       final v = map['vehicles'];
       if (v is List) {
@@ -160,6 +168,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         _bookings = bookings;
         _services = services;
         _reviews = reviews;
+        _coupons = coupons;
         _upcomingBookingCached = upcoming;
         if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
           _selectedVehicleId = _vehicles.first.id;
@@ -175,6 +184,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         'bookings': _bookings.map((b) => b.toJson()).toList(),
         'services': _services.map((s) => s.toJson()).toList(),
         'reviews': _reviews,
+        'coupons': _coupons,
         'updatedAt': DateTime.now().toIso8601String(),
       };
       await AppStorage().setDashboardJson(jsonEncode(map));
@@ -214,6 +224,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         _reviewService.getMyReviews().catchError(
           (e) => <Map<String, dynamic>>[],
         ),
+        _couponService.getCoupons().catchError((e) => []),
       ]);
 
       if (mounted) {
@@ -221,6 +232,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         final bookings = (results[1] as List<Booking>);
         final services = (results[2] as List<ServiceItem>);
         final reviews = (results[3] as List<Map<String, dynamic>>);
+        final coupons = (results[4] as List<dynamic>);
 
         // If everything is empty and it wasn't a background refresh, we might want to show an error
         // But usually we just show empty states.
@@ -232,6 +244,9 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
           _bookings = bookings;
           _services = services;
           _reviews = reviews;
+          _coupons = coupons
+              .where((c) => (c as Map)['isActive'] == true)
+              .toList();
           _upcomingBookingCached = upcoming;
           if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
             _selectedVehicleId = _vehicles.first.id;
@@ -555,6 +570,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                     );
                   },
                 ),
+                CouponSlider(initialCoupons: _coupons),
                 AppSpacing.verticalSmall,
                 if (_loading && _vehicles.isEmpty && _bookings.isEmpty)
                   const Padding(
@@ -1314,10 +1330,9 @@ class _MyVehiclesSection extends StatelessWidget {
                   child: _MyVehicleCarouselCard(
                     vehicle: v,
                     onTap: () {
-                      Navigator.of(context).pushNamed(
-                        '/vehicle-detail',
-                        arguments: v,
-                      );
+                      Navigator.of(
+                        context,
+                      ).pushNamed('/vehicle-detail', arguments: v);
                     },
                   ),
                 );
@@ -1333,10 +1348,7 @@ class _MyVehicleCarouselCard extends StatelessWidget {
   final Vehicle vehicle;
   final VoidCallback onTap;
 
-  const _MyVehicleCarouselCard({
-    required this.vehicle,
-    required this.onTap,
-  });
+  const _MyVehicleCarouselCard({required this.vehicle, required this.onTap});
 
   Color _accentForType(String? type) {
     final t = type?.toLowerCase() ?? '';
@@ -1372,9 +1384,7 @@ class _MyVehicleCarouselCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.backgroundSecondary
-                : Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark

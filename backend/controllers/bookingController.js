@@ -36,6 +36,19 @@ const extractPincodeFromAddress = (address) => {
   return normalizePincode(match ? match[1] : null);
 };
 
+const getCategoryGroup = (serviceCategory) => {
+  const cat = (serviceCategory || '').trim();
+  if (cat === 'Car Wash' || cat === 'Wash') {
+    return 'Car Wash';
+  } else if (cat === 'Tyres' || cat === 'Battery' || cat === 'Tyre & Battery') {
+    return 'Tyres & Battery';
+  } else if (cat === 'Essentials') {
+    return 'Essentials';
+  } else {
+    return 'General Services';
+  }
+};
+
 const formatTo12HourSlot = (date) => {
   const hours24 = date.getHours();
   const minutes = date.getMinutes();
@@ -45,56 +58,107 @@ const formatTo12HourSlot = (date) => {
 };
 
 const getDayBounds = (dateInput) => {
-  const date = new Date(dateInput);
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
+  let date;
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
+    // Force local midnight for YYYY-MM-DD strings to avoid UTC shifts
+    const [y, m, d] = dateInput.split('T')[0].split('-').map(Number);
+    date = new Date(y, m - 1, d);
+  } else if (dateInput instanceof Date) {
+    date = dateInput;
+  } else {
+    date = new Date(dateInput);
+  }
+
+  if (isNaN(date.getTime())) {
+    return { 
+      start: new Date(1970, 0, 1), 
+      end: new Date(1970, 0, 1) 
+    };
+  }
+
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+
+  const start = new Date(y, m, d, 0, 0, 0, 0);
+  const end = new Date(y, m, d, 23, 59, 59, 999);
   return { start, end };
 };
 
 const getAllSlotsForDate = (dateInput) => {
-  const base = new Date(dateInput);
+  const { start } = getDayBounds(dateInput);
   const slots = [];
-  const start = new Date(base);
-  start.setHours(SLOT_START_HOUR, 0, 0, 0);
-  const end = new Date(base);
-  end.setHours(SLOT_END_HOUR, 0, 0, 0);
+  const base = new Date(start);
+  base.setHours(SLOT_START_HOUR, 0, 0, 0);
+  const endLimit = new Date(start);
+  endLimit.setHours(SLOT_END_HOUR, 0, 0, 0);
 
-  for (let current = new Date(start); current < end; current.setMinutes(current.getMinutes() + SLOT_INTERVAL_MINUTES)) {
+  for (let current = new Date(base); current < endLimit; current.setMinutes(current.getMinutes() + SLOT_INTERVAL_MINUTES)) {
     slots.push(formatTo12HourSlot(new Date(current)));
   }
   return slots;
 };
 
-const getBlockedSlotsForDate = async (dateInput) => {
+const getBlockedSlotsForDate = async (dateInput, category = 'All') => {
   const { start, end } = getDayBounds(dateInput);
-  const blocks = await SlotBlock.find({
+  
+  const query = {
     date: { $gte: start, $lte: end },
-  }).select('slot');
-  return new Set(blocks.map((b) => b.slot));
+    $or: [
+      { category: 'All' },
+      { category: category }
+    ]
+  };
+
+  const blocks = await SlotBlock.find(query).select('slot');
+  return new Set(blocks.map((b) => b.slot.trim()));
 };
 
-const isSlotAvailable = async (date) => {
+const isSlotAvailable = async (date, categories = ['All']) => {
   const slotStart = new Date(date);
   const slotEnd = new Date(slotStart.getTime() + SLOT_INTERVAL_MINUTES * 60 * 1000);
-  const slotLabel = formatTo12HourSlot(slotStart);
-  const { start, end } = getDayBounds(slotStart);
+  const slotLabel = formatTo12HourSlot(slotStart).trim();
+  
+  const categoriesToCheck = Array.isArray(categories) ? categories : [categories];
+  const { start, end } = getDayBounds(date);
 
+  // Check for admin blocks
   const blockedSlot = await SlotBlock.findOne({
     date: { $gte: start, $lte: end },
     slot: slotLabel,
+    $or: [
+      { category: 'All' },
+      { category: { $in: categoriesToCheck } }
+    ]
   }).select('_id');
+
   if (blockedSlot) {
     return false;
   }
 
-  const conflict = await Booking.findOne({
+  // Check for conflicting bookings in the same category
+  const bookingsAtTime = await Booking.find({
     status: BLOCKING_STATUSES,
     date: { $gte: slotStart, $lt: slotEnd },
-  }).select('_id status date');
+  }).populate('services', 'category');
 
-  return !conflict;
+  if (categoriesToCheck.includes('All')) {
+    return bookingsAtTime.length === 0;
+  }
+
+  for (const booking of bookingsAtTime) {
+    const bookingCategories = new Set();
+    booking.services.forEach((s) => {
+      bookingCategories.add(getCategoryGroup(s.category));
+    });
+
+    const hasIntersection = categoriesToCheck.some((cat) => bookingCategories.has(cat));
+    if (hasIntersection) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 export const emitBookingUpdate = (booking) => {
@@ -312,16 +376,22 @@ export const createBooking = async (req, res) => {
       return res.status(409).json({ message: 'Service is not available for the selected pincode' });
     }
 
-    const slotAvailable = await isSlotAvailable(parsedDate);
-    if (!slotAvailable) {
-      return res.status(409).json({ message: 'Selected slot is not available' });
-    }
-
     const Service = (await import('../models/Service.js')).default;
     const services = await Service.find({ _id: { $in: serviceIds } });
 
     if (services.length !== serviceIds.length) {
       return res.status(404).json({ message: 'One or more services not found' });
+    }
+
+    // Determine booking categories for slot availability check
+    const bookingCategories = new Set();
+    services.forEach((s) => {
+      bookingCategories.add(getCategoryGroup(s.category));
+    });
+
+    const slotAvailable = await isSlotAvailable(parsedDate, Array.from(bookingCategories));
+    if (!slotAvailable) {
+      return res.status(409).json({ message: 'Selected slot is not available for one or more selected services' });
     }
 
     const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
@@ -510,7 +580,7 @@ export const createBooking = async (req, res) => {
 // @access  Private
 export const getAvailableSlots = async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, category = 'All' } = req.query;
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -520,25 +590,36 @@ export const getAvailableSlots = async (req, res) => {
       return res.status(400).json({ message: 'Invalid date' });
     }
 
-    const { start, end } = getDayBounds(parsedDate);
+    const { start, end } = getDayBounds(date);
+
     const bookings = await Booking.find({
       status: BLOCKING_STATUSES,
       date: { $gte: start, $lte: end },
-    }).select('date');
+    }).populate('services', 'category');
 
-    const bookedSlots = new Set(
-      bookings
-        .map((booking) => new Date(booking.date))
-        .map((slotDate) => formatTo12HourSlot(slotDate))
-    );
+    const bookedSlots = new Set();
+    bookings.forEach((booking) => {
+      const slotTime = formatTo12HourSlot(new Date(booking.date)).trim();
+      if (category === 'All') {
+        bookedSlots.add(slotTime);
+      } else {
+        const hasCategory = booking.services.some(
+          (s) => getCategoryGroup(s.category) === category
+        );
+        if (hasCategory) {
+          bookedSlots.add(slotTime);
+        }
+      }
+    });
 
-    const blockedSlots = await getBlockedSlotsForDate(parsedDate);
-    const allSlots = getAllSlotsForDate(parsedDate);
+    const blockedSlots = await getBlockedSlotsForDate(date, category);
+    const allSlots = getAllSlotsForDate(date);
     const unavailableSlots = new Set([...bookedSlots, ...blockedSlots]);
     const availableSlots = allSlots.filter((slot) => !unavailableSlots.has(slot));
 
     res.json({
       date: start.toISOString(),
+      category,
       allSlots,
       availableSlots,
       blockedSlots: Array.from(blockedSlots),
@@ -554,7 +635,7 @@ export const getAvailableSlots = async (req, res) => {
 // @access  Private/Admin
 export const getAdminSlotsForDate = async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, category = 'All' } = req.query;
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -564,26 +645,41 @@ export const getAdminSlotsForDate = async (req, res) => {
       return res.status(400).json({ message: 'Invalid date' });
     }
 
-    const { start, end } = getDayBounds(parsedDate);
+    const { start, end } = getDayBounds(date);
+
     const bookings = await Booking.find({
       status: BLOCKING_STATUSES,
       date: { $gte: start, $lte: end },
-    }).select('date');
+    }).populate('services', 'category');
 
     const slotBlocks = await SlotBlock.find({
       date: { $gte: start, $lte: end },
+      $or: [
+        { category: 'All' },
+        { category: category }
+      ]
     }).select('slot');
 
-    const bookedSlots = new Set(
-      bookings
-        .map((booking) => new Date(booking.date))
-        .map((slotDate) => formatTo12HourSlot(slotDate))
-    );
-    const blockedSlots = new Set(slotBlocks.map((s) => s.slot));
-    const allSlots = getAllSlotsForDate(parsedDate);
+    const bookedSlots = new Set();
+    bookings.forEach((booking) => {
+      const slotTime = formatTo12HourSlot(new Date(booking.date)).trim();
+      if (category === 'All') {
+        bookedSlots.add(slotTime);
+      } else {
+        const hasCategory = booking.services.some(
+          (s) => getCategoryGroup(s.category) === category
+        );
+        if (hasCategory) {
+          bookedSlots.add(slotTime);
+        }
+      }
+    });
+    const blockedSlots = new Set(slotBlocks.map((s) => s.slot.trim()));
+    const allSlots = getAllSlotsForDate(date);
 
     res.json({
       date: start.toISOString(),
+      category,
       allSlots,
       bookedSlots: Array.from(bookedSlots),
       blockedSlots: Array.from(blockedSlots),
@@ -598,7 +694,7 @@ export const getAdminSlotsForDate = async (req, res) => {
 // @access  Private/Admin
 export const updateAdminSlotBlocks = async (req, res) => {
   try {
-    const { date, blockedSlots = [] } = req.body || {};
+    const { date, category = 'All', blockedSlots = [] } = req.body || {};
     if (!date) {
       return res.status(400).json({ message: 'date is required' });
     }
@@ -611,20 +707,24 @@ export const updateAdminSlotBlocks = async (req, res) => {
       return res.status(400).json({ message: 'Invalid date' });
     }
 
-    const allSlots = getAllSlotsForDate(parsedDate);
+    const allSlots = getAllSlotsForDate(date);
     const invalidSlots = blockedSlots.filter((slot) => !allSlots.includes(slot));
     if (invalidSlots.length > 0) {
       return res.status(400).json({ message: `Invalid slots: ${invalidSlots.join(', ')}` });
     }
 
-    const { start, end } = getDayBounds(parsedDate);
-    await SlotBlock.deleteMany({ date: { $gte: start, $lte: end } });
+    const { start, end } = getDayBounds(date);
+    await SlotBlock.deleteMany({ 
+      date: { $gte: start, $lte: end },
+      category: category
+    });
 
     if (blockedSlots.length > 0) {
       await SlotBlock.insertMany(
         blockedSlots.map((slot) => ({
           date: start,
           slot,
+          category,
           blockedBy: req.user._id,
         }))
       );
@@ -632,11 +732,13 @@ export const updateAdminSlotBlocks = async (req, res) => {
 
     emitEntitySync('slotBlock', 'updated', {
       date: start.toISOString(),
+      category,
       blockedSlots,
     });
 
     res.json({
       date: start.toISOString(),
+      category,
       blockedSlots,
       message: 'Slots updated successfully',
     });

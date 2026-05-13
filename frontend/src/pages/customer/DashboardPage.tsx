@@ -17,6 +17,7 @@ import { staggerContainer, staggerItem } from '@/animations/variants';
 import VehicleCard from '@/components/VehicleCard';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
 import OrderCard from '@/components/OrderCard';
+import CouponSlider from '@/components/CouponSlider';
 import {
   Dialog,
   DialogContent,
@@ -405,6 +406,9 @@ const DashboardPage: React.FC = () => {
       </motion.div>
 
 
+
+      {/* Coupon Banner */}
+      <CouponSlider />
 
       {/* Upcoming Booking */}
       {upcomingBooking && (

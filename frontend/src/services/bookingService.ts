@@ -187,18 +187,18 @@ export const bookingService = {
     return response.data;
   },
 
-  getAvailableSlots: async (date: string): Promise<SlotAvailabilityResponse> => {
-    const response = await api.get('/bookings/available-slots', { params: { date } });
+  getAvailableSlots: async (date: string, category: string = 'All'): Promise<SlotAvailabilityResponse> => {
+    const response = await api.get('/bookings/available-slots', { params: { date, category } });
     return response.data;
   },
 
-  getAdminSlots: async (date: string): Promise<{ date: string; allSlots: string[]; blockedSlots: string[]; bookedSlots: string[] }> => {
-    const response = await api.get('/bookings/admin/slots', { params: { date } });
+  getAdminSlots: async (date: string, category: string = 'All'): Promise<{ date: string; category: string; allSlots: string[]; blockedSlots: string[]; bookedSlots: string[] }> => {
+    const response = await api.get('/bookings/admin/slots', { params: { date, category } });
     return response.data;
   },
 
-  updateAdminBlockedSlots: async (date: string, blockedSlots: string[]) => {
-    const response = await api.put('/bookings/admin/slots', { date, blockedSlots });
+  updateAdminBlockedSlots: async (date: string, blockedSlots: string[], category: string = 'All') => {
+    const response = await api.put('/bookings/admin/slots', { date, blockedSlots, category });
     return response.data;
   },
 

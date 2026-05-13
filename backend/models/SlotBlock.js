@@ -12,6 +12,12 @@ const slotBlockSchema = mongoose.Schema(
       required: true,
       trim: true,
     },
+    category: {
+      type: String,
+      enum: ['All', 'General Services', 'Car Wash', 'Tyres & Battery', 'Essentials'],
+      default: 'All',
+      index: true,
+    },
     blockedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -28,7 +34,7 @@ const slotBlockSchema = mongoose.Schema(
   }
 );
 
-slotBlockSchema.index({ date: 1, slot: 1 }, { unique: true });
+slotBlockSchema.index({ date: 1, slot: 1, category: 1 }, { unique: true });
 
 const SlotBlock = mongoose.model('SlotBlock', slotBlockSchema);
 

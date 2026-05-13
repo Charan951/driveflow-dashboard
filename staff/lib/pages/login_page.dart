@@ -68,13 +68,17 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
         Navigator.of(context).pushReplacementNamed('/home');
       }
     } on ApiException catch (e) {
-      setState(() {
-        _errorText = e.message;
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = e.message;
+        });
+      }
     } catch (_) {
-      setState(() {
-        _errorText = 'Login failed. Please try again.';
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = 'Login failed. Please try again.';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {

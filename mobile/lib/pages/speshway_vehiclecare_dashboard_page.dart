@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +17,10 @@ import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
+import '../services/coupon_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
+import '../widgets/coupon_slider.dart';
 
 class CarzziDashboard extends StatefulWidget {
   const CarzziDashboard({super.key});
@@ -33,6 +36,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   final _bookingService = BookingService();
   final _reviewService = ReviewService();
   final _notificationService = NotificationService();
+  final _couponService = CouponService();
 
   bool _loading = false;
   String? _error;
@@ -42,6 +46,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   List<ServiceItem> _services = [];
   List<Vehicle> _vehicles = [];
   List<Booking> _bookings = [];
+  List<dynamic> _coupons = [];
   List<Map<String, dynamic>> _reviews = [];
   int _unreadNotificationsCount = 0;
   Booking? _upcomingBookingCached;
@@ -162,6 +167,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _bookingService.listMyBookings(forceRefresh: true),
         _catalogService.listServices(isQuickService: true),
         _reviewService.getMyReviews(),
+        _couponService.getCoupons(),
       ]);
 
       if (!mounted) return;
@@ -169,6 +175,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       final bookings = (results[1] as List<Booking>);
       final services = (results[2] as List<ServiceItem>);
       final reviews = (results[3] as List<Map<String, dynamic>>);
+      final coupons = (results[4] as List<dynamic>);
       var unreadCount = 0;
       try {
         final notifications = await _notificationService.listMyNotifications();
@@ -185,6 +192,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _bookings = bookings;
         _services = services;
         _reviews = reviews;
+        _coupons = coupons
+            .where((c) => (c as Map)['isActive'] == true)
+            .toList();
         _unreadNotificationsCount = unreadCount;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;
@@ -777,6 +787,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       if (decoded is! Map) return;
       final map = Map<String, dynamic>.from(decoded);
 
+      final coupons = (map['coupons'] as List? ?? [])
+          .where((c) => c is Map && c['isActive'] == true)
+          .toList();
       final vehicles = <Vehicle>[];
       final v = map['vehicles'];
       if (v is List) {
@@ -821,6 +834,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _vehicles = vehicles;
         _bookings = bookings;
         _services = services;
+        _coupons = coupons;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;
       });
@@ -833,6 +847,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         'vehicles': _vehicles.map((v) => v.toJson()).toList(),
         'bookings': _bookings.map((b) => b.toJson()).toList(),
         'services': _services.map((s) => s.toJson()).toList(),
+        'coupons': _coupons,
         'updatedAt': DateTime.now().toIso8601String(),
       };
       await AppStorage().setDashboardJson(jsonEncode(map));
@@ -1028,6 +1043,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             ),
                           ),
                         AppSpacing.verticalDefault,
+                        RepaintBoundary(child: _buildCouponBanner()),
+                        AppSpacing.verticalDefault,
                         RepaintBoundary(child: _buildUpcomingServiceCard()),
                         AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildQuickServices()),
@@ -1172,6 +1189,10 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     });
   }
 
+  Widget _buildCouponBanner() {
+    return CouponSlider(initialCoupons: _coupons);
+  }
+
   Widget _buildUpcomingServiceCard() {
     final booking = _upcomingBooking();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1222,21 +1243,17 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final locationLabel =
         booking.location?.address ?? 'Pickup service scheduled';
     final showPayButton =
-        booking.status == 'SERVICE_COMPLETED' && booking.paymentStatus != 'paid';
+        booking.status == 'SERVICE_COMPLETED' &&
+        booking.paymentStatus != 'paid';
     final statusBadgeLabel = showPayButton
         ? 'Payment awaiting'
         : _statusLabel(booking.status);
-    final payAmount =
-        (booking.billing != null && booking.billing!.total > 0)
+    final payAmount = (booking.billing != null && booking.billing!.total > 0)
         ? booking.billing!.total
         : booking.calculatedTotal;
 
     void openTrackService() {
-      Navigator.pushNamed(
-        context,
-        '/track',
-        arguments: booking.id,
-      ).then((_) {
+      Navigator.pushNamed(context, '/track', arguments: booking.id).then((_) {
         if (!mounted) return;
         _load(isInitial: true);
       });
@@ -1506,10 +1523,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     },
               child: _FrostedCard(
                 borderRadius: 16,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -1624,9 +1638,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text('My Vehicles', style: titleStyle),
-            ),
+            Expanded(child: Text('My Vehicles', style: titleStyle)),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pushNamed('/vehicles');
@@ -1701,10 +1713,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   width: cardWidth,
                   child: _AnimatedDashboardCard(
                     onTap: () {
-                      Navigator.of(context).pushNamed(
-                        '/vehicle-detail',
-                        arguments: v,
-                      );
+                      Navigator.of(
+                        context,
+                      ).pushNamed('/vehicle-detail', arguments: v);
                     },
                     child: _FrostedCard(
                       borderRadius: 16,
@@ -1797,9 +1808,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                   v.make.trim().toUpperCase(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
+                                  style: Theme.of(context).textTheme.titleLarge
                                       ?.copyWith(
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.4,
@@ -1815,9 +1824,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                   v.model.trim().toUpperCase(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
+                                  style: Theme.of(context).textTheme.titleSmall
                                       ?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.35,
@@ -1850,9 +1857,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                   yearPlate,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         fontWeight: FontWeight.w500,
                                         letterSpacing: 0.2,
@@ -1986,14 +1991,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.medium),
                 child: _AnimatedDashboardCard(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    '/track',
-                    arguments: b.id,
-                  ).then((_) {
-                    if (!mounted) return;
-                    _load(isInitial: true);
-                  }),
+                  onTap: () =>
+                      Navigator.pushNamed(
+                        context,
+                        '/track',
+                        arguments: b.id,
+                      ).then((_) {
+                        if (!mounted) return;
+                        _load(isInitial: true);
+                      }),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
@@ -2400,10 +2406,7 @@ class _SecondaryActionButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _SecondaryActionButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _SecondaryActionButton({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

@@ -189,7 +189,8 @@ const BookServicePage: React.FC = () => {
   const refreshSlotsForDate = async (date: Date) => {
     try {
       const dateStr = formatLocalYmd(date);
-      const data = await bookingService.getAvailableSlots(dateStr);
+      const category = getBookingCategory();
+      const data = await bookingService.getAvailableSlots(dateStr, category);
       const raw = Array.isArray(data?.availableSlots) ? data.availableSlots : [];
       const filtered = raw.filter(
         (slot: string) =>
@@ -198,11 +199,20 @@ const BookServicePage: React.FC = () => {
       setAvailableSlots(filtered);
       if (selectedTime && !filtered.includes(selectedTime)) {
         setSelectedTime(null);
-        toast.info('Previously selected slot is no longer available. Please select another slot.');
+        toast.info('Previously selected slot is no longer available for the selected services. Please select another slot.');
       }
     } catch {
       setAvailableSlots([]);
     }
+  };
+
+  const getBookingCategory = () => {
+    if (selectedServicesData.length === 0) return 'All';
+    const categories = selectedServicesData.map(s => s.category);
+    if (categories.some(c => c === 'Car Wash' || c === 'Wash')) return 'Car Wash';
+    if (categories.some(c => c === 'Tyres' || c === 'Battery' || c === 'Tyre & Battery')) return 'Tyres & Battery';
+    if (categories.some(c => c === 'Essentials')) return 'Essentials';
+    return 'General Services';
   };
 
   const refreshAvailablePincodes = async () => {
@@ -374,6 +384,12 @@ const BookServicePage: React.FC = () => {
 
     fetchSlots();
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate && selectedServices.length > 0) {
+      refreshSlotsForDate(selectedDate);
+    }
+  }, [selectedServices]);
 
   useEffect(() => {
     socketService.connect();

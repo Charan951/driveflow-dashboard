@@ -194,10 +194,34 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
   }
 
+  String _getBookingCategory() {
+    if (_selectedServiceIds.isEmpty) return 'All';
+    final selectedServices = _allServices
+        .where((s) => _selectedServiceIds.contains(s.id))
+        .toList();
+    if (selectedServices.isEmpty) return 'All';
+
+    final categories = selectedServices.map((s) => s.category).toList();
+
+    if (categories.any((c) => c == 'Car Wash' || c == 'Wash'))
+      return 'Car Wash';
+    if (categories.any(
+      (c) => c == 'Tyres' || c == 'Battery' || c == 'Tyre & Battery',
+    ))
+      return 'Tyres & Battery';
+    if (categories.any((c) => c == 'Essentials')) return 'Essentials';
+
+    return 'General Services';
+  }
+
   Future<void> _fetchSlotsForDate(DateTime date) async {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      var slots = await _bookingService.getAvailableSlots(dateStr);
+      final category = _getBookingCategory();
+      var slots = await _bookingService.getAvailableSlots(
+        dateStr,
+        category: category,
+      );
 
       final now = DateTime.now();
       if (_isSameCalendarDay(date, now)) {
@@ -1793,9 +1817,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Location Section
+        Text(
+          'Service Location',
+          style: AppStyles.headingStyle.copyWith(fontSize: 18),
+        ),
+        const SizedBox(height: 12),
+        _buildLocationPickerContent(),
+
+        const SizedBox(height: 24),
+
         Text(
           'Schedule & Location',
-          style: AppStyles.headingStyle.copyWith(fontSize: 18),
+          style: AppStyles.headingStyle.copyWith(fontSize: 16),
         ),
         const SizedBox(height: 24),
 
@@ -1956,18 +1990,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ],
           ),
         ),
-
-        const SizedBox(height: 24),
-
-        // Location Section
-        Text(
-          'Service Location',
-          style: AppStyles.headingStyle.copyWith(fontSize: 16),
-        ),
-        const SizedBox(height: 12),
-        _buildLocationPickerContent(),
-
-        const SizedBox(height: 24),
 
         // Notes Section
         Text(

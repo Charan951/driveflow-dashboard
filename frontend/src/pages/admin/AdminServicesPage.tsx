@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatLocalYmd } from '@/lib/utils';
 
 const AdminServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -16,7 +17,8 @@ const AdminServicesPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [activeTab, setActiveTab] = useState<'quick-services' | 'slots' | 'available-pincodes'>('quick-services');
-  const [selectedSlotDate, setSelectedSlotDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedSlotDate, setSelectedSlotDate] = useState<string>(formatLocalYmd(new Date()));
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [allSlots, setAllSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
@@ -119,7 +121,7 @@ const AdminServicesPage: React.FC = () => {
     if (!selectedSlotDate) return;
     try {
       setSlotLoading(true);
-      const data = await bookingService.getAdminSlots(selectedSlotDate);
+      const data = await bookingService.getAdminSlots(selectedSlotDate, selectedCategory);
       setAllSlots(Array.isArray(data.allSlots) ? data.allSlots : []);
       setBookedSlots(Array.isArray(data.bookedSlots) ? data.bookedSlots : []);
       setBlockedSlots(Array.isArray(data.blockedSlots) ? data.blockedSlots : []);
@@ -148,7 +150,7 @@ const AdminServicesPage: React.FC = () => {
     if (activeTab === 'available-pincodes') {
       fetchAvailableServicePincodes();
     }
-  }, [activeTab, selectedSlotDate]);
+  }, [activeTab, selectedSlotDate, selectedCategory]);
 
   const toggleBlockedSlot = (slot: string) => {
     if (bookedSlots.includes(slot)) return;
@@ -157,11 +159,20 @@ const AdminServicesPage: React.FC = () => {
     );
   };
 
+  const blockAllSlots = () => {
+    const availableSlots = allSlots.filter((slot) => !bookedSlots.includes(slot));
+    setBlockedSlots(availableSlots);
+  };
+
+  const clearAllBlocks = () => {
+    setBlockedSlots([]);
+  };
+
   const handleSaveBlockedSlots = async () => {
     if (!selectedSlotDate) return;
     try {
       setSlotSaving(true);
-      await bookingService.updateAdminBlockedSlots(selectedSlotDate, blockedSlots);
+      await bookingService.updateAdminBlockedSlots(selectedSlotDate, blockedSlots, selectedCategory);
       toast.success('Slot blocks updated');
       fetchAdminSlots();
     } catch (error: any) {
@@ -289,13 +300,42 @@ const AdminServicesPage: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="All">All Services</option>
+                  <option value="General Services">General Services</option>
+                  <option value="Car Wash">Car Wash</option>
+                  <option value="Tyres & Battery">Tyres & Battery</option>
+                  <option value="Essentials">Essentials</option>
+                </select>
                 <input
                   type="date"
                   value={selectedSlotDate}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={formatLocalYmd(new Date())}
                   onChange={(e) => setSelectedSlotDate(e.target.value)}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
+                <div className="flex items-center gap-1 border-l border-border pl-2 mr-1">
+                  <button
+                    type="button"
+                    onClick={blockAllSlots}
+                    disabled={slotLoading}
+                    className="text-[11px] font-medium text-destructive hover:underline px-2 py-1"
+                  >
+                    Block All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAllBlocks}
+                    disabled={slotLoading}
+                    className="text-[11px] font-medium text-muted-foreground hover:underline px-2 py-1"
+                  >
+                    Clear All
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={handleSaveBlockedSlots}

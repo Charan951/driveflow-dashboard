@@ -471,7 +471,7 @@ class MyApp extends StatelessWidget {
                 return MaterialPageRoute(
                   builder: (_) => authProvider.isAuthenticated
                       ? const MainNavigationPage()
-                      : const SplashPage(),
+                      : const LoginPage(),
                   settings: const RouteSettings(name: '/'),
                 );
               }
@@ -481,7 +481,7 @@ class MyApp extends StatelessWidget {
               return MaterialPageRoute(
                 builder: (_) => authProvider.isAuthenticated
                     ? const MainNavigationPage()
-                    : const SplashPage(),
+                    : const LoginPage(),
                 settings: const RouteSettings(name: '/'),
               );
             },
@@ -560,8 +560,8 @@ class _RootGateState extends State<RootGate> {
       return const MainNavigationPage();
     }
 
-    // If not authenticated, always show SplashPage (it will handle navigation to login via click)
-    return const SplashPage();
+    // If not authenticated, directly go to Login Page
+    return const LoginPage();
   }
 }
 

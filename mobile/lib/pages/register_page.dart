@@ -131,13 +131,17 @@ class _RegisterPageState extends State<RegisterPage>
       final ok = await auth.register(name, email, pass, phone: phone);
       if (!mounted) return;
       if (ok) {
+        await Future.delayed(Duration.zero);
+        if (!mounted) return;
         Navigator.of(context).pushReplacementNamed(auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Registration failed');
       }
     } catch (e, stackTrace) {
       debugPrint('Registration error: $e\n$stackTrace');
-      setState(() => _error = 'An unexpected error occurred');
+      if (mounted) {
+        setState(() => _error = 'An unexpected error occurred');
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

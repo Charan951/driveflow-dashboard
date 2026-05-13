@@ -86,13 +86,17 @@ class _LoginPageState extends State<LoginPage>
       final ok = await auth.login(email, password);
       if (!mounted) return;
       if (ok) {
+        await Future.delayed(Duration.zero);
+        if (!mounted) return;
         Navigator.of(context).pushReplacementNamed(auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Login failed');
       }
     } catch (e, stackTrace) {
       debugPrint('Login error: $e\n$stackTrace');
-      setState(() => _error = 'An unexpected error occurred');
+      if (mounted) {
+        setState(() => _error = 'An unexpected error occurred');
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -151,11 +155,71 @@ class _LoginPageState extends State<LoginPage>
                         children: [
                           Image.asset(
                             'assets/appicon.png',
-                            width: 120,
+                            width: 220,
                             color: Colors.white,
                             fit: BoxFit.contain,
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Color(0xFFFFE082), // Light Gold
+                                        Color(0xFFFFA000), // Dark Gold
+                                      ],
+                                    ).createShader(bounds),
+                                child: Text(
+                                  'Drive Smarter ',
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'serif',
+                                        fontSize: 28,
+                                        color: Colors.white,
+                                      ),
+                                ),
+                              ),
+                              Text(
+                                'Manage Easier',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'serif',
+                                  fontSize: 28,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // Subtle glowing line like in the image
+                          Container(
+                            height: 1.5,
+                            width: double.infinity,
+                            margin: const EdgeInsets.symmetric(horizontal: 40),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  const Color(
+                                    0xFFFFB74D,
+                                  ).withValues(alpha: 0.5),
+                                  const Color(0xFFFFB74D),
+                                  const Color(
+                                    0xFFFFB74D,
+                                  ).withValues(alpha: 0.5),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
                           Card(
                             color: AppColors.backgroundSecondary.withValues(
                               alpha: 0.9,
@@ -179,18 +243,6 @@ class _LoginPageState extends State<LoginPage>
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Text(
-                                    'Welcome Back',
-                                    key: const Key('login_title'),
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.headlineSmall
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 32),
                                   _GlassField(
                                     controller: _emailController,
                                     hintText: 'Email',

@@ -70,7 +70,11 @@ class _SplashPageState extends State<SplashPage>
     // Only allow interaction if we've determined the user is not authenticated
     if (auth.isInitialized && !auth.isAuthenticated) {
       _navigated = true;
-      Navigator.of(context).pushReplacementNamed('/login');
+      Future.delayed(Duration.zero, () {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      });
     }
   }
 
