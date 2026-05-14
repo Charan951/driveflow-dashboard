@@ -18,6 +18,7 @@ import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../core/api_client.dart';
+import '../core/storage.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
@@ -1119,32 +1120,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'SERVICE_STARTED' ||
             booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
-    final isCarWashBooking =
-        booking != null &&
-        (booking.services.any((s) {
-              final cat = (s.category ?? '').toLowerCase();
-              return cat.contains('car wash') ||
-                  cat.contains('wash') ||
-                  cat.contains('detailing') ||
-                  cat.contains('essentials');
-            }) ||
-            booking.carWash?.isCarWashService == true);
-    final isBatteryTireBooking =
-        booking != null &&
-        (booking.services.any((s) {
-              final cat = (s.category ?? '').toLowerCase();
-              return cat.contains('battery') ||
-                  cat.contains('tyres') ||
-                  cat.contains('tyre') ||
-                  cat.contains('tire');
-            }) ||
-            booking.batteryTire?.isBatteryTireService == true);
-    final canDownloadInvoice =
-        booking != null &&
-        booking.invoiceUrl != null &&
-        (isCarWashBooking ||
-            isBatteryTireBooking ||
-            booking.paymentStatus == 'paid');
+    final status = (booking?.status ?? '').toUpperCase().trim();
+    final isFinalizedStatus = status == 'DELIVERED' || status == 'COMPLETED';
+    final canDownloadInvoice = booking?.invoiceUrl != null || isFinalizedStatus;
     final isBookedStatus = booking?.status.toUpperCase() == 'BOOKED';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1189,7 +1167,16 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               child: IconButton(
                 tooltip: 'Download Invoice',
                 onPressed: () async {
-                  final url = _resolveImageUrl(booking.invoiceUrl);
+                  String? url = _resolveImageUrl(booking?.invoiceUrl);
+                  
+                  // If no direct URL, fallback to auto-generation endpoint
+                  if (url == null && booking != null) {
+                    final token = await AppStorage().getToken();
+                    if (token != null) {
+                      url = '${Env.apiBaseUrl}${ApiEndpoints.bookings}/${booking.id}/invoice?token=$token';
+                    }
+                  }
+
                   if (url != null) {
                     final uri = Uri.parse(url);
                     if (await canLaunchUrl(uri)) {
@@ -3160,9 +3147,27 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ] else ...[
-                              const SizedBox(height: 12),
+                              _buildCostRow(
+                                'Service Price',
+                                '₹${booking.baseServiceTotal}',
+                                isDark,
+                              ),
+                              if ((booking.partsAndOtherTotal) > 0)
+                                _buildCostRow(
+                                  'Additional Parts/Service',
+                                  '₹${booking.partsAndOtherTotal}',
+                                  isDark,
+                                ),
+                              if ((booking.discountAmount ?? 0) > 0)
+                                _buildCostRow(
+                                  'Coupon Discount',
+                                  '- ₹${booking.discountAmount}',
+                                  isDark,
+                                  isDiscount: true,
+                                ),
+                              const SizedBox(height: 8),
                               const Divider(height: 1),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -3179,7 +3184,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                         ),
                                   ),
                                   Text(
-                                    '₹${booking.calculatedTotal}',
+                                    '₹${booking.totalAmount}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -3503,7 +3508,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildCostRow(String label, String value, bool isDark) {
+  Widget _buildCostRow(String label, String value, bool isDark, {bool isDiscount = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -3513,15 +3518,19 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             label,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? Colors.white60 : Colors.black54,
+              color: isDiscount
+                  ? const Color(0xFF4ADE80)
+                  : (isDark ? Colors.white60 : Colors.black54),
             ),
           ),
           Text(
             value,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black87,
+              color: isDiscount
+                  ? const Color(0xFF4ADE80)
+                  : (isDark ? Colors.white70 : Colors.black87),
+              fontWeight: isDiscount ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ],

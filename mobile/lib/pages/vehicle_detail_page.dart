@@ -75,8 +75,9 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     final event = context.read<SocketService>().value;
-    if (event == null || !mounted) return;
+    if (event == null) return;
     if (event.contains('sync:booking') || event.contains('sync:vehicle')) {
       _load();
     }

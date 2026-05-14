@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 
 class AppStyles {
   // Colors
-  static const Color softBackground = Color(0xFFFFFFFF);
+  static const Color softBackground = Color(0xFFFAF8F2);
   static const Color lightBlueTint = Color(0xFFEAF2FF);
   static const Color primaryBlue = Color(0xFF146EEC);
   static const Color primaryBlueSoft = Color(0xFF4D95F9);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment(1.00, 0.10),
-    end: Alignment(0.00, 0.90),
-    colors: [primaryBlue, primaryBlueSoft, primaryBlue],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primaryBlue, primaryBlue],
   );
 
   // Text Styles

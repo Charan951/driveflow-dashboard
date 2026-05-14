@@ -241,7 +241,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF121212) : AppColors.backgroundPrimaryLight,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -301,7 +301,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
+        backgroundColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
@@ -1043,9 +1043,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             ),
                           ),
                         AppSpacing.verticalDefault,
-                        RepaintBoundary(child: _buildCouponBanner()),
-                        AppSpacing.verticalDefault,
                         RepaintBoundary(child: _buildUpcomingServiceCard()),
+                        AppSpacing.verticalDefault,
+                        RepaintBoundary(child: _buildCouponBanner()),
                         AppSpacing.verticalSection,
                         RepaintBoundary(child: _buildQuickServices()),
                         AppSpacing.verticalSection,

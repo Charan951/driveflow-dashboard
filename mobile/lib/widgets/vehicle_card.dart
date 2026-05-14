@@ -26,8 +26,8 @@ class VehicleCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? const Color(0xFF1E293B) : Colors.white)
-              : (isDark ? AppColors.backgroundSecondary : Colors.white),
+              ? (isDark ? const Color(0xFF1E293B) : AppColors.backgroundPrimaryLight)
+              : (isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected

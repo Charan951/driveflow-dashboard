@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Brand Colors
-  static const Color primaryBlue = Color.fromARGB(255, 50, 126, 232);
+  static const Color primaryBlue = Color(0xFF146EEC);
   static const Color primaryBlueDark = Color.fromARGB(255, 93, 136, 230);
   static const Color primaryBlueSoft = Color(0xFF4D95F9);
   static const Color primaryPurple = Color(0xFF7C3AED);
@@ -21,9 +21,9 @@ class AppColors {
   static const Color borderColor = Color(0xFF262626); // (Dark)
 
   // Light Mode Colors
-  static const Color backgroundPrimaryLight = Color(0xFFFFFFFF);
-  static const Color backgroundSecondaryLight = Color(0xFFFFFFFF);
-  static const Color backgroundSurfaceLight = Color(0xFFFFFFFF);
+  static const Color backgroundPrimaryLight = Color(0xFFFAF8F2);
+  static const Color backgroundSecondaryLight = Color(0xFFFDFBF7);
+  static const Color backgroundSurfaceLight = Color(0xFFFDFBF7);
   static const Color borderColorLight = Color(
     0xFFF1F5F9,
   ); // Very subtle border for white backgrounds

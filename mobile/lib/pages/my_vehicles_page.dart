@@ -49,6 +49,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     final event = context.read<SocketService>().value;
     if (event == null) return;
 
@@ -128,6 +129,12 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(0);
+                if (mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/customer',
+                    (route) => false,
+                  );
+                }
               },
             ),
             const SizedBox(height: 12),

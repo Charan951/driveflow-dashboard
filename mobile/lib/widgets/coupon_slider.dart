@@ -112,12 +112,23 @@ class _CouponSliderState extends State<CouponSlider> {
     }
   }
 
+  double _getItemWidth(dynamic coupon) {
+    if (coupon is! Map) return 200.0;
+    final code = coupon['code']?.toString() ?? '';
+    // Each character is roughly 12px, left side is 3/7 of total width.
+    // We add more buffer to account for padding, margins, and the divider.
+    final double calculated = (code.length * 12.0) / 3 * 7 + 80;
+    return calculated < 200.0 ? 200.0 : calculated;
+  }
+
   void _startAutoScroll() {
     _scrollTimer?.cancel();
     _scrollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       if (_scrollController.hasClients) {
-        final itemWidth = 228.0; // 208 width + 20 margin
-        final totalWidth = _coupons.length * itemWidth;
+        double totalWidth = 0;
+        for (final c in _coupons) {
+          totalWidth += _getItemWidth(c) + 16; // width + horizontal margins
+        }
 
         if (_scrollController.offset >= totalWidth) {
           // Jump back by one set width for seamless loop
@@ -146,9 +157,9 @@ class _CouponSliderState extends State<CouponSlider> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: SizedBox(
-        height: 104, // Decreased overall height
+        height: 82, // Significantly reduced height for banner style
         child: ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
@@ -159,46 +170,46 @@ class _CouponSliderState extends State<CouponSlider> {
             // Luxury Gold Theme
             const cardColor = Color(0xFFD4AF37);
             const textColor = Colors.black87;
-            const accentColor = Color(0xFF996515); // Golden Brown for contrast
+            const accentColor = Color(0xFF996515);
 
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              width: 208, // Slightly narrower
-              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              width: _getItemWidth(coupon),
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [cardColor, cardColor.withValues(alpha: 0.8)],
+                  colors: [cardColor, cardColor.withValues(alpha: 0.9)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: accentColor.withValues(alpha: 0.3),
-                  width: 1.5,
+                  color: accentColor.withValues(alpha: 0.4),
+                  width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: cardColor.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
                 child: Stack(
                   children: [
                     // Background Decoration - Ticket Icon
                     Positioned(
-                      top: -15,
-                      right: -15,
+                      top: -10,
+                      right: -10,
                       child: Opacity(
-                        opacity: 0.1,
+                        opacity: 0.08,
                         child: Transform.rotate(
-                          angle: 0.2,
+                          angle: 0.1,
                           child: const Icon(
                             Icons.confirmation_number_rounded,
-                            size: 100,
+                            size: 60,
                             color: Colors.white,
                           ),
                         ),
@@ -207,110 +218,84 @@ class _CouponSliderState extends State<CouponSlider> {
 
                     // Card Content
                     Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Row(
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
+                          // Left Section: Code and Label
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
                                       Icons.local_offer_rounded,
                                       size: 8,
                                       color: textColor,
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'PREMIUM OFFER',
-                                    style: TextStyle(
-                                      color: textColor,
-                                      fontSize: 7,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.5,
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'OFFER',
+                                      style: TextStyle(
+                                        color: textColor.withValues(alpha: 0.6),
+                                        fontSize: 7,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.0,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                coupon['code']?.toString().toUpperCase() ?? '',
-                                style: const TextStyle(
-                                  color: textColor,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.5,
+                                  ],
                                 ),
-                              ),
-                              if (coupon['description'] != null &&
-                                  coupon['description'].toString().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    coupon['description'].toString(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                const SizedBox(height: 2),
+                                Text(
+                                  coupon['code']?.toString().toUpperCase() ??
+                                      '',
+                                  style: const TextStyle(
+                                    color: textColor,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Divider
+                          Container(
+                            width: 1,
+                            height: 30,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            color: textColor.withValues(alpha: 0.1),
+                          ),
+
+                          // Right Section: Discount and Min Order
+                          Expanded(
+                            flex: 4,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${coupon['discountPercentage']}% OFF',
+                                  style: const TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                if (coupon['minOrderAmount'] != null)
+                                  Text(
+                                    'Min. ₹${coupon['minOrderAmount']}',
                                     style: TextStyle(
                                       color: textColor.withValues(alpha: 0.7),
                                       fontSize: 8,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-
-                          // Bottom Section
-                          Container(
-                            padding: const EdgeInsets.only(top: 6),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: textColor.withValues(alpha: 0.1),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${coupon['discountPercentage']}% OFF',
-                                      style: const TextStyle(
-                                        color: textColor,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'Min. ₹${coupon['minOrderAmount']}',
-                                      style: const TextStyle(
-                                        color: textColor,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),
@@ -320,13 +305,13 @@ class _CouponSliderState extends State<CouponSlider> {
 
                     // Card Notch Effects (Circular Cutouts)
                     Positioned(
-                      left: -8,
+                      left: -6,
                       top: 0,
                       bottom: 0,
                       child: Center(
                         child: Container(
-                          width: 16,
-                          height: 16,
+                          width: 12,
+                          height: 12,
                           decoration: BoxDecoration(
                             color: Theme.of(context).scaffoldBackgroundColor,
                             shape: BoxShape.circle,
@@ -335,13 +320,13 @@ class _CouponSliderState extends State<CouponSlider> {
                       ),
                     ),
                     Positioned(
-                      right: -8,
+                      right: -6,
                       top: 0,
                       bottom: 0,
                       child: Center(
                         child: Container(
-                          width: 16,
-                          height: 16,
+                          width: 12,
+                          height: 12,
                           decoration: BoxDecoration(
                             color: Theme.of(context).scaffoldBackgroundColor,
                             shape: BoxShape.circle,

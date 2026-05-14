@@ -48,6 +48,7 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     final event = context.read<SocketService>().value;
     if (event == null) return;
 

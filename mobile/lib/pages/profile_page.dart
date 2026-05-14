@@ -43,6 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     final event = _socketService.value;
     if (event == null) return;
 

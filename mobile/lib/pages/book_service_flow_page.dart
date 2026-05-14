@@ -643,6 +643,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
           context.read<SocketService>().sendEvent('booking_created');
 
+          context.read<NavigationProvider>().setTab(2);
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/customer',
@@ -781,7 +782,180 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   final List<String> _steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
 
-  @override
+  void _showSlotPicker(bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.5,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Time Slot',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? Colors.white : Colors.black,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('EEEE, MMMM d').format(_selectedDate),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _availableSlots.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.event_busy_rounded,
+                                color: isDark ? Colors.white10 : Colors.grey.shade200,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No slots available for this date',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white24 : Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: _availableSlots.map((slot) {
+                              final isSelected = _selectedTimeSlot == slot;
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTimeSlot = slot;
+                                  });
+                                  setModalState(() {});
+                                  Future.delayed(
+                                    const Duration(milliseconds: 150),
+                                    () {
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  );
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primaryBlue
+                                        : (isDark
+                                            ? Colors.white.withValues(alpha: 0.05)
+                                            : Colors.grey.shade100),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.primaryBlue
+                                          : (isDark
+                                              ? Colors.white.withValues(alpha: 0.05)
+                                              : Colors.grey.shade200),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      if (isSelected)
+                                        BoxShadow(
+                                          color: AppColors.primaryBlue
+                                              .withValues(alpha: 0.3),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    slot,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isDark
+                                              ? Colors.white70
+                                              : Colors.black87),
+                                      fontWeight: isSelected
+                                          ? FontWeight.w900
+                                          : FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
     final currentIdx = nav.selectedIndex;
@@ -1906,7 +2080,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -1955,16 +2129,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           await _fetchSlotsForDate(date);
                         }
                       },
+                      borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                          vertical: 14,
                           horizontal: 16,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.grey.shade900
                               : AppStyles.softBackground,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
                                 ? AppColors.borderColor
@@ -1975,16 +2150,26 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Date', style: AppStyles.captionStyle),
-                            const SizedBox(height: 4),
-                            Text(
-                              DateFormat('EEE, MMM d').format(_selectedDate),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDark
-                                    ? AppColors.textPrimary
-                                    : Colors.black,
-                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 14,
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  DateFormat('EEE, MMM d').format(_selectedDate),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? AppColors.textPrimary
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1993,64 +2178,60 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.grey.shade900
-                            : AppStyles.softBackground,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.borderColor
-                              : Colors.grey.shade200,
+                    child: InkWell(
+                      onTap: () => _showSlotPicker(isDark),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Slot', style: AppStyles.captionStyle),
-                          const SizedBox(height: 4),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedTimeSlot,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            hint: const Text('Select an available slot'),
-                            items: _availableSlots
-                                .map(
-                                  (slot) => DropdownMenuItem<String>(
-                                    value: slot,
-                                    child: Text(slot),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedTimeSlot = value;
-                              });
-                            },
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.grey.shade900
+                              : AppStyles.softBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderColor
+                                : Colors.grey.shade200,
                           ),
-                          if (_availableSlots.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                'No slots available for this date',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark
-                                      ? Colors.orange.shade300
-                                      : Colors.orange.shade700,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Slot', style: AppStyles.captionStyle),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 14,
+                                  color: isDark ? Colors.white38 : Colors.black38,
                                 ),
-                              ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _selectedTimeSlot ?? 'Select slot',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? (_selectedTimeSlot != null
+                                              ? AppColors.textPrimary
+                                              : Colors.white38)
+                                          : (_selectedTimeSlot != null
+                                              ? Colors.black
+                                              : Colors.black38),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -2076,7 +2257,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             hintText: 'Any specific instructions for the mechanic...',
             hintStyle: AppStyles.captionStyle,
             filled: true,
-            fillColor: isDark ? AppColors.backgroundSecondary : Colors.white,
+            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
@@ -2346,7 +2527,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2395,7 +2576,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2540,7 +2721,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2550,177 +2731,52 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               if (_loadingCoupons)
                 const Center(child: CircularProgressIndicator())
               else if (_availableCoupons.isNotEmpty) ...[
-                const Text(
-                  'Available coupons:',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 130,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _availableCoupons.length,
-                    itemBuilder: (context, index) {
-                      final coupon = _availableCoupons[index];
-                      final minRequired =
-                          (coupon['minOrderAmount'] ?? 0) as num;
-                      final isSelected =
-                          _appliedCoupon?['_id'] == coupon['_id'];
-                      final meetsMinOrder =
-                          minRequired == 0 || total >= minRequired;
-                      final isDisabled = !meetsMinOrder || _validatingCoupon;
+                () {
+                  final eligibleCoupons = _availableCoupons.where((c) {
+                    final minRequired = (c['minOrderAmount'] ?? 0) as num;
+                    return minRequired == 0 || total >= minRequired;
+                  }).toList();
 
-                      final colors = [
-                        [
-                          const Color(0xFF4F46E5),
-                          const Color(0xFF4338CA),
-                        ], // Indigo
-                        [
-                          const Color(0xFFE11D48),
-                          const Color(0xFFBE123C),
-                        ], // Rose
-                        [
-                          const Color(0xFF059669),
-                          const Color(0xFF047857),
-                        ], // Emerald
-                        [
-                          const Color(0xFFD97706),
-                          const Color(0xFFB45309),
-                        ], // Amber
-                        [
-                          const Color(0xFF0284C7),
-                          const Color(0xFF0369A1),
-                        ], // Light Blue
-                      ];
-                      final gradientColors = colors[index % colors.length];
+                  if (eligibleCoupons.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        'No eligible coupons for this amount',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                    );
+                  }
 
-                      return Container(
-                        width: 240,
-                        margin: const EdgeInsets.only(right: 16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: isDisabled
-                              ? LinearGradient(
-                                  colors: isDark
-                                      ? [
-                                          Colors.grey.shade800,
-                                          Colors.grey.shade900,
-                                        ]
-                                      : [
-                                          Colors.grey.shade300,
-                                          Colors.grey.shade400,
-                                        ],
-                                )
-                              : LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: gradientColors,
-                                ),
-                          boxShadow: isDisabled
-                              ? []
-                              : [
-                                  BoxShadow(
-                                    color: gradientColors[0].withValues(
-                                      alpha: 0.3,
-                                    ),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Available coupons:',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 140,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: eligibleCoupons.length,
+                          itemBuilder: (context, index) {
+                            final coupon = eligibleCoupons[index];
+                            final isSelected =
+                                _appliedCoupon?['_id'] == coupon['_id'];
+
+                            return _buildCouponTicket(
+                              coupon,
+                              isSelected,
+                              true, // Already filtered for min order
+                              total,
+                            );
+                          },
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: isDisabled
-                                ? null
-                                : () =>
-                                      _applyCouponByCode(coupon['code'], total),
-                            child: Stack(
-                              children: [
-                                // Decorative icon background
-                                Positioned(
-                                  right: -10,
-                                  top: -10,
-                                  child: Icon(
-                                    Icons.local_offer_rounded,
-                                    size: 90,
-                                    color: Colors.white.withValues(alpha: 0.1),
-                                  ),
-                                ),
-                                // Content
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            coupon['code'],
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 20,
-                                              letterSpacing: 1.5,
-                                              color: isDisabled
-                                                  ? Colors.grey.shade500
-                                                  : Colors.white,
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            const Icon(
-                                              Icons.check_circle,
-                                              color: Colors.white,
-                                              size: 24,
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${coupon['discountPercentage']}% OFF',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: isDisabled
-                                              ? Colors.grey.shade500
-                                              : Colors.white.withValues(
-                                                  alpha: 0.95,
-                                                ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      if (minRequired > 0)
-                                        Text(
-                                          'Min. order: ₹$minRequired',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: isDisabled
-                                                ? (isDark
-                                                      ? Colors.red.shade400
-                                                      : Colors.red.shade700)
-                                                : Colors.white.withValues(
-                                                    alpha: 0.8,
-                                                  ),
-                                            fontWeight: isDisabled
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+                    ],
+                  );
+                }(),
                 if (_appliedCoupon != null) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -3118,6 +3174,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ),
       );
 
+      context.read<NavigationProvider>().setTab(2);
       // Navigate to dashboard/home after booking confirmation
       Navigator.pushNamedAndRemoveUntil(context, '/customer', (route) => false);
     } catch (e) {
@@ -3203,4 +3260,196 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
     }
   }
+
+  Widget _buildCouponTicket(
+    Map<String, dynamic> coupon,
+    bool isSelected,
+    bool meetsMinOrder,
+    double total,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final code = coupon['code']?.toString() ?? '';
+    final discount = '${coupon['discountPercentage']}% OFF';
+    final minAmount = coupon['minOrderAmount'] ?? 0;
+
+    final Color primaryColor =
+        isSelected
+            ? AppColors.primaryBlue
+            : (meetsMinOrder ? const Color(0xFF6366F1) : Colors.grey);
+
+    return Container(
+      width: 260,
+      margin: const EdgeInsets.only(right: 16, bottom: 8, top: 4),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withValues(alpha: isSelected ? 0.3 : 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color:
+                    isSelected
+                        ? primaryColor
+                        : (isDark ? Colors.white10 : Colors.grey.shade200),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.1),
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(14),
+                    ),
+                  ),
+                  child: RotatedBox(
+                    quarterTurns: 3,
+                    child: Center(
+                      child: Text(
+                        code,
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                CustomPaint(
+                  size: const Size(1, double.infinity),
+                  painter: DashedLinePainter(
+                    color: isDark ? Colors.white10 : Colors.grey.shade300,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          discount,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Min. order ₹$minAmount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap:
+                              !meetsMinOrder || _validatingCoupon
+                                  ? null
+                                  : () => _applyCouponByCode(code, total),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected
+                                      ? Colors.green
+                                      : (meetsMinOrder
+                                          ? primaryColor
+                                          : (isDark
+                                              ? Colors.white10
+                                              : Colors.grey.shade100)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                isSelected
+                                    ? 'APPLIED'
+                                    : (meetsMinOrder ? 'APPLY' : 'LOCKED'),
+                                style: TextStyle(
+                                  color:
+                                      meetsMinOrder
+                                          ? Colors.white
+                                          : (isDark
+                                              ? Colors.white24
+                                              : Colors.grey),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 54,
+            top: -10,
+            child: Container(
+              width: 12,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.backgroundSurface : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 54,
+            bottom: -10,
+            child: Container(
+              width: 12,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.backgroundSurface : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashedLinePainter extends CustomPainter {
+  final Color color;
+  DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double dashHeight = 5, dashSpace = 3, startY = 10;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    while (startY < size.height - 10) {
+      canvas.drawLine(Offset(0, startY), Offset(0, startY + dashHeight), paint);
+      startY += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

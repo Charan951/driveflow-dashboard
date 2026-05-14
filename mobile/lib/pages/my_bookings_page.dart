@@ -49,6 +49,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     final event = context.read<SocketService>().value;
     if (event == null) return;
 
