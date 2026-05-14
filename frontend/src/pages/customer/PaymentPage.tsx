@@ -557,7 +557,7 @@ const PaymentPage: React.FC = () => {
             amount={calculateFinalAmount()}
             tempBookingData={{
               ...tempBookingData,
-              totalAmount: calculateFinalAmount(),
+              totalAmount: Number(tempBookingData.totalAmount) || 0,
               customerEmail: user.email,
               customerPhone: user.phone,
               coupon: appliedCoupon?._id || null,

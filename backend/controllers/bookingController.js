@@ -377,6 +377,9 @@ export const createBooking = async (req, res) => {
     }
 
     const Service = (await import('../models/Service.js')).default;
+    const Vehicle = (await import('../models/Vehicle.js')).default;
+    const { getVehicleDataFromS3 } = await import('../utils/s3Storage.js');
+
     const services = await Service.find({ _id: { $in: serviceIds } });
 
     if (services.length !== serviceIds.length) {
@@ -394,7 +397,44 @@ export const createBooking = async (req, res) => {
       return res.status(409).json({ message: 'Selected slot is not available for one or more selected services' });
     }
 
-    const totalAmount = services.reduce((acc, service) => acc + service.price, 0);
+    let totalAmount = services.reduce((acc, service) => acc + service.price, 0);
+    let pickupDropPrice = 0;
+
+    // Check if this is a general service booking
+    const isGeneralService = services.some(service => 
+      service.category === 'Periodic' || 
+      service.category === 'Services' || 
+      (service.name && service.name.toLowerCase().includes('general service'))
+    );
+
+    // If general service, add pickup_drop_price from reference data
+    if (isGeneralService) {
+      try {
+        const vehicle = await Vehicle.findById(vehicleId);
+        if (vehicle) {
+          const allRefData = await getVehicleDataFromS3();
+          const cleanBrand = vehicle.make.trim().toLowerCase();
+          const cleanModel = vehicle.model.trim().toLowerCase();
+          const cleanVariant = vehicle.variant ? vehicle.variant.trim().toLowerCase() : '';
+
+          const refMatch = allRefData.find(item => 
+            item.brand_name.toLowerCase() === cleanBrand && 
+            item.model.toLowerCase() === cleanModel && 
+            (cleanVariant === '' || item.brand_model.toLowerCase() === cleanVariant)
+          );
+
+          if (refMatch && refMatch.pickup_drop_price) {
+            const extra = Number(refMatch.pickup_drop_price);
+            if (!isNaN(extra)) {
+              pickupDropPrice = extra;
+              totalAmount += extra;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error adding pickup_drop_price to booking:', err);
+      }
+    }
 
     // Check if this is a service that requires payment (Car Wash, Battery/Tires, or Essentials)
     const requiresPaymentService = services.some(service => 
@@ -417,6 +457,7 @@ export const createBooking = async (req, res) => {
         notes,
         location,
         totalAmount,
+        pickupDropPrice,
         requiresPaymentService: true
       };
 
@@ -456,6 +497,7 @@ export const createBooking = async (req, res) => {
           notes,
           location,
           totalAmount,
+          pickupDropPrice,
           finalAmount: totalAmount,
           discountAmount: 0,
           coupon: null,
@@ -834,6 +876,7 @@ export const getMyBookings = async (req, res) => {
       .populate('user', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
       .populate('carWash.staffAssigned', 'name email phone')
+      .populate('coupon')
       .lean();
     res.json(bookings);
   } catch (error) {
@@ -963,7 +1006,8 @@ export const getBookingById = async (req, res) => {
       .populate('merchant', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
-      .populate('carWash.staffAssigned', 'name email phone');
+      .populate('carWash.staffAssigned', 'name email phone')
+      .populate('coupon');
     
     if (booking) {
       // Check if user is authorized (admin, merchant, or booking owner)
@@ -1655,9 +1699,46 @@ export const updateBookingDetails = async (req, res) => {
       if (billing) {
         if (!booking.billing) booking.billing = {};
         Object.assign(booking.billing, billing);
-        if (billing.total) {
-          booking.totalAmount = billing.total;
+        
+        // Recalculate total instead of trusting billing.total from client
+        const Service = (await import('../models/Service.js')).default;
+        const services = await Service.find({ _id: { $in: booking.services } });
+        const servicesTotal = services.reduce((acc, s) => acc + s.price, 0);
+        
+        const partsTotal = Number(booking.billing.partsTotal || 0);
+        const labourCost = Number(booking.billing.labourCost || 0);
+        const gst = Number(booking.billing.gst || 0);
+        const pickupDropPrice = Number(booking.billing.pickupDropPrice || booking.pickupDropPrice || 0);
+        
+        const calculatedTotal = servicesTotal + partsTotal + labourCost + gst + pickupDropPrice;
+        
+        booking.totalAmount = calculatedTotal;
+        booking.billing.total = calculatedTotal;
+
+        // Support manual discount from billing object
+        if (billing.discountAmount !== undefined) {
+          booking.discountAmount = Number(billing.discountAmount);
         }
+
+        // Recalculate coupon discount if coupon exists
+        if (booking.coupon) {
+          try {
+            const Coupon = (await import('../models/Coupon.js')).default;
+            const coupon = await Coupon.findById(booking.coupon);
+            if (coupon && coupon.isActive) {
+              let couponDiscount = (calculatedTotal * coupon.discountPercentage) / 100;
+              if (coupon.maxDiscountAmount) {
+                couponDiscount = Math.min(couponDiscount, coupon.maxDiscountAmount);
+              }
+              booking.discountAmount = couponDiscount;
+            }
+          } catch (err) {
+            console.error('Error recalculating coupon discount:', err);
+          }
+        }
+
+        booking.finalAmount = Math.max(0, calculatedTotal - (booking.discountAmount || 0));
+        
         booking.markModified('billing');
 
         // If submitting a bill, also mark the service as completed
@@ -1681,12 +1762,37 @@ export const updateBookingDetails = async (req, res) => {
         const services = await Service.find({ _id: { $in: booking.services } });
         const servicesTotal = services.reduce((acc, service) => acc + service.price, 0);
         
-        booking.totalAmount = servicesTotal + partsTotal;
+        const labourCost = Number(booking.billing?.labourCost || 0);
+        const gst = Number(booking.billing?.gst || 0);
+        const pickupDropPrice = Number(booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0);
+
+        const newTotal = servicesTotal + partsTotal + labourCost + gst + pickupDropPrice;
+        
+        booking.totalAmount = newTotal;
+
+        // Recalculate coupon discount if coupon exists
+        if (booking.coupon) {
+          try {
+            const Coupon = (await import('../models/Coupon.js')).default;
+            const coupon = await Coupon.findById(booking.coupon);
+            if (coupon && coupon.isActive) {
+              let couponDiscount = (newTotal * coupon.discountPercentage) / 100;
+              if (coupon.maxDiscountAmount) {
+                couponDiscount = Math.min(couponDiscount, coupon.maxDiscountAmount);
+              }
+              booking.discountAmount = couponDiscount;
+            }
+          } catch (err) {
+            console.error('Error recalculating coupon discount in parts update:', err);
+          }
+        }
+
+        booking.finalAmount = Math.max(0, newTotal - (booking.discountAmount || 0));
         
         // Update billing partsTotal if billing exists
         if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
-            booking.billing.total = servicesTotal + partsTotal + (booking.billing.labourCost || 0) + (booking.billing.gst || 0);
+            booking.billing.total = newTotal;
         }
       }
 

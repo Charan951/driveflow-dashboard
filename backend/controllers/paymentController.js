@@ -71,7 +71,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const orderAmount = amount || booking.totalAmount;
+    const orderAmount = amount || booking.finalAmount || booking.totalAmount;
     const orderData = await paymentService.createOrder(userId, bookingId, orderAmount, currency);
 
     // Log audit

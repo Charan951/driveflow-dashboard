@@ -140,6 +140,7 @@ class BookingDetail {
   final List<String> prePickupPhotos;
   final String? paymentStatus;
   final num? totalAmount;
+  final num? discountAmount;
   final bool pickupRequired;
   final InspectionData? inspection;
   final QCData? qc;
@@ -170,6 +171,7 @@ class BookingDetail {
     required this.prePickupPhotos,
     this.paymentStatus,
     this.totalAmount,
+    this.discountAmount,
     this.pickupRequired = true,
     this.inspection,
     this.qc,
@@ -241,6 +243,7 @@ class BookingDetail {
     List<String>? prePickupPhotos,
     String? paymentStatus,
     num? totalAmount,
+    num? discountAmount,
     bool? pickupRequired,
     InspectionData? inspection,
     QCData? qc,
@@ -272,6 +275,7 @@ class BookingDetail {
       prePickupPhotos: prePickupPhotos ?? this.prePickupPhotos,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       totalAmount: totalAmount ?? this.totalAmount,
+      discountAmount: discountAmount ?? this.discountAmount,
       pickupRequired: pickupRequired ?? this.pickupRequired,
       inspection: inspection ?? this.inspection,
       qc: qc ?? this.qc,
@@ -390,9 +394,12 @@ class BookingDetail {
       prePickupPhotos: photos,
       paymentStatus: getField('paymentStatus')?.toString(),
       totalAmount: getField('totalAmount') is num
-          ? (getField('totalAmount') as num)
+          ? getField('totalAmount') as num
           : null,
-      pickupRequired: getField('pickupRequired') as bool? ?? true,
+      discountAmount: getField('discountAmount') is num
+          ? getField('discountAmount') as num
+          : null,
+      pickupRequired: getField('pickupRequired') != false,
       inspection: inspection,
       qc: getField('qc') is Map
           ? QCData.fromJson(Map<String, dynamic>.from(getField('qc')))
@@ -725,6 +732,7 @@ class BillingData {
   final num labourCost;
   final num gst;
   final num partsTotal;
+  final num pickupDropPrice;
   final num total;
 
   BillingData({
@@ -734,12 +742,19 @@ class BillingData {
     required this.labourCost,
     required this.gst,
     required this.partsTotal,
+    required this.pickupDropPrice,
     required this.total,
   });
 
   factory BillingData.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
-      return BillingData(labourCost: 0, gst: 0, partsTotal: 0, total: 0);
+      return BillingData(
+        labourCost: 0,
+        gst: 0,
+        partsTotal: 0,
+        pickupDropPrice: 0,
+        total: 0,
+      );
     }
     return BillingData(
       invoiceNumber: json['invoiceNumber']?.toString(),
@@ -748,6 +763,9 @@ class BillingData {
       labourCost: json['labourCost'] is num ? (json['labourCost'] as num) : 0,
       gst: json['gst'] is num ? (json['gst'] as num) : 0,
       partsTotal: json['partsTotal'] is num ? (json['partsTotal'] as num) : 0,
+      pickupDropPrice: json['pickupDropPrice'] is num
+          ? (json['pickupDropPrice'] as num)
+          : 0,
       total: json['total'] is num ? (json['total'] as num) : 0,
     );
   }

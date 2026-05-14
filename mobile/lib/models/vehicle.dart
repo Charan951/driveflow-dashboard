@@ -20,6 +20,7 @@ class Vehicle {
   final String? frontTyres;
   final String? rearTyres;
   final String? batteryDetails;
+  final String? pickupDropPrice;
   final Map<String, dynamic>? healthIndicators;
 
   Vehicle({
@@ -44,6 +45,7 @@ class Vehicle {
     this.frontTyres,
     this.rearTyres,
     this.batteryDetails,
+    this.pickupDropPrice,
     this.healthIndicators,
   });
 
@@ -65,6 +67,8 @@ class Vehicle {
       frontTyres: json['frontTyres']?.toString(),
       rearTyres: json['rearTyres']?.toString(),
       batteryDetails: json['batteryDetails']?.toString(),
+      pickupDropPrice: (json['pickupDropPrice'] ?? json['pickup_drop_price'])
+          ?.toString(),
       healthIndicators: json['healthIndicators'] is Map
           ? Map<String, dynamic>.from(json['healthIndicators'])
           : null,
@@ -108,6 +112,7 @@ class Vehicle {
       if (frontTyres != null) 'frontTyres': frontTyres,
       if (rearTyres != null) 'rearTyres': rearTyres,
       if (batteryDetails != null) 'batteryDetails': batteryDetails,
+      if (pickupDropPrice != null) 'pickupDropPrice': pickupDropPrice,
       if (lastService != null) 'lastService': lastService?.toIso8601String(),
       if (nextService != null) 'nextService': nextService?.toIso8601String(),
       if (insurance != null) 'insurance': insurance!.toJson(),

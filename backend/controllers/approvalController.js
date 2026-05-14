@@ -242,6 +242,7 @@ export const updateApprovalStatus = async (req, res) => {
         const booking = await Booking.findById(approval.relatedId);
         if (booking && approval.data?.newAmount) {
           booking.totalAmount = approval.data.newAmount;
+          booking.finalAmount = Math.max(0, booking.totalAmount - (booking.discountAmount || 0));
           await booking.save();
           
           const populated = await Booking.findById(booking._id)
@@ -313,12 +314,18 @@ export const updateApprovalStatus = async (req, res) => {
 
           const partsTotal = booking.parts.reduce((acc, part) => acc + (Number(part.price) * Number(part.quantity)), 0);
 
-          booking.totalAmount = servicesTotal + partsTotal;
+          const labourCost = Number(booking.billing?.labourCost || 0);
+          const gst = Number(booking.billing?.gst || 0);
+          const pickupDropPrice = Number(booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0);
+
+          const newTotal = servicesTotal + partsTotal + labourCost + gst + pickupDropPrice;
+          booking.totalAmount = newTotal;
+          booking.finalAmount = Math.max(0, newTotal - (booking.discountAmount || 0));
 
           // Update billing if exists
           if (booking.billing) {
             booking.billing.partsTotal = partsTotal;
-            booking.billing.total = servicesTotal + partsTotal + (Number(booking.billing.labourCost) || 0) + (Number(booking.billing.gst) || 0);
+            booking.billing.total = newTotal;
           }
 
           booking.markModified('inspection');
@@ -361,11 +368,13 @@ export const updateApprovalStatus = async (req, res) => {
           const partsTotal = booking.billing.partsTotal || 0;
           const labourCost = booking.billing.labourCost;
           const gst = booking.billing.gst || 0;
+          const pickupDropPrice = booking.billing.pickupDropPrice || 0;
           
-          booking.billing.total = servicesTotal + partsTotal + labourCost + gst;
+          booking.billing.total = servicesTotal + partsTotal + labourCost + gst + pickupDropPrice;
           
           // Update main totalAmount
           booking.totalAmount = (booking.totalAmount || 0) + Number(amount);
+          booking.finalAmount = Math.max(0, booking.totalAmount - (booking.discountAmount || 0));
           
           // Add note
           const note = `Extra Cost Approved: ${reason} - $${amount}`;

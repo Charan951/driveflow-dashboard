@@ -83,6 +83,7 @@ const BookServicePage: React.FC = () => {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [pickupDropPrice, setPickupDropPrice] = useState<number>(0);
 
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -92,6 +93,16 @@ const BookServicePage: React.FC = () => {
 
   const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
   const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
+
+  const getBookingCategory = () => {
+    if (selectedServicesData.length === 0) return 'All';
+    const categories = selectedServicesData.map(s => s.category);
+    if (categories.some(c => c === 'Car Wash' || c === 'Wash')) return 'Car Wash';
+    if (categories.some(c => c === 'Tyres' || c === 'Battery' || c === 'Tyre & Battery')) return 'Tyres & Battery';
+    if (categories.some(c => c === 'Essentials')) return 'Essentials';
+    return 'General Services';
+  };
+
   const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
   const noServiceAreasConfigured = pincodesReady && availableServicePincodes.length === 0;
   const isSelectedLocationAllowed = Boolean(
@@ -100,11 +111,17 @@ const BookServicePage: React.FC = () => {
         (availableServicePincodes.length > 0 &&
           availableServicePincodes.includes(selectedLocationPincode)))
   );
+  const isGeneralService = selectedServicesData.some(s => 
+    s.category === 'Periodic' || 
+    s.category === 'Services' || 
+    s.name.toLowerCase().includes('general service')
+  );
+  
   const totalPrice = selectedServicesData.reduce((sum, service) => {
     if (!service) return sum;
     const qty = serviceQuantities[service._id] || 1;
     return sum + (Number(service.price || 0) * qty);
-  }, 0);
+  }, 0) + (isGeneralService ? pickupDropPrice : 0);
 
   useEffect(() => {
     fetchData();
@@ -206,15 +223,6 @@ const BookServicePage: React.FC = () => {
     }
   };
 
-  const getBookingCategory = () => {
-    if (selectedServicesData.length === 0) return 'All';
-    const categories = selectedServicesData.map(s => s.category);
-    if (categories.some(c => c === 'Car Wash' || c === 'Wash')) return 'Car Wash';
-    if (categories.some(c => c === 'Tyres' || c === 'Battery' || c === 'Tyre & Battery')) return 'Tyres & Battery';
-    if (categories.some(c => c === 'Essentials')) return 'Essentials';
-    return 'General Services';
-  };
-
   const refreshAvailablePincodes = async () => {
     try {
       const data = await bookingService.getAvailableServicePincodes();
@@ -231,9 +239,10 @@ const BookServicePage: React.FC = () => {
     const prefillTireSizes = async () => {
       if (selectedVehicle && selectedVehicleData) {
         let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
+        let vehiclePickupDropPrice = 0;
         
-        // If no tire size on vehicle, try to fetch from reference when variant is present
-        if (!vehicleTireSize && selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
+        // Try to fetch from reference when variant is present
+        if (selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
           try {
             const details = await searchVehicleReference(
               selectedVehicleData.make, 
@@ -241,12 +250,34 @@ const BookServicePage: React.FC = () => {
               selectedVehicleData.variant
             );
             if (details) {
-              vehicleTireSize = details.front_tyres || details.rear_tyres;
+              if (!vehicleTireSize) {
+                vehicleTireSize = details.front_tyres || details.rear_tyres;
+              }
+              vehiclePickupDropPrice = Number(details.pickup_drop_price || 0);
             }
           } catch (error) {
-            console.error('Failed to auto-fetch tire size during booking:', error);
+            console.error('Failed to auto-fetch reference details during booking:', error);
           }
+        } else {
+            // Even without variant, try searching with brand and model
+            try {
+              const details = await searchVehicleReference(
+                selectedVehicleData.make, 
+                selectedVehicleData.model, 
+                ''
+              );
+              if (details) {
+                if (!vehicleTireSize) {
+                  vehicleTireSize = details.front_tyres || details.rear_tyres;
+                }
+                vehiclePickupDropPrice = Number(details.pickup_drop_price || 0);
+              }
+            } catch (error) {
+              console.error('Failed to auto-fetch reference details during booking:', error);
+            }
         }
+        
+        setPickupDropPrice(vehiclePickupDropPrice);
 
         if (vehicleTireSize) {
           setTireSizes(prevSizes => {
@@ -535,7 +566,8 @@ const BookServicePage: React.FC = () => {
         // For services requiring payment, store temp booking data and redirect to payment
         const tempBookingData = {
           ...bookingData,
-          totalAmount: totalPrice,
+          totalAmount: newBooking.totalAmount || totalPrice,
+          pickupDropPrice: newBooking.pickupDropPrice || pickupDropPrice,
           requiresPaymentService: true,
           isCarWashService: isCarWash || isEssentialsService,
           isBatteryTireService: isBatteryTire,
@@ -746,11 +778,23 @@ const BookServicePage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-foreground text-sm sm:text-base line-clamp-1">
-                            {vehicle.year} {vehicle.make} {vehicle.model}
+                        <div className="flex-1 min-w-0 py-1">
+                          <h3 className="text-lg font-bold text-foreground leading-tight tracking-tight">
+                            {vehicle.make}
+                          </h3>
+                          <p className="text-base font-medium text-foreground/80 leading-tight">
+                            {vehicle.model}
                           </p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+                          {vehicle.variant && (
+                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 leading-tight">
+                              {vehicle.variant}
+                            </p>
+                          )}
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
+                            <span>{vehicle.year}</span>
+                            <span>•</span>
+                            <span className="font-mono uppercase tracking-wider">{vehicle.licensePlate}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -1200,11 +1244,23 @@ const BookServicePage: React.FC = () => {
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                       <Car className="w-6 h-6 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        {selectedVehicleData?.year} {selectedVehicleData?.make} {selectedVehicleData?.model}
+                    <div className="flex-1 min-w-0 py-1">
+                      <h3 className="text-lg font-bold text-foreground leading-tight tracking-tight">
+                        {selectedVehicleData?.make}
+                      </h3>
+                      <p className="text-base font-medium text-foreground/80 leading-tight">
+                        {selectedVehicleData?.model}
                       </p>
-                      <p className="text-sm text-muted-foreground">{selectedVehicleData?.licensePlate}</p>
+                      {selectedVehicleData?.variant && (
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400 leading-tight">
+                          {selectedVehicleData.variant}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
+                        <span>{selectedVehicleData?.year}</span>
+                        <span>•</span>
+                        <span className="font-mono uppercase tracking-wider">{selectedVehicleData?.licensePlate}</span>
+                      </div>
                     </div>
                   </div>
                   
@@ -1230,6 +1286,20 @@ const BookServicePage: React.FC = () => {
                         </div>
                       );
                     })}
+
+                    {isGeneralService && pickupDropPrice > 0 && (
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <MapPin className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-foreground">Pickup & Drop Charges</p>
+                          <p className="text-sm text-muted-foreground">Service Location Handling</p>
+                        </div>
+                        <p className="text-lg font-bold text-primary">₹{pickupDropPrice}</p>
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-center pt-2">
                         <span className="font-semibold text-muted-foreground">Total</span>
                         <span className="text-xl font-bold text-primary">₹{totalPrice}</span>

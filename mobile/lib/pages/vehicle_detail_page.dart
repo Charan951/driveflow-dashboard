@@ -1160,6 +1160,15 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
         ),
       );
     }
+    if ((v.pickupDropPrice ?? '').trim().isNotEmpty) {
+      list.add(
+        _VehicleSpecItem(
+          Icons.currency_rupee_outlined,
+          'Pickup/Drop',
+          '₹${v.pickupDropPrice!.trim()}',
+        ),
+      );
+    }
     return list;
   }
 

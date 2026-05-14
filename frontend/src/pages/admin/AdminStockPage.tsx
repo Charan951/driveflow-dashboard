@@ -6,7 +6,8 @@ import {
   importVehicleReference,
   createVehicleReference,
   updateVehicleReference,
-  deleteVehicleReference
+  deleteVehicleReference,
+  deleteAllVehicleReference
 } from '../../services/vehicleReferenceService';
 import { socketService } from '../../services/socket';
 import { toast } from 'react-hot-toast';
@@ -23,6 +24,7 @@ interface VehicleData {
   front_tyres: string;
   rear_tyres: string;
   battery_details?: string;
+  pickup_drop_price?: string | number;
 }
 
 const AdminVehicleDataPage = () => {
@@ -38,7 +40,8 @@ const AdminVehicleDataPage = () => {
     brand_model: '',
     front_tyres: '',
     rear_tyres: '',
-    battery_details: ''
+    battery_details: '',
+    pickup_drop_price: ''
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -115,7 +118,8 @@ const AdminVehicleDataPage = () => {
         brand_model: vehicle.brand_model,
         front_tyres: vehicle.front_tyres,
         rear_tyres: vehicle.rear_tyres,
-        battery_details: vehicle.battery_details || ''
+        battery_details: vehicle.battery_details || '',
+        pickup_drop_price: vehicle.pickup_drop_price?.toString() || ''
       });
     } else {
       setEditingVehicle(null);
@@ -125,7 +129,8 @@ const AdminVehicleDataPage = () => {
         brand_model: '',
         front_tyres: '',
         rear_tyres: '',
-        battery_details: ''
+        battery_details: '',
+        pickup_drop_price: ''
       });
     }
     setIsModalOpen(true);
@@ -156,6 +161,21 @@ const AdminVehicleDataPage = () => {
         fetchVehicleData();
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'Failed to delete vehicle data');
+      }
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (window.confirm('Are you sure you want to delete ALL vehicle reference data? This action cannot be undone.')) {
+      try {
+        setLoading(true);
+        await deleteAllVehicleReference();
+        toast.success('All vehicle data deleted successfully');
+        fetchVehicleData();
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to delete all vehicle data');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -197,6 +217,14 @@ const AdminVehicleDataPage = () => {
           >
             <Plus size={18} />
             Add New
+          </button>
+          <button
+            onClick={handleDeleteAll}
+            disabled={loading || vehicleData.length === 0}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <Trash2 size={18} />
+            Delete All
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -275,6 +303,7 @@ const AdminVehicleDataPage = () => {
                 <th className="px-6 py-4 font-semibold text-gray-700">Front Tyres</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Rear Tyres</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Battery</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Pickup/Drop Price</th>
                 <th className="px-6 py-4 font-semibold text-gray-700 text-right">Actions</th>
               </tr>
             </thead>
@@ -298,6 +327,9 @@ const AdminVehicleDataPage = () => {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {item.battery_details || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.pickup_drop_price ? `₹${item.pickup_drop_price}` : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -397,6 +429,16 @@ const AdminVehicleDataPage = () => {
                 value={formData.battery_details}
                 onChange={(e) => setFormData({ ...formData, battery_details: e.target.value })}
                 placeholder="e.g. 80Ah AGM"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pickup_drop_price">Pickup/Drop Price</Label>
+              <Input
+                id="pickup_drop_price"
+                type="number"
+                value={formData.pickup_drop_price}
+                onChange={(e) => setFormData({ ...formData, pickup_drop_price: e.target.value })}
+                placeholder="e.g. 600"
               />
             </div>
             <DialogFooter className="pt-4">

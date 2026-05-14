@@ -27,7 +27,6 @@ const AddVehiclePage: React.FC = () => {
     variant: '',
     fuel: '',
     year: '',
-    registrationDate: '',
     color: '',
     frontTyres: '',
     rearTyres: '',
@@ -110,7 +109,6 @@ const AddVehiclePage: React.FC = () => {
           variant: details.variant || '',
           fuel: details.fuel_type || '',
           year: extractedYear || new Date().getFullYear().toString(),
-          registrationDate: details.registration_date || '',
           color: details.color || '',
         }));
         toast.success('Vehicle details found!');
@@ -145,7 +143,6 @@ const AddVehiclePage: React.FC = () => {
         model: formData.model.trim(),
         variant: formData.variant.trim(),
         year: parseInt(formData.year) || new Date().getFullYear(),
-        registrationDate: formData.registrationDate.trim() || undefined,
         color: formData.color.trim() || undefined,
         fuelType: formData.fuel.trim() || undefined,
         frontTyres: formData.frontTyres,
@@ -155,7 +152,7 @@ const AddVehiclePage: React.FC = () => {
       toast.success('Vehicle added successfully!');
       setShowForm(false);
       setStep(1);
-      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', registrationDate: '', color: '', frontTyres: '', rearTyres: '' });
+      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '', frontTyres: '', rearTyres: '' });
       fetchVehicles(); // Refresh list
     } catch (error) {
       console.error('Failed to add vehicle:', error);
@@ -284,17 +281,6 @@ const AddVehiclePage: React.FC = () => {
                     name="fuel"
                     value={formData.fuel}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Registration Date</label>
-                  <input
-                    type="text"
-                    name="registrationDate"
-                    value={formData.registrationDate}
-                    onChange={handleChange}
-                    placeholder="DD-MM-YYYY"
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

@@ -12,6 +12,7 @@ interface OrderCardProps {
     make: string;
     model: string;
     licensePlate: string;
+    variant?: string;
   };
   status: string;
   scheduledDate: string;
@@ -82,7 +83,7 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">
-        {vehicle.make} {vehicle.model} • {vehicle.licensePlate}
+        {vehicle.make} {vehicle.model}{vehicle.variant ? ` • ${vehicle.variant}` : ''} • {vehicle.licensePlate}
       </p>
 
       {status === 'completed' && (

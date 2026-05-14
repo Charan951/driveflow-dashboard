@@ -561,11 +561,12 @@ const DashboardPage: React.FC = () => {
                     make: (booking.vehicle as Vehicle)?.make || 'Unknown',
                     model: (booking.vehicle as Vehicle)?.model || 'Vehicle',
                     licensePlate: (booking.vehicle as Vehicle)?.licensePlate || 'N/A',
+                    variant: (booking.vehicle as Vehicle)?.variant || '',
                   }}
                   status={mapStatusToCardStatus(booking.status)}
                   scheduledDate={new Date(booking.date).toLocaleDateString()}
                   scheduledTime={new Date(booking.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  price={booking.totalAmount}
+                  price={booking.finalAmount || booking.totalAmount}
                   rating={bookingReview?.rating}
                   onRate={(rating) => handleRateBooking(booking, rating)}
                   onClick={() => navigate(`/track/${booking._id}`)}

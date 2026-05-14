@@ -130,6 +130,7 @@ const bookingSchema = mongoose.Schema(
       labourCost: { type: Number, default: 0 },
       gst: { type: Number, default: 0 },
       partsTotal: { type: Number, default: 0 },
+      pickupDropPrice: { type: Number, default: 0 },
       total: { type: Number, default: 0 }
     },
     revisit: {
@@ -140,6 +141,10 @@ const bookingSchema = mongoose.Schema(
     totalAmount: {
       type: Number,
       required: true,
+    },
+    pickupDropPrice: {
+      type: Number,
+      default: 0
     },
     coupon: {
       type: mongoose.Schema.Types.ObjectId,

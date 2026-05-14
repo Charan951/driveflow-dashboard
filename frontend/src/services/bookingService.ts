@@ -11,6 +11,10 @@ export interface Booking {
   date: string;
   status: 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'REACHED_CUSTOMER' | 'VEHICLE_PICKED' | 'REACHED_MERCHANT' | 'SERVICE_STARTED' | 'SERVICE_COMPLETED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'CAR_WASH_STARTED' | 'CAR_WASH_COMPLETED' | 'STAFF_REACHED_MERCHANT' | 'PICKUP_BATTERY_TIRE' | 'INSTALLATION' | 'DELIVERY' | 'On Hold';
   totalAmount: number;
+  finalAmount: number;
+  discountAmount?: number;
+  coupon?: any;
+  pickupDropPrice?: number;
   notes?: string;
   location?: {
     address: string;
@@ -130,6 +134,7 @@ export interface Booking {
     labourCost: number;
     gst: number;
     partsTotal: number;
+    pickupDropPrice: number;
     total: number;
   };
   revisit?: {

@@ -24,8 +24,24 @@ const getRecordedPartsTotal = (b: Booking): number => {
   return 0;
 };
 
-const getBaseServiceAmount = (b: Booking) =>
-  Math.max(0, (b.totalAmount || 0) - getRecordedPartsTotal(b));
+const getBaseServiceAmount = (b: Booking) => {
+  // Prefer calculating from services array for accuracy
+  if (Array.isArray(b.services) && b.services.length > 0) {
+    const sum = b.services.reduce((acc, s) => acc + (typeof s === 'object' ? (s.price || 0) : 0), 0);
+    if (sum > 0) return sum;
+  }
+
+  const total = b.totalAmount || 0;
+  const parts = getRecordedPartsTotal(b);
+  const pickup = Number(b.pickupDropPrice) || 0;
+  const labour = Number(b.billing?.labourCost) || 0;
+  const gst = Number(b.billing?.gst) || 0;
+  
+  if (total >= (parts + pickup + labour + gst)) {
+    return Math.max(0, total - parts - pickup - labour - gst);
+  }
+  return Math.max(0, total - parts - labour - gst);
+};
 
 const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComplete }) => {
   const recordedParts = getRecordedPartsTotal(booking);
@@ -36,10 +52,11 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
       : recordedParts;
   const labourAtInit = Number(booking.billing?.labourCost) || 0;
   const gstAtInit = Number(booking.billing?.gst) || 0;
+  const pickupDropAtInit = Number(booking.billing?.pickupDropPrice) || Number(booking.pickupDropPrice) || 0;
   const initialTotal =
     booking.billing?.total != null
       ? Number(booking.billing.total)
-      : baseAtInit + partsAtInit + labourAtInit + gstAtInit;
+      : baseAtInit + partsAtInit + labourAtInit + gstAtInit + pickupDropAtInit;
 
   const [formData, setFormData] = useState({
     invoiceNumber: booking.billing?.invoiceNumber || '',
@@ -47,7 +64,8 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
     partsCost: partsAtInit > 0 ? String(partsAtInit) : '',
     labourCost: booking.billing?.labourCost != null ? String(booking.billing.labourCost) : '',
     gst: booking.billing?.gst != null ? String(booking.billing.gst) : '',
-    totalAmount: String(Number.isFinite(initialTotal) ? initialTotal : baseAtInit + partsAtInit + labourAtInit + gstAtInit),
+    pickupDropPrice: pickupDropAtInit > 0 ? String(pickupDropAtInit) : '',
+    totalAmount: String(Number.isFinite(initialTotal) ? initialTotal : baseAtInit + partsAtInit + labourAtInit + gstAtInit + pickupDropAtInit),
   });
   const [file, setFile] = useState<File | null>(null);
   const [isUploaded, setIsUploaded] = useState(!!booking.billing?.fileUrl);
@@ -62,12 +80,13 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             : getRecordedPartsTotal(booking) || parseFloat(String(prev.partsCost)) || 0;
         const labourCost = parseFloat(prev.labourCost.toString() || '0');
         const gst = parseFloat(prev.gst.toString() || '0');
+        const pickupDrop = parseFloat(prev.pickupDropPrice.toString() || '0');
         const baseAmount = getBaseServiceAmount(booking);
 
         return {
             ...prev,
             partsCost: partsNum > 0 ? String(partsNum) : prev.partsCost,
-            totalAmount: (baseAmount + partsNum + labourCost + gst).toString()
+            totalAmount: (baseAmount + partsNum + labourCost + gst + pickupDrop).toString()
         };
     });
   }, [booking.billing?.partsTotal, booking.totalAmount, booking.parts]);
@@ -77,12 +96,13 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
     setFormData(prev => {
         const newData = { ...prev, [name]: value };
         // Auto calculate total if costs change
-        if (['partsCost', 'labourCost', 'gst'].includes(name)) {
+        if (['partsCost', 'labourCost', 'gst', 'pickupDropPrice'].includes(name)) {
             const parts = parseFloat(newData.partsCost.toString()) || 0;
             const labour = parseFloat(newData.labourCost.toString()) || 0;
             const gst = parseFloat(newData.gst.toString()) || 0;
+            const pickupDrop = parseFloat(newData.pickupDropPrice.toString()) || 0;
             const baseAmount = getBaseServiceAmount(booking);
-            newData.totalAmount = (baseAmount + parts + labour + gst).toString();
+            newData.totalAmount = (baseAmount + parts + labour + gst + pickupDrop).toString();
         }
         return newData;
     });
@@ -130,6 +150,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
                 partsTotal: parseFloat(formData.partsCost.toString()) || 0,
                 labourCost: parseFloat(formData.labourCost.toString()) || 0,
                 gst: parseFloat(formData.gst.toString()) || 0,
+                pickupDropPrice: parseFloat(formData.pickupDropPrice.toString()) || 0,
                 total: parseFloat(formData.totalAmount.toString()) || 0,
                 fileUrl: fileUrl
             }
@@ -255,6 +276,17 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
               type="number"
               name="gst"
               value={formData.gst}
+              onChange={handleInputChange}
+              min="0"
+              className="w-full p-2 border border-input rounded-lg bg-background"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Pickup/Drop Price</label>
+            <input
+              type="number"
+              name="pickupDropPrice"
+              value={formData.pickupDropPrice}
               onChange={handleInputChange}
               min="0"
               className="w-full p-2 border border-input rounded-lg bg-background"

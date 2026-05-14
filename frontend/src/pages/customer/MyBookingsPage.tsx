@@ -291,7 +291,7 @@ const MyBookingsPage = () => {
                     <TableCell>{format(new Date(booking.date), 'PPP')}</TableCell>
                     <TableCell>
                       {typeof booking.vehicle === 'object' 
-                        ? `${booking.vehicle.make} ${booking.vehicle.model} (${booking.vehicle.licensePlate})`
+                        ? `${booking.vehicle.make} ${booking.vehicle.model}${booking.vehicle.variant ? ` ${booking.vehicle.variant}` : ''} (${booking.vehicle.licensePlate})`
                         : 'N/A'}
                     </TableCell>
                     <TableCell>
@@ -308,7 +308,10 @@ const MyBookingsPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span>₹{booking.totalAmount}</span>
+                        <span className={booking.discountAmount ? "text-muted-foreground line-through text-xs" : ""}>₹{booking.totalAmount}</span>
+                        {booking.discountAmount ? (
+                          <span className="font-bold text-primary">₹{booking.finalAmount}</span>
+                        ) : null}
                         {approvedPartsCount > 0 && (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <Wrench className="w-3 h-3" />
@@ -398,7 +401,7 @@ const MyBookingsPage = () => {
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {typeof booking.vehicle === 'object' 
-                          ? `${booking.vehicle.make} ${booking.vehicle.model} (${booking.vehicle.licensePlate})`
+                          ? `${booking.vehicle.make} ${booking.vehicle.model}${booking.vehicle.variant ? ` ${booking.vehicle.variant}` : ''} (${booking.vehicle.licensePlate})`
                           : 'N/A'}
                       </p>
                     </div>

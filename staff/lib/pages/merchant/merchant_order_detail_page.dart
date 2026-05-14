@@ -57,6 +57,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   final TextEditingController _partsCostController = TextEditingController();
   final TextEditingController _labourCostController = TextEditingController();
   final TextEditingController _gstController = TextEditingController();
+  final TextEditingController _discountAmountController =
+      TextEditingController();
   XFile? _billFile;
 
   // QC State
@@ -97,6 +99,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     _partsCostController.dispose();
     _labourCostController.dispose();
     _gstController.dispose();
+    _discountAmountController.dispose();
     _warrantyNameController.dispose();
     _warrantyPriceController.dispose();
     _warrantyMonthsController.dispose();
@@ -155,7 +158,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
         if (shouldAutoReturnToPrevious) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payment completed. Returning to home.')),
+            const SnackBar(
+              content: Text('Payment completed. Returning to home.'),
+            ),
           );
           Navigator.pushNamedAndRemoveUntil(
             context,
@@ -187,6 +192,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           _labourCostController.text =
               data.billing?.labourCost.toString() ?? '0';
           _gstController.text = data.billing?.gst.toString() ?? '0';
+          _discountAmountController.text =
+              data.discountAmount?.toString() ?? '0';
 
           // Sync QC checklist
           _testRideChecked = data.qc?.testRide ?? false;
@@ -217,7 +224,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             _booking?.batteryTire?.isBatteryTireService == true;
         final bool isCarWash = _booking?.carWash?.isCarWashService == true;
         final bool hasApprovedParts = _hasApprovedParts(data);
-        final bool showFullTabs = !isBattery && (!isCarWash || hasApprovedParts);
+        final bool showFullTabs =
+            !isBattery && (!isCarWash || hasApprovedParts);
 
         final int desiredLength = isBattery ? 2 : (showFullTabs ? 6 : 1);
         final int maxUnlockedIndex = _maxUnlockedTabIndex(data);
@@ -234,7 +242,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 previousBooking?.inspection?.completedAt != null;
             final hasInspectionCompleted = data.inspection?.completedAt != null;
             final hadServiceSaved =
-                previousBooking != null && _hasServiceDataSaved(previousBooking);
+                previousBooking != null &&
+                _hasServiceDataSaved(previousBooking);
             final hasServiceSaved = _hasServiceDataSaved(data);
             final hadQcCompleted = previousBooking?.qc?.completedAt != null;
             final hasQcCompleted = data.qc?.completedAt != null;
@@ -274,7 +283,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   bool _hasApprovedParts(BookingDetail booking) {
-    final parts = booking.inspection?.additionalParts ?? const <AdditionalPart>[];
+    final parts =
+        booking.inspection?.additionalParts ?? const <AdditionalPart>[];
     return parts.any(
       (p) => p.approved || p.approvalStatus?.toLowerCase() == 'approved',
     );
@@ -300,15 +310,25 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   void _syncHealthDraft(BookingDetail booking) {
-    const keys = ['generalService', 'brakePads', 'tires', 'battery', 'wiperBlade'];
+    const keys = [
+      'generalService',
+      'brakePads',
+      'tires',
+      'battery',
+      'wiperBlade',
+    ];
     _healthDraft.clear();
     for (final key in keys) {
       final data = booking.vehicleHealthIndicators?[key];
-      final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+      final map = data is Map
+          ? Map<String, dynamic>.from(data)
+          : <String, dynamic>{};
       _healthDraft[key] = _HealthDraft(
         value: (map['value'] is num) ? (map['value'] as num).toDouble() : 0,
         fixedKm: (map['fixedKm'] is num) ? (map['fixedKm'] as num).toInt() : 0,
-        fixedDays: (map['fixedDays'] is num) ? (map['fixedDays'] as num).toInt() : 0,
+        fixedDays: (map['fixedDays'] is num)
+            ? (map['fixedDays'] as num).toInt()
+            : 0,
         lastUpdated: map['lastUpdated']?.toString(),
       );
     }
@@ -338,9 +358,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       await _vehicleService.updateVehicleHealth(_booking!.vehicleId!, payload);
       await _load(_booking!.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vehicle health updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Vehicle health updated')));
       }
     } catch (_) {
       if (mounted) {
@@ -551,7 +571,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final bool isCarWash = _booking!.carWash?.isCarWashService == true;
     final bool hasApprovedParts = _hasApprovedParts(_booking!);
     final bool showFullTabs = !isBattery && (!isCarWash || hasApprovedParts);
-    final int maxUnlockedIndex = showFullTabs ? _maxUnlockedTabIndex(_booking!) : 0;
+    final int maxUnlockedIndex = showFullTabs
+        ? _maxUnlockedTabIndex(_booking!)
+        : 0;
 
     final String orderNum =
         _booking!.orderNumber?.toString() ??
@@ -680,8 +702,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                   const Tab(text: 'INSPECTION'),
                                   Tab(
                                     child: Opacity(
-                                      opacity:
-                                          maxUnlockedIndex >= 2
+                                      opacity: maxUnlockedIndex >= 2
                                           ? 1.0
                                           : 0.5,
                                       child: const Text('SERVICE'),
@@ -689,8 +710,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                   ),
                                   Tab(
                                     child: Opacity(
-                                      opacity:
-                                          maxUnlockedIndex >= 3
+                                      opacity: maxUnlockedIndex >= 3
                                           ? 1.0
                                           : 0.5,
                                       child: const Text('QC CHECK'),
@@ -698,13 +718,17 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                                   ),
                                   Tab(
                                     child: Opacity(
-                                      opacity: maxUnlockedIndex >= 4 ? 1.0 : 0.5,
+                                      opacity: maxUnlockedIndex >= 4
+                                          ? 1.0
+                                          : 0.5,
                                       child: const Text('HEALTH'),
                                     ),
                                   ),
                                   Tab(
                                     child: Opacity(
-                                      opacity: maxUnlockedIndex >= 5 ? 1.0 : 0.5,
+                                      opacity: maxUnlockedIndex >= 5
+                                          ? 1.0
+                                          : 0.5,
                                       child: const Text('BILLING'),
                                     ),
                                   ),
@@ -884,7 +908,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 children: [
                   Icon(
                     Icons.health_and_safety_outlined,
-                    color: isDark ? AppColors.primaryPurple : const Color(0xFF7C3AED),
+                    color: isDark
+                        ? AppColors.primaryPurple
+                        : const Color(0xFF7C3AED),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -900,15 +926,21 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               const SizedBox(height: 16),
               ...indicators.map((meta) {
                 final data = health[meta.keyName];
-                final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+                final map = data is Map
+                    ? Map<String, dynamic>.from(data)
+                    : <String, dynamic>{};
                 final draft =
                     _healthDraft[meta.keyName] ??
                     _HealthDraft(
                       value: (map['value'] is num)
                           ? (map['value'] as num).toDouble()
                           : 0,
-                      fixedKm: (map['fixedKm'] is num) ? (map['fixedKm'] as num).toInt() : 0,
-                      fixedDays: (map['fixedDays'] is num) ? (map['fixedDays'] as num).toInt() : 0,
+                      fixedKm: (map['fixedKm'] is num)
+                          ? (map['fixedKm'] as num).toInt()
+                          : 0,
+                      fixedDays: (map['fixedDays'] is num)
+                          ? (map['fixedDays'] as num).toInt()
+                          : 0,
                       lastUpdated: map['lastUpdated']?.toString(),
                     );
                 _healthDraft[meta.keyName] = draft;
@@ -924,10 +956,14 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.backgroundSurface : const Color(0xFFF8FAFC),
+                    color: isDark
+                        ? AppColors.backgroundSurface
+                        : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+                      color: isDark
+                          ? AppColors.borderColor
+                          : const Color(0xFFE5E7EB),
                     ),
                   ),
                   child: Column(
@@ -943,7 +979,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : const Color(0xFF111827),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF111827),
                               ),
                             ),
                           ),
@@ -1016,21 +1054,27 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                             'Fixed KM: ${draft.fixedKm}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                           Text(
                             'Fixed Days: ${draft.fixedDays}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                           Text(
                             'Updated: ${_formatHealthDate(draft.lastUpdated)}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -1703,7 +1747,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               ],
             ),
           ),
-
         ],
       ),
     );
@@ -3243,27 +3286,61 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _gstController,
-            keyboardType: TextInputType.number,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: InputDecoration(
-              labelText: 'GST',
-              labelStyle: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[700],
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : const Color(0xFFE5E7EB),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _gstController,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'GST',
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[700],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _discountAmountController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Discount',
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.red[300] : Colors.red[700],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.red.withValues(alpha: 0.3)
+                            : Colors.red[100]!,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           Text(
@@ -3433,6 +3510,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       final partsCost = double.tryParse(_partsCostController.text) ?? 0.0;
       final labourCost = double.tryParse(_labourCostController.text) ?? 0.0;
       final gst = double.tryParse(_gstController.text) ?? 0.0;
+      final discountAmount =
+          double.tryParse(_discountAmountController.text) ?? 0.0;
       final total = partsCost + labourCost + gst;
 
       await _service.updateBookingDetails(_booking!.id, {
@@ -3443,6 +3522,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           'labourCost': labourCost,
           'gst': gst,
           'total': total,
+          'discountAmount': discountAmount,
           'fileUrl': fileUrl,
         },
         'serviceExecution': {'jobEndTime': DateTime.now().toIso8601String()},
@@ -3491,7 +3571,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       'CANCELLED',
     ].contains(status);
 
-    if (!isOnHold && !showMoveToServiceStarted && !showBillingHint && !canMarkDelay) {
+    if (!isOnHold &&
+        !showMoveToServiceStarted &&
+        !showBillingHint &&
+        !canMarkDelay) {
       return const SizedBox.shrink();
     }
 
@@ -3540,7 +3623,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     child: Text(
                       'Order is On Hold: ${_booking!.delay?.reason ?? 'No reason provided'}',
                       style: TextStyle(
-                        color: isDark ? const Color(0xFFFCD34D) : Colors.orange[900],
+                        color: isDark
+                            ? const Color(0xFFFCD34D)
+                            : Colors.orange[900],
                         fontSize: 13,
                       ),
                     ),
@@ -3569,14 +3654,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   Icon(
                     Icons.info_outline_rounded,
                     size: 18,
-                    color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+                    color: isDark
+                        ? const Color(0xFF93C5FD)
+                        : const Color(0xFF1D4ED8),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Go to Billing tab to upload bill and complete service.',
                       style: TextStyle(
-                        color: isDark ? const Color(0xFFBFDBFE) : const Color(0xFF1D4ED8),
+                        color: isDark
+                            ? const Color(0xFFBFDBFE)
+                            : const Color(0xFF1D4ED8),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -3656,7 +3745,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                 ),
               ],
               if (isOnHold) ...[
-                if (showMoveToServiceStarted || canMarkDelay) const SizedBox(width: 12),
+                if (showMoveToServiceStarted || canMarkDelay)
+                  const SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
                     height: 50,

@@ -155,6 +155,7 @@ class PaymentService {
         notes: tempData.notes,
         location: tempData.location,
         totalAmount: totalAmount,
+        pickupDropPrice: tempData.pickupDropPrice || 0,
         coupon: tempData.coupon || null,
         discountAmount: discountAmount,
         finalAmount: finalAmount,
@@ -269,6 +270,26 @@ class PaymentService {
         if (booking) {
           booking.paymentStatus = 'paid';
           booking.paymentId = payment.transactionId || payment.cashfreePaymentId;
+          
+          // Update booking with coupon and discount info from payment
+          if (payment.coupon) {
+            booking.coupon = payment.coupon;
+            booking.discountAmount = payment.discountAmount || 0;
+            // Recalculate finalAmount if not already correct
+            booking.finalAmount = Math.max(0, (booking.totalAmount || payment.amount) - (payment.discountAmount || 0));
+            
+            // Increment coupon usage
+            try {
+              const coupon = await Coupon.findById(payment.coupon);
+              if (coupon) {
+                coupon.usageCount += 1;
+                await coupon.save();
+              }
+            } catch (couponError) {
+              console.error('Error incrementing coupon usage for existing booking:', couponError);
+            }
+          }
+
           const commissionRate = 0.1;
           booking.platformFee = payment.amount * commissionRate;
           booking.merchantEarnings = payment.amount - booking.platformFee;

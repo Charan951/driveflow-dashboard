@@ -74,10 +74,10 @@ class VehicleService {
     num? mileage,
     String? fuelType,
     String? color,
-    String? registrationDate,
     String? frontTyres,
     String? rearTyres,
     String? batteryDetails,
+    String? pickupDropPrice,
   }) async {
     final res = await _api.postAny(
       ApiEndpoints.vehicles,
@@ -92,10 +92,10 @@ class VehicleService {
         'mileage': mileage,
         'fuelType': fuelType,
         'color': color,
-        'registrationDate': registrationDate,
         'frontTyres': frontTyres,
         'rearTyres': rearTyres,
         'batteryDetails': batteryDetails,
+        'pickupDropPrice': pickupDropPrice,
       }..removeWhere((k, v) => v == null),
     );
     if (res is Map<String, dynamic>) return Vehicle.fromJson(res);

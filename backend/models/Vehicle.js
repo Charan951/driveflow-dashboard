@@ -11,7 +11,6 @@ const vehicleSchema = new mongoose.Schema({
   variant: { type: String },
   year: { type: Number, required: true },
   licensePlate: { type: String, required: true },
-  registrationDate: { type: String },
   color: { type: String },
   image: { type: String }, // URL
   vin: { type: String },
@@ -20,6 +19,7 @@ const vehicleSchema = new mongoose.Schema({
   frontTyres: { type: String },
   rearTyres: { type: String },
   batteryDetails: { type: String },
+  pickupDropPrice: { type: String },
   type: { type: String, enum: ['Car'], default: 'Car' },
   status: { type: String, enum: ['Idle', 'On Route', 'In Service'], default: 'Idle' },
   location: {

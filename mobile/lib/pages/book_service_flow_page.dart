@@ -84,6 +84,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   bool _resolvingAddress = false;
   final MapController _mapController = MapController();
   String? _selectedVehicleOEMTire;
+  double _pickupDropPrice = 0;
 
   String? _extractPincode(String? address) {
     if (address == null) return null;
@@ -501,6 +502,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ? clean(vehicle.variant)
             : null,
       );
+
+      double pickupPrice = 0;
+      if (ref != null && ref['pickup_drop_price'] != null) {
+        pickupPrice = double.tryParse(ref['pickup_drop_price'].toString()) ?? 0;
+      }
+
+      setState(() {
+        _pickupDropPrice = pickupPrice;
+      });
+
       String? tireSize = (ref?['front_tyres'] ?? ref?['rear_tyres'])
           ?.toString();
       tireSize ??= vehicle.frontTyres ?? vehicle.rearTyres;
@@ -793,8 +804,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             height: MediaQuery.of(context).size.height * 0.5,
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.2),
@@ -862,14 +874,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                             children: [
                               Icon(
                                 Icons.event_busy_rounded,
-                                color: isDark ? Colors.white10 : Colors.grey.shade200,
+                                color: isDark
+                                    ? Colors.white10
+                                    : Colors.grey.shade200,
                                 size: 48,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'No slots available for this date',
                                 style: TextStyle(
-                                  color: isDark ? Colors.white24 : Colors.grey.shade400,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.grey.shade400,
                                 ),
                               ),
                             ],
@@ -907,15 +923,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     color: isSelected
                                         ? AppColors.primaryBlue
                                         : (isDark
-                                            ? Colors.white.withValues(alpha: 0.05)
-                                            : Colors.grey.shade100),
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.05,
+                                                )
+                                              : Colors.grey.shade100),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: isSelected
                                           ? AppColors.primaryBlue
                                           : (isDark
-                                              ? Colors.white.withValues(alpha: 0.05)
-                                              : Colors.grey.shade200),
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.05,
+                                                  )
+                                                : Colors.grey.shade200),
                                       width: 1.5,
                                     ),
                                     boxShadow: [
@@ -934,8 +954,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                       color: isSelected
                                           ? Colors.white
                                           : (isDark
-                                              ? Colors.white70
-                                              : Colors.black87),
+                                                ? Colors.white70
+                                                : Colors.black87),
                                       fontWeight: isSelected
                                           ? FontWeight.w900
                                           : FontWeight.w600,
@@ -2080,7 +2100,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2156,11 +2178,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 Icon(
                                   Icons.calendar_month_rounded,
                                   size: 14,
-                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  DateFormat('EEE, MMM d').format(_selectedDate),
+                                  DateFormat(
+                                    'EEE, MMM d',
+                                  ).format(_selectedDate),
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 14,
@@ -2207,7 +2233,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 Icon(
                                   Icons.access_time_rounded,
                                   size: 14,
-                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
@@ -2218,11 +2246,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                       fontSize: 14,
                                       color: isDark
                                           ? (_selectedTimeSlot != null
-                                              ? AppColors.textPrimary
-                                              : Colors.white38)
+                                                ? AppColors.textPrimary
+                                                : Colors.white38)
                                           : (_selectedTimeSlot != null
-                                              ? Colors.black
-                                              : Colors.black38),
+                                                ? Colors.black
+                                                : Colors.black38),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -2257,7 +2285,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             hintText: 'Any specific instructions for the mechanic...',
             hintStyle: AppStyles.captionStyle,
             filled: true,
-            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+            fillColor: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundPrimaryLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
@@ -2496,10 +2526,22 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final selectedServices = _allServices
         .where((s) => _selectedServiceIds.contains(s.id))
         .toList();
-    final total = selectedServices.fold<double>(
+
+    final isGeneralService = selectedServices.any((s) {
+      final cat = s.category;
+      final name = s.name.toLowerCase();
+      return cat == 'Periodic' ||
+          cat == 'Services' ||
+          name.contains('general service');
+    });
+
+    final double baseTotal = selectedServices.fold<double>(
       0,
       (sum, item) => sum + item.price,
     );
+
+    final double total = baseTotal + (isGeneralService ? _pickupDropPrice : 0);
+
     final totalTime = selectedServices.fold<num>(
       0,
       (sum, item) => sum + (item.estimatedMinutes ?? 0),
@@ -2527,7 +2569,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2576,7 +2620,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -2602,6 +2648,25 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                 ),
               ),
+              if (isGeneralService && _pickupDropPrice > 0)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Pickup & Drop Charges',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Text(
+                        '₹${_pickupDropPrice.toStringAsFixed(0)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
               const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2721,7 +2786,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundPrimaryLight,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [AppStyles.cardShadow],
           ),
@@ -3272,10 +3339,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final discount = '${coupon['discountPercentage']}% OFF';
     final minAmount = coupon['minOrderAmount'] ?? 0;
 
-    final Color primaryColor =
-        isSelected
-            ? AppColors.primaryBlue
-            : (meetsMinOrder ? const Color(0xFF6366F1) : Colors.grey);
+    final Color primaryColor = isSelected
+        ? AppColors.primaryBlue
+        : (meetsMinOrder ? const Color(0xFF6366F1) : Colors.grey);
 
     return Container(
       width: 260,
@@ -3284,7 +3350,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+              color: isDark
+                  ? AppColors.backgroundSecondary
+                  : AppColors.backgroundPrimaryLight,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -3294,10 +3362,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 ),
               ],
               border: Border.all(
-                color:
-                    isSelected
-                        ? primaryColor
-                        : (isDark ? Colors.white10 : Colors.grey.shade200),
+                color: isSelected
+                    ? primaryColor
+                    : (isDark ? Colors.white10 : Colors.grey.shade200),
                 width: isSelected ? 2 : 1,
               ),
             ),
@@ -3358,22 +3425,20 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         ),
                         const Spacer(),
                         InkWell(
-                          onTap:
-                              !meetsMinOrder || _validatingCoupon
-                                  ? null
-                                  : () => _applyCouponByCode(code, total),
+                          onTap: !meetsMinOrder || _validatingCoupon
+                              ? null
+                              : () => _applyCouponByCode(code, total),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               vertical: 8,
                               horizontal: 12,
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  isSelected
-                                      ? Colors.green
-                                      : (meetsMinOrder
-                                          ? primaryColor
-                                          : (isDark
+                              color: isSelected
+                                  ? Colors.green
+                                  : (meetsMinOrder
+                                        ? primaryColor
+                                        : (isDark
                                               ? Colors.white10
                                               : Colors.grey.shade100)),
                               borderRadius: BorderRadius.circular(8),
@@ -3384,12 +3449,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     ? 'APPLIED'
                                     : (meetsMinOrder ? 'APPLY' : 'LOCKED'),
                                 style: TextStyle(
-                                  color:
-                                      meetsMinOrder
-                                          ? Colors.white
-                                          : (isDark
-                                              ? Colors.white24
-                                              : Colors.grey),
+                                  color: meetsMinOrder
+                                      ? Colors.white
+                                      : (isDark ? Colors.white24 : Colors.grey),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -3411,7 +3473,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               width: 12,
               height: 20,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.backgroundSurface : const Color(0xFFF8FAFC),
+                color: isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -3423,7 +3487,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               width: 12,
               height: 20,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.backgroundSurface : const Color(0xFFF8FAFC),
+                color: isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),

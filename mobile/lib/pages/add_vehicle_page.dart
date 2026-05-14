@@ -21,7 +21,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
   final _variantController = TextEditingController();
-  final _registrationDateController = TextEditingController();
   final _yearController = TextEditingController(
     text: DateTime.now().year.toString(),
   );
@@ -29,6 +28,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _frontTyresController = TextEditingController();
   final _rearTyresController = TextEditingController();
   final _batteryDetailsController = TextEditingController();
+  final _pickupDropPriceController = TextEditingController();
   String _type = 'Car';
   String _fuelType = 'Petrol';
 
@@ -54,6 +54,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     _frontTyresController.dispose();
     _rearTyresController.dispose();
     _batteryDetailsController.dispose();
+    _pickupDropPriceController.dispose();
     super.dispose();
   }
 
@@ -91,6 +92,9 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         }
         if (ref['battery_details'] != null) {
           _batteryDetailsController.text = ref['battery_details'].toString();
+        }
+        if (ref['pickup_drop_price'] != null) {
+          _pickupDropPriceController.text = ref['pickup_drop_price'].toString();
         }
       }
     } catch (e) {
@@ -167,11 +171,11 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         year: int.tryParse(_yearController.text) ?? DateTime.now().year,
         type: _type,
         color: _colorController.text.trim(),
-        registrationDate: _registrationDateController.text.trim(),
         fuelType: _fuelType,
         frontTyres: _frontTyresController.text.trim(),
         rearTyres: _rearTyresController.text.trim(),
         batteryDetails: _batteryDetailsController.text.trim(),
+        pickupDropPrice: _pickupDropPriceController.text.trim(),
       );
       _service.clearCache();
       if (mounted) {
@@ -393,13 +397,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             'Variant/Class (Optional)',
             _variantController,
             'e.g. VXI / SUV',
-            required: false,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            'Registration Date (DD-MM-YYYY)',
-            _registrationDateController,
-            'e.g. 15-08-2022',
             required: false,
           ),
           const SizedBox(height: 16),

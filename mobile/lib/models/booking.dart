@@ -253,6 +253,7 @@ class BookingBilling {
   final num? partsTotal;
   final num? labourCost;
   final num? gst;
+  final num? pickupDropPrice;
   final num? discount;
 
   const BookingBilling({
@@ -263,6 +264,7 @@ class BookingBilling {
     this.partsTotal,
     this.labourCost,
     this.gst,
+    this.pickupDropPrice,
     this.discount,
   });
 
@@ -272,14 +274,12 @@ class BookingBilling {
       invoiceDate: json['invoiceDate']?.toString(),
       fileUrl: json['fileUrl']?.toString(),
       total: json['total'] is num ? (json['total'] as num) : 0,
-      partsTotal: json['partsTotal'] is num
-          ? (json['partsTotal'] as num)
-          : null,
-      labourCost: json['labourCost'] is num
-          ? (json['labourCost'] as num)
-          : null,
-      gst: json['gst'] is num ? (json['gst'] as num) : null,
-      discount: json['discount'] is num ? (json['discount'] as num) : null,
+      partsTotal: json['partsTotal'] is num ? (json['partsTotal'] as num) : 0,
+      labourCost: json['labourCost'] is num ? (json['labourCost'] as num) : 0,
+      gst: json['gst'] is num ? (json['gst'] as num) : 0,
+      pickupDropPrice:
+          json['pickupDropPrice'] is num ? (json['pickupDropPrice'] as num) : 0,
+      discount: json['discount'] is num ? (json['discount'] as num) : 0,
     );
   }
 

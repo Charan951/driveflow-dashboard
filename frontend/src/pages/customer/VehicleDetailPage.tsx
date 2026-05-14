@@ -75,6 +75,11 @@ const CustomerVehicleDetailPage: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold flex flex-wrap items-center gap-2 sm:gap-3">
             {vehicle.make} {vehicle.model}
+            {vehicle.variant && (
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
+                {vehicle.variant}
+              </span>
+            )}
             <span className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium ${getStatusColor(vehicle.status)}`}>
               {vehicle.status || 'Idle'}
             </span>
@@ -103,6 +108,10 @@ const CustomerVehicleDetailPage: React.FC = () => {
                    <div className="space-y-1">
                       <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Type</label>
                       <p className="font-semibold text-sm sm:text-base">{vehicle.type || 'Car'}</p>
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Variant</label>
+                      <p className="font-semibold text-sm sm:text-base">{vehicle.variant || 'N/A'}</p>
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Year</label>

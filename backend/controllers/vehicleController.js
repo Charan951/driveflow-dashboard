@@ -143,7 +143,6 @@ export const getVehicleRCDetails = async (req, res) => {
         brand_name: rcData.brand_name || '',
         brand_model: rcData.brand_model || '',
         fuel_type: rcData.fuel_type || '',
-        registration_date: rcData.registration_date || '',
         color: rcData.color || '',
         variant: rcData.variant || '',
         engine_number: rcData.engine_number || '',
@@ -157,7 +156,6 @@ export const getVehicleRCDetails = async (req, res) => {
         brand_name: data.brand_name || '',
         brand_model: data.brand_model || '',
         fuel_type: data.fuel_type || '',
-        registration_date: data.registration_date || '',
         color: data.color || '',
         variant: data.variant || '',
       });
@@ -235,7 +233,6 @@ export const fetchVehicleDetails = async (req, res) => {
             color: data.color || '',
             vin: data.chassis_no || data.vin || '',
             engineNumber: data.engine_no || '',
-            registrationDate: data.reg_date || '',
           };
           return res.json({ found: true, ...mappedData });
         } else {
@@ -274,7 +271,7 @@ export const fetchVehicleDetails = async (req, res) => {
 // @route   POST /api/vehicles
 // @access  Private
 export const addVehicle = async (req, res) => {
-  const { licensePlate, make, model, variant, year, registrationDate, fuelType, type, color, image, vin, frontTyres, rearTyres, batteryDetails } = req.body;
+  const { licensePlate, make, model, variant, year, fuelType, type, color, image, vin, frontTyres, rearTyres, batteryDetails, pickupDropPrice } = req.body;
 
   try {
     const vehicle = new Vehicle({
@@ -284,7 +281,6 @@ export const addVehicle = async (req, res) => {
       model,
       variant,
       year,
-      registrationDate,
       fuelType,
       type: type || 'Car',
       color,
@@ -292,7 +288,8 @@ export const addVehicle = async (req, res) => {
       vin,
       frontTyres,
       rearTyres,
-      batteryDetails
+      batteryDetails,
+      pickupDropPrice
     });
 
     const createdVehicle = await vehicle.save();

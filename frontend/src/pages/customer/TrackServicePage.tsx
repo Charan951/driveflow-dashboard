@@ -539,7 +539,7 @@ const TrackServicePage: React.FC = () => {
 
     try {
       // Use Cashfree for payment
-      const orderData = await paymentService.createOrder(order._id, order.totalAmount);
+      const orderData = await paymentService.createOrder(order._id, order.finalAmount || order.totalAmount);
       
       const cashfree = window.Cashfree({ mode: orderData.environment });
       
@@ -692,7 +692,14 @@ const TrackServicePage: React.FC = () => {
             <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              {vehicle.variant && (
+                <span className="text-[10px] sm:text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded leading-none">
+                  {vehicle.variant}
+                </span>
+              )}
+              <p className="text-xs sm:text-sm text-muted-foreground">{vehicle.licensePlate}</p>
+            </div>
             {/* Display services as comma separated string */}
             <p className="text-xs sm:text-sm text-primary font-medium mt-1 line-clamp-2">
                 {Array.isArray(order.services) 
@@ -1177,39 +1184,113 @@ const TrackServicePage: React.FC = () => {
               </h2>
               
               <div className="space-y-3 mb-6">
-                {order.billing && (order.billing.total > 0 || order.billing.invoiceNumber || order.billing.fileUrl) ? (
+                {(order.billing && (order.billing.total > 0 || order.billing.invoiceNumber || order.billing.fileUrl)) || (order.pickupDropPrice && order.pickupDropPrice > 0) ? (
                   <>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Base Service Amount</span>
-                      <span>₹{order.totalAmount - (order.billing.partsTotal || 0) - (order.billing.labourCost || 0) - (order.billing.gst || 0)}</span>
-                    </div>
-                    {order.billing.partsTotal > 0 && (
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Parts Total</span>
-                        <span>₹{order.billing.partsTotal}</span>
-                      </div>
-                    )}
-                    {order.billing.labourCost > 0 && (
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Labour Cost</span>
-                        <span>₹{order.billing.labourCost}</span>
-                      </div>
-                    )}
-                    {order.billing.gst > 0 && (
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>GST</span>
-                        <span>₹{order.billing.gst}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border">
-                      <span>Total Billed Amount</span>
-                      <span>₹{order.billing.total}</span>
-                    </div>
+                    {(() => {
+                      const servicesTotal = Array.isArray(order.services) 
+                        ? order.services.reduce((sum, s) => sum + (typeof s === 'object' ? (s.price || 0) : 0), 0)
+                        : 0;
+                      
+                      const parts = order.billing?.partsTotal || 0;
+                      const labour = order.billing?.labourCost || 0;
+                      const gst = order.billing?.gst || 0;
+                      const pickup = order.billing?.pickupDropPrice || order.pickupDropPrice || 0;
+                      const discount = order.discountAmount || 0;
+                      
+                      let baseAmount = servicesTotal;
+                      if (baseAmount === 0) {
+                        // Fallback logic
+                        const rawTotal = order.totalAmount || 0;
+                        baseAmount = Math.max(0, rawTotal - parts - labour - gst - pickup);
+                      }
+
+                      return (
+                        <>
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Base Service Amount</span>
+                            <span>₹{baseAmount}</span>
+                          </div>
+                          {parts > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Parts Total</span>
+                              <span>₹{parts}</span>
+                            </div>
+                          )}
+                          {labour > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Labour Cost</span>
+                              <span>₹{labour}</span>
+                            </div>
+                          )}
+                          {pickup > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Pickup/Drop Price</span>
+                              <span>₹{pickup}</span>
+                            </div>
+                          )}
+                          {gst > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>GST</span>
+                              <span>₹{gst}</span>
+                            </div>
+                          )}
+                          {discount > 0 && (
+                            <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-xl space-y-3">
+                              <h4 className="text-[10px] font-bold text-green-800 uppercase tracking-widest flex items-center gap-2">
+                                <div className="w-1 h-3 bg-green-500 rounded-full" />
+                                Calculation Breakdown
+                              </h4>
+                              
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm text-green-700">
+                                  <span className="opacity-80">Total Amount</span>
+                                  <span className="font-medium">₹{order.totalAmount || (order.finalAmount + discount)}</span>
+                                </div>
+                                
+                                <div className="flex justify-between text-sm text-green-700">
+                                  <span className="opacity-80">Applied Coupon ({order.coupon?.code || 'DISCOUNT'})</span>
+                                  <span className="font-medium text-green-600">{order.coupon?.discountPercentage || Math.round((discount / (order.totalAmount || (order.finalAmount + discount))) * 100)}% Off</span>
+                                </div>
+                                
+                                <div className="pt-2 border-t border-green-200/50">
+                                  <div className="flex justify-between text-sm text-green-800">
+                                    <span className="opacity-80">Discount Calculation</span>
+                                    <span className="font-semibold">
+                                      {order.totalAmount || (order.finalAmount + discount)} × {((order.coupon?.discountPercentage || (discount / (order.totalAmount || (order.finalAmount + discount)) * 100)) / 100).toFixed(2)} = ₹{discount}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex justify-between text-sm text-green-800">
+                                  <span className="opacity-80">Final Payable</span>
+                                  <span className="font-bold">
+                                    {order.totalAmount || (order.finalAmount + discount)} − {discount} = ₹{order.finalAmount}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border mt-2">
+                            <span>Total Billed Amount</span>
+                            <div className="text-right">
+                              <span className="text-primary">₹{order.finalAmount || order.billing?.total || order.totalAmount}</span>
+                              {discount > 0 && (
+                                <p className="text-[10px] text-muted-foreground font-normal line-through">
+                                  ₹{(order.finalAmount || order.billing?.total || order.totalAmount) + discount}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 ) : (
                   <div className="flex justify-between font-bold text-foreground text-lg">
                     <span>Total Amount</span>
-                    <span>₹{order.totalAmount}</span>
+                    <span>
+                      ₹{order.finalAmount || order.totalAmount}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-muted-foreground">
@@ -1219,7 +1300,7 @@ const TrackServicePage: React.FC = () => {
                 {order.billing?.invoiceNumber && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>Invoice #</span>
-                    <span>{order.billing.invoiceNumber}</span>
+                    <span>{order.billing?.invoiceNumber}</span>
                   </div>
                 )}
                 {isCarWashService && order.paymentStatus === 'pending' && (

@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import asyncHandler from 'express-async-handler';
 import { getVehicleDataFromS3, saveVehicleDataToS3 } from '../utils/s3Storage.js';
 import crypto from 'crypto';
+import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -11,7 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // @desc    Import vehicle reference data from Excel
 // @route   POST /api/vehicle-reference/import
 // @access  Private/Admin
-router.post('/import', upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/import', protect, admin, upload.single('file'), asyncHandler(async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'Please upload an Excel file' });
@@ -109,6 +110,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req, res) => {
           front_tyres: String(fuzzyMatch(item, ['fronttyres', 'fronttyre', 'front_tyres', 'front_tyre', 'front_tyre_size']) || '').trim(),
           rear_tyres: String(fuzzyMatch(item, ['reartyres', 'reartyre', 'rear_tyres', 'rear_tyre', 'rear_tyre_size']) || '').trim(),
           battery_details: String(fuzzyMatch(item, ['batterydetails', 'battery', 'battery_info']) || '').trim(),
+          pickup_drop_price: fuzzyMatch(item, ['pickup_drop_price', 'pickupprice', 'drop_price', 'pickupdrop_price', 'pickup_drop_price']) || '',
         };
       });
 
@@ -122,15 +124,20 @@ router.post('/import', upload.single('file'), asyncHandler(async (req, res) => {
 
     // Load existing data from S3
     const existingData = await getVehicleDataFromS3();
-    const dataMap = new Map(existingData.map(item => [item.brand_model, item]));
+    
+    // Create a unique key for each vehicle: brand_name | model | brand_model
+    const getUniqueKey = (item) => `${item.brand_name.toLowerCase()}|${item.model.toLowerCase()}|${item.brand_model.toLowerCase()}`;
+    
+    const dataMap = new Map(existingData.map(item => [getUniqueKey(item), item]));
 
     let upsertedCount = 0;
     let modifiedCount = 0;
 
     vehicleData.forEach(item => {
-      if (dataMap.has(item.brand_model)) {
-        const existing = dataMap.get(item.brand_model);
-        dataMap.set(item.brand_model, { ...existing, ...item });
+      const key = getUniqueKey(item);
+      if (dataMap.has(key)) {
+        const existing = dataMap.get(key);
+        dataMap.set(key, { ...existing, ...item, updatedAt: new Date().toISOString() });
         modifiedCount++;
       } else {
         const newItem = {
@@ -139,7 +146,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req, res) => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        dataMap.set(item.brand_model, newItem);
+        dataMap.set(key, newItem);
         upsertedCount++;
       }
     });
@@ -220,19 +227,12 @@ router.get('/search', asyncHandler(async (req, res) => {
       return res.json(exactMatch);
     }
 
-    // 2. Try exact Brand and Model (full/clean) with partial Variant match
-    const modelExactVariantPartial = allData.find(item => 
-      exactMatches(item.brand_name, cleanBrand) && 
-      (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) && 
-      matches(item.brand_model, cleanVariant)
-    );
-    if (modelExactVariantPartial) {
-      console.log('Found model exact + variant partial:', modelExactVariantPartial.brand_model);
-      return res.json(modelExactVariantPartial);
-    }
+    // 2. Strict exact match for Variant only (if user provided it, we want exact)
+    // We removed the partial matches(item.brand_model, cleanVariant) as per user request
+    console.log('No exact variant match found for:', cleanVariant);
   }
 
-  // 3. If variant didn't help, but we have an exact model match, use that
+  // 3. If no variant provided or no exact match, try exact model fallback
   const exactModelFallback = allData.find(item => 
     exactMatches(item.brand_name, cleanBrand) && 
     (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel))
@@ -242,19 +242,7 @@ router.get('/search', asyncHandler(async (req, res) => {
     return res.json(exactModelFallback);
   }
 
-  // 4. Broader search: exact brand and partial model
-  if (cleanVariant) {
-    const data = allData.find(item => 
-      exactMatches(item.brand_name, cleanBrand) && 
-      (matches(item.model, fullModel) || matches(item.model, cleanModel)) && 
-      matches(item.brand_model, cleanVariant)
-    );
-    if (data) {
-      console.log('Found with partial model + variant:', data.brand_model, data.model);
-      return res.json(data);
-    }
-  }
-
+  // 4. Broader search: exact brand and partial model (only if no exact match was found)
   const fallbackData = allData.find(item => 
     exactMatches(item.brand_name, cleanBrand) && 
     (matches(item.model, fullModel) || matches(item.model, cleanModel))
@@ -272,14 +260,22 @@ router.get('/search', asyncHandler(async (req, res) => {
 // @desc    Create a vehicle reference
 // @route   POST /api/vehicle-reference
 // @access  Private/Admin
-router.post('/', asyncHandler(async (req, res) => {
-  const { brand_name, model, brand_model, front_tyres, rear_tyres, battery_details } = req.body;
+router.post('/', protect, admin, asyncHandler(async (req, res) => {
+  const { brand_name, model, brand_model, front_tyres, rear_tyres, battery_details, pickup_drop_price } = req.body;
+
+  if (!brand_name || !model || !brand_model) {
+    return res.status(400).json({ message: 'Brand, Model, and Brand Model (Variant) are required' });
+  }
 
   const allData = await getVehicleDataFromS3();
-  const exists = allData.find(item => item.brand_model === brand_model);
+  const exists = allData.find(item => 
+    item.brand_name.toLowerCase() === brand_name.toLowerCase() && 
+    item.model.toLowerCase() === model.toLowerCase() && 
+    item.brand_model.toLowerCase() === brand_model.toLowerCase()
+  );
   
   if (exists) {
-    return res.status(400).json({ message: 'Vehicle reference with this brand model already exists' });
+    return res.status(400).json({ message: 'Vehicle reference with this brand, model and variant already exists' });
   }
 
   const newVehicle = {
@@ -290,6 +286,7 @@ router.post('/', asyncHandler(async (req, res) => {
     front_tyres,
     rear_tyres,
     battery_details,
+    pickup_drop_price,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -303,7 +300,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // @desc    Update a vehicle reference
 // @route   PUT /api/vehicle-reference/:id
 // @access  Private/Admin
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
   const allData = await getVehicleDataFromS3();
   const index = allData.findIndex(item => item._id === req.params.id);
 
@@ -316,6 +313,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       front_tyres: req.body.front_tyres || allData[index].front_tyres,
       rear_tyres: req.body.rear_tyres || allData[index].rear_tyres,
       battery_details: req.body.battery_details || allData[index].battery_details,
+      pickup_drop_price: req.body.pickup_drop_price !== undefined ? req.body.pickup_drop_price : allData[index].pickup_drop_price,
       updatedAt: new Date().toISOString()
     };
 
@@ -327,10 +325,18 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Delete all vehicle references
+// @route   DELETE /api/vehicle-reference/all
+// @access  Private/Admin
+router.delete('/all', protect, admin, asyncHandler(async (req, res) => {
+  await saveVehicleDataToS3([]);
+  res.json({ message: 'All vehicle references removed' });
+}));
+
 // @desc    Delete a vehicle reference
 // @route   DELETE /api/vehicle-reference/:id
 // @access  Private/Admin
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', protect, admin, asyncHandler(async (req, res) => {
   const allData = await getVehicleDataFromS3();
   const filteredData = allData.filter(item => item._id !== req.params.id);
 

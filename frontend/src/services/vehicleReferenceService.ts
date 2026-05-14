@@ -40,3 +40,8 @@ export const deleteVehicleReference = async (id: string) => {
   const response = await api.delete(`/vehicle-reference/${id}`);
   return response.data;
 };
+
+export const deleteAllVehicleReference = async () => {
+  const response = await api.delete('/vehicle-reference/all');
+  return response.data;
+};
