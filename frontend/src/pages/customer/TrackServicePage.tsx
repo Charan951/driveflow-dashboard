@@ -629,7 +629,7 @@ const TrackServicePage: React.FC = () => {
 
   // Helper to safely access vehicle properties
   const vehicle = (typeof order.vehicle === 'object' && order.vehicle !== null) ? order.vehicle : { 
-      make: 'Unknown', model: 'Vehicle', year: 0, licensePlate: 'N/A', image: '' 
+      make: 'Unknown', model: 'Vehicle', variant: '', year: 0, licensePlate: 'N/A', image: '' 
   };
   
   // Helper for merchant
