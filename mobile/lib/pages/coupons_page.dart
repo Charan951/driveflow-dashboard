@@ -5,7 +5,6 @@ import '../core/app_colors.dart';
 import '../core/app_styles.dart';
 import '../state/auth_provider.dart';
 import '../models/booking.dart';
-import '../models/service.dart';
 
 class CouponsPage extends StatefulWidget {
   final bool isSelectionMode;

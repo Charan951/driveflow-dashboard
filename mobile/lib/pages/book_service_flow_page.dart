@@ -1002,6 +1002,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
     final currentIdx = nav.selectedIndex;
