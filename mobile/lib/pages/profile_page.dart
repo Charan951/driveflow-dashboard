@@ -168,32 +168,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    _SectionHeader(
-                      title: 'Payment Methods',
-                      icon: Icons.payments_rounded,
-                      onAdd: () => _addPaymentMethod(context, user),
-                    ),
-                    const SizedBox(height: 12),
-                    RepaintBoundary(
-                      child: Column(
-                        children: [
-                          if (user?.paymentMethods.isEmpty ?? true)
-                            const _EmptyState(
-                              icon: Icons.credit_card_off_rounded,
-                              message: 'No saved payment methods yet',
-                            )
-                          else
-                            ...user!.paymentMethods.map(
-                              (p) => _PaymentCard(
-                                method: p,
-                                onDelete: () =>
-                                    _deletePaymentMethod(context, user, p),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+
                     const SizedBox(height: 32),
                     Text(
                       'Settings & Preferences',
@@ -361,14 +336,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Icons.location_on_rounded,
           isDark,
         ),
-        const SizedBox(width: 12),
-        _buildStatItem(
-          context,
-          'Payments',
-          user?.paymentMethods.length.toString() ?? '0',
-          Icons.account_balance_wallet_rounded,
-          isDark,
-        ),
+
         const SizedBox(width: 12),
         _buildStatItem(
           context,
@@ -869,123 +837,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _addPaymentMethod(BuildContext context, User? user) async {
-    if (user == null) return;
-    final labelController = TextEditingController();
-    final detailsController = TextEditingController();
-    String type = 'card';
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 20,
-            right: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Add Payment Method',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                initialValue: type,
-                items: ['card', 'upi', 'wallet']
-                    .map(
-                      (e) => DropdownMenuItem(
-                        value: e,
-                        child: Text(e.toUpperCase()),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setModalState(() => type = v!),
-                decoration: const InputDecoration(
-                  labelText: 'Type',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: labelController,
-                decoration: const InputDecoration(
-                  labelText: 'Label (e.g. HDFC Bank)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: detailsController,
-                decoration: const InputDecoration(
-                  labelText: 'Details (e.g. **** 1234)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () async {
-                  final newList = List<PaymentMethod>.from(user.paymentMethods);
-                  newList.add(
-                    PaymentMethod(
-                      type: type,
-                      label: labelController.text,
-                      details: detailsController.text,
-                    ),
-                  );
-                  try {
-                    await context.read<AuthProvider>().updateProfile(
-                      paymentMethods: newList,
-                    );
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  }
-                },
-                child: const Text('Add Payment Method'),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Future<void> _deletePaymentMethod(
-    BuildContext context,
-    User? user,
-    PaymentMethod method,
-  ) async {
-    if (user == null) return;
-    final newList = List<PaymentMethod>.from(user.paymentMethods);
-    newList.remove(method);
-    try {
-      await context.read<AuthProvider>().updateProfile(paymentMethods: newList);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
+
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -1172,135 +1026,7 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-class _PaymentCard extends StatelessWidget {
-  final PaymentMethod method;
-  final VoidCallback onDelete;
 
-  const _PaymentCard({required this.method, required this.onDelete});
-
-  IconData _getIcon() {
-    switch (method.type.toLowerCase()) {
-      case 'card':
-        return Icons.credit_card_rounded;
-      case 'upi':
-        return Icons.qr_code_rounded;
-      case 'wallet':
-        return Icons.account_balance_wallet_rounded;
-      default:
-        return Icons.payments_rounded;
-    }
-  }
-
-  Color _getColor() {
-    switch (method.type.toLowerCase()) {
-      case 'card':
-        return Colors.purple;
-      case 'upi':
-        return Colors.orange;
-      case 'wallet':
-        return Colors.teal;
-      default:
-        return Colors.green;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.backgroundSecondary
-            : AppColors.backgroundSecondaryLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _getColor().withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(_getIcon(), color: _getColor(), size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      method.label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (method.isDefault) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'DEFAULT',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (method.details != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    method.details!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white38 : Colors.black38,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onDelete,
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              color: Colors.red.withValues(alpha: 0.7),
-              size: 20,
-            ),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _EmptyState extends StatelessWidget {
   final IconData icon;

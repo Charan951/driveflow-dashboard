@@ -24,6 +24,58 @@ const vehicleReferenceSchema = new mongoose.Schema({
   battery_details: {
     type: String,
     default: '',
+  },
+  pickup_drop_price: {
+    type: String,
+    default: '',
+  },
+  tyre_price_bridgestone: {
+    type: String,
+    default: '',
+  },
+  tyre_price_yokohama: {
+    type: String,
+    default: '',
+  },
+  tyre_price_apollo: {
+    type: String,
+    default: '',
+  },
+  tyre_price_michelin: {
+    type: String,
+    default: '',
+  },
+  tyre_price_dummy2: {
+    type: String,
+    default: '',
+  },
+  tyre_price_dummy: {
+    type: String,
+    default: '',
+  },
+  battery_price_amaron: {
+    type: String,
+    default: '',
+  },
+  battery_price_exide: {
+    type: String,
+    default: '',
+  },
+  car_wash_price: {
+    type: String,
+    default: '',
+  },
+  car_wash_exterior_price: {
+    type: String,
+    default: '',
+  },
+  car_wash_interior_exterior_price: {
+    type: String,
+    default: '',
+  },
+  car_wash_interior_exterior_underbody_price: {
+    type: String,
+    default: '',
   }
 }, {
   timestamps: true,

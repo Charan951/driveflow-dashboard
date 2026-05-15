@@ -42,6 +42,15 @@ const COMMON_TIRE_SIZES = [
   '195/55 R16', '205/55 R16', '215/60 R16', '225/45 R17', '235/45 R18'
 ];
 
+const ADMIN_TIRE_BRANDS = [
+  'Bridgestone',
+  'Yokohama',
+  'Apollo',
+  'Michelin',
+  'Dummy 2',
+  'Dummy'
+];
+
 const extractPincodeFromAddress = (address?: string) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
   return match ? match[1] : null;
@@ -69,6 +78,7 @@ const BookServicePage: React.FC = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [tireSizes, setTireSizes] = useState<Record<string, string>>({});
+  const [selectedTireBrands, setSelectedTireBrands] = useState<Record<string, string>>({});
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => startOfLocalDay());
@@ -82,8 +92,10 @@ const BookServicePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
+  const [selectedVehicleReference, setSelectedVehicleReference] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [pickupDropPrice, setPickupDropPrice] = useState<number>(0);
+  const [carWashPrices, setCarWashPrices] = useState<Record<string, number | null>>({});
 
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -116,11 +128,48 @@ const BookServicePage: React.FC = () => {
     s.category === 'Services' || 
     s.name.toLowerCase().includes('general service')
   );
+
+  const getPackagePrice = (service: Service) => {
+    const isWash = service.category === 'Car Wash' || service.category === 'Wash';
+    const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+    
+    if (isTire) {
+      const selectedBrandName = selectedTireBrands[service._id];
+      if (selectedBrandName && selectedVehicleReference) {
+        const brandKey = `tyre_price_${selectedBrandName.toLowerCase().replace(/\s+/g, '')}`;
+        const price = selectedVehicleReference[brandKey];
+        if (price) return Number(price);
+      }
+      // Fallback to service price if no brand selected or no reference price
+      return Number(service.price || 0);
+    }
+
+    if (!isWash) return Number(service.price || 0);
+
+    const sName = service.name.toLowerCase();
+    let price = null;
+
+    if (sName.includes('exterior wash') && !sName.includes('interior')) {
+      price = carWashPrices.exterior;
+    } else if (sName.includes('interior + exterior') && !sName.includes('underbody')) {
+      price = carWashPrices.interiorExterior;
+    } else if (sName.includes('underbody wash') || (sName.includes('interior') && sName.includes('exterior') && sName.includes('underbody'))) {
+      price = carWashPrices.underbody;
+    }
+
+    // Fallback to legacy price if specific one is not available
+    if (price === null || price === 0) {
+      price = carWashPrices.legacy;
+    }
+
+    return price !== null && price > 0 ? price : Number(service.price || 0);
+  };
   
   const totalPrice = selectedServicesData.reduce((sum, service) => {
     if (!service) return sum;
     const qty = serviceQuantities[service._id] || 1;
-    return sum + (Number(service.price || 0) * qty);
+    const basePrice = getPackagePrice(service);
+    return sum + (basePrice * qty);
   }, 0) + (isGeneralService ? pickupDropPrice : 0);
 
   useEffect(() => {
@@ -240,6 +289,7 @@ const BookServicePage: React.FC = () => {
       if (selectedVehicle && selectedVehicleData) {
         let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
         let vehiclePickupDropPrice = 0;
+        let vehicleCarWashPrices: Record<string, number | null> = {};
         
         // Try to fetch from reference when variant is present
         if (selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
@@ -251,9 +301,16 @@ const BookServicePage: React.FC = () => {
             );
             if (details) {
               if (!vehicleTireSize) {
-                vehicleTireSize = details.front_tyres || details.rear_tyres;
-              }
-              vehiclePickupDropPrice = Number(details.pickup_drop_price || 0);
+                  vehicleTireSize = details.front_tyres || details.rear_tyres;
+                }
+                vehiclePickupDropPrice = Number(details.pickup_drop_price || 0);
+                setSelectedVehicleReference(details);
+                vehicleCarWashPrices = {
+                  exterior: details.car_wash_exterior_price ? Number(details.car_wash_exterior_price) : null,
+                interiorExterior: details.car_wash_interior_exterior_price ? Number(details.car_wash_interior_exterior_price) : null,
+                underbody: details.car_wash_interior_exterior_underbody_price ? Number(details.car_wash_interior_exterior_underbody_price) : null,
+                legacy: details.car_wash_price ? Number(details.car_wash_price) : null
+              };
             }
           } catch (error) {
             console.error('Failed to auto-fetch reference details during booking:', error);
@@ -271,6 +328,13 @@ const BookServicePage: React.FC = () => {
                   vehicleTireSize = details.front_tyres || details.rear_tyres;
                 }
                 vehiclePickupDropPrice = Number(details.pickup_drop_price || 0);
+              setSelectedVehicleReference(details);
+              vehicleCarWashPrices = {
+                  exterior: details.car_wash_exterior_price ? Number(details.car_wash_exterior_price) : null,
+                  interiorExterior: details.car_wash_interior_exterior_price ? Number(details.car_wash_interior_exterior_price) : null,
+                  underbody: details.car_wash_interior_exterior_underbody_price ? Number(details.car_wash_interior_exterior_underbody_price) : null,
+                  legacy: details.car_wash_price ? Number(details.car_wash_price) : null
+                };
               }
             } catch (error) {
               console.error('Failed to auto-fetch reference details during booking:', error);
@@ -278,6 +342,7 @@ const BookServicePage: React.FC = () => {
         }
         
         setPickupDropPrice(vehiclePickupDropPrice);
+        setCarWashPrices(vehicleCarWashPrices);
 
         if (vehicleTireSize) {
           setTireSizes(prevSizes => {
@@ -553,9 +618,11 @@ const BookServicePage: React.FC = () => {
         location: pickupLocation.address.trim() !== '' ? pickupLocation : undefined,
         notes: selectedServicesData.map(service => {
           const size = tireSizes[service._id];
+          const brand = selectedTireBrands[service._id];
           const qty = serviceQuantities[service._id] || 1;
           let note = `${service.name} (Qty: ${qty})`;
           if (size) note += ` - Size: ${size}`;
+          if (brand) note += ` - Brand: ${brand}`;
           return note;
         }).join(', ')
       };
@@ -758,11 +825,18 @@ const BookServicePage: React.FC = () => {
                 ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
-                    <motion.button
+                    <motion.div
                       key={vehicle._id}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedVehicle(vehicle._id)}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setSelectedVehicle(vehicle._id);
+                        }
+                      }}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                         selectedVehicle === vehicle._id
                           ? 'border-primary bg-primary/5'
                           : 'border-border bg-card hover:border-primary/50'
@@ -816,7 +890,7 @@ const BookServicePage: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    </motion.button>
+                    </motion.div>
                   ))}
                 </div>
                 )}
@@ -1008,6 +1082,30 @@ const BookServicePage: React.FC = () => {
                                 ))}
                               </div>
                             </div>
+
+                            {/* Brand Selection for Tyres */}
+                            {(service.category === 'Tyres' || service.category === 'Tyre & Battery') && (
+                              <div className="space-y-3 pt-4 border-t border-border/50">
+                                <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
+                                <div className="relative">
+                                  <select
+                                    value={selectedTireBrands[service._id] || ''}
+                                    onChange={(e) => setSelectedTireBrands(prev => ({ ...prev, [service._id]: e.target.value }))}
+                                    className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium appearance-none cursor-pointer"
+                                  >
+                                    <option value="" disabled>Choose a brand</option>
+                                    {ADMIN_TIRE_BRANDS.map(brand => (
+                                      <option key={brand} value={brand}>
+                                        {brand}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                                    <ChevronRight className="w-5 h-5 rotate-90" />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </motion.div>
                         )}
                       </div>
@@ -1268,6 +1366,7 @@ const BookServicePage: React.FC = () => {
                     {selectedServicesData.map(service => {
                       const qty = serviceQuantities[service._id] || 1;
                       const size = tireSizes[service._id];
+                      const brand = selectedTireBrands[service._id];
                       return (
                         <div key={service._id} className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -1276,13 +1375,22 @@ const BookServicePage: React.FC = () => {
                           <div className="flex-1">
                             <p className="font-semibold text-foreground">{service.name}</p>
                             <p className="text-sm text-muted-foreground">{service.duration} mins • Qty: {qty}</p>
-                            {size && (
-                              <p className="text-xs font-bold text-primary mt-1 uppercase tracking-wider">
-                                Size: {size}
-                              </p>
-                            )}
+                            <div className="flex gap-2">
+                              {size && (
+                                <p className="text-xs font-bold text-primary mt-1 uppercase tracking-wider">
+                                  Size: {size}
+                                </p>
+                              )}
+                              {brand && (
+                                <p className="text-xs font-bold text-blue-600 mt-1 uppercase tracking-wider">
+                                  Brand: {brand}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-lg font-bold text-primary">₹{service.price * qty}</p>
+                          <p className="text-lg font-bold text-primary">
+                            ₹{getPackagePrice(service) * qty}
+                          </p>
                         </div>
                       );
                     })}

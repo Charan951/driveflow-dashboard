@@ -16,7 +16,7 @@ const AdminServicesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [activeTab, setActiveTab] = useState<'quick-services' | 'slots' | 'available-pincodes'>('quick-services');
+  const [activeTab, setActiveTab] = useState<'services' | 'slots' | 'available-pincodes'>('services');
   const [selectedSlotDate, setSelectedSlotDate] = useState<string>(formatLocalYmd(new Date()));
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [allSlots, setAllSlots] = useState<string[]>([]);
@@ -110,7 +110,7 @@ const AdminServicesPage: React.FC = () => {
       await serviceService.updateService(service._id, {
         isQuickService: !service.isQuickService
       });
-      toast.success(`Service ${!service.isQuickService ? 'added to' : 'removed from'} quick services`);
+      toast.success(`Service ${!service.isQuickService ? 'added to' : 'removed from'} services`);
       fetchServices();
     } catch (error) {
       toast.error('Failed to update service');
@@ -208,8 +208,8 @@ const AdminServicesPage: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Quick services</h1>
-        {activeTab === 'quick-services' && (
+        <h1 className="text-2xl font-bold">Services</h1>
+        {activeTab === 'services' && (
           <button
             onClick={() => {
               setSelectedService(null);
@@ -223,14 +223,14 @@ const AdminServicesPage: React.FC = () => {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quick-services' | 'slots' | 'available-pincodes')}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'services' | 'slots' | 'available-pincodes')}>
         <TabsList className="mb-6">
-          <TabsTrigger value="quick-services">Quick Services</TabsTrigger>
+          <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="slots">Slots</TabsTrigger>
           <TabsTrigger value="available-pincodes">Available Pincodes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="quick-services" className="space-y-4">
+        <TabsContent value="services" className="space-y-4">
           {loading ? (
             <p>Loading...</p>
           ) : (
@@ -252,7 +252,7 @@ const AdminServicesPage: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
                       <div className="flex items-center gap-2">
-                        <Label htmlFor={`quick-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Quick Service</Label>
+                        <Label htmlFor={`quick-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Service</Label>
                         <Switch
                           id={`quick-${service._id}`}
                           checked={service.isQuickService}
@@ -652,7 +652,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   checked={formData.isQuickService}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isQuickService: checked }))}
                 />
-                <Label htmlFor="isQuickService" className="font-semibold cursor-pointer">Show in Quick Services</Label>
+                <Label htmlFor="isQuickService" className="font-semibold cursor-pointer">Show in Services</Label>
               </div>
 
               <div className="md:col-span-2">

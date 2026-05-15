@@ -21,9 +21,9 @@ class AppColors {
   static const Color borderColor = Color(0xFF262626); // (Dark)
 
   // Light Mode Colors
-  static const Color backgroundPrimaryLight = Color(0xFFFAF8F2);
-  static const Color backgroundSecondaryLight = Color(0xFFFDFBF7);
-  static const Color backgroundSurfaceLight = Color(0xFFFDFBF7);
+  static const Color backgroundPrimaryLight = Color(0xFFFFFFFF);
+  static const Color backgroundSecondaryLight = Color(0xFFF8F8F8);
+  static const Color backgroundSurfaceLight = Color(0xFFF8F8F8);
   static const Color borderColorLight = Color(
     0xFFF1F5F9,
   ); // Very subtle border for white backgrounds

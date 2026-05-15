@@ -2,6 +2,8 @@ import PDFDocument from 'pdfkit';
 import Booking from '../models/Booking.js';
 import Payment from '../models/Payment.js';
 import Service from '../models/Service.js';
+import Vehicle from '../models/Vehicle.js';
+import { getVehicleDataFromS3 } from '../utils/s3Storage.js';
 import path from 'path';
 import fs from 'fs';
 import { PassThrough } from 'stream';
@@ -444,9 +446,39 @@ export const getBookingInvoice = async (req, res) => {
       rowIdx += 1;
     };
 
+    // Fetch vehicle reference data for dynamic pricing
+    let refMatch = null;
+    try {
+      const v = booking.vehicle;
+      if (v && typeof v === 'object' && v.make && v.model) {
+        const allRefData = await getVehicleDataFromS3();
+        const cleanBrand = v.make.trim().toLowerCase();
+        const cleanModel = v.model.trim().toLowerCase();
+        const cleanVariant = v.variant ? v.variant.trim().toLowerCase() : '';
+
+        refMatch = allRefData.find(item => 
+          item.brand_name.toLowerCase() === cleanBrand && 
+          item.model.toLowerCase() === cleanModel && 
+          (cleanVariant === '' || item.brand_model.toLowerCase() === cleanVariant)
+        );
+      }
+    } catch (err) {
+      console.error('Error fetching reference data for invoice:', err);
+    }
+
     (booking.services || []).forEach((service) => {
       const desc = formatInvoiceServiceDescription(service);
-      const price = Number(service.price) || 0;
+      let price = Number(service.price) || 0;
+      
+      // Use car wash price from reference data if applicable
+      const isWash = service.category === 'Car Wash' || service.category === 'Wash';
+      if (isWash && refMatch && refMatch.car_wash_price) {
+        const washPrice = Number(refMatch.car_wash_price);
+        if (!isNaN(washPrice)) {
+          price = washPrice;
+        }
+      }
+
       drawRow(desc, 1, price, price);
       subtotal += price;
     });

@@ -111,6 +111,18 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
           rear_tyres: String(fuzzyMatch(item, ['reartyres', 'reartyre', 'rear_tyres', 'rear_tyre', 'rear_tyre_size']) || '').trim(),
           battery_details: String(fuzzyMatch(item, ['batterydetails', 'battery', 'battery_info']) || '').trim(),
           pickup_drop_price: fuzzyMatch(item, ['pickup_drop_price', 'pickupprice', 'drop_price', 'pickupdrop_price', 'pickup_drop_price']) || '',
+          tyre_price_bridgestone: fuzzyMatch(item, ['tyrepricebridgestone', 'tyre_price_bridgestone', 'bridgestone']) || '',
+          tyre_price_yokohama: fuzzyMatch(item, ['tyrepriceyokohama', 'tyre_price_yokohama', 'yokohama', 'yokohoma', 'tyrepriceyokohoma']) || '',
+          tyre_price_apollo: fuzzyMatch(item, ['tyrepriceapollo', 'tyre_price_apollo', 'apollo']) || '',
+          tyre_price_michelin: fuzzyMatch(item, ['tyrepricemichellin', 'tyre_price_michellin', 'michelin', 'michellin']) || '',
+          tyre_price_dummy2: fuzzyMatch(item, ['tyrepricedummy2', 'tyre_price_dummy2', 'dummy2']) || '',
+          tyre_price_dummy: fuzzyMatch(item, ['tyrepricedummy', 'tyre_price_dummy', 'dummy']) || '',
+          battery_price_amaron: fuzzyMatch(item, ['batterypriceamaron', 'battery_price_amaron', 'amaron']) || '',
+          battery_price_exide: fuzzyMatch(item, ['batterypriceexide', 'battery_price_exide', 'exide']) || '',
+          car_wash_price: fuzzyMatch(item, ['carwashprice', 'car_wash_price', 'carwash']) || '',
+          car_wash_exterior_price: fuzzyMatch(item, ['car_wash_exterior_wash', 'exterior_wash', 'car_wash_exterior_price', 'carwash-exteriorwash']) || '',
+          car_wash_interior_exterior_price: fuzzyMatch(item, ['car_wash_interior_exterior', 'interior_exterior', 'car_wash_interior_exterior_price', 'carwash-interior+exterior']) || '',
+          car_wash_interior_exterior_underbody_price: fuzzyMatch(item, ['car_wash_interior_exterior_underbody_wash', 'underbody_wash', 'car_wash_interior_exterior_underbody_price', 'carwash-interior+exterior+underbodywash']) || '',
         };
       });
 
@@ -261,7 +273,12 @@ router.get('/search', asyncHandler(async (req, res) => {
 // @route   POST /api/vehicle-reference
 // @access  Private/Admin
 router.post('/', protect, admin, asyncHandler(async (req, res) => {
-  const { brand_name, model, brand_model, front_tyres, rear_tyres, battery_details, pickup_drop_price } = req.body;
+  const { 
+    brand_name, model, brand_model, front_tyres, rear_tyres, battery_details, pickup_drop_price,
+    tyre_price_bridgestone, tyre_price_yokohama, tyre_price_apollo, tyre_price_michelin,
+    tyre_price_dummy2, tyre_price_dummy, battery_price_amaron, battery_price_exide, car_wash_price,
+    car_wash_exterior_price, car_wash_interior_exterior_price, car_wash_interior_exterior_underbody_price
+  } = req.body;
 
   if (!brand_name || !model || !brand_model) {
     return res.status(400).json({ message: 'Brand, Model, and Brand Model (Variant) are required' });
@@ -287,6 +304,18 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
     rear_tyres,
     battery_details,
     pickup_drop_price,
+    tyre_price_bridgestone,
+    tyre_price_yokohama,
+    tyre_price_apollo,
+    tyre_price_michelin,
+    tyre_price_dummy2,
+    tyre_price_dummy,
+    battery_price_amaron,
+    battery_price_exide,
+    car_wash_price,
+    car_wash_exterior_price,
+    car_wash_interior_exterior_price,
+    car_wash_interior_exterior_underbody_price,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -314,6 +343,18 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
       rear_tyres: req.body.rear_tyres || allData[index].rear_tyres,
       battery_details: req.body.battery_details || allData[index].battery_details,
       pickup_drop_price: req.body.pickup_drop_price !== undefined ? req.body.pickup_drop_price : allData[index].pickup_drop_price,
+      tyre_price_bridgestone: req.body.tyre_price_bridgestone !== undefined ? req.body.tyre_price_bridgestone : allData[index].tyre_price_bridgestone,
+      tyre_price_yokohama: req.body.tyre_price_yokohama !== undefined ? req.body.tyre_price_yokohama : allData[index].tyre_price_yokohama,
+      tyre_price_apollo: req.body.tyre_price_apollo !== undefined ? req.body.tyre_price_apollo : allData[index].tyre_price_apollo,
+      tyre_price_michelin: req.body.tyre_price_michelin !== undefined ? req.body.tyre_price_michelin : allData[index].tyre_price_michelin,
+      tyre_price_dummy2: req.body.tyre_price_dummy2 !== undefined ? req.body.tyre_price_dummy2 : allData[index].tyre_price_dummy2,
+      tyre_price_dummy: req.body.tyre_price_dummy !== undefined ? req.body.tyre_price_dummy : allData[index].tyre_price_dummy,
+      battery_price_amaron: req.body.battery_price_amaron !== undefined ? req.body.battery_price_amaron : allData[index].battery_price_amaron,
+      battery_price_exide: req.body.battery_price_exide !== undefined ? req.body.battery_price_exide : allData[index].battery_price_exide,
+      car_wash_price: req.body.car_wash_price !== undefined ? req.body.car_wash_price : allData[index].car_wash_price,
+      car_wash_exterior_price: req.body.car_wash_exterior_price !== undefined ? req.body.car_wash_exterior_price : allData[index].car_wash_exterior_price,
+      car_wash_interior_exterior_price: req.body.car_wash_interior_exterior_price !== undefined ? req.body.car_wash_interior_exterior_price : allData[index].car_wash_interior_exterior_price,
+      car_wash_interior_exterior_underbody_price: req.body.car_wash_interior_exterior_underbody_price !== undefined ? req.body.car_wash_interior_exterior_underbody_price : allData[index].car_wash_interior_exterior_underbody_price,
       updatedAt: new Date().toISOString()
     };
 

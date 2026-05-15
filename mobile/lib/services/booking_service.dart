@@ -15,6 +15,7 @@ class BookingService {
     required DateTime date,
     String? notes,
     BookingLocation? location,
+    Map<String, String>? selectedBrands,
   }) async {
     final res = await _api.postAny(
       ApiEndpoints.bookings,
@@ -24,6 +25,8 @@ class BookingService {
         'date': date.toIso8601String(),
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
         if (location != null) 'location': location.toJson(),
+        if (selectedBrands != null && selectedBrands.isNotEmpty)
+          'selectedBrands': selectedBrands,
       },
     );
 

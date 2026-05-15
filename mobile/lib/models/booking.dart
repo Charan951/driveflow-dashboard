@@ -277,8 +277,9 @@ class BookingBilling {
       partsTotal: json['partsTotal'] is num ? (json['partsTotal'] as num) : 0,
       labourCost: json['labourCost'] is num ? (json['labourCost'] as num) : 0,
       gst: json['gst'] is num ? (json['gst'] as num) : 0,
-      pickupDropPrice:
-          json['pickupDropPrice'] is num ? (json['pickupDropPrice'] as num) : 0,
+      pickupDropPrice: json['pickupDropPrice'] is num
+          ? (json['pickupDropPrice'] as num)
+          : 0,
       discount: json['discount'] is num ? (json['discount'] as num) : 0,
     );
   }
@@ -379,10 +380,11 @@ class Booking {
   });
 
   num get calculatedTotal {
+    num base = totalAmount;
     if (billing != null && billing!.total > 0) {
-      return billing!.total;
+      base = billing!.total;
     }
-    return totalAmount;
+    return base - (discountAmount ?? 0);
   }
 
   num get baseServiceTotal {
@@ -702,32 +704,68 @@ class Booking {
     }
     // Aggressive search for invoice/document URL
     String? invoiceUrl;
-    
+
     // 1. Check billing object
     if (b is Map) {
-      invoiceUrl = (b['fileUrl'] ?? b['invoiceUrl'] ?? b['invoice'] ?? b['invoicePath'] ?? b['pdfUrl'] ?? b['receiptUrl'] ?? b['file'] ?? b['invoiceFile'])?.toString();
+      invoiceUrl =
+          (b['fileUrl'] ??
+                  b['invoiceUrl'] ??
+                  b['invoice'] ??
+                  b['invoicePath'] ??
+                  b['pdfUrl'] ??
+                  b['receiptUrl'] ??
+                  b['file'] ??
+                  b['invoiceFile'])
+              ?.toString();
     }
-    
+
     // 2. Check top level map
-    invoiceUrl ??= (map['invoiceUrl'] ?? map['invoice'] ?? map['invoice_url'] ?? map['invoicePath'] ?? map['pdfUrl'] ?? map['receiptUrl'] ?? map['invoiceFile'])?.toString();
-    
+    invoiceUrl ??=
+        (map['invoiceUrl'] ??
+                map['invoice'] ??
+                map['invoice_url'] ??
+                map['invoicePath'] ??
+                map['pdfUrl'] ??
+                map['receiptUrl'] ??
+                map['invoiceFile'])
+            ?.toString();
+
     // 3. Check for a list of invoices
     final invoices = map['invoices'];
     if (invoiceUrl == null && invoices is List && invoices.isNotEmpty) {
       final first = invoices.first;
       if (first is Map) {
-        invoiceUrl = (first['fileUrl'] ?? first['url'] ?? first['path'])?.toString();
+        invoiceUrl = (first['fileUrl'] ?? first['url'] ?? first['path'])
+            ?.toString();
       } else {
         invoiceUrl = first.toString();
       }
     }
-    
+
     // 4. Check nested objects
-    invoiceUrl ??= (map['payment'] is Map ? map['payment']['invoiceUrl']?.toString() : null);
-    invoiceUrl ??= (map['carWash'] is Map ? (map['carWash']['fileUrl'] ?? map['carWash']['invoiceUrl'])?.toString() : null);
-    invoiceUrl ??= (map['batteryTire'] is Map ? (map['batteryTire']['fileUrl'] ?? map['batteryTire']['invoiceUrl'])?.toString() : null);
-    invoiceUrl ??= (map['essentials'] is Map ? (map['essentials']['fileUrl'] ?? map['essentials']['invoiceUrl'] ?? map['essentials']['invoice'])?.toString() : null);
-    invoiceUrl ??= (map['insurance'] is Map ? (map['insurance']['fileUrl'] ?? map['insurance']['invoiceUrl'] ?? map['insurance']['invoice'])?.toString() : null);
+    invoiceUrl ??= (map['payment'] is Map
+        ? map['payment']['invoiceUrl']?.toString()
+        : null);
+    invoiceUrl ??= (map['carWash'] is Map
+        ? (map['carWash']['fileUrl'] ?? map['carWash']['invoiceUrl'])
+              ?.toString()
+        : null);
+    invoiceUrl ??= (map['batteryTire'] is Map
+        ? (map['batteryTire']['fileUrl'] ?? map['batteryTire']['invoiceUrl'])
+              ?.toString()
+        : null);
+    invoiceUrl ??= (map['essentials'] is Map
+        ? (map['essentials']['fileUrl'] ??
+                  map['essentials']['invoiceUrl'] ??
+                  map['essentials']['invoice'])
+              ?.toString()
+        : null);
+    invoiceUrl ??= (map['insurance'] is Map
+        ? (map['insurance']['fileUrl'] ??
+                  map['insurance']['invoiceUrl'] ??
+                  map['insurance']['invoice'])
+              ?.toString()
+        : null);
 
     // 5. Final desperate fallback: scan all top-level keys for something that looks like an invoice URL
     if (invoiceUrl == null) {
@@ -735,13 +773,16 @@ class Booking {
         if (invoiceUrl == null && value != null) {
           final k = key.toString().toLowerCase();
           final v = value.toString();
-          if (k.contains('invoice') && (v.startsWith('http') || v.contains('.pdf') || v.contains('storage') || v.startsWith('/'))) {
+          if (k.contains('invoice') &&
+              (v.startsWith('http') ||
+                  v.contains('.pdf') ||
+                  v.contains('storage') ||
+                  v.startsWith('/'))) {
             invoiceUrl = v;
           }
         }
       });
     }
-
 
     final inspectionObj = map['inspection'];
     final inspectionCompletedAt = inspectionObj is Map
@@ -797,8 +838,12 @@ class Booking {
       status: (map['status'] ?? 'PENDING').toString(),
       date: (map['date'] ?? '').toString(),
       totalAmount: map['totalAmount'] is num ? (map['totalAmount'] as num) : 0,
-      discountAmount: map['discountAmount'] is num ? (map['discountAmount'] as num) : null,
-      couponCode: map['couponCode']?.toString() ?? (map['coupon'] is Map ? map['coupon']['code']?.toString() : null),
+      discountAmount: map['discountAmount'] is num
+          ? (map['discountAmount'] as num)
+          : null,
+      couponCode:
+          map['couponCode']?.toString() ??
+          (map['coupon'] is Map ? map['coupon']['code']?.toString() : null),
       vehicle: vehicle,
       services: services,
       location: location,

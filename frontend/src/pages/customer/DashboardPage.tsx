@@ -476,7 +476,7 @@ const DashboardPage: React.FC = () => {
         }}
       />
 
-      {/* Quick Services */}
+      {/* Services */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Quick Services</h2>

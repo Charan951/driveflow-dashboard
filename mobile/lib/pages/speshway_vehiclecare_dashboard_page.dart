@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
-import '../core/app_styles.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
@@ -1219,9 +1218,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final statusBadgeLabel = showPayButton
         ? 'Payment awaiting'
         : _statusLabel(booking.status);
-    final payAmount = (booking.billing != null && booking.billing!.total > 0)
-        ? booking.billing!.total
-        : booking.calculatedTotal;
+    final payAmount = booking.calculatedTotal;
 
     void openTrackService() {
       Navigator.pushNamed(context, '/track', arguments: booking.id).then((_) {
@@ -1510,7 +1507,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  gradient: AppStyles.primaryGradient,
+                                  color: AppColors.primaryBlue,
                                 ),
                                 child: Text(
                                   category.toUpperCase(),
@@ -1531,15 +1528,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryBlue,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Icon(
                           item.icon,
                           size: 18,
-                          color: AppColors.primaryBlue,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1721,15 +1718,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                           ? const Color(0xFF2A2A30)
                                           : Colors.white,
                                       borderRadius: BorderRadius.circular(999),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: isDark ? 0.35 : 0.08,
-                                          ),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
                                       border: Border.all(
                                         color: isDark
                                             ? Colors.white.withValues(
@@ -1923,11 +1911,11 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   : '';
 
               final statusText = _statusLabel(b.status);
-              final amount = b.totalAmount;
+              final amount = b.calculatedTotal;
               final priceLabel =
                   amount is int || amount == amount.roundToDouble()
                   ? '\u20B9 ${amount.round()}'
-                  : '\u20B9 ${amount.toStringAsFixed(2)}';
+                  : '\u20B9 ${amount.toStringAsFixed(1)}';
 
               final isDelivered =
                   b.status == 'DELIVERED' || b.status == 'COMPLETED';
@@ -1977,7 +1965,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       vertical: AppSpacing.defaultPadding,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
+                      color: isDark ? const Color(0xFF0A0A0A) : AppColors.backgroundSecondaryLight,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isDark
@@ -1985,15 +1973,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                             : Colors.grey.shade200,
                         width: 1,
                       ),
-                      boxShadow: isDark
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                      boxShadow: null,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2257,21 +2237,13 @@ class _FrostedCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
+        color: isDark ? Colors.black : AppColors.backgroundSecondaryLight,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
           width: 1,
         ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        boxShadow: null,
       ),
       child: child,
     );
@@ -2291,22 +2263,14 @@ class _NeonBorderCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
-        color: isDark ? Colors.black : Colors.white,
+        color: isDark ? Colors.black : AppColors.backgroundSecondaryLight,
         border: Border.all(
           color: isDark
               ? neonColor.withValues(alpha: 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        boxShadow: null,
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
@@ -2318,7 +2282,7 @@ class _NeonBorderCard extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: isDark
                   ? [Colors.black, Colors.black]
-                  : [Colors.white, Colors.white],
+                  : [Colors.transparent, Colors.transparent],
             ),
           ),
           child: child,
@@ -2348,14 +2312,7 @@ class _NeonButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
-          gradient: AppStyles.primaryGradient,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryBlue.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: AppColors.primaryBlue,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

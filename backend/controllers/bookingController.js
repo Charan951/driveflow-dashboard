@@ -49,6 +49,88 @@ const getCategoryGroup = (serviceCategory) => {
   }
 };
 
+/** Helper to calculate services total with vehicle-specific pricing (like car wash). */
+const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const Vehicle = (await import('../models/Vehicle.js')).default;
+    const { getVehicleDataFromS3 } = await import('../utils/s3Storage.js');
+
+    const services = await Service.find({ _id: { $in: serviceIds } });
+    const vehicle = await Vehicle.findById(vehicleId);
+    const allRefData = await getVehicleDataFromS3();
+
+    let refMatch = null;
+    if (vehicle) {
+      const cleanBrand = vehicle.make.trim().toLowerCase();
+      const cleanModel = vehicle.model.trim().toLowerCase();
+      const cleanVariant = vehicle.variant ? vehicle.variant.trim().toLowerCase() : '';
+
+      refMatch = allRefData.find(item => 
+        item.brand_name.toLowerCase() === cleanBrand && 
+        item.model.toLowerCase() === cleanModel && 
+        (cleanVariant === '' || item.brand_model.toLowerCase() === cleanVariant)
+      );
+    }
+
+    let total = 0;
+    services.forEach(service => {
+      const isWash = service.category === 'Car Wash' || service.category === 'Wash';
+      const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+
+      if (isWash && refMatch) {
+        let washPrice = null;
+        const sName = service.name.toLowerCase();
+
+        if (sName.includes('exterior wash') && !sName.includes('interior')) {
+          washPrice = refMatch.car_wash_exterior_price;
+        } else if (sName.includes('interior + exterior') && !sName.includes('underbody')) {
+          washPrice = refMatch.car_wash_interior_exterior_price;
+        } else if (sName.includes('underbody wash') || (sName.includes('interior') && sName.includes('exterior') && sName.includes('underbody'))) {
+          washPrice = refMatch.car_wash_interior_exterior_underbody_price;
+        }
+
+        // Fallback to legacy car_wash_price if specific one is not set
+        if (!washPrice || washPrice === '') {
+          washPrice = refMatch.car_wash_price;
+        }
+
+        const priceNum = Number(washPrice);
+        if (washPrice && !isNaN(priceNum) && priceNum > 0) {
+          total += priceNum;
+        } else {
+          total += service.price;
+        }
+      } else if (isTire && refMatch) {
+        const selectedBrand = selectedBrands[service._id];
+        if (selectedBrand) {
+          const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
+          const brandPrice = refMatch[brandKey];
+          const priceNum = Number(brandPrice);
+          if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
+            total += priceNum;
+          } else {
+            total += service.price;
+          }
+        } else {
+          total += service.price;
+        }
+      } else {
+        total += service.price;
+      }
+    });
+
+    return { total, refMatch, services };
+  } catch (err) {
+    console.error('Error in calculateServicesTotal:', err);
+    // Fallback to basic calculation
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: serviceIds } });
+    const total = services.reduce((acc, s) => acc + s.price, 0);
+    return { total, refMatch: null, services };
+  }
+};
+
 const formatTo12HourSlot = (date) => {
   const hours24 = date.getHours();
   const minutes = date.getMinutes();
@@ -345,7 +427,7 @@ Thank you for choosing Carzzi 🙌`;
 // @route   POST /api/bookings
 // @access  Private
 export const createBooking = async (req, res) => {
-  const { vehicleId, serviceIds, date, notes, location } = req.body;
+  const { vehicleId, serviceIds, date, notes, location, selectedBrands } = req.body;
 
   try {
     const parsedDate = new Date(date);
@@ -378,13 +460,7 @@ export const createBooking = async (req, res) => {
 
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
-    const { getVehicleDataFromS3 } = await import('../utils/s3Storage.js');
-
-    const services = await Service.find({ _id: { $in: serviceIds } });
-
-    if (services.length !== serviceIds.length) {
-      return res.status(404).json({ message: 'One or more services not found' });
-    }
+    const { total: servicesTotal, refMatch, services } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands);
 
     // Determine booking categories for slot availability check
     const bookingCategories = new Set();
@@ -397,7 +473,7 @@ export const createBooking = async (req, res) => {
       return res.status(409).json({ message: 'Selected slot is not available for one or more selected services' });
     }
 
-    let totalAmount = services.reduce((acc, service) => acc + service.price, 0);
+    let totalAmount = servicesTotal;
     let pickupDropPrice = 0;
 
     // Check if this is a general service booking
@@ -410,25 +486,11 @@ export const createBooking = async (req, res) => {
     // If general service, add pickup_drop_price from reference data
     if (isGeneralService) {
       try {
-        const vehicle = await Vehicle.findById(vehicleId);
-        if (vehicle) {
-          const allRefData = await getVehicleDataFromS3();
-          const cleanBrand = vehicle.make.trim().toLowerCase();
-          const cleanModel = vehicle.model.trim().toLowerCase();
-          const cleanVariant = vehicle.variant ? vehicle.variant.trim().toLowerCase() : '';
-
-          const refMatch = allRefData.find(item => 
-            item.brand_name.toLowerCase() === cleanBrand && 
-            item.model.toLowerCase() === cleanModel && 
-            (cleanVariant === '' || item.brand_model.toLowerCase() === cleanVariant)
-          );
-
-          if (refMatch && refMatch.pickup_drop_price) {
-            const extra = Number(refMatch.pickup_drop_price);
-            if (!isNaN(extra)) {
-              pickupDropPrice = extra;
-              totalAmount += extra;
-            }
+        if (refMatch && refMatch.pickup_drop_price) {
+          const extra = Number(refMatch.pickup_drop_price);
+          if (!isNaN(extra)) {
+            pickupDropPrice = extra;
+            totalAmount += extra;
           }
         }
       } catch (err) {
@@ -1701,9 +1763,7 @@ export const updateBookingDetails = async (req, res) => {
         Object.assign(booking.billing, billing);
         
         // Recalculate total instead of trusting billing.total from client
-        const Service = (await import('../models/Service.js')).default;
-        const services = await Service.find({ _id: { $in: booking.services } });
-        const servicesTotal = services.reduce((acc, s) => acc + s.price, 0);
+        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle);
         
         const partsTotal = Number(booking.billing.partsTotal || 0);
         const labourCost = Number(booking.billing.labourCost || 0);
@@ -1758,9 +1818,7 @@ export const updateBookingDetails = async (req, res) => {
         // Recalculate total amount
         const partsTotal = parts.reduce((acc, part) => acc + (part.price * part.quantity), 0);
         
-        const Service = (await import('../models/Service.js')).default;
-        const services = await Service.find({ _id: { $in: booking.services } });
-        const servicesTotal = services.reduce((acc, service) => acc + service.price, 0);
+        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle);
         
         const labourCost = Number(booking.billing?.labourCost || 0);
         const gst = Number(booking.billing?.gst || 0);

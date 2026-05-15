@@ -307,6 +307,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   }
 
   void _onSocketUpdate() {
+    if (!mounted) return;
     if (_loading || _bookingId == null) return;
     final event = _socketService.value;
     if (event != null && (event.contains('booking_updated'))) {
@@ -356,6 +357,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         if (routes.isNotEmpty) {
           final geometry = routes[0]['geometry'];
           final coordinates = geometry['coordinates'] as List;
+          if (!mounted) return;
           setState(() {
             _routePoints = coordinates
                 .map((c) => LatLng(c[1].toDouble(), c[0].toDouble()))
@@ -1549,7 +1551,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     initialCenter: center,
                                     initialZoom: 13,
                                     onMapReady: () {
-                                      setState(() => _mapReady = true);
+                                      if (mounted) setState(() => _mapReady = true);
                                     },
                                   ),
                                   children: [
@@ -2663,7 +2665,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               const SizedBox(height: 12),
                               _buildCostRow(
                                 'Base Service Amount',
-                                '₹${booking.totalAmount - (booking.billing!.partsTotal ?? 0) - (booking.billing!.labourCost ?? 0) - (booking.billing!.gst ?? 0)}',
+                                '₹${booking.totalAmount - (booking.billing!.partsTotal ?? 0) - (booking.billing!.labourCost ?? 0) - (booking.billing!.gst ?? 0) - (booking.billing!.pickupDropPrice ?? 0)}',
                                 isDark,
                               ),
                               if ((booking.billing!.partsTotal ?? 0) > 0)
@@ -2684,6 +2686,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   '₹${booking.billing!.gst}',
                                   isDark,
                                 ),
+                              if ((booking.billing!.pickupDropPrice ?? 0) > 0)
+                                _buildCostRow(
+                                  'Pickup/Drop Price',
+                                  '₹${booking.billing!.pickupDropPrice}',
+                                  isDark,
+                                ),
+                              if ((booking.discountAmount ?? 0) > 0)
+                                _buildCalculationBreakdown(booking, isDark),
                               const SizedBox(height: 8),
                               const Divider(height: 1),
                               const SizedBox(height: 8),
@@ -2703,15 +2713,29 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                               : Colors.black87,
                                         ),
                                   ),
-                                  Text(
-                                    '₹${booking.billing!.total}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: const Color(0xFF2563EB),
-                                          fontWeight: FontWeight.w800,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '₹${booking.calculatedTotal}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              color: const Color(0xFF2563EB),
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      if ((booking.discountAmount ?? 0) > 0)
+                                        Text(
+                                          '₹${(booking.billing?.total ?? booking.totalAmount)}',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                            decoration: TextDecoration.lineThrough,
+                                          ),
                                         ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -2728,12 +2752,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   isDark,
                                 ),
                               if ((booking.discountAmount ?? 0) > 0)
-                                _buildCostRow(
-                                  'Coupon Discount',
-                                  '- ₹${booking.discountAmount}',
-                                  isDark,
-                                  isDiscount: true,
-                                ),
+                                _buildCalculationBreakdown(booking, isDark),
                               const SizedBox(height: 8),
                               const Divider(height: 1),
                               const SizedBox(height: 8),
@@ -3106,6 +3125,101 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                   ? const Color(0xFF4ADE80)
                   : (isDark ? Colors.white70 : Colors.black87),
               fontWeight: isDiscount ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalculationBreakdown(Booking booking, bool isDark) {
+    final discount = booking.discountAmount ?? 0;
+    if (discount <= 0) return const SizedBox.shrink();
+
+    final totalAmount = booking.totalAmount;
+    final finalAmount = booking.calculatedTotal;
+
+    // Calculate percentage if not explicitly provided
+    final discountPercentage = totalAmount > 0 ? ((discount / totalAmount) * 100).round() : 0;
+    final discountFactor = totalAmount > 0 ? (discount / totalAmount).toStringAsFixed(2) : "0.00";
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16, bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDCFCE7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'CALCULATION BREAKDOWN',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF166534),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildBreakdownRow('Total Amount', '₹$totalAmount'),
+          _buildBreakdownRow(
+            'Applied Coupon (${booking.couponCode ?? 'GENERAL'})',
+            '$discountPercentage% Off',
+            valueColor: const Color(0xFF16A34A),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Divider(height: 1, color: Color(0x26166534)),
+          ),
+          _buildBreakdownRow(
+            'Discount Calculation',
+            '${booking.totalAmount} × $discountFactor = ₹$discount',
+          ),
+          _buildBreakdownRow(
+            'Final Payable',
+            '${booking.totalAmount} − $discount = ₹$finalAmount',
+            isBold: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownRow(String label, String value, {Color? valueColor, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: const Color(0xFF15803D).withValues(alpha: 0.8),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+              color: valueColor ?? const Color(0xFF166534),
             ),
           ),
         ],

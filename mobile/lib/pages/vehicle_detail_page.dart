@@ -161,10 +161,9 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
   String _formatTime(BuildContext context, String value) {
     final dt = _parseDate(value);
     if (dt == null) return '';
-    return MaterialLocalizations.of(context).formatTimeOfDay(
-      TimeOfDay.fromDateTime(dt),
-      alwaysUse24HourFormat: false,
-    );
+    return MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(dt), alwaysUse24HourFormat: false);
   }
 
   Color _statusColor(String status) {
@@ -211,9 +210,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
           'Vehicle details',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: isDark
-                ? AppColors.textPrimary
-                : AppColors.textPrimaryLight,
+            color: isDark ? AppColors.textPrimary : AppColors.textPrimaryLight,
           ),
         ),
         iconTheme: IconThemeData(
@@ -247,16 +244,14 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
                     _error!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.error,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
                   ),
                 ),
               ),
             SliverOverlapAbsorber(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                context,
-              ),
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
               sliver: SliverPersistentHeader(
                 pinned: true,
                 delegate: _VehicleDetailTabsHeaderDelegate(
@@ -326,9 +321,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
   List<Widget> _serviceHistorySlivers(BuildContext context, bool isDark) {
     if (_loading && _bookings.isEmpty) {
       return const [
-        SliverFillRemaining(
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
       ];
     }
 
@@ -358,20 +351,15 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
       SliverPadding(
         padding: AppSpacing.edgeInsetsAllDefault,
         sliver: SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final b = _bookings[index];
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: index < _bookings.length - 1
-                      ? AppSpacing.medium
-                      : 0,
-                ),
-                child: _buildServiceHistoryBookingCard(context, isDark, b),
-              );
-            },
-            childCount: _bookings.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final b = _bookings[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < _bookings.length - 1 ? AppSpacing.medium : 0,
+              ),
+              child: _buildServiceHistoryBookingCard(context, isDark, b),
+            );
+          }, childCount: _bookings.length),
         ),
       ),
     ];
@@ -382,9 +370,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
         (_vehicle.healthIndicators == null ||
             _vehicle.healthIndicators!.isEmpty)) {
       return const [
-        SliverFillRemaining(
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
       ];
     }
 
@@ -413,15 +399,9 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     Map<String, dynamic> healthMap,
   ) {
     final locale = Localizations.localeOf(context).toString();
-    final cardBg = isDark
-        ? AppColors.backgroundSecondary
-        : Colors.white;
-    final titleColor = isDark
-        ? AppColors.textPrimary
-        : const Color(0xFF1A1A1A);
-    final mutedColor = isDark
-        ? AppColors.textMuted
-        : const Color(0xFF757575);
+    final cardBg = isDark ? AppColors.backgroundSecondary : Colors.white;
+    final titleColor = isDark ? AppColors.textPrimary : const Color(0xFF1A1A1A);
+    final mutedColor = isDark ? AppColors.textMuted : const Color(0xFF757575);
     final borderColor = isDark
         ? AppColors.borderColor
         : const Color(0xFFE2E8F0);
@@ -481,11 +461,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 12,
-                          color: mutedColor,
-                        ),
+                        Icon(Icons.info_outline, size: 12, color: mutedColor),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -727,9 +703,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
               : AppColors.backgroundSecondaryLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark
-                ? AppColors.borderColor
-                : AppColors.borderColorLight,
+            color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
           ),
           boxShadow: [
             BoxShadow(
@@ -808,11 +782,10 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
                       colors: [
                         statusColor.withValues(alpha: 0.35),
                         Color.lerp(
-                              statusColor,
-                              Colors.white,
-                              0.2,
-                            )!
-                            .withValues(alpha: 0.4),
+                          statusColor,
+                          Colors.white,
+                          0.2,
+                        )!.withValues(alpha: 0.4),
                       ],
                     ),
                   ),
@@ -871,7 +844,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
             Row(
               children: [
                 Text(
-                  '₹${b.calculatedTotal}',
+                  '₹${b.calculatedTotal is int || b.calculatedTotal == b.calculatedTotal.roundToDouble() ? b.calculatedTotal.round() : b.calculatedTotal.toStringAsFixed(1)}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: isDark
@@ -939,10 +912,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primaryBlue,
-                      AppColors.primaryBlueDark,
-                    ],
+                    colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -952,11 +922,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
                     ),
                   ],
                 ),
-                child: Icon(
-                  _vehicleHeroIcon(),
-                  color: Colors.white,
-                  size: 32,
-                ),
+                child: Icon(_vehicleHeroIcon(), color: Colors.white, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1081,20 +1047,12 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     final list = <_VehicleSpecItem>[];
     if (v.year > 0) {
       list.add(
-        _VehicleSpecItem(
-          Icons.calendar_month_outlined,
-          'Year',
-          '${v.year}',
-        ),
+        _VehicleSpecItem(Icons.calendar_month_outlined, 'Year', '${v.year}'),
       );
     }
     if ((v.type ?? '').trim().isNotEmpty) {
       list.add(
-        _VehicleSpecItem(
-          Icons.category_outlined,
-          'Type',
-          v.type!.trim(),
-        ),
+        _VehicleSpecItem(Icons.category_outlined, 'Type', v.type!.trim()),
       );
     }
     if ((v.fuelType ?? '').trim().isNotEmpty) {
@@ -1108,29 +1066,17 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     }
     if ((v.color ?? '').trim().isNotEmpty) {
       list.add(
-        _VehicleSpecItem(
-          Icons.palette_outlined,
-          'Colour',
-          v.color!.trim(),
-        ),
+        _VehicleSpecItem(Icons.palette_outlined, 'Colour', v.color!.trim()),
       );
     }
     if (v.mileage != null) {
       list.add(
-        _VehicleSpecItem(
-          Icons.speed_outlined,
-          'Odometer',
-          '${v.mileage} km',
-        ),
+        _VehicleSpecItem(Icons.speed_outlined, 'Odometer', '${v.mileage} km'),
       );
     }
     if ((v.vin ?? '').trim().isNotEmpty) {
       list.add(
-        _VehicleSpecItem(
-          Icons.qr_code_2_outlined,
-          'VIN',
-          v.vin!.trim(),
-        ),
+        _VehicleSpecItem(Icons.qr_code_2_outlined, 'VIN', v.vin!.trim()),
       );
     }
     if ((v.frontTyres ?? '').trim().isNotEmpty) {
@@ -1200,11 +1146,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
               borderRadius: BorderRadius.circular(10),
               color: AppColors.primaryBlue.withValues(alpha: 0.12),
             ),
-            child: Icon(
-              item.icon,
-              size: 20,
-              color: AppColors.primaryBlue,
-            ),
+            child: Icon(item.icon, size: 20, color: AppColors.primaryBlue),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1240,7 +1182,6 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
       ),
     );
   }
-
 }
 
 class _VehicleDetailTabsHeaderDelegate extends SliverPersistentHeaderDelegate {

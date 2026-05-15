@@ -7,6 +7,7 @@ import { staggerContainer, staggerItem, overlayVariants, modalVariants } from '@
 import { toast } from 'sonner';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
+import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { bookingService } from '@/services/bookingService';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
@@ -32,6 +33,59 @@ const CarWashPage: React.FC = () => {
   const [isBooking, setIsBooking] = useState(false);
   const [availableServicePincodes, setAvailableServicePincodes] = useState<string[]>([]);
   const [pincodesReady, setPincodesReady] = useState(false);
+  const [carWashPrices, setCarWashPrices] = useState<Record<string, number | null>>({});
+
+  const selectedVehicleData = vehicles.find(v => v._id === selectedVehicle);
+
+  useEffect(() => {
+    const fetchRefPrice = async () => {
+      if (selectedVehicleData) {
+        try {
+          const details = await searchVehicleReference(
+            selectedVehicleData.make,
+            selectedVehicleData.model,
+            selectedVehicleData.variant || ''
+          );
+          if (details) {
+            setCarWashPrices({
+              exterior: details.car_wash_exterior_price ? Number(details.car_wash_exterior_price) : null,
+              interiorExterior: details.car_wash_interior_exterior_price ? Number(details.car_wash_interior_exterior_price) : null,
+              underbody: details.car_wash_interior_exterior_underbody_price ? Number(details.car_wash_interior_exterior_underbody_price) : null,
+              legacy: details.car_wash_price ? Number(details.car_wash_price) : null
+            });
+          } else {
+            setCarWashPrices({});
+          }
+        } catch (error) {
+          console.error('Failed to fetch car wash price from reference:', error);
+          setCarWashPrices({});
+        }
+      } else {
+        setCarWashPrices({});
+      }
+    };
+    fetchRefPrice();
+  }, [selectedVehicle, selectedVehicleData]);
+
+  const getPackagePrice = (pkg: Service) => {
+    const sName = pkg.name.toLowerCase();
+    let price = null;
+
+    if (sName.includes('exterior wash') && !sName.includes('interior')) {
+      price = carWashPrices.exterior;
+    } else if (sName.includes('interior + exterior') && !sName.includes('underbody')) {
+      price = carWashPrices.interiorExterior;
+    } else if (sName.includes('underbody wash') || (sName.includes('interior') && sName.includes('exterior') && sName.includes('underbody'))) {
+      price = carWashPrices.underbody;
+    }
+
+    // Fallback to legacy price if specific one is not available
+    if (price === null || price === 0) {
+      price = carWashPrices.legacy;
+    }
+
+    return price !== null && price > 0 ? price : pkg.price;
+  };
   const selectedLocationPincode = extractPincodeFromAddress(pickupLocation.address);
   const noServiceAreasConfigured = pincodesReady && availableServicePincodes.length === 0;
   const isSelectedLocationAllowed = Boolean(
@@ -201,7 +255,9 @@ const CarWashPage: React.FC = () => {
               )}
 
               <div className="flex items-center justify-between mb-4 mt-auto">
-                <span className="text-2xl sm:text-3xl font-bold text-primary">₹{pkg.price}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-primary">
+                  ₹{getPackagePrice(pkg)}
+                </span>
               </div>
 
               <motion.button

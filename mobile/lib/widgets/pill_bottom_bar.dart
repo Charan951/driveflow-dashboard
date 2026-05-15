@@ -138,20 +138,17 @@ class CenterNavAction extends StatelessWidget {
     return Container(
       width: 60,
       height: 60,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: AppStyles.primaryGradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppStyles.primaryBlue.withValues(alpha: 0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: AppStyles.primaryBlue,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          focusColor: Colors.transparent,
           onTap: () {
             if (isActive) return;
             HapticFeedback.selectionClick();

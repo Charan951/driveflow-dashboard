@@ -37,7 +37,7 @@ const adminMenuItems = [
   { icon: UserCog, label: 'Staff', path: '/admin/staff' },
   { icon: Headphones, label: 'Support', path: '/admin/support' },
   { icon: Star, label: 'Feedback', path: '/admin/feedback' },
-  { icon: Package, label: 'Quick services', path: '/admin/services' },
+  { icon: Package, label: 'Services', path: '/admin/services' },
   { icon: Tag, label: 'Coupons', path: '/admin/coupons' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
   { icon: Layout, label: 'Edit website', path: '/admin/hero-images' },

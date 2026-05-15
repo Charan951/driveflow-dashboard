@@ -143,7 +143,7 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
 
     return Drawer(
       width: 320,
-      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
       child: SafeArea(
         child: RepaintBoundary(
           child: Column(
@@ -230,7 +230,7 @@ class _DrawerTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: active ? AppStyles.primaryGradient : null,
-              color: active ? null : Colors.transparent,
+              color: active ? null : (isDark ? Colors.transparent : AppColors.backgroundSecondaryLight),
               boxShadow: active
                   ? [
                       BoxShadow(

@@ -25,6 +25,18 @@ interface VehicleData {
   rear_tyres: string;
   battery_details?: string;
   pickup_drop_price?: string | number;
+  tyre_price_bridgestone?: string | number;
+  tyre_price_yokohama?: string | number;
+  tyre_price_apollo?: string | number;
+  tyre_price_michelin?: string | number;
+  tyre_price_dummy2?: string | number;
+  tyre_price_dummy?: string | number;
+  battery_price_amaron?: string | number;
+  battery_price_exide?: string | number;
+  car_wash_price?: string | number;
+  car_wash_exterior_price?: string | number;
+  car_wash_interior_exterior_price?: string | number;
+  car_wash_interior_exterior_underbody_price?: string | number;
 }
 
 const AdminVehicleDataPage = () => {
@@ -41,7 +53,19 @@ const AdminVehicleDataPage = () => {
     front_tyres: '',
     rear_tyres: '',
     battery_details: '',
-    pickup_drop_price: ''
+    pickup_drop_price: '',
+    tyre_price_bridgestone: '',
+    tyre_price_yokohama: '',
+    tyre_price_apollo: '',
+    tyre_price_michelin: '',
+    tyre_price_dummy2: '',
+    tyre_price_dummy: '',
+    battery_price_amaron: '',
+    battery_price_exide: '',
+    car_wash_price: '',
+    car_wash_exterior_price: '',
+    car_wash_interior_exterior_price: '',
+    car_wash_interior_exterior_underbody_price: ''
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,7 +143,19 @@ const AdminVehicleDataPage = () => {
         front_tyres: vehicle.front_tyres,
         rear_tyres: vehicle.rear_tyres,
         battery_details: vehicle.battery_details || '',
-        pickup_drop_price: vehicle.pickup_drop_price?.toString() || ''
+        pickup_drop_price: vehicle.pickup_drop_price?.toString() || '',
+        tyre_price_bridgestone: vehicle.tyre_price_bridgestone?.toString() || '',
+        tyre_price_yokohama: vehicle.tyre_price_yokohama?.toString() || '',
+        tyre_price_apollo: vehicle.tyre_price_apollo?.toString() || '',
+        tyre_price_michelin: vehicle.tyre_price_michelin?.toString() || '',
+        tyre_price_dummy2: vehicle.tyre_price_dummy2?.toString() || '',
+        tyre_price_dummy: vehicle.tyre_price_dummy?.toString() || '',
+        battery_price_amaron: vehicle.battery_price_amaron?.toString() || '',
+        battery_price_exide: vehicle.battery_price_exide?.toString() || '',
+        car_wash_price: vehicle.car_wash_price?.toString() || '',
+        car_wash_exterior_price: vehicle.car_wash_exterior_price?.toString() || '',
+        car_wash_interior_exterior_price: vehicle.car_wash_interior_exterior_price?.toString() || '',
+        car_wash_interior_exterior_underbody_price: vehicle.car_wash_interior_exterior_underbody_price?.toString() || ''
       });
     } else {
       setEditingVehicle(null);
@@ -130,7 +166,19 @@ const AdminVehicleDataPage = () => {
         front_tyres: '',
         rear_tyres: '',
         battery_details: '',
-        pickup_drop_price: ''
+        pickup_drop_price: '',
+        tyre_price_bridgestone: '',
+        tyre_price_yokohama: '',
+        tyre_price_apollo: '',
+        tyre_price_michelin: '',
+        tyre_price_dummy2: '',
+        tyre_price_dummy: '',
+        battery_price_amaron: '',
+        battery_price_exide: '',
+        car_wash_price: '',
+        car_wash_exterior_price: '',
+        car_wash_interior_exterior_price: '',
+        car_wash_interior_exterior_underbody_price: ''
       });
     }
     setIsModalOpen(true);
@@ -299,11 +347,20 @@ const AdminVehicleDataPage = () => {
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-700">Brand</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Model</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Brand Model</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Front Tyres</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Rear Tyres</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Battery</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Pickup/Drop Price</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Variant</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Tyre Size</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Bridgestone</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Yokohama</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Apollo</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Michelin</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Dummy 2</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Dummy</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Amaron</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Exide</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Wash (Ext)</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Wash (Int+Ext)</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Wash (Full)</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">P/D Price</th>
                 <th className="px-6 py-4 font-semibold text-gray-700 text-right">Actions</th>
               </tr>
             </thead>
@@ -320,16 +377,48 @@ const AdminVehicleDataPage = () => {
                     {item.brand_model}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 font-mono">
-                    {item.front_tyres}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 font-mono">
-                    {item.rear_tyres}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-gray-400 uppercase">Front:</span>
+                      <span>{item.front_tyres}</span>
+                      <span className="text-[10px] text-gray-400 uppercase">Rear:</span>
+                      <span>{item.rear_tyres}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.battery_details || 'N/A'}
+                    {item.tyre_price_bridgestone ? `₹${item.tyre_price_bridgestone}` : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.pickup_drop_price ? `₹${item.pickup_drop_price}` : 'N/A'}
+                    {item.tyre_price_yokohama ? `₹${item.tyre_price_yokohama}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.tyre_price_apollo ? `₹${item.tyre_price_apollo}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.tyre_price_michelin ? `₹${item.tyre_price_michelin}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.tyre_price_dummy2 ? `₹${item.tyre_price_dummy2}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.tyre_price_dummy ? `₹${item.tyre_price_dummy}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.battery_price_amaron ? `₹${item.battery_price_amaron}` : '-'}
+                    </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.battery_price_exide ? `₹${item.battery_price_exide}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.car_wash_exterior_price ? `₹${item.car_wash_exterior_price}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.car_wash_interior_exterior_price ? `₹${item.car_wash_interior_exterior_price}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.car_wash_interior_exterior_underbody_price ? `₹${item.car_wash_interior_exterior_underbody_price}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.pickup_drop_price ? `₹${item.pickup_drop_price}` : '-'}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -367,7 +456,7 @@ const AdminVehicleDataPage = () => {
           <DialogHeader>
             <DialogTitle>{editingVehicle ? 'Edit Vehicle Reference' : 'Add New Vehicle Reference'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4 py-4">
+          <form onSubmit={handleSave} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="brand_name">Brand Name</Label>
@@ -422,8 +511,138 @@ const AdminVehicleDataPage = () => {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="battery_details">Battery Details</Label>
+
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="font-semibold text-sm text-gray-700">Tyre Prices</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_bridgestone">Bridgestone</Label>
+                  <Input
+                    id="tyre_price_bridgestone"
+                    type="number"
+                    value={formData.tyre_price_bridgestone}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_bridgestone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_yokohama">Yokohama</Label>
+                  <Input
+                    id="tyre_price_yokohama"
+                    type="number"
+                    value={formData.tyre_price_yokohama}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_yokohama: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_apollo">Apollo</Label>
+                  <Input
+                    id="tyre_price_apollo"
+                    type="number"
+                    value={formData.tyre_price_apollo}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_apollo: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_michelin">Michelin</Label>
+                  <Input
+                    id="tyre_price_michelin"
+                    type="number"
+                    value={formData.tyre_price_michelin}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_michelin: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_dummy">Tyre Price - Dummy</Label>
+                  <Input
+                    id="tyre_price_dummy"
+                    type="number"
+                    value={formData.tyre_price_dummy}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_dummy: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tyre_price_dummy2">Tyre Price - Dummy 2</Label>
+                  <Input
+                    id="tyre_price_dummy2"
+                    type="number"
+                    value={formData.tyre_price_dummy2}
+                    onChange={(e) => setFormData({ ...formData, tyre_price_dummy2: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="font-semibold text-sm text-gray-700">Battery & Others</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="battery_price_amaron">Amaron</Label>
+                  <Input
+                    id="battery_price_amaron"
+                    type="number"
+                    value={formData.battery_price_amaron}
+                    onChange={(e) => setFormData({ ...formData, battery_price_amaron: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="battery_price_exide">Exide</Label>
+                  <Input
+                    id="battery_price_exide"
+                    type="number"
+                    value={formData.battery_price_exide}
+                    onChange={(e) => setFormData({ ...formData, battery_price_exide: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="car_wash_exterior_price">Car wash-Exterior wash</Label>
+                  <Input
+                    id="car_wash_exterior_price"
+                    type="number"
+                    value={formData.car_wash_exterior_price}
+                    onChange={(e) => setFormData({ ...formData, car_wash_exterior_price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="car_wash_interior_exterior_price">Car wash-Interior + Exterior</Label>
+                  <Input
+                    id="car_wash_interior_exterior_price"
+                    type="number"
+                    value={formData.car_wash_interior_exterior_price}
+                    onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="car_wash_interior_exterior_underbody_price">Car Wash-Int + Ext + Underbody</Label>
+                  <Input
+                    id="car_wash_interior_exterior_underbody_price"
+                    type="number"
+                    value={formData.car_wash_interior_exterior_underbody_price}
+                    onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_underbody_price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pickup_drop_price">Pickup/Drop Price</Label>
+                  <Input
+                    id="pickup_drop_price"
+                    type="number"
+                    value={formData.pickup_drop_price}
+                    onChange={(e) => setFormData({ ...formData, pickup_drop_price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 hidden">
+                  <Label htmlFor="car_wash_price">Car Wash Price (Legacy)</Label>
+                  <Input
+                    id="car_wash_price"
+                    type="number"
+                    value={formData.car_wash_price}
+                    onChange={(e) => setFormData({ ...formData, car_wash_price: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="battery_details">General Battery Details</Label>
               <Input
                 id="battery_details"
                 value={formData.battery_details}
@@ -431,17 +650,8 @@ const AdminVehicleDataPage = () => {
                 placeholder="e.g. 80Ah AGM"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="pickup_drop_price">Pickup/Drop Price</Label>
-              <Input
-                id="pickup_drop_price"
-                type="number"
-                value={formData.pickup_drop_price}
-                onChange={(e) => setFormData({ ...formData, pickup_drop_price: e.target.value })}
-                placeholder="e.g. 600"
-              />
-            </div>
-            <DialogFooter className="pt-4">
+
+            <DialogFooter className="pt-4 sticky bottom-0 bg-white">
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
