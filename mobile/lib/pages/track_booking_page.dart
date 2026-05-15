@@ -23,10 +23,12 @@ import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import '../services/review_service.dart';
+import '../services/coupon_service.dart';
 import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'chat_page.dart';
+import 'coupons_page.dart';
 
 class TrackBookingPage extends StatefulWidget {
   const TrackBookingPage({super.key});
@@ -47,6 +49,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   final _paymentService = PaymentService();
   final _cashfreeGateway = CFPaymentGatewayService();
   final _reviewService = ReviewService();
+  final _couponService = CouponService();
   final _mapController = MapController();
   final _api = ApiClient();
 
@@ -74,6 +77,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   bool _isPaymentLoading = false;
   bool _isMapMaximized = false;
   int _chatUnreadCount = 0;
+
+  List<dynamic> _availableCoupons = [];
+  bool _loadingCoupons = false;
+  Map<String, dynamic>? _appliedCoupon;
   bool get _socketConnected => _socketService.isConnected;
   String? _socketError;
   // Performance optimizations
@@ -434,6 +441,39 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     }
   }
 
+  Future<void> _onPayNowClicked(bool isGeneralService) async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    if (isGeneralService) {
+      // Navigate to checkout screen (redesigned coupons page)
+      final selectedCoupon = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CouponsPage(
+            isSelectionMode: true,
+            bookingTotal: booking.totalAmount.toDouble(),
+            bookingCategory: booking.services.isNotEmpty == true 
+                ? booking.services.first.category 
+                : 'All',
+            booking: booking,
+          ),
+        ),
+      );
+
+      // If user proceeded from checkout (either with a coupon or without)
+      // selectedCoupon might be a Map or null (if they just clicked proceed)
+      if (selectedCoupon != null && selectedCoupon is Map<String, dynamic> && selectedCoupon['code'] != null) {
+        await _applyCouponByCode(selectedCoupon['code']);
+        // Refresh booking to get new total
+        await _load(silent: true);
+      }
+    }
+    
+    // Proceed to standard payment
+    _handlePayment();
+  }
+
   Future<void> _load({bool silent = false}) async {
     final id = _bookingId;
     if (id == null || id.isEmpty) {
@@ -468,6 +508,75 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _fetchCoupons() async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    setState(() => _loadingCoupons = true);
+    try {
+      final coupons = await _couponService.getCoupons();
+      if (mounted) {
+        setState(() {
+          // Filter coupons by booking category if applicable
+          final bookingCategory = booking.services.isNotEmpty 
+              ? booking.services.first.category 
+              : 'All';
+              
+          _availableCoupons = coupons.where((c) {
+            final isActive = c['isActive'] == true;
+            final applicable = (c['applicableServices'] as List).contains('All') || 
+                               (c['applicableServices'] as List).contains(bookingCategory);
+            final minAmount = (c['minOrderAmount'] ?? 0) as num;
+            return isActive && applicable && booking.totalAmount >= minAmount;
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching coupons: $e');
+    } finally {
+      if (mounted) setState(() => _loadingCoupons = false);
+    }
+  }
+
+  Future<void> _applyCouponByCode(String code) async {
+    final booking = _booking;
+    if (booking == null) return;
+
+    setState(() => _isPaymentLoading = true);
+    try {
+      final updated = await _service.applyCoupon(booking.id, code);
+      if (mounted) {
+        setState(() {
+          _booking = updated;
+          if (updated.couponCode != null) {
+            // Find the coupon details in our list or create a simple map
+            _appliedCoupon = {
+              'code': code,
+              'discountAmount': updated.discountAmount,
+            };
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Coupon applied successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to apply coupon: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPaymentLoading = false);
     }
   }
 
@@ -1918,6 +2027,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               booking.status == 'COMPLETED' ||
                               booking.status == 'DELIVERED') &&
                           booking.paymentStatus != 'paid') ...[
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -1959,7 +2069,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 child: ElevatedButton(
                                   onPressed: _isPaymentLoading
                                       ? null
-                                      : _handlePayment,
+                                      : () => _onPayNowClicked(isGeneralService),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF4F46E5),
                                     foregroundColor: Colors.white,
@@ -3198,6 +3308,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ],
+                            if (booking.paymentStatus != 'paid' && 
+                                (booking.status == 'SERVICE_COMPLETED' || 
+                                 booking.status == 'COMPLETED' || 
+                                 booking.status == 'DELIVERED') &&
+                                !isCarWash && !isBatteryTire) ...[
+                            ],
                             if ((isCarWash || isBatteryTire) &&
                                 booking.paymentStatus == 'pending')
                               Container(
@@ -3283,7 +3399,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 child: ElevatedButton(
                                   onPressed: _isPaymentLoading
                                       ? null
-                                      : _handlePayment,
+                                      : () => _onPayNowClicked(isGeneralService),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2563EB),
                                     foregroundColor: Colors.white,
@@ -3670,6 +3786,166 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       ),
     );
   }
+
+  Widget _buildCouponTicket(Map<String, dynamic> coupon, bool isSelected, bool meetsMinOrder, double total) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String code = coupon['code'] ?? '';
+    final discount = '${coupon['discountPercentage']}% OFF';
+    final minAmount = coupon['minOrderAmount'] ?? 0;
+
+    final Color primaryColor = isSelected
+        ? const Color(0xFF2563EB)
+        : (meetsMinOrder ? const Color(0xFF6366F1) : Colors.grey);
+
+    return Container(
+      width: 260,
+      margin: const EdgeInsets.only(right: 16, bottom: 8, top: 4),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withValues(alpha: isSelected ? 0.3 : 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: isSelected
+                    ? primaryColor
+                    : (isDark ? Colors.white10 : Colors.grey.shade200),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.1),
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(14),
+                    ),
+                  ),
+                  child: RotatedBox(
+                    quarterTurns: 3,
+                    child: Center(
+                      child: Text(
+                        code,
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                CustomPaint(
+                  size: const Size(1, double.infinity),
+                  painter: DashedLinePainter(
+                    color: isDark ? Colors.white10 : Colors.grey.shade300,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          discount,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Min. order ₹$minAmount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: !meetsMinOrder || _loadingCoupons
+                              ? null
+                              : () => _applyCouponByCode(code),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.green
+                                  : (meetsMinOrder
+                                        ? primaryColor
+                                        : (isDark
+                                              ? Colors.white10
+                                              : Colors.grey.shade100)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                isSelected
+                                    ? 'APPLIED'
+                                    : (meetsMinOrder ? 'APPLY' : 'LOCKED'),
+                                style: TextStyle(
+                                  color: meetsMinOrder
+                                      ? Colors.white
+                                      : (isDark ? Colors.white24 : Colors.grey),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 54,
+            top: -10,
+            child: Container(
+              width: 12,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 54,
+            bottom: -10,
+            child: Container(
+              width: 12,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusRow extends StatelessWidget {
@@ -3875,4 +4151,24 @@ class _VerticalStepper extends StatelessWidget {
       },
     );
   }
+}
+
+class DashedLinePainter extends CustomPainter {
+  final Color color;
+  DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double dashHeight = 5, dashSpace = 3, startY = 10;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    while (startY < size.height - 10) {
+      canvas.drawLine(Offset(0, startY), Offset(0, startY + dashHeight), paint);
+      startY += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

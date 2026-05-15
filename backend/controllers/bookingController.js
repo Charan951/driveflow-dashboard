@@ -2315,3 +2315,87 @@ export const addWarranty = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * @desc    Apply coupon to existing booking
+ * @route   POST /api/bookings/:id/apply-coupon
+ * @access  Private
+ */
+export const applyCoupon = async (req, res) => {
+  const { couponCode } = req.body;
+  const bookingId = req.params.id;
+
+  try {
+    const booking = await Booking.findById(bookingId).populate('services');
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (booking.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (booking.paymentStatus === 'paid') {
+      return res.status(400).json({ message: 'Booking already paid' });
+    }
+
+    const Coupon = (await import('../models/Coupon.js')).default;
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+
+    if (!coupon) {
+      return res.status(404).json({ message: 'Invalid or inactive coupon' });
+    }
+
+    // Validate coupon
+    const now = new Date();
+    if (now < coupon.validFrom || now > coupon.validUntil) {
+      return res.status(400).json({ message: 'Coupon expired' });
+    }
+
+    if (coupon.minOrderAmount && booking.totalAmount < coupon.minOrderAmount) {
+      return res.status(400).json({ message: `Minimum order of ₹${coupon.minOrderAmount} required` });
+    }
+
+    // Check usage limit
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
+      return res.status(400).json({ message: 'Coupon usage limit reached' });
+    }
+
+    // Check service applicability
+    const bookingCategories = booking.services.map(s => s.category);
+    const isApplicable = coupon.applicableServices.includes('All') || 
+      bookingCategories.some(cat => coupon.applicableServices.includes(cat));
+
+    if (!isApplicable) {
+       return res.status(400).json({ message: 'Coupon not applicable for these services' });
+    }
+
+    // Calculate discount
+    let discountAmount = (booking.totalAmount * coupon.discountPercentage) / 100;
+    if (coupon.maxDiscountAmount) {
+      discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
+    }
+
+    booking.coupon = coupon._id;
+    booking.discountAmount = discountAmount;
+    booking.finalAmount = Math.max(0, booking.totalAmount - discountAmount);
+
+    await booking.save();
+    
+    // Increment usage
+    coupon.usageCount += 1;
+    await coupon.save();
+
+    const populated = await Booking.findById(booking._id)
+        .populate('user', 'id name email phone')
+        .populate('vehicle')
+        .populate('services')
+        .populate('coupon');
+
+    emitBookingUpdate(populated);
+
+    res.json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

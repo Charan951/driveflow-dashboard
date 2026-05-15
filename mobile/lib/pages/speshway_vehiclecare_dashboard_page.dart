@@ -865,43 +865,16 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         .toList();
     if (active.isEmpty) return null;
 
-    final inProgressStatuses = [
-      'ASSIGNED',
-      'ACCEPTED',
-      'STAFF_REACHED_MERCHANT',
-      'PICKUP_BATTERY_TIRE',
-      'MERCHANT_INSPECTION',
-      'PENDING_APPROVAL',
-      'SERVICE_STARTED',
-      'CAR_WASH_STARTED',
-      'INSTALLATION',
-      'OUT_FOR_DELIVERY',
-      'VEHICLE_PICKED',
-      'REACHED_MERCHANT',
-      'REACHED_CUSTOMER',
-    ];
-
+    // Sort by orderNumber DESCENDING - Highest number (latest) first
     active.sort((a, b) {
-      final aInProgress = inProgressStatuses.contains(a.status);
-      final bInProgress = inProgressStatuses.contains(b.status);
+      final na = a.orderNumber ?? 0;
+      final nb = b.orderNumber ?? 0;
+      if (na != nb) return nb.compareTo(na);
 
-      if (aInProgress && !bInProgress) return -1;
-      if (!aInProgress && bInProgress) return 1;
-
-      final da = _parseDate(a.date) ?? DateTime(1900);
-      final db = _parseDate(b.date) ?? DateTime(1900);
-      return db.compareTo(da); // DESCENDING - Most recent first
+      final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
+      final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
+      return cb.compareTo(ca);
     });
-
-    // If the top one is CREATED, but we have others that are actually in progress,
-    // the sort above already handles it.
-    // However, if the user specifically wants ASSIGNED to show up in ongoing,
-    // and we have a CREATED one that is older, the CREATED one might still show
-    // if we don't exclude it or prioritize ASSIGNED.
-
-    // The user said: "when admin assigned should display in ongoing services"
-    // This implies CREATED should NOT be in ongoing services if possible,
-    // or at least ASSIGNED should be prioritized.
 
     return active.first;
   }
@@ -912,9 +885,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         .where(
           (b) =>
               b.id != ongoing?.id &&
-              (b.status == 'CREATED' ||
-                  b.status == 'DELIVERED' ||
-                  b.status == 'CANCELLED' ||
+              (b.status == 'DELIVERED' ||
                   b.status == 'COMPLETED' ||
                   b.status == 'SERVICE_COMPLETED'),
         )

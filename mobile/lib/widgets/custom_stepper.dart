@@ -21,7 +21,7 @@ class CustomStepper extends StatelessWidget {
     final mutedColor = isDark ? AppColors.textMuted : AppColors.textMutedLight;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
         color: isDark ? AppColors.backgroundSecondary : Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -38,6 +38,7 @@ class CustomStepper extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -88,18 +89,18 @@ class CustomStepper extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
+                        maxLines: 1,
+                        softWrap: false,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9.5,
                           color: (isActive || isCompleted)
                               ? textColor
                               : mutedColor,
                           fontWeight: (isActive || isCompleted)
                               ? FontWeight.w700
                               : FontWeight.w500,
-                          letterSpacing: 0.2,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ],
@@ -107,9 +108,10 @@ class CustomStepper extends StatelessWidget {
                 ),
                 if (idx < steps.length - 1)
                   Expanded(
+                    flex: 2,
                     child: Container(
                       height: 3,
-                      margin: const EdgeInsets.only(bottom: 20),
+                      margin: const EdgeInsets.only(bottom: 24),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
                         color: isCompleted

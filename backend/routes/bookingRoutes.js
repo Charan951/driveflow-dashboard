@@ -13,6 +13,7 @@ import {
   getBookingById,
   assignBooking,
   updateBookingDetails,
+  applyCoupon,
   uploadCarWashBeforePhotos,
   uploadCarWashAfterPhotos,
   startCarWash,
@@ -65,6 +66,7 @@ router.post('/:id/generate-otp', protect, generateDeliveryOtp);
 router.post('/:id/verify-otp', protect, verifyDeliveryOtp);
 
 router.route('/:id/details').put(protect, updateBookingDetails);
+router.route('/:id/apply-coupon').post(protect, applyCoupon);
 
 router.route('/message/:messageId/approval').put(protect, updateMessageApprovalStatus);
 

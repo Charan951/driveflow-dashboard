@@ -215,4 +215,14 @@ class BookingService {
       }..removeWhere((k, v) => v == null),
     );
   }
+
+  Future<Booking> applyCoupon(String bookingId, String couponCode) async {
+    final res = await _api.postAny(
+      '${ApiEndpoints.bookings}/$bookingId/apply-coupon',
+      body: {'couponCode': couponCode},
+    );
+    if (res is Map<String, dynamic>) return Booking.fromJson(res);
+    if (res is Map) return Booking.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
 }

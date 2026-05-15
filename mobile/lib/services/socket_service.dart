@@ -17,6 +17,7 @@ class SocketService extends ValueNotifier<String?> {
   bool _isConnected = false;
   TrackingProvider? _trackingProvider;
   User? _currentUser;
+  final Map<String, List<Function(dynamic)>> _pendingHandlers = {};
 
   bool get isConnected => _isConnected;
 
@@ -57,8 +58,16 @@ class SocketService extends ValueNotifier<String?> {
           .build(),
     );
 
+    // Apply any pending handlers
+    _pendingHandlers.forEach((event, callbacks) {
+      for (var cb in callbacks) {
+        _socket!.on(event, cb);
+      }
+    });
+
     _socket!.onConnect((_) async {
       _isConnected = true;
+      value = 'connected';
 
       // Join mandatory rooms using the user object if we have it,
       // otherwise fallback to storage (but storage is less reliable during login/reg)
@@ -85,11 +94,14 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.onDisconnect((_) {
       _isConnected = false;
+      value = 'disconnected';
       notifyListeners();
     });
 
     _socket!.onConnectError((data) {
       _isConnected = false;
+      value = 'connect_error';
+      debugPrint('Socket Connect Error: $data');
       notifyListeners();
     });
 
@@ -365,10 +377,16 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   void on(String event, Function(dynamic) callback) {
+    _pendingHandlers.putIfAbsent(event, () => []).add(callback);
     _socket?.on(event, callback);
   }
 
   void off(String event, [Function(dynamic)? callback]) {
+    if (callback != null) {
+      _pendingHandlers[event]?.remove(callback);
+    } else {
+      _pendingHandlers.remove(event);
+    }
     _socket?.off(event, callback);
   }
 

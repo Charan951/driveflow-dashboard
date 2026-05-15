@@ -79,52 +79,79 @@ class VehicleCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${vehicle.make} ${vehicle.model}',
-                    style: AppStyles.headingStyle.copyWith(
-                      fontSize: 17,
-                      color: isDark
-                          ? AppColors.textPrimary
-                          : const Color(0xFF1E293B),
+                    vehicle.make.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryBlue,
+                      letterSpacing: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
+                  Text(
+                    vehicle.model,
+                    style: AppStyles.headingStyle.copyWith(
+                      fontSize: 18,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  if (vehicle.variant != null &&
+                      vehicle.variant!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      vehicle.variant!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 2,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.grey.shade800
+                              ? Colors.white.withValues(alpha: 0.08)
                               : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          vehicle.year.toString(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           vehicle.licensePlate.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
                             letterSpacing: 0.5,
-                            color: isDark
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade700,
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
                       ),
-                      if (vehicle.variant != null &&
-                          vehicle.variant!.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          vehicle.variant!,
-                          style: AppStyles.captionStyle.copyWith(
-                            color: isDark
-                                ? AppColors.textMuted
-                                : Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ],

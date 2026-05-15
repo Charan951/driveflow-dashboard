@@ -303,6 +303,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             if (!isTargeted) return false;
           }
 
+          // Check if eligible (Min Order) - ONLY show if eligible
+          final double total = _calculateTotal();
+          final num minAmount = (c['minOrderAmount'] ?? 0) as num;
+          if (total < minAmount) return false;
+
           return true;
         }).toList();
         _loadingCoupons = false;
@@ -370,7 +375,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final category = service.category?.toLowerCase() ?? '';
 
     if (category.contains('periodic') || category.contains('general')) {
-      return 'General Service';
+      return 'General Services';
     } else if (category.contains('wash')) {
       return 'Car Wash';
     } else if (category.contains('essential')) {
@@ -380,6 +385,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     return null;
+  }
+
+  double _calculateTotal() {
+    final selectedServices = _allServices
+        .where((s) => _selectedServiceIds.contains(s.id))
+        .toList();
+
+    final isGeneralService = selectedServices.any((s) {
+      final cat = s.category;
+      final name = s.name.toLowerCase();
+      return cat == 'Periodic' ||
+          cat == 'Services' ||
+          name.contains('general service');
+    });
+
+    final double baseTotal = selectedServices.fold<double>(
+      0,
+      (sum, item) => sum + item.price,
+    );
+
+    return baseTotal + (isGeneralService ? _pickupDropPrice : 0);
   }
 
   void _removeCoupon() {
@@ -1614,7 +1640,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                             service.image!.isNotEmpty)
                                         ? DecorationImage(
                                             image: NetworkImage(service.image!),
-                                            fit: BoxFit.cover,
+                                            fit: BoxFit.contain,
                                           )
                                         : null,
                                   ),
@@ -1902,7 +1928,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                           service.image!.isNotEmpty)
                                       ? DecorationImage(
                                           image: NetworkImage(service.image!),
-                                          fit: BoxFit.cover,
+                                          fit: BoxFit.contain,
                                         )
                                       : null,
                                 ),
@@ -2269,46 +2295,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ),
         ),
 
-        // Notes Section
-        Text(
-          'Additional Notes',
-          style: AppStyles.headingStyle.copyWith(fontSize: 16),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _notesController,
-          maxLines: 3,
-          style: TextStyle(
-            color: isDark ? AppColors.textPrimary : Colors.black,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Any specific instructions for the mechanic...',
-            hintStyle: AppStyles.captionStyle,
-            filled: true,
-            fillColor: isDark
-                ? AppColors.backgroundSecondary
-                : AppColors.backgroundPrimaryLight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isDark ? AppColors.borderColor : Colors.grey.shade200,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isDark ? AppColors.borderColor : Colors.grey.shade200,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppStyles.primaryBlue,
-                width: 2,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -2768,6 +2754,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         const SizedBox(height: 24),
 
         // Coupon Section
+        if (_getSelectedServiceType() != 'General Services') ...[
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -2933,6 +2920,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ],
           ),
         ),
+      ],
 
         if (isCarWash || isBatteryTire) ...[
           const SizedBox(height: 24),

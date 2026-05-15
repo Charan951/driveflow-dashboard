@@ -798,7 +798,7 @@ class Booking {
       date: (map['date'] ?? '').toString(),
       totalAmount: map['totalAmount'] is num ? (map['totalAmount'] as num) : 0,
       discountAmount: map['discountAmount'] is num ? (map['discountAmount'] as num) : null,
-      couponCode: map['couponCode']?.toString(),
+      couponCode: map['couponCode']?.toString() ?? (map['coupon'] is Map ? map['coupon']['code']?.toString() : null),
       vehicle: vehicle,
       services: services,
       location: location,
