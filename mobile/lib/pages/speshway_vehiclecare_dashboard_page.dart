@@ -62,7 +62,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _restoreAndLoad();
+      if (mounted) _restoreAndLoad();
     });
 
     final socket = SocketService();

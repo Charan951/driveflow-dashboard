@@ -444,7 +444,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     final double baseTotal = selectedServices.fold<double>(
       0,
-      (sum, item) => sum + (_getServicePrice(item) * (_serviceQuantities[item.id] ?? 1)),
+      (sum, item) =>
+          sum + (_getServicePrice(item) * (_serviceQuantities[item.id] ?? 1)),
     );
 
     return baseTotal + (isGeneralService ? _pickupDropPrice : 0);
@@ -677,8 +678,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     // Check for arguments from NavigationProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkArguments();
-      context.read<NavigationProvider>().addListener(_onNavChanged);
+      if (mounted) {
+        _checkArguments();
+        context.read<NavigationProvider>().addListener(_onNavChanged);
+      }
     });
   }
 
@@ -1646,16 +1649,23 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 children: [
                   ...services.map((service) {
                     final selected = _selectedServiceIds.contains(service.id);
-                    final isTireService = service.category?.toLowerCase().contains('tyre') == true ||
-                                          service.category?.toLowerCase().contains('tire') == true;
-                    final isBatteryService = service.category?.toLowerCase().contains('battery') == true;
+                    final isTireService =
+                        service.category?.toLowerCase().contains('tyre') ==
+                            true ||
+                        service.category?.toLowerCase().contains('tire') ==
+                            true;
+                    final isBatteryService =
+                        service.category?.toLowerCase().contains('battery') ==
+                        true;
 
                     final showSizeSelection =
-                        selected && isTireService &&
+                        selected &&
+                        isTireService &&
                         (service.name.toLowerCase().contains('change') ||
                             service.name.toLowerCase().contains('size'));
 
-                    final showBrandSelection = selected && (isTireService || isBatteryService);
+                    final showBrandSelection =
+                        selected && (isTireService || isBatteryService);
 
                     return Column(
                       children: [
@@ -1856,14 +1866,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                           .putIfAbsent(
                                             service.id,
                                             () => TextEditingController(
-                                              text: _tireSizes[service.id] ?? '',
+                                              text:
+                                                  _tireSizes[service.id] ?? '',
                                             ),
                                           ),
                                       onChanged: (val) => setState(
                                         () => _tireSizes[service.id] = val,
                                       ),
                                       decoration: const InputDecoration(
-                                        hintText: 'Enter size (e.g. 185/65 R15)',
+                                        hintText:
+                                            'Enter size (e.g. 185/65 R15)',
                                         isDense: true,
                                         border: OutlineInputBorder(),
                                       ),
@@ -1878,14 +1890,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                         return ChoiceChip(
                                           label: Text(
                                             size,
-                                            style: const TextStyle(fontSize: 10),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
                                           ),
                                           selected: isSelected,
                                           onSelected: (val) {
                                             if (val) {
                                               setState(
-                                                () =>
-                                                    _tireSizes[service.id] = size,
+                                                () => _tireSizes[service.id] =
+                                                    size,
                                               );
                                             }
                                           },
@@ -1899,9 +1913,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
                                 // Brand Selection
                                 if (showBrandSelection) ...[
-                                  if (showSizeSelection) const SizedBox(height: 16),
+                                  if (showSizeSelection)
+                                    const SizedBox(height: 16),
                                   if (showSizeSelection) const Divider(),
-                                  if (showSizeSelection) const SizedBox(height: 8),
+                                  if (showSizeSelection)
+                                    const SizedBox(height: 8),
                                   const Text(
                                     'Select Brand',
                                     style: TextStyle(
@@ -1913,33 +1929,41 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 4,
-                                    children: (isBatteryService ? commonBatteryBrands : commonTireBrands).map((brand) {
-                                      final isSelected =
-                                          _selectedTireBrands[service.id] ==
-                                          brand;
-                                      return ChoiceChip(
-                                        label: Text(
-                                          brand,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                        selected: isSelected,
-                                        onSelected: (val) {
-                                          setState(() {
-                                            if (val) {
-                                              _selectedTireBrands[service.id] =
+                                    children:
+                                        (isBatteryService
+                                                ? commonBatteryBrands
+                                                : commonTireBrands)
+                                            .map((brand) {
+                                              final isSelected =
+                                                  _selectedTireBrands[service
+                                                      .id] ==
                                                   brand;
-                                            } else {
-                                              _selectedTireBrands.remove(
-                                                service.id,
+                                              return ChoiceChip(
+                                                label: Text(
+                                                  brand,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                                selected: isSelected,
+                                                onSelected: (val) {
+                                                  setState(() {
+                                                    if (val) {
+                                                      _selectedTireBrands[service
+                                                              .id] =
+                                                          brand;
+                                                    } else {
+                                                      _selectedTireBrands
+                                                          .remove(service.id);
+                                                    }
+                                                  });
+                                                },
+                                                selectedColor: const Color(
+                                                  0xFF2563EB,
+                                                ).withAlpha(50),
                                               );
-                                            }
-                                          });
-                                        },
-                                        selectedColor: const Color(
-                                          0xFF2563EB,
-                                        ).withAlpha(50),
-                                      );
-                                    }).toList(),
+                                            })
+                                            .toList(),
                                   ),
                                 ],
 
@@ -1986,8 +2010,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   ),
                                 ],
                               ],
+                            ),
                           ),
-                        ),
                       ],
                     );
                   }),
@@ -2026,19 +2050,25 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                 ),
                 ...services.map((service) {
-                    final selected = _selectedServiceIds.contains(service.id);
-                    final isTireService = service.category?.toLowerCase().contains('tyre') == true ||
-                                          service.category?.toLowerCase().contains('tire') == true;
-                    final isBatteryService = service.category?.toLowerCase().contains('battery') == true;
+                  final selected = _selectedServiceIds.contains(service.id);
+                  final isTireService =
+                      service.category?.toLowerCase().contains('tyre') ==
+                          true ||
+                      service.category?.toLowerCase().contains('tire') == true;
+                  final isBatteryService =
+                      service.category?.toLowerCase().contains('battery') ==
+                      true;
 
-                    final showSizeSelection =
-                        selected && isTireService &&
-                        (service.name.toLowerCase().contains('change') ||
-                            service.name.toLowerCase().contains('size'));
+                  final showSizeSelection =
+                      selected &&
+                      isTireService &&
+                      (service.name.toLowerCase().contains('change') ||
+                          service.name.toLowerCase().contains('size'));
 
-                    final showBrandSelection = selected && (isTireService || isBatteryService);
+                  final showBrandSelection =
+                      selected && (isTireService || isBatteryService);
 
-                    return Column(
+                  return Column(
                     children: [
                       GestureDetector(
                         onTap: () {
@@ -2188,176 +2218,89 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           ),
                         ),
                       ),
-                        if (showSizeSelection || showBrandSelection)
-                          Container(
-                            margin: const EdgeInsets.only(left: 16, bottom: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.grey.shade900
-                                  : Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFF2563EB).withAlpha(100),
-                              ),
+                      if (showSizeSelection || showBrandSelection)
+                        Container(
+                          margin: const EdgeInsets.only(left: 16, bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.grey.shade900
+                                : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF2563EB).withAlpha(100),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (showSizeSelection) ...[
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Select Size',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showSizeSelection) ...[
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Select Size',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
                                       ),
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _isManualSize[service.id] =
-                                                !(_isManualSize[service.id] ??
-                                                    false);
-                                            _tireSizes[service.id] = '';
-                                          });
-                                        },
-                                        child: Text(
-                                          _isManualSize[service.id] == true
-                                              ? 'Common Sizes'
-                                              : 'Manual Entry',
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _isManualSize[service.id] =
+                                              !(_isManualSize[service.id] ??
+                                                  false);
+                                          _tireSizes[service.id] = '';
+                                        });
+                                      },
+                                      child: Text(
+                                        _isManualSize[service.id] == true
+                                            ? 'Common Sizes'
+                                            : 'Manual Entry',
+                                        style: const TextStyle(fontSize: 11),
                                       ),
-                                    ],
-                                  ),
-                                  if (_isManualSize[service.id] == true)
-                                    TextField(
-                                      controller: _tireSizeControllers.putIfAbsent(
-                                        service.id,
-                                        () => TextEditingController(
-                                          text: _tireSizes[service.id] ?? '',
-                                        ),
-                                      ),
-                                      onChanged: (val) => setState(
-                                        () => _tireSizes[service.id] = val,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: 'Enter size (e.g. 185/65 R15)',
-                                        isDense: true,
-                                        border: OutlineInputBorder(),
-                                      ),
-                                    )
-                                  else
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 4,
-                                      children: commonTireSizes.map((size) {
-                                        final isSelected =
-                                            _tireSizes[service.id] == size;
-                                        return ChoiceChip(
-                                          label: Text(
-                                            size,
-                                            style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                                if (_isManualSize[service.id] == true)
+                                  TextField(
+                                    controller: _tireSizeControllers
+                                        .putIfAbsent(
+                                          service.id,
+                                          () => TextEditingController(
+                                            text: _tireSizes[service.id] ?? '',
                                           ),
-                                          selected: isSelected,
-                                          onSelected: (val) {
-                                            if (val) {
-                                              setState(
-                                                () => _tireSizes[service.id] = size,
-                                              );
-                                            }
-                                          },
-                                          selectedColor: const Color(
-                                            0xFF2563EB,
-                                          ).withAlpha(50),
-                                        );
-                                      }).toList(),
-                                    ),
-                                ],
-
-                                // Brand Selection
-                                if (showBrandSelection) ...[
-                                  if (showSizeSelection) const SizedBox(height: 16),
-                                  if (showSizeSelection) const Divider(),
-                                  if (showSizeSelection) const SizedBox(height: 8),
-                                  const Text(
-                                    'Select Brand',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: (isBatteryService ? commonBatteryBrands : commonTireBrands).map((brand) {
-                                      final isSelected =
-                                          _selectedTireBrands[service.id] ==
-                                          brand;
-                                      return ChoiceChip(
-                                        label: Text(
-                                          brand,
-                                          style: const TextStyle(fontSize: 10),
                                         ),
-                                        selected: isSelected,
-                                        onSelected: (val) {
-                                          setState(() {
-                                            if (val) {
-                                              _selectedTireBrands[service.id] =
-                                                  brand;
-                                            } else {
-                                              _selectedTireBrands.remove(
-                                                service.id,
-                                              );
-                                            }
-                                          });
-                                        },
-                                        selectedColor: const Color(
-                                          0xFF2563EB,
-                                        ).withAlpha(50),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-
-                                // Quantity Selection
-                                ...[
-                                  const SizedBox(height: 16),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    'Select Quantity',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                    onChanged: (val) => setState(
+                                      () => _tireSizes[service.id] = val,
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter size (e.g. 185/65 R15)',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  )
+                                else
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 4,
-                                    children: [1, 2, 3, 4, 5].map((qty) {
+                                    children: commonTireSizes.map((size) {
                                       final isSelected =
-                                          (_serviceQuantities[service.id] ??
-                                              1) ==
-                                          qty;
+                                          _tireSizes[service.id] == size;
                                       return ChoiceChip(
                                         label: Text(
-                                          qty.toString(),
+                                          size,
                                           style: const TextStyle(fontSize: 10),
                                         ),
                                         selected: isSelected,
                                         onSelected: (val) {
                                           if (val) {
-                                            setState(() {
-                                              _serviceQuantities[service.id] =
-                                                  qty;
-                                            });
+                                            setState(
+                                              () =>
+                                                  _tireSizes[service.id] = size,
+                                            );
                                           }
                                         },
                                         selectedColor: const Color(
@@ -2366,8 +2309,107 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                       );
                                     }).toList(),
                                   ),
-                                ],
                               ],
+
+                              // Brand Selection
+                              if (showBrandSelection) ...[
+                                if (showSizeSelection)
+                                  const SizedBox(height: 16),
+                                if (showSizeSelection) const Divider(),
+                                if (showSizeSelection)
+                                  const SizedBox(height: 8),
+                                const Text(
+                                  'Select Brand',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children:
+                                      (isBatteryService
+                                              ? commonBatteryBrands
+                                              : commonTireBrands)
+                                          .map((brand) {
+                                            final isSelected =
+                                                _selectedTireBrands[service
+                                                    .id] ==
+                                                brand;
+                                            return ChoiceChip(
+                                              label: Text(
+                                                brand,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                              selected: isSelected,
+                                              onSelected: (val) {
+                                                setState(() {
+                                                  if (val) {
+                                                    _selectedTireBrands[service
+                                                            .id] =
+                                                        brand;
+                                                  } else {
+                                                    _selectedTireBrands.remove(
+                                                      service.id,
+                                                    );
+                                                  }
+                                                });
+                                              },
+                                              selectedColor: const Color(
+                                                0xFF2563EB,
+                                              ).withAlpha(50),
+                                            );
+                                          })
+                                          .toList(),
+                                ),
+                              ],
+
+                              // Quantity Selection
+                              ...[
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Select Quantity',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [1, 2, 3, 4, 5].map((qty) {
+                                    final isSelected =
+                                        (_serviceQuantities[service.id] ?? 1) ==
+                                        qty;
+                                    return ChoiceChip(
+                                      label: Text(
+                                        qty.toString(),
+                                        style: const TextStyle(fontSize: 10),
+                                      ),
+                                      selected: isSelected,
+                                      onSelected: (val) {
+                                        if (val) {
+                                          setState(() {
+                                            _serviceQuantities[service.id] =
+                                                qty;
+                                          });
+                                        }
+                                      },
+                                      selectedColor: const Color(
+                                        0xFF2563EB,
+                                      ).withAlpha(50),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                     ],
@@ -2888,29 +2930,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ),
           child: Column(
             children: [
-              ...selectedServices.map(
-                (s) {
-                  final qty = _serviceQuantities[s.id] ?? 1;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            qty > 1 ? '${s.name} x $qty' : s.name,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
+              ...selectedServices.map((s) {
+                final qty = _serviceQuantities[s.id] ?? 1;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          qty > 1 ? '${s.name} x $qty' : s.name,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
-                        Text(
-                          '₹${(_getServicePrice(s) * qty).toStringAsFixed(0)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                      Text(
+                        '₹${(_getServicePrice(s) * qty).toStringAsFixed(0)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                );
+              }),
               if (isGeneralService && _pickupDropPrice > 0)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),

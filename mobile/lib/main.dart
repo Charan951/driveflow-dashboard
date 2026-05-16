@@ -278,7 +278,9 @@ class MyApp extends StatelessWidget {
     if (precachedLogo != null && !_precacheOnce) {
       _precacheOnce = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        precacheImage(precachedLogo!, context).catchError((_) {});
+        if (context.mounted) {
+          precacheImage(precachedLogo!, context).catchError((_) {});
+        }
       });
     }
 
