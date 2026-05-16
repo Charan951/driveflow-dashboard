@@ -185,56 +185,35 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0,
-          title: Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.defaultPadding),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (context) => Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.28)
-                            : Colors.black.withValues(alpha: 0.16),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.menu,
-                        color:
-                            isDark ? Colors.white : AppColors.textPrimaryLight,
-                      ),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    ),
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.16),
+                    width: 1.0,
                   ),
                 ),
-                AppSpacing.horizontalMedium,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'My Vehicles',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: isDark
-                            ? AppColors.textPrimary
-                            : AppColors.textPrimaryLight,
-                      ),
-                    ),
-                    Text(
-                      'Manage your garage',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? AppColors.textSecondary
-                            : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                  ],
+                child: IconButton(
+                  icon: Icon(
+                    Icons.menu,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
-              ],
+              ),
+            ),
+          ),
+          title: Text(
+            'My Vehicles',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -480,113 +459,178 @@ class _VehicleCardState extends State<_VehicleCard> {
               ),
             ],
           ),
-          child: Stack(
-        children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FractionallySizedBox(
-                widthFactor: 0.20,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          accent.withValues(alpha: 0.1),
-                          accent.withValues(alpha: 0.2),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: isDark
-                      ? AppColors.backgroundSurface
-                      : AppColors.backgroundSurfaceLight,
-                  border: Border.all(
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isDark
+                          ? AppColors.backgroundSurface
+                          : Colors.black.withValues(alpha: 0.03),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : AppColors.borderColorLight,
+                      ),
+                    ),
+                    child: Icon(_iconForType(v.type), color: accent),
+                  ),
+                  AppSpacing.horizontalMedium,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${v.make} ${v.model}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? AppColors.textPrimary : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.05),
+                          ),
+                          child: Text(
+                            _typeLabel(v.type),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: isDark
+                                  ? AppColors.textSecondary
+                                  : AppColors.textSecondaryLight,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              AppSpacing.verticalMedium,
+              Row(
+                children: [
+                  Icon(
+                    Icons.tag,
+                    size: 16,
                     color: isDark
-                        ? AppColors.borderColor
-                        : AppColors.borderColorLight,
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
+                  ),
+                  AppSpacing.horizontalSmall,
+                  Text(
+                    v.licensePlate,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
+                    ),
+                  ),
+                  AppSpacing.horizontalMedium,
+                  Icon(
+                    Icons.calendar_today,
+                    size: 14,
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
+                  ),
+                  AppSpacing.horizontalSmall,
+                  Text(
+                    v.year.toString(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ),
+              if (v.variant != null && v.variant!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  v.variant!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
-                child: Icon(_iconForType(v.type), color: accent),
-              ),
-              AppSpacing.horizontalMedium,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${v.make} ${v.model}${v.variant != null && v.variant!.isNotEmpty ? ' ${v.variant}' : ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: isDark
-                            ? AppColors.textPrimary
-                            : AppColors.textPrimaryLight,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${v.licensePlate} • ${v.year}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark
-                            ? AppColors.textSecondary
-                            : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                    AppSpacing.verticalSmall,
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
+              ],
+              AppSpacing.verticalMedium,
+              Row(
+                children: [
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: accent.withValues(alpha: 0.1),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.2),
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppColors.primaryBlue,
+                            AppColors.primaryBlueDark,
+                          ],
                         ),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        _typeLabel(v.type),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
+                      child: ElevatedButton(
+                        onPressed: widget.onBookService,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: AppColors.textPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.add_task_outlined, size: 14),
+                            SizedBox(width: 6),
+                            Text(
+                              'Book Service',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: widget.onBookService,
-                icon: const Icon(
-                  Icons.add_task_outlined,
-                  color: AppColors.primaryBlue,
-                ),
-                tooltip: 'Book Service',
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
         ),
       ),
     );

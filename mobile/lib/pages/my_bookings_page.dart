@@ -211,55 +211,39 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              Builder(
-                builder: (context) => Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : Colors.black.withValues(alpha: 0.16),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.menu,
-                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                    ),
-                    tooltip: 'Menu',
-                    onPressed: () => Scaffold.of(context).openDrawer(),
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.16),
+                    width: 1.0,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'My Bookings',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark
-                      ? AppColors.textPrimary
-                      : AppColors.textPrimaryLight,
-                  fontWeight: FontWeight.w700,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.menu,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              onPressed: _load,
-              icon: Icon(
-                Icons.refresh,
-                color: isDark
-                    ? AppColors.textPrimary
-                    : AppColors.textPrimaryLight,
-              ),
-              tooltip: 'Refresh',
             ),
-          ],
+          ),
+          title: Text(
+            'My Bookings',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          actions: const [],
         ),
         body: RefreshIndicator(
           onRefresh: _load,
@@ -501,7 +485,7 @@ class _BookingCardState extends State<_BookingCard> {
                                   fontWeight: FontWeight.w900,
                                   color: isDark
                                       ? AppColors.textPrimary
-                                      : AppColors.textPrimaryLight,
+                                      : Colors.black,
                                 ),
                           ),
                           if (widget.categoryLabel != null &&

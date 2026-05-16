@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
+import '../core/app_styles.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
 import '../models/service.dart';
@@ -1071,11 +1072,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Carzzi VehicleCare',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: isDark ? Colors.white : AppColors.textMutedLight,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
+                'Carzzi',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 4),
@@ -1151,6 +1153,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       ],
     );
   }
+
 
   void _openNotifications() {
     Navigator.pushNamed(context, '/notifications').then((_) {
@@ -1399,32 +1402,52 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
   Widget _buildQuickServices() {
     final icons = [
-      Icons.science_rounded,
-      Icons.system_update_alt_rounded,
+      Icons.water_drop_rounded,
+      Icons.battery_charging_full_rounded,
       Icons.shield_rounded,
-      Icons.bolt_rounded,
+      Icons.settings_rounded,
     ];
 
     final List<_QuickServiceItem> items;
     if (_services.isEmpty) {
       items = [
-        _QuickServiceItem(icon: Icons.science_rounded, label: 'Self Diagnosis'),
+        _QuickServiceItem(icon: Icons.water_drop_rounded, label: 'Self Diagnosis'),
         _QuickServiceItem(
-          icon: Icons.system_update_alt_rounded,
+          icon: Icons.battery_charging_full_rounded,
           label: 'Software Update',
         ),
         _QuickServiceItem(
           icon: Icons.shield_rounded,
           label: 'Engine Inspection',
         ),
-        _QuickServiceItem(icon: Icons.bolt_rounded, label: 'Energy Check'),
+        _QuickServiceItem(icon: Icons.settings_rounded, label: 'Energy Check'),
       ];
     } else {
       final count = _services.length < 4 ? _services.length : 4;
       items = List.generate(count, (index) {
         final service = _services[index];
+        final cat = (service.category ?? '').trim().toUpperCase();
+
+        IconData icon;
+        if (cat == 'WASH' || cat == 'CAR WASH' || cat == 'DETAILING') {
+          icon = Icons.water_drop_rounded;
+        } else if (cat == 'BATTERY' ||
+            cat == 'TYRE & BATTERY' ||
+            cat == 'TYRES' ||
+            cat == 'TYRE') {
+          icon = Icons.battery_charging_full_rounded;
+        } else if (cat == 'ESSENTIALS') {
+          icon = Icons.shield_rounded;
+        } else if (cat == 'PERIODIC' ||
+            cat == 'SERVICE' ||
+            cat == 'GENERAL SERVICE') {
+          icon = Icons.settings_rounded;
+        } else {
+          icon = icons[index % icons.length];
+        }
+
         return _QuickServiceItem(
-          icon: icons[index % icons.length],
+          icon: icon,
           label: service.name,
           price: service.price,
           category: service.category,
@@ -1507,12 +1530,17 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  color: AppColors.primaryBlue,
+                                  border: Border.all(
+                                    color: AppColors.primaryBlue.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Text(
                                   category.toUpperCase(),
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.white,
+                                    color: AppColors.primaryBlue,
                                     fontSize: 7.5,
                                     letterSpacing: 0.5,
                                     fontWeight: FontWeight.w800,
@@ -1525,18 +1553,18 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                           : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 6),
-                    Container(
+                    SizedBox(
                       width: 40,
                       height: 40,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryBlue,
-                        shape: BoxShape.circle,
-                      ),
                       child: Center(
-                        child: Icon(
-                          item.icon,
-                          size: 18,
-                          color: Colors.white,
+                        child: ShaderMask(
+                          shaderCallback: (bounds) =>
+                              AppStyles.primaryGradient.createShader(bounds),
+                          child: Icon(
+                            item.icon,
+                            size: 28,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

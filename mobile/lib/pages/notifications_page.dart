@@ -274,10 +274,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
-        title: const Text('Notifications'),
+        centerTitle: true,
+        title: const Text(
+          'Notifications',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
         actions: [
           if (_items.isNotEmpty)
             TextButton(

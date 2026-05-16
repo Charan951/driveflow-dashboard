@@ -19,6 +19,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     with WidgetsBindingObserver {
   DateTime? _lastBackPress;
   NavigationProvider? _navProvider;
+  late PageController _pageController;
 
   final List<Widget> _pages = const [
     BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
@@ -36,11 +37,13 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _navProvider = context.read<NavigationProvider>();
+    _pageController = PageController(initialPage: _navProvider?.selectedIndex ?? 2);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -81,6 +84,16 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     final selectedIndex = context.select<NavigationProvider, int>(
       (n) => n.selectedIndex,
     );
+
+    // Sync PageController if provider index changed externally
+    if (_pageController.hasClients && _pageController.page?.round() != selectedIndex) {
+      _pageController.animateToPage(
+        selectedIndex,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return PopScope(
@@ -95,20 +108,34 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       child: Scaffold(
         extendBody: true,
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: _pages[selectedIndex],
+        body: PageView(
+          controller: _pageController,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          onPageChanged: (index) {
+            if (_navProvider?.selectedIndex != index) {
+              _navProvider?.setTab(index);
+            }
+          },
+          children: _pages,
         ),
         bottomNavigationBar: Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
           child: PillBottomBar(
             selectedIndex: selectedIndex,
-            onTap: (index) => _navProvider?.setTab(index),
+            onTap: (index) {
+              _navProvider?.setTab(index);
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOutCubic,
+              );
+            },
           ),
         ),
       ),
     );
   }
 }
+

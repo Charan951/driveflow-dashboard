@@ -285,63 +285,59 @@ class _SupportPageState extends State<SupportPage> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              if (_selectedTicket == null)
-                Builder(
-                  builder: (context) => Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: _selectedTicket == null
+                  ? Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.28)
+                              : Colors.black.withValues(alpha: 0.16),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.menu,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        tooltip: 'Menu',
+                        onPressed: () => Scaffold.of(context).openDrawer(),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.28)
-                            : Colors.black.withValues(alpha: 0.16),
-                        width: 1.0,
+                            ? Colors.white10
+                            : Colors.black.withValues(alpha: 0.05),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        color: isDark ? Colors.white : Colors.black,
+                        onPressed: () {
+                          if (_selectedTicket != null) {
+                            _socketService.emit(
+                              'leave',
+                              'ticket_${_selectedTicket!.id}',
+                            );
+                          }
+                          setState(() => _selectedTicket = null);
+                        },
                       ),
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.menu,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                      tooltip: 'Menu',
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: isDark
-                        ? Colors.white10
-                        : Colors.black.withValues(alpha: 0.05),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    color: isDark ? Colors.white : Colors.black87,
-                    onPressed: () {
-                      if (_selectedTicket != null) {
-                        _socketService.emit(
-                          'leave',
-                          'ticket_${_selectedTicket!.id}',
-                        );
-                      }
-                      setState(() => _selectedTicket = null);
-                    },
-                  ),
-                ),
-              const SizedBox(width: 12),
-              Text(
-                _selectedTicket == null ? 'Support' : 'Ticket Details',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
+          ),
+          title: Text(
+            _selectedTicket == null ? 'Support' : 'Ticket Details',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         body: Stack(

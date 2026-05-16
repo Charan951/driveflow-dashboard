@@ -200,10 +200,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
-        title: const Text('Add Vehicle'),
+        centerTitle: true,
+        title: const Text(
+          'Add Vehicle',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

@@ -1224,8 +1224,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             : Colors.black.withValues(alpha: 0.1),
         title: Text(
           'Track Service',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1534,101 +1534,103 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (showLiveTrackingMap) ...[
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          height: _isMapMaximized ? 500 : 260,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: FlutterMap(
-                                  mapController: _mapController,
-                                  options: MapOptions(
-                                    initialCenter: center,
-                                    initialZoom: 13,
-                                    onMapReady: () {
-                                      if (mounted) setState(() => _mapReady = true);
-                                    },
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate:
-                                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: Env.userAgent,
-                                      tileProvider:
-                                          CancellableNetworkTileProvider(),
+                        RepaintBoundary(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: _isMapMaximized ? 500 : 260,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                            ),
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: FlutterMap(
+                                    mapController: _mapController,
+                                    options: MapOptions(
+                                      initialCenter: center,
+                                      initialZoom: 13,
+                                      onMapReady: () {
+                                        if (mounted) setState(() => _mapReady = true);
+                                      },
                                     ),
-                                    PolylineLayer(
-                                      polylines: [
-                                        if (_routePoints.isNotEmpty)
-                                          Polyline(
-                                            points: _routePoints,
-                                            color: const Color(0xFF2563EB),
-                                            strokeWidth: 4,
-                                          ),
-                                      ],
-                                    ),
-                                    MarkerLayer(
-                                      markers: [
-                                        if (booking.pickupRequired &&
-                                            _liveLatLng != null)
-                                          Marker(
-                                            point: _liveLatLng!,
-                                            width: 40,
-                                            height: 40,
-                                            child: Transform.rotate(
-                                              angle: _bearingRad,
-                                              child: const Icon(
-                                                Icons.two_wheeler,
-                                                size: 34,
-                                                color: Color(0xFFEF4444),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: Env.userAgent,
+                                        tileProvider:
+                                            CancellableNetworkTileProvider(),
+                                      ),
+                                      PolylineLayer(
+                                        polylines: [
+                                          if (_routePoints.isNotEmpty)
+                                            Polyline(
+                                              points: _routePoints,
+                                              color: const Color(0xFF2563EB),
+                                              strokeWidth: 4,
+                                            ),
+                                        ],
+                                      ),
+                                      MarkerLayer(
+                                        markers: [
+                                          if (booking.pickupRequired &&
+                                              _liveLatLng != null)
+                                            Marker(
+                                              point: _liveLatLng!,
+                                              width: 40,
+                                              height: 40,
+                                              child: Transform.rotate(
+                                                angle: _bearingRad,
+                                                child: const Icon(
+                                                  Icons.two_wheeler,
+                                                  size: 34,
+                                                  color: Color(0xFFEF4444),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                top: 12,
-                                right: 12,
-                                child: GestureDetector(
-                                  onTap: () => setState(
-                                    () => _isMapMaximized = !_isMapMaximized,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
+                                        ],
                                       ),
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: GestureDetector(
+                                    onTap: () => setState(
+                                      () => _isMapMaximized = !_isMapMaximized,
                                     ),
-                                    child: Icon(
-                                      _isMapMaximized
-                                          ? Icons.fullscreen_exit
-                                          : Icons.fullscreen,
-                                      size: 20,
-                                      color: const Color(0xFF2563EB),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        _isMapMaximized
+                                            ? Icons.fullscreen_exit
+                                            : Icons.fullscreen,
+                                        size: 20,
+                                        color: const Color(0xFF2563EB),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],

@@ -26,9 +26,7 @@ class _CouponSliderState extends State<CouponSlider> {
     if (widget.initialCoupons != null) {
       _coupons = _filterActive(widget.initialCoupons!);
       _loading = false;
-      if (_coupons.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
-      } else {
+      if (_coupons.isEmpty) {
         _fetchCoupons(); // Fallback to fetch if provided list is empty after filtering
       }
     } else {
@@ -45,9 +43,6 @@ class _CouponSliderState extends State<CouponSlider> {
         _coupons = _filterActive(widget.initialCoupons!);
         _loading = false;
       });
-      if (_coupons.isNotEmpty) {
-        _startAutoScroll();
-      }
     }
   }
 
@@ -98,9 +93,6 @@ class _CouponSliderState extends State<CouponSlider> {
           _coupons = active;
           _loading = false;
         });
-        if (_coupons.isNotEmpty) {
-          _startAutoScroll();
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -121,25 +113,6 @@ class _CouponSliderState extends State<CouponSlider> {
     return calculated < 200.0 ? 200.0 : calculated;
   }
 
-  void _startAutoScroll() {
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      if (_scrollController.hasClients) {
-        double totalWidth = 0;
-        for (final c in _coupons) {
-          totalWidth += _getItemWidth(c) + 16; // width + horizontal margins
-        }
-
-        if (_scrollController.offset >= totalWidth) {
-          // Jump back by one set width for seamless loop
-          _scrollController.jumpTo(_scrollController.offset - totalWidth);
-        } else {
-          _scrollController.jumpTo(_scrollController.offset + 1);
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
     _scrollTimer?.cancel();
@@ -152,8 +125,7 @@ class _CouponSliderState extends State<CouponSlider> {
     if (_loading) return const SizedBox.shrink();
     if (_coupons.isEmpty) return const SizedBox.shrink();
 
-    // Multiply coupons for seamless loop
-    final displayCoupons = [..._coupons, ..._coupons, ..._coupons, ..._coupons];
+    final displayCoupons = _coupons;
 
     return Container(
       width: double.infinity,
@@ -163,7 +135,7 @@ class _CouponSliderState extends State<CouponSlider> {
         child: ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
-          physics: const NeverScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
           itemCount: displayCoupons.length,
           itemBuilder: (context, index) {
             final coupon = displayCoupons[index];
@@ -172,8 +144,7 @@ class _CouponSliderState extends State<CouponSlider> {
             const textColor = Colors.black87;
             const accentColor = Color(0xFF996515);
 
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+            return Container(
               width: _getItemWidth(coupon),
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(

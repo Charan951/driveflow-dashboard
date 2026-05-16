@@ -128,48 +128,39 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              Builder(
-                builder: (context) => Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : Colors.black.withValues(alpha: 0.16),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.menu,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    tooltip: 'Menu',
-                    onPressed: () => Scaffold.of(context).openDrawer(),
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.16),
+                    width: 1.0,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'My Payments',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w700,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.menu,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              tooltip: 'Refresh',
             ),
-          ],
+          ),
+          title: Text(
+            'My Payments',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          actions: const [],
         ),
         body: Stack(
           children: [
@@ -299,209 +290,223 @@ class _PaymentCardState extends State<_PaymentCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          color: isDark
+              ? AppColors.backgroundSecondary
+              : AppColors.backgroundSecondaryLight,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark ? Colors.grey.shade900 : const Color(0xFFE5E7EB),
+            color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FractionallySizedBox(
-                  widthFactor: 0.20,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(18),
-                      bottomRight: Radius.circular(18),
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : Colors.black.withValues(alpha: 0.03),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderColor
+                          : AppColors.borderColorLight,
                     ),
+                  ),
+                  child: Icon(
+                    _iconForTitle(title),
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Booking #${b.orderNumber ?? b.id.toUpperCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? AppColors.textPrimary : Colors.black,
+                        ),
+                      ),
+                      if (category != null && category.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.05),
+                            ),
+                            child: Text(
+                              category.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: isDark
+                                        ? AppColors.textSecondary
+                                        : AppColors.textSecondaryLight,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: LinearGradient(
+                      colors: [
+                        accent.withValues(alpha: 0.25),
+                        Color.lerp(
+                          accent,
+                          Colors.white,
+                          0.18,
+                        )!.withValues(alpha: 0.32),
+                      ],
+                      begin: const Alignment(-1, 0),
+                      end: const Alignment(1, 0),
+                    ),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: isDark
+                      ? AppColors.textSecondary
+                      : AppColors.textSecondaryLight,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.dateLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondaryLight,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Service for ${b.vehicle?.make ?? 'Vehicle'} ${b.vehicle?.licensePlate ?? ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: isDark
+                    ? AppColors.textPrimary
+                    : AppColors.textPrimaryLight,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  '₹${b.totalAmount}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: isDark
+                        ? AppColors.textPrimary
+                        : AppColors.textPrimaryLight,
+                  ),
+                ),
+                const Spacer(),
+                if (b.paymentStatus != 'paid' && b.totalAmount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
-                            accent.withValues(alpha: 0.15),
-                            accent.withValues(alpha: 0.35),
+                            AppColors.primaryBlue,
+                            AppColors.primaryBlueDark,
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/track',
+                            arguments: b.id,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: AppColors.textPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Pay Now',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.2),
-                          colors: [
-                            accent.withValues(alpha: 0.85),
-                            accent.withValues(alpha: 0.25),
-                          ],
-                        ),
-                      ),
-                      child: Icon(
-                        _iconForTitle(title),
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.dateLabel,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                ),
-                          ),
-                          Text(
-                            'Booking Ref: ${b.orderNumber ?? b.id.toUpperCase()}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
-                          if (category != null && category.trim().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  color: accent.withValues(alpha: 0.08),
-                                ),
-                                child: Text(
-                                  category.toUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: accent,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                      ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: LinearGradient(
-                          colors: [
-                            accent.withValues(alpha: 0.25),
-                            Color.lerp(
-                              accent,
-                              Colors.white,
-                              0.18,
-                            )!.withValues(alpha: 0.32),
-                          ],
-                          begin: const Alignment(-1, 0),
-                          end: const Alignment(1, 0),
-                        ),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Service for ${b.vehicle?.make ?? 'Vehicle'} ${b.vehicle?.licensePlate ?? ''}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text(
-                      '₹${b.totalAmount}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (b.paymentStatus != 'paid' && b.totalAmount > 0)
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppColors.primaryBlue,
-                              AppColors.primaryBlueDark,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/track',
-                              arguments: b.id,
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            foregroundColor: AppColors.textPrimary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Pay Now',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                  ],
+                Icon(
+                  Icons.chevron_right,
+                  color: isDark
+                      ? AppColors.textSecondary
+                      : AppColors.textSecondaryLight,
                 ),
               ],
             ),

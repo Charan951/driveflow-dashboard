@@ -79,47 +79,38 @@ class _ProfilePageState extends State<ProfilePage> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 16,
-          title: Row(
-            children: [
-              Builder(
-                builder: (context) => Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : Colors.black.withValues(alpha: 0.16),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.menu,
-                      size: 20,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    tooltip: 'Menu',
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                    constraints: const BoxConstraints(
-                      minWidth: 40,
-                      minHeight: 40,
-                    ),
-                    padding: EdgeInsets.zero,
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.16),
+                    width: 1.0,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Profile',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.menu,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
-            ],
+            ),
+          ),
+          title: Text(
+            'Profile',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         body: SingleChildScrollView(
@@ -199,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _buildLogoutButton(context),
+                    _buildLogoutButton(context, isDark),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -213,30 +204,45 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildProfileHeader(BuildContext context, User? user, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.backgroundSecondary
             : AppColors.backgroundSecondaryLight,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [_accentPurple, _accentBlue]),
+              gradient: LinearGradient(
+                colors: [
+                  _accentPurple,
+                  _accentBlue,
+                  _accentPurple.withValues(alpha: 0.5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentPurple.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
             child: CircleAvatar(
               radius: 35,
@@ -275,15 +281,20 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 if (user?.role != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _accentPurple.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      gradient: LinearGradient(
+                        colors: [
+                          _accentPurple.withValues(alpha: 0.15),
+                          _accentBlue.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _accentPurple.withValues(alpha: 0.2),
                       ),
@@ -291,10 +302,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Text(
                       user!.role!.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                         color: _accentPurple,
-                        letterSpacing: 1,
+                        letterSpacing: 1.2,
                       ),
                     ),
                   ),
@@ -306,17 +317,24 @@ class _ProfilePageState extends State<ProfilePage> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () => _editProfile(context, user),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _accentPurple.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.04,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : Colors.black).withValues(
+                      alpha: 0.08,
+                    ),
+                  ),
                 ),
                 child: Icon(
                   Icons.edit_note_rounded,
-                  color: _accentPurple,
-                  size: 24,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                  size: 26,
                 ),
               ),
             ),
@@ -358,30 +376,49 @@ class _ProfilePageState extends State<ProfilePage> {
   ) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         decoration: BoxDecoration(
           color: isDark
               ? AppColors.backgroundSecondary
               : AppColors.backgroundSecondaryLight,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(icon, color: _accentPurple, size: 22),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _accentPurple.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: _accentPurple, size: 20),
+            ),
+            const SizedBox(height: 14),
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1,
+              ),
             ),
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
-                color: isDark ? Colors.white38 : Colors.black38,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                color: isDark ? Colors.white54 : Colors.black54,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -399,33 +436,40 @@ class _ProfilePageState extends State<ProfilePage> {
     required Widget trailing,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         color: isDark
             ? AppColors.backgroundSecondary
             : AppColors.backgroundSecondaryLight,
         border: Border.all(
           color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: (isDark ? Colors.white : Colors.black).withValues(
-                alpha: 0.05,
+                alpha: 0.06,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
               icon,
-              color: isDark ? Colors.white70 : Colors.black87,
-              size: 20,
+              color: isDark ? Colors.white : Colors.black,
+              size: 22,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,14 +477,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    letterSpacing: -0.2,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: isDark ? Colors.white38 : Colors.black38,
                   ),
                 ),
@@ -453,15 +500,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
+  Widget _buildLogoutButton(BuildContext context, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.red.withValues(alpha: isDark ? 0.2 : 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -475,18 +522,22 @@ class _ProfilePageState extends State<ProfilePage> {
             (route) => false,
           );
         },
-        icon: const Icon(Icons.logout_rounded, size: 20),
+        icon: const Icon(Icons.logout_rounded, size: 22),
         label: const Text(
           'Logout Account',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            fontSize: 15,
+          ),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.red.withValues(alpha: 0.1),
+          backgroundColor: Colors.red.withValues(alpha: 0.08),
           foregroundColor: Colors.red,
-          minimumSize: const Size(double.infinity, 56),
+          minimumSize: const Size(double.infinity, 64),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.red.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: Colors.red.withValues(alpha: 0.15)),
           ),
           elevation: 0,
         ),
@@ -858,15 +909,28 @@ class _SectionHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        Icon(icon, size: 20, color: isDark ? Colors.white70 : Colors.black54),
-        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.white : Colors.black).withValues(
+              alpha: 0.05,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+        const SizedBox(width: 12),
         Text(
           title,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
             color: isDark ? Colors.white : const Color(0xFF0F172A),
-            letterSpacing: -0.3,
+            letterSpacing: -0.5,
           ),
         ),
         const Spacer(),
@@ -874,29 +938,34 @@ class _SectionHeader extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onAdd,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: (isDark ? Colors.white : Colors.black).withValues(
                   alpha: 0.05,
                 ),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.05,
+                  ),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.add_rounded,
-                    size: 16,
+                    size: 18,
                     color: isDark ? Colors.white70 : Colors.black54,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     'Add',
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                       color: isDark ? Colors.white70 : Colors.black54,
                     ),
                   ),
@@ -921,9 +990,20 @@ class _AddressCard extends StatelessWidget {
       case 'home':
         return Icons.home_rounded;
       case 'work':
-        return Icons.work_rounded;
+        return Icons.business_center_rounded;
       default:
-        return Icons.location_on_rounded;
+        return Icons.place_rounded;
+    }
+  }
+
+  Color _getIconColor() {
+    switch (address.label.toLowerCase()) {
+      case 'home':
+        return const Color(0xFF7C3AED); // Purple
+      case 'work':
+        return const Color(0xFF146EEC); // Blue
+      default:
+        return const Color(0xFF10B981); // Emerald
     }
   }
 
@@ -933,33 +1013,33 @@ class _AddressCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.backgroundSecondary
             : AppColors.backgroundSecondaryLight,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+              color: _getIconColor().withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(_getIcon(), color: Colors.blue, size: 22),
+            child: Icon(_getIcon(), color: _getIconColor(), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -1038,39 +1118,43 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
         color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
-          style: BorderStyle.solid,
         ),
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: (isDark ? Colors.white : Colors.black).withValues(
-                alpha: 0.04,
+              gradient: LinearGradient(
+                colors: [
+                  (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                  (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
+                ],
               ),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 40,
+              size: 48,
               color: isDark ? Colors.white12 : Colors.black12,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             message,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: isDark ? Colors.white38 : Colors.black38,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
             ),
           ),
         ],

@@ -70,6 +70,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   String? _activeSubCategory;
   final Map<String, String> _tireSizes = {};
   final Map<String, String> _selectedTireBrands = {};
+  final Map<String, int> _serviceQuantities = {};
   Map<String, dynamic>? _selectedVehicleReference;
   final Map<String, bool> _isManualSize = {};
   final Map<String, TextEditingController> _tireSizeControllers = {};
@@ -443,7 +444,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     final double baseTotal = selectedServices.fold<double>(
       0,
-      (sum, item) => sum + _getServicePrice(item),
+      (sum, item) => sum + (_getServicePrice(item) * (_serviceQuantities[item.id] ?? 1)),
     );
 
     return baseTotal + (isGeneralService ? _pickupDropPrice : 0);
@@ -1663,8 +1664,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                             setState(() {
                               if (selected) {
                                 _selectedServiceIds.remove(service.id);
+                                _serviceQuantities.remove(service.id);
                               } else {
                                 _selectedServiceIds.add(service.id);
+                                _serviceQuantities[service.id] = 1;
 
                                 // Pre-fill tire size if vehicle is selected
                                 if (_selectedVehicleId != null) {
@@ -1939,9 +1942,52 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     }).toList(),
                                   ),
                                 ],
+
+                                // Quantity Selection
+                                ...[
+                                  const SizedBox(height: 16),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Select Quantity',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [1, 2, 3, 4, 5].map((qty) {
+                                      final isSelected =
+                                          (_serviceQuantities[service.id] ??
+                                              1) ==
+                                          qty;
+                                      return ChoiceChip(
+                                        label: Text(
+                                          qty.toString(),
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                        selected: isSelected,
+                                        onSelected: (val) {
+                                          if (val) {
+                                            setState(() {
+                                              _serviceQuantities[service.id] =
+                                                  qty;
+                                            });
+                                          }
+                                        },
+                                        selectedColor: const Color(
+                                          0xFF2563EB,
+                                        ).withAlpha(50),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ],
-                            ),
                           ),
+                        ),
                       ],
                     );
                   }),
@@ -1999,8 +2045,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           setState(() {
                             if (selected) {
                               _selectedServiceIds.remove(service.id);
+                              _serviceQuantities.remove(service.id);
                             } else {
                               _selectedServiceIds.add(service.id);
+                              _serviceQuantities[service.id] = 1;
 
                               // Pre-fill tire size if vehicle is selected
                               if (_selectedVehicleId != null) {
@@ -2276,9 +2324,52 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     }).toList(),
                                   ),
                                 ],
+
+                                // Quantity Selection
+                                ...[
+                                  const SizedBox(height: 16),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Select Quantity',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [1, 2, 3, 4, 5].map((qty) {
+                                      final isSelected =
+                                          (_serviceQuantities[service.id] ??
+                                              1) ==
+                                          qty;
+                                      return ChoiceChip(
+                                        label: Text(
+                                          qty.toString(),
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                        selected: isSelected,
+                                        onSelected: (val) {
+                                          if (val) {
+                                            setState(() {
+                                              _serviceQuantities[service.id] =
+                                                  qty;
+                                            });
+                                          }
+                                        },
+                                        selectedColor: const Color(
+                                          0xFF2563EB,
+                                        ).withAlpha(50),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ],
-                            ),
                           ),
+                        ),
                     ],
                   );
                 }),
@@ -2798,24 +2889,27 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           child: Column(
             children: [
               ...selectedServices.map(
-                (s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          s.name,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                (s) {
+                  final qty = _serviceQuantities[s.id] ?? 1;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            qty > 1 ? '${s.name} x $qty' : s.name,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
-                      ),
-                      Text(
-                        '₹${_getServicePrice(s).toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
+                        Text(
+                          '₹${(_getServicePrice(s) * qty).toStringAsFixed(0)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               if (isGeneralService && _pickupDropPrice > 0)
                 Padding(
@@ -3316,7 +3410,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           .map((service) {
             final size = _tireSizes[service.id];
             final brand = _selectedTireBrands[service.id];
+            final qty = _serviceQuantities[service.id] ?? 1;
             String note = service.name;
+            if (qty > 1) note += ' (Qty: $qty)';
             if (size != null && size.isNotEmpty) note += ' - Size: $size';
             if (brand != null && brand.isNotEmpty) note += ' - Brand: $brand';
             return note;
@@ -3362,6 +3458,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ),
         notes: fullNotes,
         selectedBrands: _selectedTireBrands,
+        serviceQuantities: _serviceQuantities,
       );
 
       if (!mounted) return;

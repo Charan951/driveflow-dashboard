@@ -243,13 +243,13 @@ class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // A fast and snappy fade transition
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutQuart, // Snappier than easeOutCubic
-      ),
-      child: child,
+    // Standardizing on a premium sliding transition that feels natural
+    return const CupertinoPageTransitionsBuilder().buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      child,
     );
   }
 }
@@ -300,7 +300,10 @@ class MyApp extends StatelessWidget {
             title: 'Carzzi',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
-            themeAnimationDuration: const Duration(milliseconds: 200),
+            themeAnimationDuration: const Duration(milliseconds: 300),
+            scrollBehavior: const ScrollBehavior().copyWith(
+              physics: const BouncingScrollPhysics(),
+            ),
             builder: (context, child) {
               return child ?? const SizedBox.shrink();
             },
@@ -314,6 +317,13 @@ class MyApp extends StatelessWidget {
               appBarTheme: const AppBarTheme(
                 backgroundColor: AppColors.backgroundPrimaryLight,
                 surfaceTintColor: AppColors.backgroundPrimaryLight,
+                centerTitle: true,
+                titleTextStyle: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                iconTheme: IconThemeData(color: Colors.black),
               ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {

@@ -206,28 +206,15 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
         title: Text(
           'Vehicle details',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: isDark ? AppColors.textPrimary : AppColors.textPrimaryLight,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
-        iconTheme: IconThemeData(
-          color: isDark ? AppColors.textPrimary : AppColors.textPrimaryLight,
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _load,
-            icon: Icon(
-              Icons.refresh,
-              color: isDark
-                  ? AppColors.textPrimary
-                  : AppColors.textPrimaryLight,
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: NestedScrollView(
         headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {

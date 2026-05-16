@@ -5,6 +5,7 @@ import '../state/navigation_provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
+import '../core/app_styles.dart';
 import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
@@ -2215,18 +2216,18 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
   IconData _iconForTitle(String title) {
     final v = title.toLowerCase();
     if (v.contains('wash') || v.contains('polish') || v.contains('detail')) {
-      return Icons.local_car_wash_outlined;
+      return Icons.water_drop_rounded;
     }
     if (v.contains('battery') || v.contains('tire') || v.contains('tyre')) {
-      return Icons.battery_charging_full_outlined;
+      return Icons.battery_charging_full_rounded;
     }
     if (v.contains('engine') || v.contains('repair')) {
-      return Icons.settings_suggest_outlined;
+      return Icons.settings_rounded;
     }
     if (v.contains('insurance') || v.contains('essentials')) {
-      return Icons.shield_outlined;
+      return Icons.shield_rounded;
     }
-    return Icons.build_outlined;
+    return Icons.settings_rounded;
   }
 
   @override
@@ -2255,16 +2256,16 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+            SizedBox(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.backgroundSurface
-                    : const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: ShaderMask(
+                  shaderCallback: (bounds) =>
+                      AppStyles.primaryGradient.createShader(bounds),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
               ),
-              child: Icon(icon, color: const Color(0xFF2563EB)),
             ),
             const Spacer(),
             Text(

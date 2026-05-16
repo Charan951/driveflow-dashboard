@@ -94,11 +94,6 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       routeName: '/vehicles',
     ),
     _DrawerItem(
-      icon: Icons.local_offer_outlined,
-      label: 'Coupons',
-      routeName: '/coupons',
-    ),
-    _DrawerItem(
       icon: Icons.settings_suggest_outlined,
       label: 'Book Service',
       routeName: '/services',

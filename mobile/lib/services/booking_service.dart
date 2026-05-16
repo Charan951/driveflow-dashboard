@@ -16,6 +16,7 @@ class BookingService {
     String? notes,
     BookingLocation? location,
     Map<String, String>? selectedBrands,
+    Map<String, int>? serviceQuantities,
   }) async {
     final res = await _api.postAny(
       ApiEndpoints.bookings,
@@ -27,6 +28,8 @@ class BookingService {
         if (location != null) 'location': location.toJson(),
         if (selectedBrands != null && selectedBrands.isNotEmpty)
           'selectedBrands': selectedBrands,
+        if (serviceQuantities != null && serviceQuantities.isNotEmpty)
+          'serviceQuantities': serviceQuantities,
       },
     );
 
