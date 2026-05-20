@@ -6,6 +6,46 @@ import Product from '../models/Product.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Ticket from '../models/Ticket.js';
 
+// @desc    Export report as CSV
+// @route   GET /api/reports/export
+// @access  Private/Admin
+export const exportReport = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('user', 'name email')
+      .populate('merchant', 'name email')
+      .populate('services', 'name')
+      .sort({ createdAt: -1 });
+
+    const csvHeader = 'Booking ID,Customer Name,Customer Email,Merchant Name,Merchant Email,Services,Total Amount,Payment Status,Booking Status,Date\n';
+    const csvRows = bookings.map(booking => {
+      const date = new Date(booking.createdAt);
+      const formattedDate = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+      const serviceNames = booking.services?.map(s => s.name).join('; ') || 'N/A';
+      return [
+        booking._id,
+        `"${booking.user?.name || 'N/A'}"`,
+        `"${booking.user?.email || 'N/A'}"`,
+        `"${booking.merchant?.name || 'N/A'}"`,
+        `"${booking.merchant?.email || 'N/A'}"`,
+        `"${serviceNames}"`,
+        booking.totalAmount || 0,
+        booking.paymentStatus || 'N/A',
+        booking.status || 'N/A',
+        formattedDate
+      ].join(',');
+    }).join('\n');
+
+    const csvContent = csvHeader + csvRows;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="carzzi-reports.csv"');
+    res.status(200).send(csvContent);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get dashboard summary stats
 // @route   GET /api/reports/dashboard
 // @access  Private/Admin
@@ -15,12 +55,13 @@ export const getDashboardStats = async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     const [
-      totalCustomers,
+      activeCustomers,
       totalVehicles,
       totalBookings,
       todaysBookings,
       pendingBookings,
       revenueToday,
+      totalRevenue,
       vehiclesOnRoad,
       vehiclesInService,
       waitingPickup,
@@ -29,13 +70,20 @@ export const getDashboardStats = async (req, res) => {
       pendingApprovals,
       openTickets,
     ] = await Promise.all([
-      User.countDocuments({ role: 'customer' }),
+      Booking.aggregate([
+        { $group: { _id: '$user' } },
+        { $count: 'count' }
+      ]),
       Vehicle.countDocuments(),
       Booking.countDocuments(),
       Booking.countDocuments({ createdAt: { $gte: today } }),
       Booking.countDocuments({ status: { $in: ['CREATED', 'ASSIGNED', 'Pending'] } }),
       Booking.aggregate([
         { $match: { paymentStatus: 'paid', createdAt: { $gte: today } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+      ]),
+      Booking.aggregate([
+        { $match: { paymentStatus: 'paid' } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
       Vehicle.countDocuments({ status: 'On Route' }),
@@ -48,9 +96,10 @@ export const getDashboardStats = async (req, res) => {
     ]);
 
     res.json({
-      totalCustomers,
+      totalCustomers: activeCustomers[0]?.count || 0,
       totalVehicles,
       totalBookings,
+      totalRevenue: totalRevenue[0]?.total || 0,
       todaysBookings,
       pendingBookings,
       revenueToday: revenueToday[0]?.total || 0,

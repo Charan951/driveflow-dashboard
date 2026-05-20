@@ -4,6 +4,7 @@ import {
   getRevenueAnalytics,
   getTopServices,
   getMerchantPerformance,
+  exportReport,
 } from '../controllers/reportController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -13,5 +14,6 @@ router.get('/dashboard', protect, admin, getDashboardStats);
 router.get('/revenue', protect, admin, getRevenueAnalytics);
 router.get('/top-services', protect, admin, getTopServices);
 router.get('/merchants', protect, admin, getMerchantPerformance);
+router.get('/export', protect, admin, exportReport);
 
 export default router;
