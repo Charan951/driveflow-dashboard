@@ -134,11 +134,13 @@ const PublicNavbar: React.FC = () => {
           <Link 
             to="/" 
             className="flex items-center gap-2">
-            <div className="w-70 h-16 flex items-center justify-center mt-4 md:mt-3">
+            <div className="w-40 h-16 flex items-center justify-center mt-4 md:mt-3">
               <img
                 src="/carzzilogo.png"
                 alt="Carzzi"
                 className="w-full h-full object-contain"
+                fetchPriority="high"
+                loading="eager"
               />
             </div>
           </Link>
@@ -177,9 +179,9 @@ const PublicNavbar: React.FC = () => {
                                 key={category.title}
                                 className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 hover:border-primary/30 hover:bg-primary/5 transition-all"
                               >
-                                <h4 className="text-[11px] font-extrabold text-primary uppercase tracking-[0.12em] mb-2.5">
+                                <div className="text-[11px] font-extrabold text-primary uppercase tracking-[0.12em] mb-2.5">
                                   {category.title}
-                                </h4>
+                                </div>
                                 <div className="flex flex-col gap-1.5 max-h-[168px] overflow-y-auto pr-1">
                                   {category.items.map((item) => (
                                     <NavigationMenuLink key={item.name} asChild>
@@ -249,6 +251,7 @@ const PublicNavbar: React.FC = () => {
 
           {/* Mobile Menu Button */}
           <button
+            aria-label={isOpen ? "Close menu" : "Open menu"}
             onClick={() => setIsOpen(!isOpen)}
             className={`md:hidden p-2 transition-colors ${
               isScrolled ? 'text-foreground hover:text-primary' : 'text-white hover:text-white/80'
@@ -297,6 +300,7 @@ const PublicNavbar: React.FC = () => {
                   <span className="font-semibold text-base">Carzzi</span>
                 </Link>
                 <button
+                  aria-label="Close sidebar"
                   onClick={closeSidebar}
                   className="p-2 hover:bg-muted rounded-lg transition-colors">
                   <X className="w-5 h-5" />
@@ -309,6 +313,7 @@ const PublicNavbar: React.FC = () => {
                     return (
                       <div key={link.name} className="flex flex-col gap-1">
                         <button
+                          aria-label={isServicesExpanded ? "Collapse services" : "Expand services"}
                           onClick={() => setIsServicesExpanded(!isServicesExpanded)}
                           className={`w-full flex items-center justify-between text-sm font-semibold text-primary uppercase tracking-wider px-3 py-2.5 rounded-lg hover:bg-muted transition-colors ${
                             location.pathname.startsWith('/services') ? 'bg-primary/5' : ''
@@ -322,6 +327,7 @@ const PublicNavbar: React.FC = () => {
                             {serviceCategories.filter(c => c.items.length > 0).map((category) => (
                               <div key={category.title} className="flex flex-col gap-1">
                                 <button
+                                  aria-label={expandedCategories.includes(category.title) ? `Collapse ${category.title}` : `Expand ${category.title}`}
                                   onClick={() => toggleCategory(category.title)}
                                   className="w-full flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-tight px-3 py-2 hover:bg-muted rounded-md transition-colors text-left">
                                   {category.title}

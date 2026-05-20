@@ -7,7 +7,6 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   const env = loadEnv(mode, process.cwd(), '');
@@ -44,10 +43,6 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      legacy({
-        targets: ['defaults', 'not IE 11'],
-      }),
-      // Enable compression for production builds
       isProduction && compression({
         algorithm: 'gzip',
         ext: '.gz',
@@ -63,26 +58,33 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       cssCodeSplit: true,
       minify: 'esbuild',
-      chunkSizeWarningLimit: 800, // Slightly more aggressive limit
-      target: 'esnext', // Target modern browsers for the main build
+      chunkSizeWarningLimit: 600,
+      target: 'es2020',
+      modulePreload: {
+        polyfill: false,
+      },
+      reportCompressedSize: true,
       rollupOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              return 'vendor';
-            }
+          manualChunks: {
+            'vendor-core': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-utils': ['clsx', 'tailwind-merge', 'class-variance-authority', 'zod', 'zustand'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-form': ['react-hook-form', '@hookform/resolvers'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-radix': ['@radix-ui/react-slot'],
+            'vendor-sonner': ['sonner'],
           },
-          // Ensure predictable names for chunks
-          entryFileNames: `assets/[name]-[hash].js`,
-          chunkFileNames: `assets/[name]-[hash].js`,
-          assetFileNames: `assets/[name]-[hash].[ext]`,
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]',
+          hoistTransitiveImports: false,
         },
       },
     },
     esbuild: {
       legalComments: 'none',
       drop: isProduction ? ['console', 'debugger'] : [],
-      // Pure functions to help tree-shaking
       pure: isProduction ? ['console.log', 'console.info', 'console.debug', 'console.warn'] : [],
     },
     resolve: {
@@ -90,9 +92,9 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    // Optimize dependency pre-bundling
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
+      include: ['react', 'react-dom', 'react-router-dom', 'lucide-react', 'clsx', 'tailwind-merge'],
+      exclude: [],
     },
   };
 });

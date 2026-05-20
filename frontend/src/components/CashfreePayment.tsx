@@ -14,6 +14,21 @@ interface CashfreePaymentProps {
   className?: string;
 }
 
+const loadCashfreeScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).Cashfree) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+    document.body.appendChild(script);
+  });
+};
+
 const CashfreePayment: React.FC<CashfreePaymentProps> = ({
   bookingId,
   amount,
@@ -24,12 +39,23 @@ const CashfreePayment: React.FC<CashfreePaymentProps> = ({
   className = ''
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isScriptLoading, setIsScriptLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const safeBookingId =
     bookingId && /^[a-fA-F0-9]{24}$/.test(bookingId) ? bookingId : undefined;
 
   const handlePayment = async () => {
-    if (!window.Cashfree) {
+    setIsScriptLoading(true);
+    try {
+      await loadCashfreeScript();
+    } catch (error) {
+      toast.error('Failed to load payment gateway. Please try again.');
+      setIsScriptLoading(false);
+      return;
+    } finally {
+      setIsScriptLoading(false);
+    }
+    if (!(window as any).Cashfree) {
       toast.error('Payment gateway not loaded. Please refresh the page.');
       return;
     }
@@ -37,7 +63,7 @@ const CashfreePayment: React.FC<CashfreePaymentProps> = ({
     setPaymentStatus('processing');
     try {
       const order: PaymentOrder = await paymentService.createOrder(safeBookingId, amount, 'INR', tempBookingData);
-      const cashfree = window.Cashfree({ mode: order.environment });
+      const cashfree = (window as any).Cashfree({ mode: order.environment });
       await cashfree.checkout({
         paymentSessionId: order.paymentSessionId,
         redirectTarget: '_modal'
@@ -79,11 +105,11 @@ const CashfreePayment: React.FC<CashfreePaymentProps> = ({
     <div className="space-y-4">
       <motion.button
         onClick={handlePayment}
-        disabled={disabled || isLoading || paymentStatus === 'success'}
+        disabled={disabled || isLoading || isScriptLoading || paymentStatus === 'success'}
         className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors ${className}`}
       >
-        {getStatusIcon()}
-        {getButtonText()}
+        {isScriptLoading || isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : getStatusIcon()}
+        {isScriptLoading ? 'Loading Payment Gateway...' : getButtonText()}
       </motion.button>
       <div className="text-center text-xs text-muted-foreground">
         <p>Supports UPI, Cards, Net Banking, and Wallets via Cashfree</p>

@@ -33,13 +33,12 @@ const Footer: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <img src="/footer.png" alt="Carzzi Logo" className="w-15 h-15" />
-              
+            <div className="flex flex-row items-center gap-3 mb-4">
+              <img src="/footer.png" alt="Carzzi Logo" className="w-12 h-12" />
+              <p className="text-sm text-muted-foreground">
+                Premium vehicle services at your doorstep. Your car deserves the best care.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Premium vehicle services at your doorstep. Your car deserves the best care.
-            </p>
           </div>
           <div>
             <h4 className="font-semibold mb-4">Services</h4>

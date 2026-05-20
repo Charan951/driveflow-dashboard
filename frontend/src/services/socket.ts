@@ -37,10 +37,20 @@ class SocketService {
 
     this.socket.on('disconnect', () => {
     });
+
+    // Disconnect socket when page unloads to allow back/forward cache
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+    window.addEventListener('pagehide', this.handleBeforeUnload);
   }
+
+  private handleBeforeUnload = () => {
+    this.disconnect();
+  };
 
   disconnect() {
     if (this.socket) {
+      window.removeEventListener('beforeunload', this.handleBeforeUnload);
+      window.removeEventListener('pagehide', this.handleBeforeUnload);
       this.socket.disconnect();
       this.socket = null;
       this.currentRoom = null;

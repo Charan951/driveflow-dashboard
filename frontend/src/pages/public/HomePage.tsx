@@ -219,6 +219,7 @@ const HomePage: React.FC = () => {
               alt={heroSlides[currentSlide]?.title || ''}
               className="w-full h-full object-cover object-center transition-opacity duration-1000"
               loading="eager"
+              fetchPriority="high"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
           </motion.div>
