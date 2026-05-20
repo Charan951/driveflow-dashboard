@@ -1187,7 +1187,7 @@ const BookingDetailPage: React.FC = () => {
                  {booking.carWash?.staffAssigned && (
                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                      <p className="text-sm text-green-800">
-                       <strong>Assigned Staff:</strong> {typeof booking.carWash.staffAssigned === 'object' ? booking.carWash.staffAssigned.name : 'Staff'}
+                       <strong>Assigned Staff:</strong> {typeof booking.carWash.staffAssigned === 'object' && booking.carWash.staffAssigned !== null ? booking.carWash.staffAssigned.name : 'Staff'}
                      </p>
                    </div>
                  )}
@@ -1280,10 +1280,10 @@ const BookingDetailPage: React.FC = () => {
                    <div className="md:col-span-2 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                      <div className="space-y-1 text-sm text-green-800">
                        {booking.merchant && (
-                         <p><strong>Assigned Merchant:</strong> {typeof booking.merchant === 'object' ? booking.merchant.name : 'Merchant'}</p>
+                         <p><strong>Assigned Merchant:</strong> {typeof booking.merchant === 'object' && booking.merchant !== null ? booking.merchant.name : 'Merchant'}</p>
                        )}
                        {booking.pickupDriver && (
-                         <p><strong>Assigned Staff:</strong> {typeof booking.pickupDriver === 'object' ? booking.pickupDriver.name : 'Staff'}</p>
+                         <p><strong>Assigned Staff:</strong> {typeof booking.pickupDriver === 'object' && booking.pickupDriver !== null ? booking.pickupDriver.name : 'Staff'}</p>
                        )}
                      </div>
                    </div>

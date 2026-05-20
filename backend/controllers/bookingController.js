@@ -636,8 +636,8 @@ export const createBooking = async (req, res) => {
       const serviceNames = services.map(s => s.name).join(', ');
       sendEmail(
         req.user.email,
-        'Booking Confirmation - DriveFlow',
-        `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing DriveFlow!`
+        'Booking Confirmation - Carzzi',
+        `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing Carzzi!`
       ).catch(() => {});
     }
 

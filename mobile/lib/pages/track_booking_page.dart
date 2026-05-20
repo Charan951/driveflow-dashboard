@@ -388,7 +388,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                     orderData['id'] ??
                     '')
                 .toString();
-        final paymentSessionId = (orderData['paymentSessionId'] ?? '').toString();
+        final paymentSessionId = (orderData['paymentSessionId'] ?? '')
+            .toString();
         final environment = (orderData['environment'] ?? 'sandbox').toString();
 
         if (kIsWeb) {
@@ -449,8 +450,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           builder: (context) => CouponsPage(
             isSelectionMode: true,
             bookingTotal: booking.totalAmount.toDouble(),
-            bookingCategory: booking.services.isNotEmpty == true 
-                ? booking.services.first.category 
+            bookingCategory: booking.services.isNotEmpty == true
+                ? booking.services.first.category
                 : 'All',
             booking: booking,
           ),
@@ -459,13 +460,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
       // If user proceeded from checkout (either with a coupon or without)
       // selectedCoupon might be a Map or null (if they just clicked proceed)
-      if (selectedCoupon != null && selectedCoupon is Map<String, dynamic> && selectedCoupon['code'] != null) {
+      if (selectedCoupon != null &&
+          selectedCoupon is Map<String, dynamic> &&
+          selectedCoupon['code'] != null) {
         await _applyCouponByCode(selectedCoupon['code']);
         // Refresh booking to get new total
         await _load(silent: true);
       }
     }
-    
+
     // Proceed to standard payment
     _handlePayment();
   }
@@ -506,7 +509,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       }
     }
   }
-
 
   Future<void> _applyCouponByCode(String code) async {
     final booking = _booking;
@@ -935,7 +937,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                     ),
@@ -1237,12 +1241,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                 tooltip: 'Download Invoice',
                 onPressed: () async {
                   String? url = _resolveImageUrl(booking?.invoiceUrl);
-                  
+
                   // If no direct URL, fallback to auto-generation endpoint
                   if (url == null && booking != null) {
                     final token = await AppStorage().getToken();
                     if (token != null) {
-                      url = '${Env.apiBaseUrl}${ApiEndpoints.bookings}/${booking.id}/invoice?token=$token';
+                      url =
+                          '${Env.apiBaseUrl}${ApiEndpoints.bookings}/${booking.id}/invoice?token=$token';
                     }
                   }
 
@@ -1540,7 +1545,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             height: _isMapMaximized ? 500 : 260,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
                             ),
                             child: Stack(
                               children: [
@@ -1552,7 +1559,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                       initialCenter: center,
                                       initialZoom: 13,
                                       onMapReady: () {
-                                        if (mounted) setState(() => _mapReady = true);
+                                        if (mounted)
+                                          setState(() => _mapReady = true);
                                       },
                                     ),
                                     children: [
@@ -1962,8 +1970,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: isDark
-                                          ? Colors.white70
-                                          : Colors.black87,
+                                            ? Colors.white70
+                                            : Colors.black87,
                                       ),
                                 ),
                               ],
@@ -2031,7 +2039,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 child: ElevatedButton(
                                   onPressed: _isPaymentLoading
                                       ? null
-                                      : () => _onPayNowClicked(isGeneralService),
+                                      : () =>
+                                            _onPayNowClicked(isGeneralService),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF4F46E5),
                                     foregroundColor: Colors.white,
@@ -2301,7 +2310,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
                           return _buildInfoCard(
                             context,
-                            title: isCarWash ? 'Staff Details' : 'Driver Details',
+                            title: isCarWash
+                                ? 'Staff Details'
+                                : 'Driver Details',
                             icon: isCarWash ? Icons.person : Icons.two_wheeler,
                             name: name,
                             phone: phone,
@@ -2382,7 +2393,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () => _showPartDetailsDialog(part, isDark),
+                                onTap: () =>
+                                    _showPartDetailsDialog(part, isDark),
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -2658,40 +2670,45 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ],
-                            if (booking.billing != null &&
-                                (booking.billing!.total > 0 ||
-                                    booking.billing!.invoiceNumber !=
-                                        null)) ...[
+                            if ((booking.billing != null &&
+                                    (booking.billing!.total > 0 ||
+                                        booking.billing!.invoiceNumber !=
+                                            null)) ||
+                                (booking.pickupDropPrice != null &&
+                                    booking.pickupDropPrice! > 0)) ...[
                               const SizedBox(height: 12),
                               const Divider(height: 1),
                               const SizedBox(height: 12),
                               _buildCostRow(
                                 'Base Service Amount',
-                                '₹${booking.totalAmount - (booking.billing!.partsTotal ?? 0) - (booking.billing!.labourCost ?? 0) - (booking.billing!.gst ?? 0) - (booking.billing!.pickupDropPrice ?? 0)}',
+                                '₹${booking.totalAmount - (booking.billing?.partsTotal ?? 0) - (booking.billing?.labourCost ?? 0) - (booking.billing?.gst ?? 0) - (booking.pickupDropPrice ?? booking.billing?.pickupDropPrice ?? 0)}',
                                 isDark,
                               ),
-                              if ((booking.billing!.partsTotal ?? 0) > 0)
+                              if ((booking.billing?.partsTotal ?? 0) > 0)
                                 _buildCostRow(
                                   'Parts Total',
                                   '₹${booking.billing!.partsTotal}',
                                   isDark,
                                 ),
-                              if ((booking.billing!.labourCost ?? 0) > 0)
+                              if ((booking.billing?.labourCost ?? 0) > 0)
                                 _buildCostRow(
                                   'Labour Cost',
                                   '₹${booking.billing!.labourCost}',
                                   isDark,
                                 ),
-                              if ((booking.billing!.gst ?? 0) > 0)
+                              if ((booking.billing?.gst ?? 0) > 0)
                                 _buildCostRow(
                                   'GST',
                                   '₹${booking.billing!.gst}',
                                   isDark,
                                 ),
-                              if ((booking.billing!.pickupDropPrice ?? 0) > 0)
+                              if ((booking.pickupDropPrice ??
+                                      booking.billing?.pickupDropPrice ??
+                                      0) >
+                                  0)
                                 _buildCostRow(
                                   'Pickup/Drop Price',
-                                  '₹${booking.billing!.pickupDropPrice}',
+                                  '₹${booking.pickupDropPrice ?? booking.billing?.pickupDropPrice}',
                                   isDark,
                                 ),
                               if ((booking.discountAmount ?? 0) > 0)
@@ -2734,7 +2751,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                           style: const TextStyle(
                                             fontSize: 10,
                                             color: Colors.grey,
-                                            decoration: TextDecoration.lineThrough,
+                                            decoration:
+                                                TextDecoration.lineThrough,
                                           ),
                                         ),
                                     ],
@@ -2788,12 +2806,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 ],
                               ),
                             ],
-                            if (booking.paymentStatus != 'paid' && 
-                                (booking.status == 'SERVICE_COMPLETED' || 
-                                 booking.status == 'COMPLETED' || 
-                                 booking.status == 'DELIVERED') &&
-                                !isCarWash && !isBatteryTire) ...[
-                            ],
+                            if (booking.paymentStatus != 'paid' &&
+                                (booking.status == 'SERVICE_COMPLETED' ||
+                                    booking.status == 'COMPLETED' ||
+                                    booking.status == 'DELIVERED') &&
+                                !isCarWash &&
+                                !isBatteryTire)
+                              ...[],
                             if ((isCarWash || isBatteryTire) &&
                                 booking.paymentStatus == 'pending')
                               Container(
@@ -2879,7 +2898,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 child: ElevatedButton(
                                   onPressed: _isPaymentLoading
                                       ? null
-                                      : () => _onPayNowClicked(isGeneralService),
+                                      : () =>
+                                            _onPayNowClicked(isGeneralService),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2563EB),
                                     foregroundColor: Colors.white,
@@ -3104,7 +3124,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildCostRow(String label, String value, bool isDark, {bool isDiscount = false}) {
+  Widget _buildCostRow(
+    String label,
+    String value,
+    bool isDark, {
+    bool isDiscount = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -3142,8 +3167,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final finalAmount = booking.calculatedTotal;
 
     // Calculate percentage if not explicitly provided
-    final discountPercentage = totalAmount > 0 ? ((discount / totalAmount) * 100).round() : 0;
-    final discountFactor = totalAmount > 0 ? (discount / totalAmount).toStringAsFixed(2) : "0.00";
+    final discountPercentage = totalAmount > 0
+        ? ((discount / totalAmount) * 100).round()
+        : 0;
+    final discountFactor = totalAmount > 0
+        ? (discount / totalAmount).toStringAsFixed(2)
+        : "0.00";
 
     return Container(
       margin: const EdgeInsets.only(top: 16, bottom: 8),
@@ -3203,7 +3232,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildBreakdownRow(String label, String value, {Color? valueColor, bool isBold = false}) {
+  Widget _buildBreakdownRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -3361,7 +3395,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       ),
     );
   }
-
 }
 
 class _StatusRow extends StatelessWidget {

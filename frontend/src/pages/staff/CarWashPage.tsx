@@ -152,22 +152,22 @@ export const CarWashPage: React.FC = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Customer</p>
                       <p className="font-medium text-sm sm:text-base truncate">
-                        {typeof booking.user === 'object' ? booking.user.name : 'Unknown'}
+                        {typeof booking.user === 'object' && booking.user !== null ? booking.user.name : 'Unknown'}
                       </p>
                       <div className="flex items-center gap-1 mt-1">
                         <Phone className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                         <p className="text-sm text-muted-foreground truncate">
-                          {typeof booking.user === 'object' ? booking.user.phone : 'N/A'}
+                          {typeof booking.user === 'object' && booking.user !== null ? booking.user.phone : 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Vehicle</p>
                       <p className="font-medium text-sm sm:text-base truncate">
-                        {typeof booking.vehicle === 'object' ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
+                        {typeof booking.vehicle === 'object' && booking.vehicle !== null ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
                       </p>
                       <p className="text-sm text-muted-foreground truncate">
-                        {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : booking.vehicle}
+                        {typeof booking.vehicle === 'object' && booking.vehicle !== null ? booking.vehicle.licensePlate : String(booking.vehicle)}
                       </p>
                     </div>
                     <div>

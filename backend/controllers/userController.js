@@ -367,11 +367,11 @@ export const createUser = async (req, res) => {
     if (user) {
       try {
         const readableRole = role === 'merchant' ? 'Merchant' : role === 'staff' ? 'Staff' : 'User';
-        const subject = `Welcome to DriveFlow - ${readableRole} Account Created`;
+        const subject = `Welcome to Carzzi - ${readableRole} Account Created`;
         const text = [
           `Hi ${name || 'there'},`,
           '',
-          `Your ${readableRole.toLowerCase()} account has been created on DriveFlow.`,
+          `Your ${readableRole.toLowerCase()} account has been created on Carzzi.`,
           '',
           `Login Email: ${email}`,
           password ? `Temporary Password: ${password}` : '',
@@ -379,7 +379,7 @@ export const createUser = async (req, res) => {
           'Please log in and change your password after first login.',
           '',
           'Best regards,',
-          'DriveFlow Team',
+          'Carzzi Team',
         ].filter(Boolean).join('\n');
 
         await sendEmail(email, subject, text);

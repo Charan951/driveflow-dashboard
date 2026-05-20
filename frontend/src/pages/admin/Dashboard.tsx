@@ -284,7 +284,7 @@ const AdminDashboard: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {typeof booking.user === 'object' ? booking.user.name : 'Unknown Customer'} • {new Date(booking.createdAt).toLocaleString()}
+                      {typeof booking.user === 'object' && booking.user !== null ? booking.user.name : 'Unknown Customer'} • {new Date(booking.createdAt).toLocaleString()}
                     </div>
                   </div>
                 </div>

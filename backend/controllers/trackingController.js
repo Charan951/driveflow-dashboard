@@ -320,9 +320,9 @@ export const reverseGeocode = async (req, res) => {
         addressdetails: 1,
       },
       headers: {
-        'User-Agent': 'DriveFlow/1.0 (support@driveflow.local)',
+        'User-Agent': 'Carzzi/1.0 (support@carzzi.local)',
         'Accept-Language': 'en',
-        'Referer': 'https://driveflow.local',
+        'Referer': 'https://carzzi.local',
       },
       timeout: 8000,
     });
@@ -350,9 +350,9 @@ export const searchGeocode = async (req, res) => {
         countrycodes,
       },
       headers: {
-        'User-Agent': 'DriveFlow/1.0 (support@driveflow.local)',
+        'User-Agent': 'Carzzi/1.0 (support@carzzi.local)',
         'Accept-Language': 'en',
-        'Referer': 'https://driveflow.local',
+        'Referer': 'https://carzzi.local',
       },
       timeout: 8000,
     });

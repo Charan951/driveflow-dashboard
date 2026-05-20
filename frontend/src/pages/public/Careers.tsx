@@ -86,7 +86,7 @@ const Careers = () => {
           className="bg-card/50 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-border/50 mb-12"
         >
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Join DriveFlow?</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Join Carzzi?</h2>
             <p className="text-muted-foreground">More than just a job, it's a career with purpose.</p>
           </div>
 
@@ -134,7 +134,7 @@ const Careers = () => {
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl font-bold mb-2">Open Positions</h2>
-              <p className="text-muted-foreground">Find your next role at DriveFlow.</p>
+              <p className="text-muted-foreground">Find your next role at Carzzi.</p>
             </div>
           </div>
 

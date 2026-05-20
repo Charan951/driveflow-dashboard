@@ -423,12 +423,11 @@ const HomePage: React.FC = () => {
             viewport={{ once: true }}
             className="max-w-2xl mx-auto"
           >
-            <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
-              Ready to Hit the Road?
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+              Built For Modern Car Owners?
             </h2>
             <p className="text-white/80 text-xl mb-10">
-              Join thousands of happy customers who trust Carzzi for all their vehicle needs.
-            </p>
+Manage, Maintain, and Elevate your vehicle experience with Carzzi.            </p>
             <Link
               to="/register"
               className="inline-flex items-center justify-center gap-2 px-10 py-4 bg-white text-primary rounded-full font-bold text-lg hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"

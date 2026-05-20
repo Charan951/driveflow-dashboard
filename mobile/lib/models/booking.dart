@@ -336,6 +336,7 @@ class Booking {
   final RevisitDetails? revisit;
   final List<Map<String, String>> statusHistory;
   final BookingBilling? billing;
+  final num? pickupDropPrice;
 
   Booking({
     required this.id,
@@ -377,6 +378,7 @@ class Booking {
     this.revisit,
     this.statusHistory = const [],
     this.billing,
+    this.pickupDropPrice,
   });
 
   num get calculatedTotal {
@@ -876,6 +878,9 @@ class Booking {
       revisit: revisit,
       statusHistory: statusHistory,
       billing: billing,
+      pickupDropPrice: map['pickupDropPrice'] is num
+          ? (map['pickupDropPrice'] as num)
+          : null,
     );
   }
 

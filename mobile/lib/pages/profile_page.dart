@@ -501,48 +501,57 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildLogoutButton(BuildContext context, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.red.withValues(alpha: isDark ? 0.2 : 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+    return FilledButton.icon(
+      onPressed: () => _showLogoutConfirmation(context, isDark),
+      icon: const Icon(Icons.logout_rounded, size: 22),
+      label: const Text(
+        'Logout Account',
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.8,
+          fontSize: 15,
+        ),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(double.infinity, 64),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+    );
+  }
+
+  Future<void> _showLogoutConfirmation(
+    BuildContext context,
+    bool isDark,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout?'),
+        content: const Text(
+          'Are you sure you want to logout from your account?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
           ),
         ],
       ),
-      child: FilledButton.icon(
-        onPressed: () async {
-          await context.read<AuthProvider>().logout();
-          if (!context.mounted) return;
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/login',
-            (route) => false,
-          );
-        },
-        icon: const Icon(Icons.logout_rounded, size: 22),
-        label: const Text(
-          'Logout Account',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
-            fontSize: 15,
-          ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.red.withValues(alpha: 0.08),
-          foregroundColor: Colors.red,
-          minimumSize: const Size(double.infinity, 64),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: Colors.red.withValues(alpha: 0.15)),
-          ),
-          elevation: 0,
-        ),
-      ),
     );
+
+    if (result == true && context.mounted) {
+      await context.read<AuthProvider>().logout();
+      if (!context.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   Future<void> _editProfile(BuildContext context, User? user) async {
@@ -649,7 +658,7 @@ class _ProfilePageState extends State<ProfilePage> {
               });
               final res = await http.get(
                 uri,
-                headers: const {'User-Agent': 'DriveFlowMobile/1.0'},
+                headers: const {'User-Agent': 'CarzziMobile/1.0'},
               );
               if (res.statusCode == 200) {
                 final decoded = jsonDecode(res.body);
@@ -887,10 +896,6 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-
-
-
-
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -1106,8 +1111,6 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-
-
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
@@ -1134,8 +1137,12 @@ class _EmptyState extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                  (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
+                  (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.05,
+                  ),
+                  (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.02,
+                  ),
                 ],
               ),
               shape: BoxShape.circle,

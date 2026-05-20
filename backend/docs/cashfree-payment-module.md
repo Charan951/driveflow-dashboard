@@ -5,7 +5,7 @@
 ```env
 NODE_ENV=development
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/driveflow
+MONGO_URI=mongodb://localhost:27017/carzzi
 FRONTEND_URL=http://localhost:8080
 
 CASHFREE_ENV=sandbox

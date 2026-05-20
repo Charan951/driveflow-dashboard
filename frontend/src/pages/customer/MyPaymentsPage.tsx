@@ -86,7 +86,7 @@ const MyPaymentsPage = () => {
                       <TableCell className="font-mono text-xs">{booking.orderNumber ?? booking._id.slice(-8).toUpperCase()}</TableCell>
                       <TableCell className="text-xs sm:text-sm">
                         <div className="max-w-[150px] sm:max-w-none truncate">
-                          Service for {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : 'Vehicle'}
+                          Service for {typeof booking.vehicle === 'object' && booking.vehicle !== null ? booking.vehicle.licensePlate : 'Vehicle'}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs sm:text-sm font-medium">₹{booking.totalAmount}</TableCell>

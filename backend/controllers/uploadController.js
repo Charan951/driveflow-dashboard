@@ -36,7 +36,7 @@ const upload = multer({
 
 // Helper to process and upload a single file
 const processAndUpload = async (file) => {
-  const folder = 'driveflow_uploads/';
+  const folder = 'carzzi_uploads/';
   const fileName = `${Date.now().toString()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
   const key = folder + fileName;
   

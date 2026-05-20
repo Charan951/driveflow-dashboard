@@ -182,19 +182,19 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           <div className="bg-muted/50 rounded-xl p-3">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Customer</p>
             <p className="font-medium text-sm sm:text-base truncate">
-              {typeof booking.user === 'object' ? booking.user.name : 'Unknown'}
+              {typeof booking.user === 'object' && booking.user !== null ? booking.user.name : 'Unknown'}
             </p>
             <p className="text-sm text-muted-foreground truncate">
-              {typeof booking.user === 'object' ? booking.user.phone : 'N/A'}
+              {typeof booking.user === 'object' && booking.user !== null ? booking.user.phone : 'N/A'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-xl p-3">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Vehicle</p>
             <p className="font-medium text-sm sm:text-base truncate">
-              {typeof booking.vehicle === 'object' ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
+              {typeof booking.vehicle === 'object' && booking.vehicle !== null ? `${booking.vehicle.make} ${booking.vehicle.model}` : 'Unknown'}
             </p>
             <p className="text-sm text-muted-foreground truncate">
-                {typeof booking.vehicle === 'object' ? booking.vehicle.licensePlate : booking.vehicle}
+                {typeof booking.vehicle === 'object' && booking.vehicle !== null ? booking.vehicle.licensePlate : String(booking.vehicle)}
               </p>
           </div>
         </div>

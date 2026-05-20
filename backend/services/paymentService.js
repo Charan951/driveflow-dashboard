@@ -28,6 +28,13 @@ class PaymentService {
    */
   async createOrder(userId, bookingId, amount, currency = 'INR', tempBookingData = null) {
     console.log('PaymentService.createOrder called with:', { userId, bookingId, amount, currency, tempBookingData });
+    
+    // Validate Cashfree configuration first
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      console.error('Cashfree configuration missing: CASHFREE_APP_ID or CASHFREE_SECRET_KEY');
+      throw new Error('Payment gateway configuration missing. Please check environment variables.');
+    }
+    
     const normalizedBookingId =
       bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
 
@@ -38,8 +45,6 @@ class PaymentService {
       if (booking.user._id.toString() !== userId.toString()) throw new Error('Unauthorized access to booking');
       if (booking.paymentStatus === 'paid') throw new Error('Payment already completed for this booking');
     }
-
-
 
     const orderId = `ord_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     
@@ -54,7 +59,7 @@ class PaymentService {
     };
     
     const customerPhone = formatPhone(tempBookingData?.customerPhone);
-    const customerEmail = tempBookingData?.customerEmail || 'no-reply@driveflow.local';
+    const customerEmail = tempBookingData?.customerEmail || 'no-reply@carzzi.local';
     
     const request = {
       order_id: orderId,
@@ -68,55 +73,70 @@ class PaymentService {
       order_meta: {
         return_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback?order_id={order_id}`
       },
-      // Cashfree requires expiry strictly > 15 minutes (see order_expiry_time_invalid)
       order_expiry_time: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
       order_note: normalizedBookingId ? `booking:${normalizedBookingId}` : 'temp-booking'
     };
     console.log('Cashfree PGCreateOrder request:', request);
 
-    const cfRes = await this.cashfree.PGCreateOrder(request);
-    console.log('Cashfree PGCreateOrder response:', cfRes);
-    const { payment_session_id: paymentSessionId, cf_order_id: cfOrderId, order_expiry_time: orderExpiryTime } = cfRes.data;
+    try {
+      const cfRes = await this.cashfree.PGCreateOrder(request);
+      console.log('Cashfree PGCreateOrder response:', cfRes);
+      const { payment_session_id: paymentSessionId, cf_order_id: cfOrderId, order_expiry_time: orderExpiryTime } = cfRes.data;
 
-    const order = await Order.create({
-      orderId,
-      userId,
-      bookingId: normalizedBookingId,
-      amount,
-      currency,
-      paymentSessionId,
-      gatewayResponse: cfRes.data,
-      expiresAt: orderExpiryTime ? new Date(orderExpiryTime) : new Date(Date.now() + 20 * 60 * 1000)
-    });
+      const order = await Order.create({
+        orderId,
+        userId,
+        bookingId: normalizedBookingId,
+        amount,
+        currency,
+        paymentSessionId,
+        gatewayResponse: cfRes.data,
+        expiresAt: orderExpiryTime ? new Date(orderExpiryTime) : new Date(Date.now() + 20 * 60 * 1000)
+      });
 
-    const payment = await Payment.create({
-      userId,
-      bookingId: normalizedBookingId,
-      orderId,
-      cashfreeOrderId: cfOrderId,
-      cfPaymentSessionId: paymentSessionId,
-      amount,
-      currency,
-      status: 'created',
-      coupon: tempBookingData?.coupon || null,
-      discountAmount: tempBookingData?.discountAmount || 0,
-      gatewayResponse: cfRes.data,
-      metadata: {
-        bookingDetails: booking
-          ? { services: booking.services, vehicle: booking.vehicle, date: booking.date }
-          : {},
-        tempBookingData
+      const payment = await Payment.create({
+        userId,
+        bookingId: normalizedBookingId,
+        orderId,
+        cashfreeOrderId: cfOrderId,
+        cfPaymentSessionId: paymentSessionId,
+        amount,
+        currency,
+        status: 'created',
+        coupon: tempBookingData?.coupon || null,
+        discountAmount: tempBookingData?.discountAmount || 0,
+        gatewayResponse: cfRes.data,
+        metadata: {
+          bookingDetails: booking
+            ? { services: booking.services, vehicle: booking.vehicle, date: booking.date }
+            : {},
+          tempBookingData
+        }
+      });
+
+      return {
+        orderId,
+        paymentSessionId,
+        amount,
+        currency,
+        paymentId: payment._id,
+        environment: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox'
+      };
+    } catch (error) {
+      console.error('Cashfree API Error:', error.response?.data || error.message);
+      
+      const err = error;
+      
+      // Handle specific Cashfree errors
+      if (err.response?.data?.message?.includes('product is not activated')) {
+        throw new Error('Payment gateway product not activated. Please check your Cashfree account setup or contact support.');
       }
-    });
-
-    return {
-      orderId,
-      paymentSessionId,
-      amount,
-      currency,
-      paymentId: payment._id,
-      environment: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox'
-    };
+      if (err.response?.data?.message?.includes('authentication')) {
+        throw new Error('Invalid Cashfree credentials. Please check your CASHFREE_APP_ID and CASHFREE_SECRET_KEY.');
+      }
+      
+      throw new Error(err.response?.data?.message || err.message || 'Failed to create payment order');
+    }
   }
 
   /**

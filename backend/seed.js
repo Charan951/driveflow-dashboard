@@ -114,7 +114,7 @@ const services = [
 const users = [
   {
     name: 'Admin User',
-    email: 'admin@gmail.com',
+    email: 'info@carzzi.com',
     password: 'admin@123',
     role: 'admin',
     isApproved: true,
@@ -122,7 +122,7 @@ const users = [
   },
   {
     name: 'Demo Merchant',
-    email: 'merchant@driveflow.com',
+    email: 'merchant@carzzi.com',
     password: 'merchantpassword123',
     role: 'merchant',
     isApproved: true,

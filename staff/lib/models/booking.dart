@@ -150,6 +150,7 @@ class BookingDetail {
   final UserSummary? user;
   final UserSummary? merchant;
   final String? inspectionCompletedAt;
+  final num? pickupDropPrice;
   final String? qcCompletedAt;
   final BatteryTireData? batteryTire;
   final CarWashData? carWash;
@@ -187,6 +188,7 @@ class BookingDetail {
     this.revisit,
     this.delay,
     this.notes,
+    this.pickupDropPrice,
   });
 
   static const statusLabels = {
@@ -259,6 +261,7 @@ class BookingDetail {
     RevisitData? revisit,
     DelayData? delay,
     String? notes,
+    num? pickupDropPrice,
   }) {
     return BookingDetail(
       id: id ?? this.id,
@@ -292,6 +295,7 @@ class BookingDetail {
       revisit: revisit ?? this.revisit,
       delay: delay ?? this.delay,
       notes: notes ?? this.notes,
+      pickupDropPrice: pickupDropPrice ?? this.pickupDropPrice,
     );
   }
 
@@ -445,6 +449,9 @@ class BookingDetail {
           ? DelayData.fromJson(Map<String, dynamic>.from(getField('delay')))
           : null,
       notes: getField('notes')?.toString(),
+      pickupDropPrice: getField('pickupDropPrice') is num
+          ? getField('pickupDropPrice') as num
+          : null,
     );
   }
 }
