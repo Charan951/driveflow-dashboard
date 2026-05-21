@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import legacy from '@vitejs/plugin-legacy';
 import compression from 'vite-plugin-compression';
 import path from "path";
 import { fileURLToPath } from "url";
@@ -46,10 +45,14 @@ export default defineConfig(({ mode }) => {
       isProduction && compression({
         algorithm: 'gzip',
         ext: '.gz',
+        threshold: 10240,
+        deleteOriginFile: false,
       }),
       isProduction && compression({
         algorithm: 'brotliCompress',
         ext: '.br',
+        threshold: 10240,
+        deleteOriginFile: false,
       }),
     ].filter(Boolean),
     build: {
@@ -58,12 +61,13 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       cssCodeSplit: true,
       minify: 'esbuild',
-      chunkSizeWarningLimit: 500,
+      chunkSizeWarningLimit: 1000,
       target: 'es2020',
       modulePreload: {
         polyfill: false,
       },
       reportCompressedSize: true,
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
@@ -101,14 +105,8 @@ export default defineConfig(({ mode }) => {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
-          hoistTransitiveImports: false,
+          hoistTransitiveImports: true,
           preserveModules: false,
-        },
-        treeshake: {
-          moduleSideEffects: false,
-          propertyReadSideEffects: false,
-          tryCatchDeoptimization: false,
-          unknownGlobalSideEffects: false,
         },
       },
     },
