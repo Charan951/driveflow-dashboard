@@ -134,22 +134,19 @@ const MerchantProfilePage = lazyRetry(() => import("./pages/merchant/MerchantPro
 const DashboardDispatcher = lazyRetry(() => import("./pages/common/DashboardDispatcher"));
 const NotFound = lazyRetry(() => import("./pages/public/NotFound"));
 
-const queryClient = new QueryClient();
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        <SocketNotificationListener />
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+  <TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <SocketNotificationListener />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
           {/* Public Routes with Layout */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />
@@ -267,7 +264,6 @@ const App = () => (
         </Suspense>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
 );
 
 export default App;
