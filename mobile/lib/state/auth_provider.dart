@@ -227,6 +227,26 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final res = await _auth.prepareLogin(email: email, password: password);
+
+      if (res['skipOtp'] == true) {
+        final token = (res['accessToken'] ?? res['token'])?.toString();
+        final user = _userFromAuthResponse(res);
+
+        if (token != null && token.isNotEmpty) {
+          await AppStorage().setToken(token);
+        }
+        if (user != null) {
+          await AppStorage().setUserJson(jsonEncode(user.toJson()));
+        }
+
+        final authResult = AuthResult(token: token, user: user);
+        await _completeLoginSession(authResult);
+
+        loading = false;
+        notifyListeners();
+        return null;
+      }
+
       loading = false;
       notifyListeners();
       return (res['mobile'] as String?) ?? '';
@@ -236,6 +256,21 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+  }
+
+  User? _userFromAuthResponse(Map<String, dynamic> res) {
+    final userCandidate = res['user'];
+    if (userCandidate is Map<String, dynamic>) {
+      return User.fromJson(userCandidate);
+    }
+    if (userCandidate is Map) {
+      return User.fromJson(Map<String, dynamic>.from(userCandidate));
+    }
+
+    if (res['_id'] != null || res['id'] != null) {
+      return User.fromJson(res);
+    }
+    return null;
   }
 
   Future<String?> sendLoginOtp(String email) async {

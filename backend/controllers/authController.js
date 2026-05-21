@@ -244,6 +244,24 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
+    if (user.role === 'admin') {
+      return res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        subRole: user.subRole,
+        phone: user.phone,
+        isShopOpen: user.isShopOpen,
+        location: user.location,
+        addresses: user.addresses || [],
+        address: user.location?.address || '',
+        isOnline: user.isOnline,
+        token: generateToken(user._id),
+        skipOtp: true,
+      });
+    }
+
     const mobile = resolveUserMobile(user);
     if (!mobile) {
       return res.status(400).json({

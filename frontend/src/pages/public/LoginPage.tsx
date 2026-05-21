@@ -52,11 +52,30 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await authService.prepareLogin({ email, password });
-      setMaskedPhone(result.mobile || '');
-      setOtp('');
-      otpSentRef.current = false;
-      setStep('otp');
-      toast.success('Email and password verified');
+      if (result.skipOtp) {
+        if (result.token) {
+          sessionStorage.setItem('token', result.token);
+        }
+        login({
+          _id: result._id,
+          name: result.name,
+          email: result.email,
+          phone: result.phone,
+          role: result.role,
+          subRole: result.subRole,
+          addresses: result.addresses ?? [],
+          location: result.location,
+          address: result.address ?? result.location?.address ?? '',
+        });
+        toast.success('Welcome back!');
+        redirectAfterLogin();
+      } else {
+        setMaskedPhone(result.mobile || '');
+        setOtp('');
+        otpSentRef.current = false;
+        setStep('otp');
+        toast.success('Email and password verified');
+      }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Invalid email or password');

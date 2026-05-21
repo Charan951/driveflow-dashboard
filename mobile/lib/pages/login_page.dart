@@ -96,7 +96,13 @@ class _LoginPageState extends State<LoginPage>
       if (!mounted) return;
 
       if (masked == null) {
-        setState(() => _error = auth.lastError ?? 'Invalid email or password');
+        if (auth.lastError != null) {
+          setState(
+            () => _error = auth.lastError ?? 'Invalid email or password',
+          );
+        } else {
+          Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+        }
         return;
       }
 
@@ -462,7 +468,9 @@ class _LoginPageState extends State<LoginPage>
                                                   ),
                                             )
                                           : Text(
-                                              _showOtpStep ? 'Verify' : 'Continue',
+                                              _showOtpStep
+                                                  ? 'Verify'
+                                                  : 'Continue',
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
