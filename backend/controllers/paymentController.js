@@ -4,7 +4,6 @@ import Payment from '../models/Payment.js';
 import crypto from 'crypto';
 import { emitBookingUpdate } from './bookingController.js';
 import { emitEntitySync } from '../utils/syncService.js';
-import { sendPushToUser } from '../utils/pushService.js';
 import paymentService from '../services/paymentService.js';
 import { logAudit } from './auditController.js';
 

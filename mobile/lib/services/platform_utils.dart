@@ -29,6 +29,26 @@ class PlatformUtils {
             showBadge: false,
           );
 
+      const AndroidNotificationChannel merchantApprovalChannel =
+          AndroidNotificationChannel(
+            'merchant_approval_channel',
+            'Merchant Approvals',
+            description:
+                'Part and cost approvals from your merchant with quick actions.',
+            importance: Importance.max,
+            playSound: true,
+          );
+
+      const AndroidNotificationChannel paymentPendingChannel =
+          AndroidNotificationChannel(
+            'payment_pending_channel',
+            'Payment due',
+            description:
+                'Alerts when service is complete and payment is pending.',
+            importance: Importance.max,
+            playSound: true,
+          );
+
       final plugin = localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -37,6 +57,8 @@ class PlatformUtils {
       if (plugin != null) {
         await plugin.createNotificationChannel(highImportanceChannel);
         await plugin.createNotificationChannel(trackingChannel);
+        await plugin.createNotificationChannel(merchantApprovalChannel);
+        await plugin.createNotificationChannel(paymentPendingChannel);
       }
     }
   }

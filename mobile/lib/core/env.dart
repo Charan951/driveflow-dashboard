@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;  
+  static const bool useProduction = false;  
    // MUST stay false for testing with rzp_test keys
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5001';
-    return 'http://localhost:5000';
+    return 'http://localhost:5001';
   }
 
   static String get productionBaseUrl {
@@ -30,7 +30,13 @@ class Env {
 
 class ApiEndpoints {
   static const String authRegister = '/auth/register';
+  static const String authSignupPrepare = '/auth/signup/prepare';
+  static const String authSignupSendOtp = '/auth/signup/send-otp';
+  static const String authSignupVerifyOtp = '/auth/signup/verify-otp';
   static const String authLogin = '/auth/login';
+  static const String authLoginPrepare = '/auth/login/prepare';
+  static const String authLoginSendOtp = '/auth/login/send-otp';
+  static const String authLoginVerifyOtp = '/auth/login/verify-otp';
   static const String usersMe = '/users/me';
   static const String usersProfile = '/users/profile';
   static const String notificationsRegisterToken = '/users/device-token';

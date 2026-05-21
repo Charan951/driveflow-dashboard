@@ -139,27 +139,51 @@ export const createApproval = async (req, res) => {
         const populatedChatMessage = await chatMessage.populate('sender', '_id name role');
         emitChatMessage(relatedId, populatedChatMessage);
 
-        // Send push notification
-        const orderNum = booking.orderNumber || relatedId.toString().slice(-6).toUpperCase();
-        let message = 'New approval request received.';
+        // Mobile push — merchant approval with part/cost details + tray actions
+        const orderNum =
+          booking.orderNumber || relatedId.toString().slice(-6).toUpperCase();
+        const qty = Number(data?.quantity || 1);
+        const unitPrice = Number(
+          data?.price ?? data?.amount ?? data?.newAmount ?? 0
+        );
+        const totalAmount =
+          type === 'BillEdit'
+            ? Number(data?.newAmount ?? unitPrice)
+            : type === 'ExtraCost'
+              ? unitPrice
+              : unitPrice * qty;
+        const partName =
+          data?.name || (type === 'ExtraCost' ? 'Extra cost' : 'Additional part');
+        const imagePath = data?.image ? String(data.image) : '';
+        const imageNote = imagePath ? ' Photo attached — view in app.' : '';
+
+        let pushBody = `Booking #${orderNum}: approval requested.`;
         if (type === 'PartReplacement') {
-          message = `New part approval requested for Order #${orderNum}: ${data.name}`;
+          pushBody = `Booking #${orderNum}: ${partName} · Qty ${qty} · ₹${totalAmount.toLocaleString('en-IN')} total.${imageNote} Tap Accept or Reject.`;
         } else if (type === 'ExtraCost') {
-          message = `Extra cost approval requested for Order #${orderNum}: ₹${data.amount}`;
+          const reason = data?.reason ? ` (${data.reason})` : '';
+          pushBody = `Booking #${orderNum}: extra cost ₹${totalAmount.toLocaleString('en-IN')}${reason}.${imageNote} Tap Accept or Reject.`;
+        } else if (type === 'BillEdit') {
+          pushBody = `Booking #${orderNum}: bill update to ₹${totalAmount.toLocaleString('en-IN')}.${imageNote} Tap Accept or Reject.`;
         }
 
         await sendPushToUser(
           userId,
-          'Approval Required',
-          message,
-          { 
-            type: 'approval_request', 
+          'Merchant Approvals',
+          pushBody,
+          {
+            type: 'merchant_approval',
             bookingId: relatedId.toString(),
             approvalId: createdApproval._id.toString(),
-            title: 'Approval Required',
-            body: message
+            approvalType: type,
+            partName,
+            quantity: String(qty),
+            unitPrice: String(unitPrice),
+            totalAmount: String(totalAmount),
+            image: imagePath,
           },
-          'order'
+          'order',
+          { dataOnly: true }
         );
         
         // Global Real-time Sync

@@ -1,9 +1,188 @@
 import User from '../models/User.js';
+import PendingSignup from '../models/PendingSignup.js';
+import PendingLogin from '../models/PendingLogin.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendEmail } from '../utils/emailService.js';
 import admin from '../config/firebase.js';
 import generateToken from '../utils/generateToken.js';
+import {
+  normalizeIndianMobile,
+  sendAuthOtp as msg91SendAuthOtp,
+  verifySignupOtp as msg91VerifySignupOtp,
+} from '../utils/msg91Service.js';
+
+const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
+
+const formatChannelLabel = (channels = ['whatsapp']) => {
+  if (channels.includes('whatsapp') && channels.includes('sms')) return 'WhatsApp and SMS';
+  if (channels.includes('sms')) return 'SMS';
+  return 'WhatsApp';
+};
+
+const resolveUserMobile = (user) => {
+  const raw = user?.phone;
+  if (!raw) return null;
+  return normalizeIndianMobile(raw);
+};
+
+/** Step 1 — validate signup fields, store pending session (no OTP yet). */
+export const prepareSignup = async (req, res) => {
+  const { name, email, password, phone } = req.body;
+
+  try {
+    if (!name?.trim() || !email?.trim() || !password || !phone?.trim()) {
+      return res.status(400).json({ message: 'Name, email, password, and phone are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const mobile = normalizeIndianMobile(phone);
+
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const phoneTaken = await User.findOne({
+      $or: [{ phone }, { phone: mobile }, { phone: mobile.slice(2) }],
+    });
+    if (phoneTaken) {
+      return res.status(400).json({ message: 'Phone number is already registered' });
+    }
+
+    const expiresAt = new Date(Date.now() + OTP_PENDING_TTL_MS);
+    await PendingSignup.findOneAndUpdate(
+      { mobile },
+      {
+        mobile,
+        name: name.trim(),
+        email: normalizedEmail,
+        password,
+        expiresAt,
+        otpHash: null,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      message: 'Details verified. Continue to OTP verification.',
+      mobile: `******${mobile.slice(-4)}`,
+      verified: true,
+    });
+  } catch (error) {
+    console.error('prepareSignup error:', error.message);
+    res.status(500).json({ message: error.message || 'Could not verify signup details' });
+  }
+};
+
+/** Step 2 — send WhatsApp OTP (template: user_authentication). */
+export const sendSignupOtp = async (req, res) => {
+  const { phone } = req.body;
+
+  try {
+    if (!phone?.trim()) {
+      return res.status(400).json({ message: 'Phone is required' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const pending = await PendingSignup.findOne({ mobile });
+    if (!pending) {
+      return res.status(400).json({ message: 'Please complete signup details first' });
+    }
+
+    if (pending.expiresAt < new Date()) {
+      await PendingSignup.deleteOne({ mobile });
+      return res.status(400).json({ message: 'Session expired. Please start signup again.' });
+    }
+
+    const sendResult = await msg91SendAuthOtp(mobile);
+    pending.otpHash = sendResult.otpHash || null;
+    await pending.save();
+
+    const channels = sendResult.channels || ['whatsapp'];
+    res.json({
+      message: `OTP sent to your ${formatChannelLabel(channels)}`,
+      mobile: `******${mobile.slice(-4)}`,
+      channels,
+    });
+  } catch (error) {
+    console.error('sendSignupOtp error:', error.message);
+    res.status(500).json({
+      message: error.message || 'Failed to send OTP. Please try again.',
+    });
+  }
+};
+
+export const verifySignupOtp = async (req, res) => {
+  const { phone, otp } = req.body;
+
+  try {
+    if (!phone?.trim() || !otp) {
+      return res.status(400).json({ message: 'Phone and OTP are required' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const pending = await PendingSignup.findOne({ mobile });
+    if (!pending) {
+      return res.status(400).json({ message: 'No signup in progress. Please request a new OTP.' });
+    }
+
+    if (pending.expiresAt < new Date()) {
+      await PendingSignup.deleteOne({ mobile });
+      return res.status(400).json({ message: 'OTP session expired. Please request a new OTP.' });
+    }
+
+    await msg91VerifySignupOtp(mobile, otp, pending);
+
+    const userExists = await User.findOne({ email: pending.email });
+    if (userExists) {
+      await PendingSignup.deleteOne({ mobile });
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const user = await User.create({
+      name: pending.name,
+      email: pending.email,
+      password: pending.password,
+      role: 'customer',
+      phone: mobile.slice(2),
+      isApproved: true,
+    });
+
+    await PendingSignup.deleteOne({ mobile });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      subRole: user.subRole,
+      phone: user.phone,
+      addresses: user.addresses || [],
+      location: user.location,
+      address: user.location?.address || '',
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error('verifySignupOtp error:', error.message);
+    const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
+    res.status(status).json({
+      message: error.message || 'OTP verification failed',
+    });
+  }
+};
 
 export const registerUser = async (req, res) => {
   const { name, email, password, role, phone } = req.body;
@@ -45,6 +224,146 @@ export const registerUser = async (req, res) => {
   }
 };
 
+/** Step 1 — verify email/password, prepare OTP session (no OTP yet). */
+export const prepareLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    if (!email?.trim() || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    if (!user.isApproved) {
+      return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
+    }
+
+    const mobile = resolveUserMobile(user);
+    if (!mobile) {
+      return res.status(400).json({
+        message: 'No WhatsApp number on your account. Contact support or update your profile phone number.',
+      });
+    }
+
+    const expiresAt = new Date(Date.now() + OTP_PENDING_TTL_MS);
+    await PendingLogin.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        email: normalizedEmail,
+        userId: user._id,
+        mobile,
+        expiresAt,
+        otpHash: null,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      message: 'Credentials verified. Continue to OTP verification.',
+      mobile: `******${mobile.slice(-4)}`,
+      verified: true,
+    });
+  } catch (error) {
+    console.error('prepareLogin error:', error.message);
+    res.status(500).json({ message: error.message || 'Could not verify login' });
+  }
+};
+
+/** Step 2 — send login OTP via WhatsApp (user_authentication template). */
+export const sendLoginOtp = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    if (!email?.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const pending = await PendingLogin.findOne({ email: normalizedEmail });
+
+    if (!pending) {
+      return res.status(400).json({ message: 'Please sign in with email and password first' });
+    }
+
+    if (pending.expiresAt < new Date()) {
+      await PendingLogin.deleteOne({ email: normalizedEmail });
+      return res.status(400).json({ message: 'Session expired. Please sign in again.' });
+    }
+
+    const sendResult = await msg91SendAuthOtp(pending.mobile);
+    pending.otpHash = sendResult.otpHash || null;
+    await pending.save();
+
+    const channels = sendResult.channels || ['whatsapp'];
+    res.json({
+      message: `OTP sent to your ${formatChannelLabel(channels)}`,
+      mobile: `******${pending.mobile.slice(-4)}`,
+      channels,
+    });
+  } catch (error) {
+    console.error('sendLoginOtp error:', error.message);
+    res.status(500).json({ message: error.message || 'Failed to send OTP' });
+  }
+};
+
+/** Step 3 — verify OTP and issue session token. */
+export const verifyLoginOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    if (!email?.trim() || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const pending = await PendingLogin.findOne({ email: normalizedEmail });
+
+    if (!pending) {
+      return res.status(400).json({ message: 'Please sign in with email and password first' });
+    }
+
+    if (pending.expiresAt < new Date()) {
+      await PendingLogin.deleteOne({ email: normalizedEmail });
+      return res.status(400).json({ message: 'OTP session expired. Please sign in again.' });
+    }
+
+    await msg91VerifySignupOtp(pending.mobile, otp, pending);
+
+    const user = await User.findById(pending.userId);
+    if (!user) {
+      await PendingLogin.deleteOne({ email: normalizedEmail });
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    await PendingLogin.deleteOne({ email: normalizedEmail });
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      subRole: user.subRole,
+      phone: user.phone,
+      isShopOpen: user.isShopOpen,
+      location: user.location,
+      addresses: user.addresses || [],
+      address: user.location?.address || '',
+      isOnline: user.isOnline,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error('verifyLoginOtp error:', error.message);
+    const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
+    res.status(status).json({ message: error.message || 'OTP verification failed' });
+  }
+};
+
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
   const normalizedEmail = email.toLowerCase();
@@ -80,7 +399,7 @@ export const loginUser = async (req, res) => {
 };
 
 export const googleLogin = async (req, res) => {
-  const { idToken } = req.body;
+  const { idToken, signupIfMissing } = req.body;
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -90,11 +409,20 @@ export const googleLogin = async (req, res) => {
     let user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      // Create new user if they don't exist
+      if (signupIfMissing) {
+        return res.status(404).json({
+          code: 'GOOGLE_ACCOUNT_NOT_FOUND',
+          message: 'No account found for this Google email. Please sign up.',
+          email: normalizedEmail,
+          name: name || '',
+          avatar: picture || '',
+        });
+      }
+
       user = await User.create({
         name,
         email: normalizedEmail,
-        password: crypto.randomBytes(16).toString('hex'), // Random password for social login
+        password: crypto.randomBytes(16).toString('hex'),
         role: 'customer',
         isApproved: true,
         avatar: picture,

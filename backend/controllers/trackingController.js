@@ -6,8 +6,13 @@ import { getIO } from '../socket.js';
 import { sendPushToUser } from '../utils/pushService.js';
 import { trySendLiveTrackingPush } from '../utils/liveTrackingPush.js';
 
-// In-memory throttle to avoid spamming "nearby" notifications
-const lastNearNotifyAt = new Map(); // bookingId -> timestamp(ms)
+// In-memory throttle to avoid spamming staff-reached notifications
+const lastStaffReachedNotifyAt = new Map(); // bookingId -> timestamp(ms)
+
+const STAFF_REACHED_RADIUS_M = 100;
+const STAFF_REACHED_THROTTLE_MS = 10 * 60 * 1000; // once per booking per 10 min
+/** Staff en route to customer to pick up the vehicle */
+const PICKUP_APPROACH_STATUSES = ['ASSIGNED', 'ACCEPTED', 'PICKUP_BATTERY_TIRE'];
 
 const haversineMeters = (lat1, lon1, lat2, lon2) => {
   const toRad = (v) => (v * Math.PI) / 180;
@@ -194,28 +199,60 @@ export const updateUserLocation = async (req, res) => {
           });
 
           try {
-            // Near-arrival detection and notification (300m) for pickup phases
+            // Staff reached location (~100m) while approaching customer for vehicle pickup
             const booking = await Booking.findById(bookingId)
-              .select('user location status pickupDriver technician carWash')
+              .select('user location status pickupDriver technician carWash orderNumber')
               .populate('user', '_id');
             const bLoc = booking?.location;
             const bLat = typeof bLoc === 'object' ? bLoc?.lat : null;
             const bLng = typeof bLoc === 'object' ? bLoc?.lng : null;
-            if (booking && bLat && bLng) {
-              const d = haversineMeters(lat ?? user.location?.lat, lng ?? user.location?.lng, bLat, bLng);
-              const allowedStatuses = ['ASSIGNED','ACCEPTED','REACHED_CUSTOMER'];
-              const throttleMs = 10 * 60 * 1000; // 10 minutes
-              const lastSent = lastNearNotifyAt.get(String(bookingId)) || 0;
-              if (d <= 300 && allowedStatuses.includes(booking.status || '') && Date.now() - lastSent > throttleMs) {
+            if (booking && bLat && bLng && isLatValid && isLngValid) {
+              const staffLat = lat ?? user.location?.lat;
+              const staffLng = lng ?? user.location?.lng;
+              const d = haversineMeters(staffLat, staffLng, bLat, bLng);
+              const status = (booking.status || '').toUpperCase();
+              const sid = String(req.user._id);
+              const isAssignedStaff =
+                (booking.pickupDriver && String(booking.pickupDriver) === sid) ||
+                (booking.technician && String(booking.technician) === sid) ||
+                (booking.carWash?.staffAssigned &&
+                  String(booking.carWash.staffAssigned) === sid);
+              const lastSent =
+                lastStaffReachedNotifyAt.get(String(bookingId)) || 0;
+              if (
+                isAssignedStaff &&
+                PICKUP_APPROACH_STATUSES.includes(status) &&
+                d <= STAFF_REACHED_RADIUS_M &&
+                Date.now() - lastSent > STAFF_REACHED_THROTTLE_MS
+              ) {
+                const distanceM = Math.round(d);
                 io.to(`booking_${bookingId}`).emit('nearbyStaff', {
                   bookingId: String(bookingId),
-                  distanceMeters: Math.round(d),
-                  timestamp: new Date().toISOString()
+                  distanceMeters: distanceM,
+                  timestamp: new Date().toISOString(),
                 });
                 if (booking.user?._id) {
-                  await sendPushToUser(booking.user._id, 'Staff is near your location', 'Our staff is within 300 meters of your address.', { type: 'nearby', bookingId: String(bookingId), distance: Math.round(d) });
+                  const orderRef =
+                    booking.orderNumber ||
+                    String(bookingId).slice(-6).toUpperCase();
+                  const pushBody =
+                    distanceM < 30
+                      ? `Your assigned staff has arrived near your location to pick up your vehicle (booking #${orderRef}). Please keep your vehicle ready for handover.`
+                      : `Your assigned staff is about ${distanceM} m away and will arrive shortly to pick up your vehicle (booking #${orderRef}). Please keep your vehicle ready.`;
+                  await sendPushToUser(
+                    booking.user._id,
+                    'Staff reached location',
+                    pushBody,
+                    {
+                      type: 'staff_reached_location',
+                      bookingId: String(bookingId),
+                      distanceMeters: String(distanceM),
+                      phase: 'pickup',
+                    },
+                    'staff_reached_location'
+                  );
                 }
-                lastNearNotifyAt.set(String(bookingId), Date.now());
+                lastStaffReachedNotifyAt.set(String(bookingId), Date.now());
               }
             }
 

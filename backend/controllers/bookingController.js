@@ -20,6 +20,32 @@ import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDispl
 const SLOT_INTERVAL_MINUTES = 30;
 const SLOT_START_HOUR = 8;
 const SLOT_END_HOUR = 19;
+
+/** Customer mobile push when vehicle is out for delivery with PIN. */
+const sendCustomerDeliveryOtpPush = async (booking, code) => {
+  const userRef = booking?.user;
+  const userId =
+    userRef && typeof userRef === 'object' && userRef._id
+      ? userRef._id
+      : userRef;
+  if (!userId || !code) return;
+
+  const orderRef =
+    booking.orderNumber || String(booking._id).slice(-6).toUpperCase();
+
+  await sendPushToUser(
+    userId,
+    'Delivery OTP',
+    `Your vehicle is on the way for booking #${orderRef}. Share delivery PIN ${code} with your delivery partner when they arrive. PIN expires in 20 minutes.`,
+    {
+      type: 'delivery_otp',
+      status: 'OUT_FOR_DELIVERY',
+      bookingId: String(booking._id),
+      deliveryOtp: String(code),
+    },
+    'delivery_otp'
+  );
+};
 const BLOCKING_STATUSES = {
   $nin: ['DELIVERED', 'COMPLETED', 'CANCELLED'],
 };
@@ -1445,7 +1471,6 @@ export const updateBookingStatus = async (req, res) => {
             `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
           ).catch(() => {});
         }
-        void sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
       }
 
       if (canonTo === 'DELIVERED') {
@@ -1551,7 +1576,87 @@ export const updateBookingStatus = async (req, res) => {
           `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
         ).catch(() => {});
       }
-      sendPushToUser(updatedBooking.user?._id, 'Booking Update', `Your booking status is now: ${canonTo}`, { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) }).catch(() => {});
+      const paymentStatus = (updatedBooking.paymentStatus || '').toLowerCase();
+      const isAlreadyPaid =
+        paymentStatus === 'paid' || paymentStatus === 'success';
+
+      if (
+        canonTo === 'SERVICE_COMPLETED' &&
+        req.user.role === 'merchant' &&
+        updatedBooking.user?._id &&
+        !isAlreadyPaid
+      ) {
+        const orderRef =
+          updatedBooking.orderNumber ||
+          String(updatedBooking._id).slice(-6).toUpperCase();
+        const amountDue =
+          updatedBooking.finalAmount ?? updatedBooking.totalAmount ?? 0;
+        const amountText = Number(amountDue).toLocaleString('en-IN');
+        void sendPushToUser(
+          updatedBooking.user._id,
+          'Service complete — payment due',
+          `Your service for booking #${orderRef} is complete. Amount due: ₹${amountText}. Tap Pay to complete payment in the Carzzi app.`,
+          {
+            type: 'service_completed_payment_pending',
+            status: 'SERVICE_COMPLETED',
+            bookingId: String(updatedBooking._id),
+            amountDue: String(amountDue),
+          },
+          'service_completed_payment_pending',
+          { dataOnly: true }
+        ).catch(() => {});
+      } else if (
+        canonTo === 'SERVICE_STARTED' &&
+        req.user.role === 'merchant' &&
+        updatedBooking.user?._id
+      ) {
+        const orderRef =
+          updatedBooking.orderNumber ||
+          String(updatedBooking._id).slice(-6).toUpperCase();
+        void sendPushToUser(
+          updatedBooking.user._id,
+          'Service Started',
+          `Your vehicle service has started for booking #${orderRef}. Our workshop team is now working on your car — track progress in the Carzzi app.`,
+          {
+            type: 'service_started',
+            status: 'SERVICE_STARTED',
+            bookingId: String(updatedBooking._id),
+          },
+          'service_started'
+        ).catch(() => {});
+      } else if (
+        canonTo === 'OUT_FOR_DELIVERY' &&
+        updatedBooking.user?._id
+      ) {
+        const deliveryPin = updatedBooking.deliveryOtp?.code || '';
+        if (deliveryPin) {
+          void sendCustomerDeliveryOtpPush(updatedBooking, deliveryPin).catch(
+            () => {}
+          );
+        }
+      } else if (canonTo === 'DELIVERED' && updatedBooking.user?._id) {
+        const orderRef =
+          updatedBooking.orderNumber ||
+          String(updatedBooking._id).slice(-6).toUpperCase();
+        void sendPushToUser(
+          updatedBooking.user._id,
+          'Feedback',
+          `Your vehicle has been delivered for booking #${orderRef}. We hope everything went well — open the Carzzi app to share your feedback and rate your experience.`,
+          {
+            type: 'feedback',
+            status: 'DELIVERED',
+            bookingId: String(updatedBooking._id),
+          },
+          'feedback'
+        ).catch(() => {});
+      } else {
+        sendPushToUser(
+          updatedBooking.user?._id,
+          'Booking Update',
+          `Your booking status is now: ${canonTo}`,
+          { type: 'status', status: canonTo, bookingId: String(updatedBooking._id) }
+        ).catch(() => {});
+      }
 
       res.json(updatedBooking);
     } else {
@@ -1607,8 +1712,8 @@ export const generateDeliveryOtp = async (req, res) => {
         `Your OTP for vehicle delivery is ${code}. It expires in 20 minutes.`
       ).catch(() => {});
     }
-    void sendPushToUser(booking.user?._id, 'Delivery OTP', 'Use the OTP to confirm delivery', { type: 'otp', bookingId: String(booking._id) }).catch(() => {});
-    
+    void sendCustomerDeliveryOtpPush(booking, code).catch(() => {});
+
     // Emit socket update so customer sees the OTP immediately
     const populated = await Booking.findById(booking._id)
       .populate('user', 'id name email phone')

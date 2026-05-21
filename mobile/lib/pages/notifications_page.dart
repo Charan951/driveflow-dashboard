@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
+import '../core/env.dart';
 import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 
@@ -180,7 +181,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   bool _isApprovalRequest(NotificationItem item) {
     final type = (item.dataType ?? item.type).toLowerCase();
-    return type == 'approval_request' || type == 'approval';
+    return type == 'approval_request' ||
+        type == 'approval' ||
+        type == 'merchant_approval';
+  }
+
+  String? _resolveApprovalImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return null;
+    final value = imagePath.trim();
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    if (value.startsWith('/uploads/')) return '${Env.baseUrl}$value';
+    if (value.startsWith('uploads/')) return '${Env.baseUrl}/$value';
+    return '${Env.baseUrl}/uploads/$value';
   }
 
   Future<void> _handleApprovalAction(
@@ -467,7 +481,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   const SizedBox(height: 6),
                                   Text(
                                     item.message,
-                                    maxLines: 3,
+                                    maxLines: 4,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context)
                                         .textTheme
@@ -478,6 +492,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                               : AppColors.textSecondary,
                                         ),
                                   ),
+                                  if (_isApprovalRequest(item) &&
+                                      item.partName != null &&
+                                      item.partName!.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Part: ${item.partName}',
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    if (item.quantity != null)
+                                      Text(
+                                        'Qty: ${item.quantity}'
+                                        '${item.unitPrice != null ? ' · ₹${item.unitPrice!.toStringAsFixed(0)} each' : ''}'
+                                        '${item.totalAmount != null ? ' · Total: ₹${item.totalAmount!.toStringAsFixed(0)}' : ''}',
+                                        style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                  ],
+                                  if (_isApprovalRequest(item)) ...[
+                                    Builder(
+                                      builder: (context) {
+                                        final imageUrl = _resolveApprovalImageUrl(
+                                          item.approvalImage,
+                                        );
+                                        if (imageUrl == null) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 10),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Image.network(
+                                              imageUrl,
+                                              height: 120,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const SizedBox.shrink(),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                   if (_isApprovalRequest(item) &&
                                       item.approvalId != null &&
                                       item.approvalId!.isNotEmpty &&
@@ -538,7 +601,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                                           color: Colors.white,
                                                         ),
                                                   )
-                                                : const Text('Approve'),
+                                                : const Text('Accept'),
                                           ),
                                         ),
                                       ],

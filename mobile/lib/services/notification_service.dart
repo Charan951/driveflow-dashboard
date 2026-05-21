@@ -39,6 +39,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     return;
   }
 
+  if (NotificationService.isMerchantApprovalPayload(data)) {
+    await NotificationService.presentMerchantApprovalNotification(data, local);
+    return;
+  }
+
+  if (NotificationService.isPaymentPendingPayload(data)) {
+    await NotificationService.presentPaymentPendingNotification(data, local);
+    return;
+  }
+
   // Collapse live ETA when the booking reaches a terminal leg (system will also show FCM banner).
   if (message.notification != null) {
     if (type == 'status') {
@@ -139,6 +149,11 @@ class NotificationItem {
   final DateTime createdAt;
   final String? bookingId;
   final String? approvalId;
+  final String? partName;
+  final int? quantity;
+  final double? unitPrice;
+  final double? totalAmount;
+  final String? approvalImage;
 
   NotificationItem({
     required this.id,
@@ -150,6 +165,11 @@ class NotificationItem {
     required this.createdAt,
     this.bookingId,
     this.approvalId,
+    this.partName,
+    this.quantity,
+    this.unitPrice,
+    this.totalAmount,
+    this.approvalImage,
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
@@ -180,7 +200,25 @@ class NotificationItem {
       if (dataApprovalId != null && dataApprovalId.isNotEmpty) {
         extractedApprovalId = dataApprovalId;
       }
-    } else {
+    }
+
+    double? parseAmount(dynamic v) {
+      if (v == null) return null;
+      return double.tryParse(v.toString());
+    }
+
+    int? parseQty(dynamic v) {
+      if (v == null) return null;
+      return int.tryParse(v.toString());
+    }
+
+    final partName = data?['partName']?.toString();
+    final quantity = parseQty(data?['quantity']);
+    final unitPrice = parseAmount(data?['unitPrice']);
+    final totalAmount = parseAmount(data?['totalAmount']);
+    final approvalImage = data?['image']?.toString();
+
+    if (extractedBookingId == null) {
       final booking = json['booking'];
       if (booking is String && booking.isNotEmpty) {
         extractedBookingId = booking;
@@ -215,6 +253,11 @@ class NotificationItem {
           DateTime.now(),
       bookingId: extractedBookingId,
       approvalId: extractedApprovalId,
+      partName: partName,
+      quantity: quantity,
+      unitPrice: unitPrice,
+      totalAmount: totalAmount,
+      approvalImage: approvalImage,
     );
   }
 }
@@ -280,6 +323,144 @@ class NotificationService {
     if (bookingId.isEmpty) return 9100001;
     final h = bookingId.hashCode & 0x7fffffff;
     return h == 0 ? 9100001 : h;
+  }
+
+  static bool isMerchantApprovalPayload(Map<String, dynamic> data) {
+    final type = data['type']?.toString();
+    final approvalId = data['approvalId']?.toString() ?? '';
+    return approvalId.isNotEmpty &&
+        (type == 'merchant_approval' ||
+            type == 'approval_request' ||
+            type == 'approval');
+  }
+
+  static int merchantApprovalNotificationId(String approvalId) {
+    if (approvalId.isEmpty) return 9100002;
+    final h = Object.hash('merchantApproval', approvalId) & 0x0fffffff;
+    return 1300000000 + h;
+  }
+
+  static Future<void> presentMerchantApprovalNotification(
+    Map<String, dynamic> data,
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    if (kIsWeb) return;
+    await PlatformUtils.createAndroidNotificationChannels(plugin);
+
+    final approvalId = data['approvalId']?.toString() ?? '';
+    final title = normalizeNotificationTitle(
+      data['title']?.toString() ?? 'Merchant Approvals',
+    );
+    final body =
+        data['body']?.toString() ??
+        'New approval request from your merchant.';
+
+    const androidDetails = AndroidNotificationDetails(
+      'merchant_approval_channel',
+      'Merchant Approvals',
+      channelDescription:
+          'Part and cost approvals from your merchant with quick actions.',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      visibility: NotificationVisibility.public,
+      category: AndroidNotificationCategory.message,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'approval_reject',
+          'Reject',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+        AndroidNotificationAction(
+          'approval_accept',
+          'Accept',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      categoryIdentifier: 'merchant_approval',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    await plugin.show(
+      merchantApprovalNotificationId(approvalId),
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      payload: jsonEncode(data),
+    );
+  }
+
+  static bool isPaymentPendingPayload(Map<String, dynamic> data) {
+    final type = data['type']?.toString();
+    final bookingId = data['bookingId']?.toString() ?? '';
+    return bookingId.isNotEmpty &&
+        type == 'service_completed_payment_pending';
+  }
+
+  static int paymentPendingNotificationId(String bookingId) {
+    if (bookingId.isEmpty) return 9100003;
+    final h = Object.hash('paymentPending', bookingId) & 0x0fffffff;
+    return 1400000000 + h;
+  }
+
+  static Future<void> presentPaymentPendingNotification(
+    Map<String, dynamic> data,
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    if (kIsWeb) return;
+    await PlatformUtils.createAndroidNotificationChannels(plugin);
+
+    final bookingId = data['bookingId']?.toString() ?? '';
+    final title = normalizeNotificationTitle(
+      data['title']?.toString() ?? 'Service complete — payment due',
+    );
+    final body =
+        data['body']?.toString() ??
+        'Your service is complete. Tap Pay to complete payment.';
+
+    const androidDetails = AndroidNotificationDetails(
+      'payment_pending_channel',
+      'Payment due',
+      channelDescription:
+          'Alerts when service is complete and payment is pending.',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      visibility: NotificationVisibility.public,
+      category: AndroidNotificationCategory.message,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'payment_pay_action',
+          'Pay',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      categoryIdentifier: 'payment_pending',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    await plugin.show(
+      paymentPendingNotificationId(bookingId),
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      payload: jsonEncode(data),
+    );
   }
 
   static Future<void> dismissLiveTrackingNotification(
@@ -450,16 +631,26 @@ class NotificationService {
   Future<void> _updateApprovalStatus(String approvalId, String status) async {
     final context = rootNavigatorKey.currentContext;
     if (context != null) Navigator.of(context).pop();
+    await updateApprovalStatusFromNotification(approvalId, status);
+  }
 
+  static Future<void> updateApprovalStatusFromNotification(
+    String approvalId,
+    String status,
+  ) async {
     try {
-      final ApiClient api = ApiClient();
+      final api = ApiClient();
       await api.putAny('/approvals/$approvalId', body: {'status': status});
 
       final currentContext = rootNavigatorKey.currentContext;
       if (currentContext != null && currentContext.mounted) {
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
-            content: Text('Request $status successfully'),
+            content: Text(
+              status == 'Approved'
+                  ? 'Approval accepted.'
+                  : 'Approval rejected.',
+            ),
             backgroundColor: status == 'Approved' ? Colors.green : Colors.red,
           ),
         );
@@ -467,9 +658,14 @@ class NotificationService {
     } catch (e) {
       final currentContext = rootNavigatorKey.currentContext;
       if (currentContext != null && currentContext.mounted) {
+        final message = e is ApiException ? e.message : e.toString();
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
-            content: Text('Failed to update request: $e'),
+            content: Text(
+              message.toLowerCase().contains('already resolved')
+                  ? 'This approval is already resolved.'
+                  : 'Failed to update approval: $message',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -516,6 +712,30 @@ class NotificationService {
       return true;
     }
 
+    if (type == 'staff_reached_location' || type == 'nearby') {
+      return true;
+    }
+
+    if (type == 'service_started') {
+      return true;
+    }
+
+    if (type == 'merchant_approval') {
+      return true;
+    }
+
+    if (type == 'service_completed_payment_pending') {
+      return true;
+    }
+
+    if (type == 'delivery_otp' || type == 'otp') {
+      return true;
+    }
+
+    if (type == 'feedback') {
+      return true;
+    }
+
     return false;
   }
 
@@ -530,14 +750,35 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings initializationSettingsIOS =
+    final DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
+          notificationCategories: <DarwinNotificationCategory>[
+            DarwinNotificationCategory(
+              'merchant_approval',
+              actions: <DarwinNotificationAction>[
+                DarwinNotificationAction.plain('approval_accept', 'Accept'),
+                DarwinNotificationAction.plain(
+                  'approval_reject',
+                  'Reject',
+                  options: <DarwinNotificationActionOption>{
+                    DarwinNotificationActionOption.destructive,
+                  },
+                ),
+              ],
+            ),
+            DarwinNotificationCategory(
+              'payment_pending',
+              actions: <DarwinNotificationAction>[
+                DarwinNotificationAction.plain('payment_pay_action', 'Pay'),
+              ],
+            ),
+          ],
         );
 
-    const InitializationSettings initializationSettings =
+    final InitializationSettings initializationSettings =
         InitializationSettings(
           android: initializationSettingsAndroid,
           iOS: initializationSettingsIOS,
@@ -664,6 +905,22 @@ class NotificationService {
       return;
     }
 
+    if (NotificationService.isMerchantApprovalPayload(data)) {
+      await NotificationService.presentMerchantApprovalNotification(
+        data,
+        _localNotifications,
+      );
+      return;
+    }
+
+    if (NotificationService.isPaymentPendingPayload(data)) {
+      await NotificationService.presentPaymentPendingNotification(
+        data,
+        _localNotifications,
+      );
+      return;
+    }
+
     if (!isNotificationAllowed(type: type, subType: subType, status: status)) {
       return;
     }
@@ -694,6 +951,11 @@ class NotificationService {
         'assignment_update',
         'assignment',
         'nearby',
+        'staff_reached_location',
+        'service_started',
+        'merchant_approval',
+        'delivery_otp',
+        'feedback',
       };
       final bool fcmBookingSummary = bid != null &&
           bid.isNotEmpty &&
@@ -811,6 +1073,11 @@ class NotificationService {
       'assignment_update',
       'assignment',
       'nearby',
+      'staff_reached_location',
+      'service_started',
+      'merchant_approval',
+      'delivery_otp',
+      'feedback',
     };
     final bool useBookingSummarySlot = bookingIdFromPayload != null &&
         bookingIdFromPayload.isNotEmpty &&
@@ -979,6 +1246,34 @@ class NotificationService {
       );
     }
 
+    if (actionId == 'approval_accept' || actionId == 'approval_reject') {
+      final approvalId = data['approvalId']?.toString() ?? '';
+      if (approvalId.isNotEmpty) {
+        await updateApprovalStatusFromNotification(
+          approvalId,
+          actionId == 'approval_accept' ? 'Approved' : 'Rejected',
+        );
+      }
+      await clearAllNotificationsFromTray();
+      return;
+    }
+
+    if (actionId == 'payment_pay_action' ||
+        data['type']?.toString() == 'service_completed_payment_pending') {
+      final payBookingId = data['bookingId']?.toString();
+      await clearAllNotificationsFromTray();
+      try {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null &&
+            context.mounted &&
+            payBookingId != null &&
+            payBookingId.isNotEmpty) {
+          Navigator.pushNamed(context, '/track', arguments: payBookingId);
+        }
+      } catch (_) {}
+      return;
+    }
+
     await clearAllNotificationsFromTray();
 
     try {
@@ -1000,17 +1295,37 @@ class NotificationService {
         } else {
           Navigator.pushNamed(context, '/bookings');
         }
-      } else if (type == 'payment' || subType == 'billing') {
-        Navigator.pushNamed(context, '/payments');
+      } else if (type == 'payment' ||
+          subType == 'billing' ||
+          type == 'service_completed_payment_pending') {
+        if (bookingId != null && bookingId.isNotEmpty) {
+          Navigator.pushNamed(context, '/track', arguments: bookingId);
+        } else {
+          Navigator.pushNamed(context, '/payments');
+        }
       } else if (type == 'support') {
         Navigator.pushNamed(context, '/support');
       } else if (type == 'promotion') {
         Navigator.pushNamed(context, '/speshway-dashboard');
-      } else if (type == 'approval' || type == 'approval_request') {
+      } else if (type == 'approval' ||
+          type == 'approval_request' ||
+          type == 'merchant_approval') {
         if (bookingId != null && bookingId.isNotEmpty) {
           Navigator.pushNamed(context, '/track', arguments: bookingId);
         } else {
           Navigator.pushNamed(context, '/notifications');
+        }
+      } else if (type == 'delivery_otp' || type == 'otp') {
+        if (bookingId != null && bookingId.isNotEmpty) {
+          Navigator.pushNamed(context, '/track', arguments: bookingId);
+        } else {
+          Navigator.pushNamed(context, '/notifications');
+        }
+      } else if (type == 'feedback') {
+        if (bookingId != null && bookingId.isNotEmpty) {
+          Navigator.pushNamed(context, '/track', arguments: bookingId);
+        } else {
+          Navigator.pushNamed(context, '/customer');
         }
       } else {
         Navigator.pushNamed(context, '/notifications');

@@ -1559,8 +1559,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                       initialCenter: center,
                                       initialZoom: 13,
                                       onMapReady: () {
-                                        if (mounted)
+                                        if (mounted) {
                                           setState(() => _mapReady = true);
+                                        }
                                       },
                                     ),
                                     children: [

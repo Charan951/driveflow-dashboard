@@ -203,8 +203,80 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _completeLoginSession(AuthResult res) async {
+    if (res.token == null || res.token!.isEmpty) {
+      throw Exception('Login failed: No token received');
+    }
+    user = res.user;
+    if (user == null) {
+      user = await _auth.me();
+      if (user != null) {
+        await AppStorage().setUserJson(jsonEncode(user!.toJson()));
+      }
+    }
+    await AppStorage().clearHasSeenNoVehicleModal();
+    SocketService().init(user);
+    NotificationService().syncToken();
+  }
+
+  Future<String?> prepareLogin(String email, String password) async {
+    await logout();
+
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.prepareLogin(email: email, password: password);
+      loading = false;
+      notifyListeners();
+      return (res['mobile'] as String?) ?? '';
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<String?> sendLoginOtp(String email) async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.sendLoginOtp(email: email);
+      loading = false;
+      notifyListeners();
+      return (res['mobile'] as String?) ?? '';
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.verifyLoginOtp(email: email, otp: otp);
+      await _completeLoginSession(res);
+      loading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> login(String email, String password) async {
-    // Clear old session before login
     await logout();
 
     loading = true;
@@ -212,8 +284,60 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final res = await _auth.login(email, password);
+      await _completeLoginSession(res);
+      loading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<String?> sendSignupOtp({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+  }) async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final prepared = await _auth.prepareSignup(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+      );
+      final res = await _auth.sendSignupOtp(phone: phone);
+      loading = false;
+      notifyListeners();
+      return (res['mobile'] as String?) ??
+          (prepared['mobile'] as String?) ??
+          '';
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> verifySignupOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    await logout();
+
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.verifySignupOtp(phone: phone, otp: otp);
       if (res.token != null && res.token!.isNotEmpty) {
-        // The token is already saved by AuthService.login calling AppStorage().setToken()
         user = res.user;
         if (user == null) {
           user = await _auth.me();
@@ -228,7 +352,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      lastError = 'Login failed: No token received';
+      lastError = 'OTP verification failed';
     } catch (e) {
       lastError = _messageFromError(e);
     }
