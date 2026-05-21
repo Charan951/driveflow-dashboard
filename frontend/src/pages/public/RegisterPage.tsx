@@ -98,11 +98,22 @@ const RegisterPage: React.FC = () => {
       _id: data._id,
       name: data.name,
       email: data.email,
-      phone: data.phone,
+      phone: data.phone ?? '',
       role: data.role as 'customer',
-      subRole: data.subRole,
-      addresses: data.addresses ?? [],
-      location: data.location,
+      subRole: data.subRole as 'Driver' | 'Support' | 'Manager' | null,
+      addresses: (data.addresses ?? []) as {
+        label: string;
+        address: string;
+        lat: number;
+        lng: number;
+        isDefault: boolean;
+      }[],
+      location: data.location as {
+        lat: number;
+        lng: number;
+        address: string;
+        updatedAt?: string;
+      } | undefined,
       address: data.address ?? '',
     });
     toast.success('Account created successfully!');

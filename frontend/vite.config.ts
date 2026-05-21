@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       cssCodeSplit: true,
       minify: 'esbuild',
-      chunkSizeWarningLimit: 600,
+      chunkSizeWarningLimit: 500,
       target: 'es2020',
       modulePreload: {
         polyfill: false,
@@ -66,19 +66,49 @@ export default defineConfig(({ mode }) => {
       reportCompressedSize: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-core': ['react', 'react-dom', 'react-router-dom'],
-            'vendor-utils': ['clsx', 'tailwind-merge', 'class-variance-authority', 'zod', 'zustand'],
-            'vendor-query': ['@tanstack/react-query'],
-            'vendor-form': ['react-hook-form', '@hookform/resolvers'],
-            'vendor-icons': ['lucide-react'],
-            'vendor-radix': ['@radix-ui/react-slot'],
-            'vendor-sonner': ['sonner'],
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'vendor-react';
+              }
+              if (id.includes('@tanstack')) {
+                return 'vendor-tanstack';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+              if (id.includes('@radix-ui')) {
+                return 'vendor-radix';
+              }
+              if (id.includes('recharts')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('leaflet') || id.includes('react-leaflet')) {
+                return 'vendor-maps';
+              }
+              if (id.includes('framer-motion')) {
+                return 'vendor-animation';
+              }
+              if (id.includes('firebase')) {
+                return 'vendor-firebase';
+              }
+              if (id.includes('socket.io')) {
+                return 'vendor-socket';
+              }
+              return 'vendor-other';
+            }
           },
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
           hoistTransitiveImports: false,
+          preserveModules: false,
+        },
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
+          tryCatchDeoptimization: false,
+          unknownGlobalSideEffects: false,
         },
       },
     },
@@ -86,6 +116,7 @@ export default defineConfig(({ mode }) => {
       legalComments: 'none',
       drop: isProduction ? ['console', 'debugger'] : [],
       pure: isProduction ? ['console.log', 'console.info', 'console.debug', 'console.warn'] : [],
+      treeShaking: true,
     },
     resolve: {
       alias: {
@@ -95,6 +126,9 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['react', 'react-dom', 'react-router-dom', 'lucide-react', 'clsx', 'tailwind-merge'],
       exclude: [],
+      esbuildOptions: {
+        treeShaking: true,
+      },
     },
   };
 });
