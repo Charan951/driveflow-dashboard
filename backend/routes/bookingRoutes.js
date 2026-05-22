@@ -57,7 +57,7 @@ router.route('/:id/battery-tire-approval').put(protect, batteryTireApproval);
 router.route('/:id/warranty').put(protect, addWarranty);
 
 router.route('/:id')
-  .get(protect, getBookingById);
+  .get(getBookingById); // Public access for tracking page
 
 router.route('/:id/assign').put(protect, admin, assignBooking); // Admin only
 

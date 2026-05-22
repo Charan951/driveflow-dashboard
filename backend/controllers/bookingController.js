@@ -13,6 +13,7 @@ import {
   sendLiveTrackingDismissPush,
   trySendLiveTrackingAssignmentSeed,
 } from '../utils/liveTrackingPush.js';
+import { normalizeIndianMobile, sendWhatsAppMessage, resolveAssignedWhatsAppTemplateName, resolveFeedbackWhatsAppTemplateName } from '../utils/msg91Service.js';
 import crypto from 'crypto';
 import Message from '../models/Message.js';
 import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDisplay.js';
@@ -1082,9 +1083,9 @@ export const getAllBookings = async (req, res) => {
   }
 };
 
-// @desc    Get booking by ID (Admin)
+// @desc    Get booking by ID
 // @route   GET /api/bookings/:id
-// @access  Private/Admin
+// @access  Public (for tracking page)
 export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
@@ -1098,20 +1099,26 @@ export const getBookingById = async (req, res) => {
       .populate('coupon');
     
     if (booking) {
-      // Check if user is authorized (admin, merchant, or booking owner)
-      const isOwner = booking.user && booking.user._id.toString() === req.user._id.toString();
-      const isAdmin = req.user.role === 'admin';
-      const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
-      const isAssignedStaff = req.user.role === 'staff' && (
-        (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString()) ||
-        (booking.technician && booking.technician._id.toString() === req.user._id.toString()) ||
-        (booking.carWash?.staffAssigned && booking.carWash.staffAssigned._id.toString() === req.user._id.toString())
-      );
-      
-      if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
-        res.json(attachHealthPercentToBookingPayload(booking));
+      // If user is authenticated, check authorization as before
+      if (req.user) {
+        const isOwner = booking.user && booking.user._id.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'admin';
+        const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
+        const isAssignedStaff = req.user.role === 'staff' && (
+          (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString()) ||
+          (booking.technician && booking.technician._id.toString() === req.user._id.toString()) ||
+          (booking.carWash?.staffAssigned && booking.carWash.staffAssigned._id.toString() === req.user._id.toString())
+        );
+        
+        if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
+          res.json(attachHealthPercentToBookingPayload(booking));
+        } else {
+          // If authenticated but not authorized, still allow public access (for tracking)
+          res.json(attachHealthPercentToBookingPayload(booking));
+        }
       } else {
-        res.status(401).json({ message: 'Not authorized to view this booking' });
+        // Public access - allow anyone to view the booking via the tracking link
+        res.json(attachHealthPercentToBookingPayload(booking));
       }
     } else {
       res.status(404).json({ message: 'Booking not found' });
@@ -1235,6 +1242,51 @@ export const assignBooking = async (req, res) => {
           'order'
         );
         trySendLiveTrackingAssignmentSeed(updatedBooking).catch(() => {});
+        
+        // Send WhatsApp message to user only when staff is assigned
+        const staffAssigned = !!(driverId || technicianId || carWashStaffId);
+        if (staffAssigned && updatedBooking.user?.phone) {
+          try {
+            console.log('[WhatsApp] Sending assignment message to user:', updatedBooking.user.phone);
+            const normalizedPhone = normalizeIndianMobile(updatedBooking.user.phone);
+            console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+            if (normalizedPhone) {
+              const templateName = resolveAssignedWhatsAppTemplateName();
+              console.log('[WhatsApp] Using template:', templateName);
+              
+              // Get staff details
+              let staffUser = null;
+              if (driverId) {
+                staffUser = await User.findById(driverId);
+              } else if (technicianId) {
+                staffUser = await User.findById(technicianId);
+              } else if (carWashStaffId) {
+                staffUser = await User.findById(carWashStaffId);
+              }
+              
+              // Build template components
+              const components = {
+                body_1: {
+                  type: 'text',
+                  value: updatedBooking.user.name || 'User'
+                },
+                body_2: {
+                  type: 'text',
+                  value: staffUser?.name || 'Service Partner'
+                },
+                body_3: {
+                  type: 'text',
+                  value: staffUser?.phone || 'N/A'
+                }
+              };
+              
+              await sendWhatsAppMessage(normalizedPhone, templateName, components);
+              console.log('[WhatsApp] Message sent successfully!');
+            }
+          } catch (whatsappErr) {
+            console.error('[WhatsApp] Failed to send assignment message:', whatsappErr);
+          }
+        }
       }
     } catch (notifyErr) {
       
@@ -1649,6 +1701,36 @@ export const updateBookingStatus = async (req, res) => {
           },
           'feedback'
         ).catch(() => {});
+        
+        // Send WhatsApp feedback message
+        if (updatedBooking.user?.phone) {
+          try {
+            console.log('[WhatsApp] Sending feedback message to user:', updatedBooking.user.phone);
+            const normalizedPhone = normalizeIndianMobile(updatedBooking.user.phone);
+            console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+            if (normalizedPhone) {
+              const templateName = resolveFeedbackWhatsAppTemplateName();
+              console.log('[WhatsApp] Using template:', templateName);
+              
+              // Build template components
+              const components = {
+                body_1: {
+                  type: 'text',
+                  value: updatedBooking.user.name || 'User'
+                },
+                body_2: {
+                  type: 'text',
+                  value: `https://carzzi.com/track/${updatedBooking._id}`
+                }
+              };
+              
+              await sendWhatsAppMessage(normalizedPhone, templateName, components);
+              console.log('[WhatsApp] Feedback message sent successfully!');
+            }
+          } catch (whatsappErr) {
+            console.error('[WhatsApp] Failed to send feedback message:', whatsappErr);
+          }
+        }
       } else {
         sendPushToUser(
           updatedBooking.user?._id,
@@ -1782,7 +1864,8 @@ export const verifyDeliveryOtp = async (req, res) => {
     const isBatteryTireService = await isBatteryOrTireBooking(booking);
     
     // Update status to COMPLETED for battery/tire, otherwise DELIVERED
-    booking.status = isBatteryTireService ? 'COMPLETED' : 'DELIVERED';
+    const finalStatus = isBatteryTireService ? 'COMPLETED' : 'DELIVERED';
+    booking.status = finalStatus;
     await booking.save();
     
     // Populate for real-time consumers
@@ -1798,6 +1881,55 @@ export const verifyDeliveryOtp = async (req, res) => {
     // Emit socket event for real-time updates
     emitBookingUpdate(populated);
     
+    // Send WhatsApp message and push notification when delivered or completed
+    setImmediate(async () => {
+      try {
+        if ((finalStatus === 'DELIVERED' || finalStatus === 'COMPLETED') && populated.user?.phone) {
+          console.log('[WhatsApp] Sending feedback message to user (via verifyOTP):', populated.user.phone);
+          const normalizedPhone = normalizeIndianMobile(populated.user.phone);
+          console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+          if (normalizedPhone) {
+            const templateName = resolveFeedbackWhatsAppTemplateName();
+            console.log('[WhatsApp] Using template:', templateName);
+            
+            const components = {
+              body_1: {
+                type: 'text',
+                value: populated.user.name || 'User'
+              },
+              body_2: {
+                type: 'text',
+                value: `https://carzzi.com/track/${populated._id}`
+              }
+            };
+            
+            await sendWhatsAppMessage(normalizedPhone, templateName, components);
+            console.log('[WhatsApp] Feedback message sent successfully!');
+          }
+        }
+        
+        if ((finalStatus === 'DELIVERED' || finalStatus === 'COMPLETED') && populated.user?._id) {
+          const orderRef = populated.orderNumber || String(populated._id).slice(-6).toUpperCase();
+          const message = finalStatus === 'DELIVERED'
+            ? `Your vehicle has been delivered for booking #${orderRef}. We hope everything went well — open the Carzzi app to share your feedback and rate your experience.`
+            : `Your service has been completed for booking #${orderRef}. We hope everything went well — open the Carzzi app to share your feedback and rate your experience.`;
+          
+          await sendPushToUser(
+            populated.user._id,
+            'Feedback',
+            message,
+            {
+              type: 'feedback',
+              status: finalStatus,
+              bookingId: String(populated._id),
+            },
+            'feedback'
+          );
+        }
+      } catch (err) {
+        console.error('[verifyDeliveryOtp] Error sending notifications:', err);
+      }
+    });
     
     res.json({ message: 'OTP verified and delivery completed', booking: populated });
   } catch (e) {

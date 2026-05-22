@@ -162,6 +162,7 @@ const App = () => (
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/services/:id" element={<ServiceDetailsPage />} />
+            <Route path="/track/:id" element={<TrackServicePage />} />
           </Route>
           
           {/* Auth Routes - Wrapped in PublicRoute to redirect logged-in users */}

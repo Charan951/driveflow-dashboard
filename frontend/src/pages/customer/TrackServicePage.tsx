@@ -658,12 +658,14 @@ const TrackServicePage: React.FC = () => {
     <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 sm:gap-4">
-        <Link
-          to="/dashboard"
-          className="p-2 hover:bg-muted rounded-xl transition-colors flex-shrink-0"
-        >
-          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </Link>
+        {user && (
+          <Link
+            to="/dashboard"
+            className="p-2 hover:bg-muted rounded-xl transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Track Service</h1>
           <p className="text-xs sm:text-sm text-muted-foreground truncate">

@@ -10,7 +10,7 @@ const MSG91_WHATSAPP_URL =
 
 const OTP_LENGTH = 6;
 
-export const normalizeIndianMobile = (phone) => {
+const normalizeIndianMobile = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
   if (digits.length === 10) {
     return `91${digits}`;
@@ -82,6 +82,89 @@ const resolveWhatsAppTemplateName = (override) => {
     process.env.MSG91_WHATSAPP_TEMPLATE_NAME?.trim() ||
     'user_authentication'
   );
+};
+
+const resolveAssignedWhatsAppTemplateName = () => {
+  return (
+    process.env.MSG91_WHATSAPP_ASSIGNED_TEMPLATE_NAME?.trim() ||
+    'general_service'
+  );
+};
+
+const resolveFeedbackWhatsAppTemplateName = () => {
+  return (
+    process.env.MSG91_WHATSAPP_FEEDBACK_TEMPLATE_NAME?.trim() ||
+    'feedback'
+  );
+};
+
+const sendWhatsAppMessage = async (mobile, templateName, components) => {
+  const authkey = process.env.MSG91_AUTH_KEY;
+  const integratedNumber = process.env.MSG91_WHATSAPP_INTEGRATED_NUMBER?.trim();
+  const namespace = process.env.MSG91_WHATSAPP_NAMESPACE?.trim();
+  const languageCode = process.env.MSG91_WHATSAPP_LANGUAGE || 'en';
+
+  if (!authkey) {
+    throw new Error('MSG91_AUTH_KEY is not configured');
+  }
+  if (!integratedNumber) {
+    throw new Error(
+      'MSG91_WHATSAPP_INTEGRATED_NUMBER is required for WhatsApp messages (your MSG91 WhatsApp business number).'
+    );
+  }
+
+  const templatePayload = {
+    name: templateName,
+    language: {
+      code: languageCode,
+      policy: 'deterministic',
+    },
+    to_and_components: [
+      {
+        to: [mobile],
+        components: components || {},
+      },
+    ],
+  };
+
+  if (namespace) {
+    templatePayload.namespace = namespace;
+  }
+
+  const payload = {
+    integrated_number: integratedNumber,
+    content_type: 'template',
+    payload: {
+      messaging_product: 'whatsapp',
+      type: 'template',
+      template: templatePayload,
+    },
+  };
+
+  const response = await axios.post(MSG91_WHATSAPP_URL, payload, {
+    headers: {
+      authkey,
+      'Content-Type': 'application/json',
+    },
+    timeout: 20000,
+  });
+
+  const data = response.data;
+  if (data?.type === 'error' || data?.hasError || data?.status === 'fail') {
+    throw new Error(
+      data?.message || data?.errors || JSON.stringify(data) || 'Failed to send WhatsApp message'
+    );
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('[MSG91 WhatsApp] queued', {
+      mobile: `******${mobile.slice(-4)}`,
+      request_id: data?.request_id,
+      status: data?.status,
+    });
+  }
+
+  return data;
 };
 
 const sendWhatsAppOtp = async (mobile, otp, templateOverride) => {
@@ -227,8 +310,7 @@ const sendMsg91Otp = async (mobile) => {
   return data;
 };
 
-/** @returns {{ delivery: 'whatsapp'|'msg91', otpHash?: string, channels?: string[] }} */
-export const sendAuthOtp = async (mobile, templateName) => {
+const sendAuthOtp = async (mobile, templateName) => {
   if (useWhatsAppOutbound()) {
     const { otp, otpHash } = generateOtp();
     const channels = [];
@@ -267,12 +349,11 @@ export const sendAuthOtp = async (mobile, templateName) => {
   return { delivery: 'msg91' };
 };
 
-/** @returns {{ delivery: 'whatsapp'|'msg91', otpHash?: string, channels?: string[] }} */
-export const sendSignupOtp = async (mobile) => {
+const sendSignupOtp = async (mobile) => {
   return sendAuthOtp(mobile);
 };
 
-export const verifySignupOtp = async (mobile, otp, pending) => {
+const verifySignupOtp = async (mobile, otp, pending) => {
   if (pending?.otpHash) {
     const valid = await bcrypt.compare(String(otp).trim(), pending.otpHash);
     if (!valid) {
@@ -303,4 +384,14 @@ export const verifySignupOtp = async (mobile, otp, pending) => {
   }
 
   return { delivery: 'msg91' };
+};
+
+export {
+  normalizeIndianMobile,
+  sendAuthOtp,
+  sendSignupOtp,
+  verifySignupOtp,
+  sendWhatsAppMessage,
+  resolveAssignedWhatsAppTemplateName,
+  resolveFeedbackWhatsAppTemplateName,
 };
