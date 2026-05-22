@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect, admin, merchant } from '../middleware/authMiddleware.js';
+import { protect, admin, merchant, optionalAuth } from '../middleware/authMiddleware.js';
 import {
   createBooking,
   getMyBookings,
@@ -57,7 +57,7 @@ router.route('/:id/battery-tire-approval').put(protect, batteryTireApproval);
 router.route('/:id/warranty').put(protect, addWarranty);
 
 router.route('/:id')
-  .get(getBookingById); // Public access for tracking page
+  .get(optionalAuth, getBookingById); // Public access for tracking page
 
 router.route('/:id/assign').put(protect, admin, assignBooking); // Admin only
 

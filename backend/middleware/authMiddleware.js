@@ -52,6 +52,37 @@ export const protect = async (req, res, next) => {
   }
 };
 
+export const optionalAuth = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+    } catch (e) {
+      token = null;
+    }
+  }
+
+  if (!token && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select('-password');
+    } catch (error) {
+      // Ignore token errors - just don't set req.user
+      req.user = null;
+    }
+  }
+
+  next();
+};
+
 export const admin = (req, res, next) => {
   if (req.user && req.user.role?.toLowerCase() === 'admin') {
     return next();

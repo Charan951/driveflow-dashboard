@@ -1124,7 +1124,7 @@ export const getBookingById = async (req, res) => {
       res.status(404).json({ message: 'Booking not found' });
     }
   } catch (error) {
-    
+    console.error('Error in getBookingById:', error);
     if (error.name === 'ValidationError') {
         const messages = Object.values(error.errors).map(val => val.message);
         return res.status(400).json({ message: messages.join(', ') });
