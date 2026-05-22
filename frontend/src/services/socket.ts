@@ -18,7 +18,7 @@ class SocketService {
     }
 
     this.socket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       autoConnect: true,
       auth: {
         token

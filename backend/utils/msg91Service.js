@@ -37,6 +37,7 @@ const smsFallbackEnabled = () => {
 
 const resolveMsg91TemplateId = () => {
   const templateId =
+    process.env.MSG91_Auth_Template_ID?.trim() ||
     process.env.MSG91_OTP_TEMPLATE_ID?.trim() ||
     process.env.MSG91_OTP_FLOW_ID?.trim() ||
     '';
@@ -153,23 +154,31 @@ const sendWhatsAppOtp = async (mobile, otp, templateOverride) => {
   return data;
 };
 
-/** Same OTP via SMS when WhatsApp delivery fails or is delayed (uses legacy SendOTP API). */
+/** Same OTP via SMS using modern MSG91 OTP API with template. */
 const sendSmsOtpFallback = async (mobile, otp) => {
   const authkey = process.env.MSG91_AUTH_KEY;
+  const templateId = resolveMsg91TemplateId();
+  const flowId = process.env.MSG91_OTP_FLOW_ID?.trim();
   if (!authkey) return;
 
-  const message = encodeURIComponent(
-    `Your Carzzi verification code is ${otp}. Valid for 10 minutes.`
-  );
+  const params = {
+    mobile,
+    otp,
+    otp_length: OTP_LENGTH,
+    otp_expiry: 10,
+  };
 
-  const response = await axios.get(MSG91_LEGACY_SENDOTP_URL, {
-    params: {
+  if (flowId && flowId !== templateId) {
+    params.flow_id = flowId;
+  } else {
+    params.template_id = templateId;
+  }
+
+  const response = await axios.post(MSG91_OTP_URL, {}, {
+    params,
+    headers: {
       authkey,
-      mobile,
-      otp,
-      otp_length: OTP_LENGTH,
-      otp_expiry: 10,
-      message,
+      'Content-Type': 'application/json',
     },
     timeout: 15000,
   });
@@ -223,31 +232,32 @@ export const sendAuthOtp = async (mobile, templateName) => {
   if (useWhatsAppOutbound()) {
     const { otp, otpHash } = generateOtp();
     const channels = [];
+    const errors = [];
 
-    try {
-      await sendWhatsAppOtp(mobile, otp, templateName);
-      channels.push('whatsapp');
-    } catch (whatsappError) {
-      console.error('[MSG91 WhatsApp] send failed:', whatsappError.message);
-      if (!smsFallbackEnabled()) {
-        throw whatsappError;
-      }
-    }
+    const whatsappPromise = sendWhatsAppOtp(mobile, otp, templateName)
+      .then(() => {
+        channels.push('whatsapp');
+      })
+      .catch((whatsappError) => {
+        console.error('[MSG91 WhatsApp] send failed:', whatsappError.message);
+        errors.push(whatsappError);
+      });
 
-    if (smsFallbackEnabled()) {
-      try {
-        await sendSmsOtpFallback(mobile, otp);
-        channels.push('sms');
-      } catch (smsError) {
-        console.error('[MSG91 SMS fallback] error:', smsError.message);
-        if (channels.length === 0) {
-          throw new Error('Failed to send OTP via WhatsApp and SMS. Please try again.');
-        }
-      }
-    }
+    const smsPromise = smsFallbackEnabled() 
+      ? sendSmsOtpFallback(mobile, otp)
+          .then(() => {
+            channels.push('sms');
+          })
+          .catch((smsError) => {
+            console.error('[MSG91 SMS] error:', smsError.message);
+            errors.push(smsError);
+          })
+      : Promise.resolve();
+
+    await Promise.all([whatsappPromise, smsPromise]);
 
     if (channels.length === 0) {
-      throw new Error('Failed to send OTP. Please try again.');
+      throw new Error('Failed to send OTP via WhatsApp and SMS. Please try again.');
     }
 
     return { delivery: 'whatsapp', otpHash, channels };

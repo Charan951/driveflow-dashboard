@@ -89,6 +89,27 @@ void onStart(ServiceInstance service) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final exception = details.exception.toString();
+    if (exception.contains("The DOM element of this text editing strategy is not currently active")) {
+      debugPrint('Ignoring known text editing assertion error');
+      return;
+    }
+    FlutterError.presentError(details);
+  };
+
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    final exception = error.toString();
+    if (exception.contains("The DOM element of this text editing strategy is not currently active")) {
+      debugPrint('Ignoring known text editing error');
+      return true;
+    }
+    debugPrint('[PlatformError] $error');
+    debugPrint('[PlatformError] $stack');
+    return true;
+  };
+
   // Registered once here (not again in NotificationService.initialize).
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 

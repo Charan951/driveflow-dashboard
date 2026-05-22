@@ -51,7 +51,7 @@ class SocketService extends ValueNotifier<String?> {
     _socket = io.io(
       Env.baseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .enableForceNew()
           .setAuth(token != null ? {'token': token} : {})
           .enableAutoConnect()

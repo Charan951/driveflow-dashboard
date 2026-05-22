@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;  
+  static const bool useProduction = false;  
    // MUST stay false for testing with rzp_test keys
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5001';
-    return 'http://localhost:5001';
+    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5000';
+    return 'http://localhost:5000';
   }
 
   static String get productionBaseUrl {
