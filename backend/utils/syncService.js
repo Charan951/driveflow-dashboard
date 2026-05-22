@@ -57,7 +57,9 @@ export const emitEntitySync = (entityName, action, data) => {
     if (
       entityName === 'coupon' ||
       entityName === 'slotBlock' ||
-      entityName === 'availableServicePincode'
+      entityName === 'availableServicePincode' ||
+      entityName === 'service' ||
+      entityName === 'vehicle'
     ) {
       io.emit(eventName, payload);
       io.emit('global:sync', payload);

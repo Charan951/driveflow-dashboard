@@ -241,7 +241,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF121212) : AppColors.backgroundPrimaryLight,
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : AppColors.backgroundPrimaryLight,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -264,6 +266,17 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(0);
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
+              icon: Icons.shield_outlined,
+              title: 'Essentials',
+              subtitle: 'Essential services',
+              color: Colors.purple,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(1);
               },
             ),
             const SizedBox(height: 12),
@@ -301,7 +314,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundPrimaryLight,
+        backgroundColor: isDark
+            ? AppColors.backgroundSecondary
+            : AppColors.backgroundPrimaryLight,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
@@ -1154,7 +1169,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     );
   }
 
-
   void _openNotifications() {
     Navigator.pushNamed(context, '/notifications').then((_) {
       if (!mounted) return;
@@ -1411,7 +1425,10 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final List<_QuickServiceItem> items;
     if (_services.isEmpty) {
       items = [
-        _QuickServiceItem(icon: Icons.water_drop_rounded, label: 'Self Diagnosis'),
+        _QuickServiceItem(
+          icon: Icons.water_drop_rounded,
+          label: 'Self Diagnosis',
+        ),
         _QuickServiceItem(
           icon: Icons.battery_charging_full_rounded,
           label: 'Software Update',
@@ -1560,11 +1577,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                         child: ShaderMask(
                           shaderCallback: (bounds) =>
                               AppStyles.primaryGradient.createShader(bounds),
-                          child: Icon(
-                            item.icon,
-                            size: 28,
-                            color: Colors.white,
-                          ),
+                          child: Icon(item.icon, size: 28, color: Colors.white),
                         ),
                       ),
                     ),
@@ -1993,7 +2006,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       vertical: AppSpacing.defaultPadding,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0A0A0A) : AppColors.backgroundSecondaryLight,
+                      color: isDark
+                          ? const Color(0xFF0A0A0A)
+                          : AppColors.backgroundSecondaryLight,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isDark

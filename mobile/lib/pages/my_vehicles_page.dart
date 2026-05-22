@@ -130,10 +130,25 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
                 Navigator.pop(context);
                 nav.setTab(0);
                 if (mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/customer',
-                    (route) => false,
-                  );
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
+              icon: Icons.shield_outlined,
+              title: 'Essentials',
+              subtitle: 'Essential services',
+              color: Colors.purple,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(1);
+                if (mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
                 }
               },
             ),
@@ -434,10 +449,7 @@ class _VehicleCardState extends State<_VehicleCard> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          Navigator.of(context).pushNamed(
-            '/vehicle-detail',
-            arguments: v,
-          );
+          Navigator.of(context).pushNamed('/vehicle-detail', arguments: v);
         },
         child: Container(
           padding: AppSpacing.edgeInsetsAllDefault,
@@ -447,7 +459,9 @@ class _VehicleCardState extends State<_VehicleCard> {
                 : AppColors.backgroundSecondaryLight,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+              color: isDark
+                  ? AppColors.borderColor
+                  : AppColors.borderColorLight,
             ),
             boxShadow: [
               BoxShadow(
@@ -489,10 +503,13 @@ class _VehicleCardState extends State<_VehicleCard> {
                           '${v.make} ${v.model}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? AppColors.textPrimary : Colors.black,
-                          ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: isDark
+                                    ? AppColors.textPrimary
+                                    : Colors.black,
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Container(
@@ -508,13 +525,14 @@ class _VehicleCardState extends State<_VehicleCard> {
                           ),
                           child: Text(
                             _typeLabel(v.type),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: isDark
-                                  ? AppColors.textSecondary
-                                  : AppColors.textSecondaryLight,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? AppColors.textSecondary
+                                      : AppColors.textSecondaryLight,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.6,
+                                ),
                           ),
                         ),
                       ],

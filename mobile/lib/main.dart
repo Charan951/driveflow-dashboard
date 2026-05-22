@@ -92,8 +92,14 @@ void main() async {
 
   FlutterError.onError = (FlutterErrorDetails details) {
     final exception = details.exception.toString();
-    if (exception.contains("The DOM element of this text editing strategy is not currently active")) {
-      debugPrint('Ignoring known text editing assertion error');
+    final stack = details.stack.toString();
+    if (exception.contains(
+          "The DOM element of this text editing strategy is not currently active",
+        ) ||
+        exception.contains("domElement != null") ||
+        exception.contains("text_editing.dart") ||
+        stack.contains("text_editing.dart")) {
+      debugPrint('Ignoring known Flutter web text editing error');
       return;
     }
     FlutterError.presentError(details);
@@ -101,8 +107,14 @@ void main() async {
 
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     final exception = error.toString();
-    if (exception.contains("The DOM element of this text editing strategy is not currently active")) {
-      debugPrint('Ignoring known text editing error');
+    final stackStr = stack.toString();
+    if (exception.contains(
+          "The DOM element of this text editing strategy is not currently active",
+        ) ||
+        exception.contains("domElement != null") ||
+        exception.contains("text_editing.dart") ||
+        stackStr.contains("text_editing.dart")) {
+      debugPrint('Ignoring known Flutter web text editing platform error');
       return true;
     }
     debugPrint('[PlatformError] $error');

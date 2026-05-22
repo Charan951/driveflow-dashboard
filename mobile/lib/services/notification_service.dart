@@ -53,10 +53,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (message.notification != null) {
     if (type == 'status') {
       final st =
-          (data['status']?.toString() ?? data['bookingStatus']?.toString() ?? '')
+          (data['status']?.toString() ??
+                  data['bookingStatus']?.toString() ??
+                  '')
               .toUpperCase();
-      if (['REACHED_CUSTOMER', 'DELIVERED', 'COMPLETED', 'CANCELLED']
-          .contains(st)) {
+      if ([
+        'REACHED_CUSTOMER',
+        'DELIVERED',
+        'COMPLETED',
+        'CANCELLED',
+      ].contains(st)) {
         await NotificationService.dismissLiveTrackingNotification(
           data['bookingId']?.toString(),
           local,
@@ -351,9 +357,28 @@ class NotificationService {
     final title = normalizeNotificationTitle(
       data['title']?.toString() ?? 'Merchant Approvals',
     );
-    final body =
-        data['body']?.toString() ??
-        'New approval request from your merchant.';
+
+    final partName = data['partName']?.toString() ?? '';
+    final quantity = data['quantity']?.toString() ?? '';
+    final unitPrice = data['unitPrice']?.toString() ?? '';
+    final totalAmount = data['totalAmount']?.toString() ?? '';
+    final approvalType = data['approvalType']?.toString() ?? '';
+
+    String body;
+    if (approvalType == 'PartReplacement' &&
+        partName.isNotEmpty &&
+        quantity.isNotEmpty &&
+        totalAmount.isNotEmpty) {
+      body = '$partName × $quantity = ₹$totalAmount';
+    } else if (approvalType == 'ExtraCost' && totalAmount.isNotEmpty) {
+      body = 'Extra Cost: ₹$totalAmount';
+    } else if (approvalType == 'BillEdit' && totalAmount.isNotEmpty) {
+      body = 'Bill Updated: ₹$totalAmount';
+    } else {
+      body =
+          data['body']?.toString() ??
+          'New approval request from your merchant.';
+    }
 
     const androidDetails = AndroidNotificationDetails(
       'merchant_approval_channel',
@@ -401,8 +426,7 @@ class NotificationService {
   static bool isPaymentPendingPayload(Map<String, dynamic> data) {
     final type = data['type']?.toString();
     final bookingId = data['bookingId']?.toString() ?? '';
-    return bookingId.isNotEmpty &&
-        type == 'service_completed_payment_pending';
+    return bookingId.isNotEmpty && type == 'service_completed_payment_pending';
   }
 
   static int paymentPendingNotificationId(String bookingId) {
@@ -895,7 +919,11 @@ class NotificationService {
     }
 
     if (type == 'live_tracking') {
-      if (!isNotificationAllowed(type: type, subType: subType, status: status)) {
+      if (!isNotificationAllowed(
+        type: type,
+        subType: subType,
+        status: status,
+      )) {
         return;
       }
       await NotificationService.presentLiveTrackingNotification(
@@ -934,8 +962,12 @@ class NotificationService {
     if (notification != null) {
       if (type == 'status') {
         final st = (status ?? '').toUpperCase();
-        if (['REACHED_CUSTOMER', 'DELIVERED', 'COMPLETED', 'CANCELLED']
-            .contains(st)) {
+        if ([
+          'REACHED_CUSTOMER',
+          'DELIVERED',
+          'COMPLETED',
+          'CANCELLED',
+        ].contains(st)) {
           await NotificationService.dismissLiveTrackingNotification(
             data['bookingId']?.toString(),
             _localNotifications,
@@ -957,7 +989,8 @@ class NotificationService {
         'delivery_otp',
         'feedback',
       };
-      final bool fcmBookingSummary = bid != null &&
+      final bool fcmBookingSummary =
+          bid != null &&
           bid.isNotEmpty &&
           ((type != null && bookingSummaryTypes.contains(type)) ||
               (type == null &&
@@ -1061,8 +1094,7 @@ class NotificationService {
         final m = Map<String, dynamic>.from(jsonDecode(payload) as Map);
         bookingIdFromPayload = m['bookingId']?.toString();
         effectiveType ??= m['type']?.toString();
-        effectiveStatus ??=
-            (m['status'] ?? m['bookingStatus'])?.toString();
+        effectiveStatus ??= (m['status'] ?? m['bookingStatus'])?.toString();
       } catch (_) {}
     }
 
@@ -1079,14 +1111,16 @@ class NotificationService {
       'delivery_otp',
       'feedback',
     };
-    final bool useBookingSummarySlot = bookingIdFromPayload != null &&
+    final bool useBookingSummarySlot =
+        bookingIdFromPayload != null &&
         bookingIdFromPayload.isNotEmpty &&
         ((effectiveType != null &&
                 bookingSummaryTypes.contains(effectiveType)) ||
             (effectiveType == null &&
                 effectiveStatus != null &&
-                allowedBookingStatuses
-                    .contains(effectiveStatus.toUpperCase())));
+                allowedBookingStatuses.contains(
+                  effectiveStatus.toUpperCase(),
+                )));
     if (useBookingSummarySlot) {
       final st = (effectiveStatus ?? '').toUpperCase();
       final dk = 'ping|$bookingIdFromPayload|${effectiveType ?? ''}|$st';

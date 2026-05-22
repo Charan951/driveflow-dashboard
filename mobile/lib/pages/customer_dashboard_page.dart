@@ -77,9 +77,9 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     final event = _socketService?.value;
     if (event == null) return;
     // Reload data if a booking was created, updated or cancelled, or new approval, or sync event
-    if ((event.startsWith('booking_created') ||
-            event.startsWith('booking_updated') ||
-            event.startsWith('booking_cancelled') ||
+    if ((event == 'booking_created' ||
+            event == 'booking_updated' ||
+            event == 'booking_cancelled' ||
             event.startsWith('new_approval') ||
             event.contains('sync:booking') ||
             event.contains('sync:approval') ||

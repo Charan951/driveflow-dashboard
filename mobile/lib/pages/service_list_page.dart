@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../core/env.dart';
 import '../state/navigation_provider.dart';
 import '../services/catalog_service.dart';
+import '../services/socket_service.dart';
 import '../models/service.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
@@ -33,6 +34,35 @@ class _ServiceListPageState extends State<ServiceListPage> {
   void initState() {
     super.initState();
     _future = _catalogService.listServices();
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
+    super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    if (!mounted) return;
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    // Reload if services changed
+    if (event.contains('sync:service') && mounted) {
+      setState(() {
+        _future = _catalogService.listServices();
+      });
+    }
   }
 
   @override

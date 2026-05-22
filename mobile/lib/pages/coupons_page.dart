@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/coupon_service.dart';
+import '../services/socket_service.dart';
 import '../core/app_colors.dart';
 import '../core/app_styles.dart';
 import '../state/auth_provider.dart';
@@ -37,6 +38,33 @@ class _CouponsPageState extends State<CouponsPage> {
   void initState() {
     super.initState();
     _fetchCoupons();
+
+    // Listen to socket updates for real-time refresh
+    final socket = context.read<SocketService>();
+    socket.addListener(_onSocketUpdate);
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      final socket = context.read<SocketService>();
+      socket.removeListener(_onSocketUpdate);
+    } catch (_) {
+      // Might fail if context is no longer available or Provider not found
+    }
+    super.dispose();
+  }
+
+  void _onSocketUpdate() {
+    if (!mounted) return;
+    final event = context.read<SocketService>().value;
+    if (event == null) return;
+
+    // Reload if coupons changed
+    if (event.contains('sync:coupon') && mounted) {
+      _fetchCoupons();
+    }
   }
 
   Future<void> _fetchCoupons() async {
@@ -61,9 +89,11 @@ class _CouponsPageState extends State<CouponsPage> {
             widget.bookingCategory!.toLowerCase() != 'all') {
           final List<dynamic>? couponCategories = c['applicableCategories'];
           if (couponCategories != null && couponCategories.isNotEmpty) {
-            final matchesCategory = couponCategories.any((cat) =>
-                cat.toString().toLowerCase() ==
-                widget.bookingCategory!.toLowerCase());
+            final matchesCategory = couponCategories.any(
+              (cat) =>
+                  cat.toString().toLowerCase() ==
+                  widget.bookingCategory!.toLowerCase(),
+            );
             if (!matchesCategory) return false;
           }
         }
@@ -155,9 +185,16 @@ class _CouponsPageState extends State<CouponsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.local_offer_outlined, size: 64, color: Colors.grey.shade400),
+            Icon(
+              Icons.local_offer_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
             const SizedBox(height: 16),
-            Text('No coupons available right now', style: AppStyles.captionStyle),
+            Text(
+              'No coupons available right now',
+              style: AppStyles.captionStyle,
+            ),
           ],
         ),
       );
@@ -191,7 +228,8 @@ class _CouponsPageState extends State<CouponsPage> {
           mainAxisSpacing: 16,
         ),
         itemCount: _coupons.length,
-        itemBuilder: (context, index) => _buildCouponCard(_coupons[index], isDark),
+        itemBuilder: (context, index) =>
+            _buildCouponCard(_coupons[index], isDark),
       ),
     );
   }
@@ -245,7 +283,9 @@ class _CouponsPageState extends State<CouponsPage> {
               if (labourCost > 0)
                 _buildBillItem('General Service Cost', labourCost, isDark)
               else if (booking.services.isNotEmpty)
-                ...booking.services.map((s) => _buildBillItem(s.name, s.price, isDark)),
+                ...booking.services.map(
+                  (s) => _buildBillItem(s.name, s.price, isDark),
+                ),
 
               // Replaced Parts Cost
               if (partsTotal > 0)
@@ -256,8 +296,7 @@ class _CouponsPageState extends State<CouponsPage> {
                 _buildBillItem('Pickup & Drop Cost', pickupDropPrice, isDark),
 
               // GST
-              if (gst > 0)
-                _buildBillItem('GST', gst, isDark),
+              if (gst > 0) _buildBillItem('GST', gst, isDark),
 
               const Divider(height: 24),
               Row(
@@ -297,11 +336,17 @@ class _CouponsPageState extends State<CouponsPage> {
                   children: [
                     const Text(
                       'Coupon Discount',
-                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       '-₹${couponDiscount.toStringAsFixed(0)}',
-                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -343,9 +388,7 @@ class _CouponsPageState extends State<CouponsPage> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black87,
-            ),
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
           ),
           Text(
             '₹${price.toStringAsFixed(0)}',
@@ -375,10 +418,7 @@ class _CouponsPageState extends State<CouponsPage> {
               ),
             ),
             if (!widget.isSelectionMode)
-              TextButton(
-                onPressed: () {},
-                child: const Text('View All'),
-              ),
+              TextButton(onPressed: () {}, child: const Text('View All')),
           ],
         ),
         const SizedBox(height: 12),
@@ -460,7 +500,9 @@ class _CouponsPageState extends State<CouponsPage> {
         border: Border.all(
           color: isSelected
               ? accentColor
-              : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+              : (isDark
+                    ? Colors.white10
+                    : Colors.black.withValues(alpha: 0.05)),
           width: 2,
         ),
       ),
@@ -476,7 +518,9 @@ class _CouponsPageState extends State<CouponsPage> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? accentColor.withValues(alpha: 0.1)
-                        : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02)),
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.03)
+                              : Colors.black.withValues(alpha: 0.02)),
                   ),
                   child: Center(
                     child: RotatedBox(
@@ -484,7 +528,9 @@ class _CouponsPageState extends State<CouponsPage> {
                       child: Text(
                         code,
                         style: TextStyle(
-                          color: isSelected ? accentColor : (isDark ? Colors.white38 : Colors.black38),
+                          color: isSelected
+                              ? accentColor
+                              : (isDark ? Colors.white38 : Colors.black38),
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 2,
@@ -505,7 +551,10 @@ class _CouponsPageState extends State<CouponsPage> {
                 // Right side: Content
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -546,7 +595,9 @@ class _CouponsPageState extends State<CouponsPage> {
                               decoration: BoxDecoration(
                                 color: !meetsMinOrder
                                     ? Colors.grey.withValues(alpha: 0.1)
-                                    : (isSelected ? accentColor : accentColor.withValues(alpha: 0.8)),
+                                    : (isSelected
+                                          ? accentColor
+                                          : accentColor.withValues(alpha: 0.8)),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -577,7 +628,9 @@ class _CouponsPageState extends State<CouponsPage> {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
+                  color: isDark
+                      ? AppColors.backgroundPrimary
+                      : AppColors.backgroundPrimaryLight,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -590,7 +643,9 @@ class _CouponsPageState extends State<CouponsPage> {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
+                  color: isDark
+                      ? AppColors.backgroundPrimary
+                      : AppColors.backgroundPrimaryLight,
                   shape: BoxShape.circle,
                 ),
               ),

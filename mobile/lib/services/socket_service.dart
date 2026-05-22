@@ -6,7 +6,6 @@ import '../core/storage.dart';
 import '../state/tracking_provider.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
-import 'notification_service.dart';
 
 class SocketService extends ValueNotifier<String?> {
   static final SocketService _instance = SocketService._internal();
@@ -154,25 +153,6 @@ class SocketService extends ValueNotifier<String?> {
               joinRoom('booking_$bookingId');
             }
           }
-
-          final orderNum =
-              (mapData['orderNumber'] ??
-                      (bookingId.length >= 6
-                          ? bookingId.substring(bookingId.length - 6)
-                          : bookingId))
-                  .toString();
-          final status = (mapData['status'] ?? '').toString().replaceAll(
-            '_',
-            ' ',
-          );
-
-          NotificationService().showLocalNotification(
-            title: 'Booking Updated',
-            body: 'Booking #$orderNum status is now $status',
-            payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
-            type: 'status',
-            status: mapData['status']?.toString(),
-          );
         } catch (e) {
           // Ignore
         }
@@ -182,107 +162,16 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('bookingCreated', (data) {
       value = 'booking_created';
-      if (data != null) {
-        try {
-          final mapData = data is Map<String, dynamic>
-              ? data
-              : Map<String, dynamic>.from(data as Map);
-          final bookingStatus =
-              (mapData['status'] ?? 'CREATED').toString().toUpperCase();
-          if (bookingStatus != 'CREATED') {
-            notifyListeners();
-            return;
-          }
-          final bookingId = (mapData['_id'] ?? '').toString();
-          final orderNum =
-              (mapData['orderNumber'] ??
-                      (bookingId.length >= 6
-                          ? bookingId.substring(bookingId.length - 6)
-                          : bookingId))
-                  .toString();
-
-          NotificationService().showLocalNotification(
-            title: 'New Booking',
-            body: 'New booking #$orderNum has been created!',
-            payload: jsonEncode({'type': 'order', 'bookingId': bookingId}),
-            type: 'order',
-            status: 'CREATED',
-          );
-        } catch (e) {
-          // Ignore
-        }
-      }
       notifyListeners();
     });
 
     _socket!.on('bookingCancelled', (data) {
       value = 'booking_cancelled';
-      if (data != null) {
-        try {
-          final mapData = data is Map<String, dynamic>
-              ? data
-              : Map<String, dynamic>.from(data as Map);
-          final bookingId = (mapData['_id'] ?? '').toString();
-          final orderNum =
-              (mapData['orderNumber'] ??
-                      (bookingId.length >= 6
-                          ? bookingId.substring(bookingId.length - 6)
-                          : bookingId))
-                  .toString();
-
-          NotificationService().showLocalNotification(
-            title: 'Booking Cancelled',
-            body: 'Booking #$orderNum has been cancelled.',
-            payload: jsonEncode({'type': 'status', 'bookingId': bookingId}),
-            type: 'status',
-            status: 'CANCELLED',
-          );
-        } catch (e) {
-          // Ignore
-        }
-      }
       notifyListeners();
     });
 
     _socket!.on('newApproval', (data) {
       value = 'new_approval';
-      if (data != null) {
-        try {
-          final mapData = data is Map<String, dynamic>
-              ? data
-              : Map<String, dynamic>.from(data as Map);
-          final approvalId = (mapData['_id'] ?? '').toString();
-          final type = (mapData['type'] ?? '').toString();
-          final approvalData = mapData['data'] ?? {};
-
-          final title = type == 'PartReplacement'
-              ? 'New Part Approval'
-              : type == 'ExtraCost'
-              ? 'Extra Cost Approval'
-              : 'New Approval Request';
-
-          final body = type == 'PartReplacement'
-              ? 'A new part replacement (${approvalData['name']}) requires your approval.'
-              : type == 'ExtraCost'
-              ? 'An extra cost of ₹${approvalData['amount']} requires your approval for: ${approvalData['reason']}'
-              : 'A new request requires your approval.';
-
-          NotificationService().showLocalNotification(
-            title: title,
-            body: body,
-            payload: jsonEncode({
-              'type': 'approval',
-              'bookingId': (mapData['relatedId'] ?? '').toString(),
-              'approvalId': approvalId,
-            }),
-            type: 'approval',
-          );
-
-          // No foreground popup dialog; keep notification-based flow only.
-        } catch (e) {
-          // Ignore
-        }
-      }
       notifyListeners();
     });
 
@@ -296,48 +185,11 @@ class SocketService extends ValueNotifier<String?> {
 
     _socket!.on('notification', (data) {
       value = 'notification';
-      if (data != null) {
-        try {
-          final mapData = data is Map<String, dynamic>
-              ? data
-              : Map<String, dynamic>.from(data as Map);
-          final payload = mapData['payload'] != null
-              ? (mapData['payload'] is String
-                    ? mapData['payload'] as String
-                    : jsonEncode(mapData['payload']))
-              : null;
-
-          Map<String, dynamic>? payloadData;
-          if (payload != null) {
-            try {
-              payloadData = jsonDecode(payload);
-            } catch (_) {}
-          }
-
-          NotificationService().showLocalNotification(
-            title: (mapData['title'] ?? 'Notification').toString(),
-            body: (mapData['message'] ?? mapData['body'] ?? '').toString(),
-            payload: payload,
-            type: payloadData?['type']?.toString(),
-            status: (payloadData?['status'] ?? payloadData?['bookingStatus'])
-                ?.toString(),
-            subType: payloadData?['subType']?.toString(),
-          );
-        } catch (e) {
-          // Ignore
-        }
-      }
       notifyListeners();
     });
 
     _socket!.on('ticketUpdated', (data) {
       value = 'ticket_updated';
-      NotificationService().showLocalNotification(
-        title: 'Support Ticket Updated',
-        body: 'A support ticket has been updated.',
-        payload: jsonEncode({'type': 'support'}),
-        type: 'support',
-      );
       notifyListeners();
     });
 
