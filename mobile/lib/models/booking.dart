@@ -551,6 +551,62 @@ class Booking {
     }
   }
 
+  /// Last step before DELIVERED, or before COMPLETED when the flow has no DELIVERED.
+  static String? preTerminalDeliveryStatus(List<String> flow) {
+    final deliveredIdx = flow.indexOf('DELIVERED');
+    if (deliveredIdx > 0) return flow[deliveredIdx - 1];
+    final completedIdx = flow.indexOf('COMPLETED');
+    if (completedIdx > 0) return flow[completedIdx - 1];
+    return null;
+  }
+
+  /// Matches web `canCustomerSeeDeliveryOtp` — OTP visible on pre-delivery step only.
+  bool get canCustomerSeeDeliveryOtp {
+    final pre = preTerminalDeliveryStatus(getFlowForBooking(this));
+    if (pre == null) return false;
+    return status.toUpperCase() == pre.toUpperCase();
+  }
+
+  bool get shouldShowCustomerDeliveryOtp {
+    final code = deliveryOtp?.code.trim();
+    if (code == null || code.isEmpty) return false;
+    return canCustomerSeeDeliveryOtp;
+  }
+
+  /// Periodic / general workshop (not car wash, not battery/tire).
+  bool get isGeneralWorkshopService {
+    if (batteryTire?.isBatteryTireService == true) return false;
+    if (carWash?.isCarWashService == true) return false;
+    final isCarWash = services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('car wash') ||
+          cat.contains('wash') ||
+          cat.contains('essentials');
+    });
+    if (isCarWash) return false;
+    final isBatteryOrTire = services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('battery') ||
+          cat.contains('tyre') ||
+          cat.contains('tire');
+    });
+    if (isBatteryOrTire) return false;
+    return services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      final name = s.name.toLowerCase();
+      return cat == 'periodic' ||
+          cat == 'services' ||
+          name.contains('general service');
+    });
+  }
+
+  /// Track page app bar: general → after DELIVERED; others → after payment.
+  bool get canShowInvoiceDownload {
+    final st = status.toUpperCase();
+    if (isGeneralWorkshopService) return st == 'DELIVERED';
+    return (paymentStatus ?? '').toLowerCase() == 'paid';
+  }
+
   factory Booking.fromJson(Map<String, dynamic>? map) {
     if (map == null) {
       throw ArgumentError('Booking.fromJson: map must be a non-null Map');

@@ -111,9 +111,10 @@ class VehicleService {
     try {
       final m = make.trim();
       final md = model.trim();
+      if (m.isEmpty || md.isEmpty) return null;
+      final queryParams = <String, String>{'brand_name': m, 'model': md};
       final v = (variant ?? '').trim();
-      if (m.isEmpty || md.isEmpty || v.isEmpty) return null;
-      final queryParams = {'brand_name': m, 'model': md, 'variant': v};
+      if (v.isNotEmpty) queryParams['variant'] = v;
 
       final queryString = queryParams.entries
           .map(

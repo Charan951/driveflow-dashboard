@@ -38,10 +38,21 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     WidgetsBinding.instance.addObserver(this);
     _navProvider = context.read<NavigationProvider>();
     _pageController = PageController(initialPage: _navProvider?.selectedIndex ?? 2);
+    _navProvider?.addListener(_syncPageToSelectedTab);
+  }
+
+  void _syncPageToSelectedTab() {
+    if (!mounted || !_pageController.hasClients) return;
+    final target = _navProvider?.selectedIndex ?? 2;
+    final current = _pageController.page?.round() ?? target;
+    if (current != target) {
+      _pageController.jumpToPage(target);
+    }
   }
 
   @override
   void dispose() {
+    _navProvider?.removeListener(_syncPageToSelectedTab);
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();

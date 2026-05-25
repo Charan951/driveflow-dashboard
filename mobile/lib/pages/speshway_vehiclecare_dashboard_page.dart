@@ -1333,9 +1333,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               ),
             ],
           ),
-          if (booking.status == 'OUT_FOR_DELIVERY' &&
-              booking.deliveryOtp?.code != null &&
-              booking.deliveryOtp!.code.isNotEmpty) ...[
+          if (booking.shouldShowCustomerDeliveryOtp) ...[
             const SizedBox(height: 20),
             Container(
               width: double.infinity,

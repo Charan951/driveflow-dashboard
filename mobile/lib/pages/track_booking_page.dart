@@ -1193,9 +1193,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'SERVICE_STARTED' ||
             booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
-    final status = (booking?.status ?? '').toUpperCase().trim();
-    final isFinalizedStatus = status == 'DELIVERED' || status == 'COMPLETED';
-    final canDownloadInvoice = booking?.invoiceUrl != null || isFinalizedStatus;
+    final canDownloadInvoice = booking?.canShowInvoiceDownload ?? false;
     final isBookedStatus = booking?.status.toUpperCase() == 'BOOKED';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2077,9 +2075,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         const SizedBox(height: 16),
                       ],
 
-                      if (booking.status == 'OUT_FOR_DELIVERY' &&
-                          booking.deliveryOtp != null &&
-                          booking.deliveryOtp!.code.trim().isNotEmpty) ...[
+                      if (booking.shouldShowCustomerDeliveryOtp) ...[
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(16),

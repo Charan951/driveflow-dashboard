@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
+import { searchVehicleReference } from '../../services/vehicleReferenceService';
+import { Vehicle } from '../../services/vehicleService';
 import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, getFlowForService } from '@/lib/statusFlow';
 
 interface BillUploadPanelProps {
@@ -70,6 +72,91 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   const [file, setFile] = useState<File | null>(null);
   const [isUploaded, setIsUploaded] = useState(!!booking.billing?.fileUrl);
   const [loading, setLoading] = useState(false);
+  const [pickupDropLoading, setPickupDropLoading] = useState(false);
+
+  const recalcTotal = (
+    partsCost: string,
+    labourCost: string,
+    gst: string,
+    pickupDrop: number
+  ) => {
+    const parts = parseFloat(partsCost) || 0;
+    const labour = parseFloat(labourCost) || 0;
+    const gstNum = parseFloat(gst) || 0;
+    const baseAmount = getBaseServiceAmount(booking);
+    return (baseAmount + parts + labour + gstNum + pickupDrop).toString();
+  };
+
+  // Fetch pickup/drop price from vehicle reference (brand + model + variant)
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadPickupDropPrice = async () => {
+      const fallback =
+        Number(booking.billing?.pickupDropPrice) ||
+        Number(booking.pickupDropPrice) ||
+        0;
+
+      const vehicle =
+        typeof booking.vehicle === 'object' ? (booking.vehicle as Vehicle) : null;
+
+      if (!vehicle?.make?.trim() || !vehicle?.model?.trim()) {
+        if (!cancelled) {
+          setFormData((prev) => ({
+            ...prev,
+            pickupDropPrice: fallback > 0 ? String(fallback) : '',
+            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback),
+          }));
+        }
+        return;
+      }
+
+      setPickupDropLoading(true);
+      try {
+        const details = await searchVehicleReference(
+          vehicle.make,
+          vehicle.model,
+          vehicle.variant
+        );
+        const fromReference = details?.pickup_drop_price != null
+          ? Number(details.pickup_drop_price)
+          : NaN;
+        const price = !Number.isNaN(fromReference) && fromReference >= 0
+          ? fromReference
+          : fallback;
+
+        if (!cancelled) {
+          setFormData((prev) => ({
+            ...prev,
+            pickupDropPrice: price > 0 ? String(price) : '0',
+            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, price),
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setFormData((prev) => ({
+            ...prev,
+            pickupDropPrice: fallback > 0 ? String(fallback) : '',
+            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback),
+          }));
+        }
+      } finally {
+        if (!cancelled) setPickupDropLoading(false);
+      }
+    };
+
+    loadPickupDropPrice();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    booking._id,
+    booking.pickupDropPrice,
+    booking.billing?.pickupDropPrice,
+    typeof booking.vehicle === 'object'
+      ? `${(booking.vehicle as Vehicle).make}|${(booking.vehicle as Vehicle).model}|${(booking.vehicle as Vehicle).variant ?? ''}`
+      : booking.vehicle,
+  ]);
 
   // Sync form data with booking prop changes (e.g. when parts are added in Inspection)
   React.useEffect(() => {
@@ -95,14 +182,14 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
     const { name, value } = e.target;
     setFormData(prev => {
         const newData = { ...prev, [name]: value };
-        // Auto calculate total if costs change
-        if (['partsCost', 'labourCost', 'gst', 'pickupDropPrice'].includes(name)) {
-            const parts = parseFloat(newData.partsCost.toString()) || 0;
-            const labour = parseFloat(newData.labourCost.toString()) || 0;
-            const gst = parseFloat(newData.gst.toString()) || 0;
+        if (['partsCost', 'labourCost', 'gst'].includes(name)) {
             const pickupDrop = parseFloat(newData.pickupDropPrice.toString()) || 0;
-            const baseAmount = getBaseServiceAmount(booking);
-            newData.totalAmount = (baseAmount + parts + labour + gst + pickupDrop).toString();
+            newData.totalAmount = recalcTotal(
+              newData.partsCost,
+              newData.labourCost,
+              newData.gst,
+              pickupDrop
+            );
         }
         return newData;
     });
@@ -286,11 +373,15 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             <input
               type="number"
               name="pickupDropPrice"
-              value={formData.pickupDropPrice}
-              onChange={handleInputChange}
-              min="0"
-              className="w-full p-2 border border-input rounded-lg bg-background"
+              value={pickupDropLoading ? '' : formData.pickupDropPrice}
+              readOnly
+              disabled
+              placeholder={pickupDropLoading ? 'Loading...' : '0'}
+              className="w-full p-2 border border-input rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
             />
+            <p className="text-xs text-muted-foreground">
+              Auto-filled from vehicle brand &amp; model (not editable)
+            </p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Total Amount</label>

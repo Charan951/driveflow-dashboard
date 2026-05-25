@@ -1116,8 +1116,7 @@ class _UpcomingBookingCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (booking.deliveryOtp?.code != null &&
-                booking.deliveryOtp!.code.isNotEmpty) ...[
+            if (booking.shouldShowCustomerDeliveryOtp) ...[
               AppSpacing.verticalMedium,
               Container(
                 width: double.infinity,

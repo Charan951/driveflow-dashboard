@@ -46,4 +46,12 @@ class NavigationProvider with ChangeNotifier {
       setTab(index, arguments: arguments);
     }
   }
+
+  /// After booking confirmation — land on home tab and refresh dashboard.
+  void goHomeAfterBooking() {
+    _selectedIndex = 2;
+    _arguments = null;
+    _shouldRefreshDashboard = true;
+    notifyListeners();
+  }
 }

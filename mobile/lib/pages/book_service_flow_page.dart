@@ -21,6 +21,7 @@ import '../core/app_styles.dart';
 import '../core/env.dart';
 import '../models/vehicle.dart';
 import '../models/booking.dart';
+import '../models/user.dart';
 import '../services/catalog_service.dart';
 import '../services/vehicle_service.dart';
 import '../services/booking_service.dart';
@@ -88,7 +89,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final MapController _mapController = MapController();
   String? _selectedVehicleOEMTire;
   double _pickupDropPrice = 0;
+  bool _pickupDropLoading = false;
   Map<String, double> _adjustedPrices = {};
+  /// Pincode cache for saved addresses (key: label::lat::lng).
+  final Map<String, String?> _savedAddressPincodes = {};
 
   String? _extractPincode(String? address) {
     if (address == null) return null;
@@ -171,12 +175,90 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     } catch (_) {}
   }
 
+  String _savedAddressKey(SavedAddress addr) =>
+      '${addr.label}::${addr.lat}::${addr.lng}';
+
+  String? _getSavedAddressPin(SavedAddress addr) {
+    final cached = _savedAddressPincodes[_savedAddressKey(addr)];
+    if (cached != null && cached.isNotEmpty) return cached;
+    return _extractPincode(addr.address);
+  }
+
+  String? _pincodeForCurrentSelection() {
+    if (_selectedAddress == null) return null;
+    final user = context.read<AuthProvider>().user;
+    if (user != null) {
+      for (final addr in user.addresses) {
+        if (addr.address == _selectedAddress) {
+          return _getSavedAddressPin(addr);
+        }
+      }
+    }
+    return _extractPincode(_selectedAddress);
+  }
+
+  bool _isAddressBlocked(SavedAddress addr) {
+    if (!_pincodesReady) return false;
+    final pin = _getSavedAddressPin(addr);
+    if (_availableServicePincodes.isEmpty) return true;
+    if (pin == null) return true;
+    return !_availableServicePincodes.contains(pin);
+  }
+
   bool get _isSelectedLocationAllowed {
-    final pin = _extractPincode(_selectedAddress);
+    final pin = _pincodeForCurrentSelection();
     if (pin == null) return false;
     if (!_pincodesReady) return true;
     if (_availableServicePincodes.isEmpty) return false;
     return _availableServicePincodes.contains(pin);
+  }
+
+  Future<String?> _reverseGeocodePincode(LatLng latLng) async {
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+        'format': 'jsonv2',
+        'lat': latLng.latitude.toString(),
+        'lon': latLng.longitude.toString(),
+      });
+      final res = await http.get(
+        uri,
+        headers: const {'User-Agent': 'CarzziMobile/1.0'},
+      );
+      if (res.statusCode != 200) return null;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map) return null;
+      final address = decoded['address'];
+      if (address is Map) {
+        final postcode = address['postcode']?.toString();
+        if (postcode != null) {
+          final pin = _extractPincode(postcode);
+          if (pin != null) return pin;
+        }
+      }
+      final display = decoded['display_name']?.toString();
+      if (display != null) return _extractPincode(display);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _prefetchSavedAddressPincodes() async {
+    final addresses = context.read<AuthProvider>().user?.addresses ?? [];
+    if (addresses.isEmpty) return;
+
+    var changed = false;
+    for (final addr in addresses) {
+      final key = _savedAddressKey(addr);
+      if (_savedAddressPincodes.containsKey(key)) continue;
+
+      var pin = _extractPincode(addr.address);
+      if (pin == null && addr.lat != 0 && addr.lng != 0) {
+        pin = await _reverseGeocodePincode(LatLng(addr.lat, addr.lng));
+      }
+      _savedAddressPincodes[key] = pin;
+      changed = true;
+    }
+
+    if (changed && mounted) setState(() {});
   }
 
   DateTime? _composeBookingDateTime() {
@@ -544,6 +626,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
   }
 
+  Future<void> _loadPickupDropPrice(Vehicle vehicle) async {
+    if (!mounted) return;
+    setState(() => _pickupDropLoading = true);
+    try {
+      await _prefetchVehicleTire(vehicle);
+    } finally {
+      if (mounted) setState(() => _pickupDropLoading = false);
+    }
+  }
+
   Future<void> _prefetchVehicleTire(Vehicle vehicle) async {
     String format(String v) {
       var s = v.trim();
@@ -573,8 +665,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       );
 
       double pickupPrice = 0;
+      final storedPickup = vehicle.pickupDropPrice?.trim();
+      if (storedPickup != null && storedPickup.isNotEmpty) {
+        pickupPrice = double.tryParse(storedPickup) ?? 0;
+      }
       if (ref != null && ref['pickup_drop_price'] != null) {
-        pickupPrice = double.tryParse(ref['pickup_drop_price'].toString()) ?? 0;
+        final fromRef = double.tryParse(ref['pickup_drop_price'].toString());
+        if (fromRef != null && fromRef >= 0) pickupPrice = fromRef;
       }
 
       final Map<String, double> newAdjustedPrices = {};
@@ -763,13 +860,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           );
 
           context.read<SocketService>().sendEvent('booking_created');
-
-          context.read<NavigationProvider>().setTab(2);
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/customer',
-            (route) => false,
-          );
+          _navigateToHomeAfterBooking();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -788,6 +879,38 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ).showSnackBar(SnackBar(content: Text('Verification error: $e')));
       }
     }
+  }
+
+  void _resetBookingWizard() {
+    setState(() {
+      _currentStep = 0;
+      _selectedServiceIds = [];
+      _selectedTimeSlot = null;
+      _selectedAddress = null;
+      _selectedLatLng = null;
+      _appliedCoupon = null;
+      _pickupDropPrice = 0;
+      _pickupDropLoading = false;
+    });
+    _notesController.clear();
+  }
+
+  void _navigateToHomeAfterBooking() {
+    if (!mounted) return;
+    context.read<NavigationProvider>().goHomeAfterBooking();
+
+    final routeName = ModalRoute.of(context)?.settings.name;
+    if (routeName == '/book') {
+      Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+        '/customer',
+        (route) => false,
+      );
+    }
+
+    // Reset wizard after switching away so user does not land on step 1 when revisiting a tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resetBookingWizard();
+    });
   }
 
   void _handlePaymentError(CFErrorResponse response, String orderId) {
@@ -866,7 +989,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
             // Auto-fill tire size for the default selected vehicle
             final vehicle = _vehicles.first;
-            _prefetchVehicleTire(vehicle);
+            _loadPickupDropPrice(vehicle);
             for (final serviceId in _selectedServiceIds) {
               _autoFillTireSize(serviceId, vehicle);
             }
@@ -889,6 +1012,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         });
         await _fetchSlotsForDate(_selectedDate);
         await _fetchCoupons();
+        await _prefetchSavedAddressPincodes();
       }
     } catch (e) {
       if (mounted) {
@@ -1265,7 +1389,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
     }
     if (_currentStep < _steps.length - 1) {
+      final enteringConfirm = _currentStep == 2;
       setState(() => _currentStep++);
+      if (enteringConfirm && _selectedVehicleId != null) {
+        for (final v in _vehicles) {
+          if (v.id == _selectedVehicleId) {
+            _loadPickupDropPrice(v);
+            break;
+          }
+        }
+      }
     } else {
       _submitBooking();
     }
@@ -1404,7 +1537,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   _autoFillTireSize(serviceId, v);
                 }
               });
-              _prefetchVehicleTire(v);
+              _loadPickupDropPrice(v);
             },
           ),
         ),
@@ -1967,8 +2100,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   ),
                                 ],
 
-                                // Quantity Selection
-                                ...[
+                                // Quantity — tyres only (not batteries)
+                                if (!isBatteryService) ...[
                                   const SizedBox(height: 16),
                                   const Divider(),
                                   const SizedBox(height: 8),
@@ -2368,8 +2501,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                 ),
                               ],
 
-                              // Quantity Selection
-                              ...[
+                              // Quantity — tyres only (not batteries)
+                              if (!isBatteryService) ...[
                                 const SizedBox(height: 16),
                                 const Divider(),
                                 const SizedBox(height: 8),
@@ -2424,6 +2557,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Widget _buildScheduleStep() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _prefetchSavedAddressPincodes();
+    });
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2643,16 +2779,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     .read<AuthProvider>()
                     .user!
                     .addresses[index];
-                final pin = _extractPincode(addr.address);
-                final isBlockedAddress =
-                    _pincodesReady &&
-                    (_availableServicePincodes.isEmpty ||
-                        pin == null ||
-                        !_availableServicePincodes.contains(pin));
+                final pin = _getSavedAddressPin(addr);
+                final isBlockedAddress = _isAddressBlocked(addr);
                 final selected = _selectedAddress == addr.address;
                 return ChoiceChip(
                   label: Text(addr.label),
-                  selected: selected && !isBlockedAddress,
+                  selected: selected,
                   selectedColor: AppStyles.primaryBlue.withValues(alpha: 0.2),
                   labelStyle: TextStyle(
                     color: isBlockedAddress
@@ -2661,13 +2793,21 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   ),
                   onSelected: (v) {
-                    if (v && !isBlockedAddress) {
-                      setState(() {
-                        _selectedLatLng = LatLng(addr.lat, addr.lng);
-                        _selectedAddress = addr.address;
-                        _showCustomLocation = false;
-                      });
+                    if (!v) return;
+                    if (isBlockedAddress) {
+                      final message = pin == null
+                          ? '${addr.label}: could not detect pincode. Edit the address in Profile or use the map.'
+                          : '${addr.label}: service is not available for pincode $pin.';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(message)),
+                      );
+                      return;
                     }
+                    setState(() {
+                      _selectedLatLng = LatLng(addr.lat, addr.lng);
+                      _selectedAddress = addr.address;
+                      _showCustomLocation = false;
+                    });
                   },
                 );
               },
@@ -2951,7 +3091,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                 );
               }),
-              if (isGeneralService && _pickupDropPrice > 0)
+              if (isGeneralService)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
@@ -2963,10 +3103,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           style: TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ),
-                      Text(
-                        '₹${_pickupDropPrice.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      _pickupDropLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              '₹${_pickupDropPrice.toStringAsFixed(0)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ],
                   ),
                 ),
@@ -3363,6 +3509,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             _selectedAddress = name;
           });
         }
+        final pin = await _reverseGeocodePincode(latLng);
+        if (pin != null) {
+          _savedAddressPincodes['map::${latLng.latitude}::${latLng.longitude}'] =
+              pin;
+        }
       }
     } catch (e) {
       // Handle error
@@ -3554,9 +3705,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         ),
       );
 
-      context.read<NavigationProvider>().setTab(2);
-      // Navigate to dashboard/home after booking confirmation
-      Navigator.pushNamedAndRemoveUntil(context, '/customer', (route) => false);
+      _navigateToHomeAfterBooking();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
