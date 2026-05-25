@@ -533,7 +533,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                               height: 120,
                                               width: double.infinity,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
+                                              errorBuilder: (_, _, _) =>
                                                   const SizedBox.shrink(),
                                             ),
                                           ),

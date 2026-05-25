@@ -360,7 +360,6 @@ class NotificationService {
 
     final partName = data['partName']?.toString() ?? '';
     final quantity = data['quantity']?.toString() ?? '';
-    final unitPrice = data['unitPrice']?.toString() ?? '';
     final totalAmount = data['totalAmount']?.toString() ?? '';
     final approvalType = data['approvalType']?.toString() ?? '';
 
