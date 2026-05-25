@@ -111,7 +111,10 @@ const OrderDetail: React.FC = () => {
       // can have a stale activeTab (tab switch does not refresh the callback deps), which would otherwise
       // re-select "service" and skip this transition.
       else if (sourceTab === 'service') {
-        setActiveTab('qc');
+        const afterPhotoCount = data.serviceExecution?.afterPhotos?.length ?? 0;
+        if (afterPhotoCount >= 4 && !data.qc?.completedAt) {
+          setActiveTab('qc');
+        }
       }
       // After Save health stats — same priority as service save (avoid stale activeTab branches).
       else if (sourceTab === 'health') {

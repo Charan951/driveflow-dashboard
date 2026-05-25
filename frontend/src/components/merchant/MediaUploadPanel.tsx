@@ -14,7 +14,6 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   // Check if booking is completed (read-only mode)
   const isReadOnly = booking?.status === 'COMPLETED' || booking?.status === 'DELIVERED' || booking?.paymentStatus === 'paid';
   
-  const [afterImages, setAfterImages] = useState<File[]>([]);
   const [serviceParts, setServiceParts] = useState<Array<{
     name: string;
     price: number;
@@ -123,22 +122,52 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
       .map(part => part.inspectionPartId || '')
   ].filter(Boolean);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      // Limit to 4 images total (existing + new)
-      const maxNewImages = Math.max(0, 4 - existingAfter.length);
-      const limitedFiles = files.slice(0, maxNewImages);
-      setAfterImages(prev => [...prev, ...limitedFiles].slice(0, maxNewImages));
-      
-      if (files.length > maxNewImages) {
-        toast.warning(`Only ${maxNewImages} more images can be added (maximum 4 total)`);
-      }
+  const uploadAfterPhotos = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    const remaining = Math.max(0, 4 - existingAfter.length);
+    if (remaining === 0) {
+      toast.warning('Maximum 4 after service photos already uploaded');
+      return;
+    }
+
+    const toUpload = files.slice(0, remaining);
+    if (files.length > toUpload.length) {
+      toast.warning(`Only ${toUpload.length} more photo(s) can be added (maximum 4 total)`);
+    }
+
+    setLoading(true);
+    try {
+      const res: { files: { url: string }[] } = await uploadService.uploadFiles(toUpload);
+      const newUrls = res.files.map((f) => f.url);
+      const finalAfter = [...existingAfter, ...newUrls].slice(0, 4);
+
+      await bookingService.updateBookingDetails(bookingId, {
+        serviceExecution: {
+          ...booking?.serviceExecution,
+          afterPhotos: finalAfter,
+        },
+      });
+
+      setExistingAfter(finalAfter);
+      toast.success(
+        toUpload.length === 1 ? 'Photo uploaded' : `${toUpload.length} photos uploaded`
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to upload photo');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const removeImage = (index: number) => {
-    setAfterImages(prev => prev.filter((_, i) => i !== index));
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    if (files.length > 0) {
+      await uploadAfterPhotos(files);
+    }
   };
 
   const removeExistingImage = (index: number) => {
@@ -210,25 +239,33 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   };
 
   const handleUpload = async () => {
-    if (afterImages.length === 0 && serviceParts.length === 0 && 
-        Object.keys(newImagesForExistingParts).length === 0 &&
-        existingAfter.length === booking?.serviceExecution?.afterPhotos?.length &&
-        existingServiceParts.length === booking?.serviceExecution?.serviceParts?.length) {
+    const savedAfterPhotos = booking?.serviceExecution?.afterPhotos ?? [];
+    const afterPhotosUnchanged =
+      existingAfter.length === savedAfterPhotos.length &&
+      existingAfter.every((url, i) => url === savedAfterPhotos[i]);
+
+    const servicePartsUnchanged =
+      serviceParts.length === 0 &&
+      Object.keys(newImagesForExistingParts).length === 0 &&
+      existingServiceParts.length === (booking?.serviceExecution?.serviceParts?.length ?? 0);
+
+    if (servicePartsUnchanged && afterPhotosUnchanged) {
+      if (existingAfter.length >= 4) {
+        onUploadComplete();
+        toast.success('Service photos complete. Proceed to QC Check.');
+        return;
+      }
       toast.info('No changes to save');
       return;
+    }
+
+    if (existingAfter.length < 4) {
+      toast.warning('Upload 4 after service photos, then save to continue to QC Check');
     }
     
     setLoading(true);
     try {
-        let newAfterUrls: string[] = [];
-
-        // Upload new after service images
-        if (afterImages.length > 0) {
-          const res: { files: { url: string }[] } = await uploadService.uploadFiles(afterImages);
-          newAfterUrls = res.files.map((f) => f.url);
-        }
-        
-        const finalAfter = [...existingAfter, ...newAfterUrls];
+        // After service photos are uploaded immediately on selection
 
         // Process existing service parts with new images
         const updatedExistingParts = [...existingServiceParts];
@@ -273,20 +310,23 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
         
         await bookingService.updateBookingDetails(bookingId, {
             serviceExecution: {
-                afterPhotos: finalAfter,
+                ...booking?.serviceExecution,
+                afterPhotos: existingAfter,
                 serviceParts: finalServiceParts
             }
         });
 
         // Update existing state
-        setExistingAfter(finalAfter);
         setExistingServiceParts(finalServiceParts);
-        setAfterImages([]);
         setServiceParts([]);
         setNewImagesForExistingParts({});
 
         onUploadComplete();
-        toast.success('Service data updated successfully');
+        if (existingAfter.length >= 4) {
+          toast.success('Service data saved. Proceed to QC Check.');
+        } else {
+          toast.success('Service data updated successfully');
+        }
     } catch (error) {
         console.error(error);
         toast.error('Failed to upload data');
@@ -295,7 +335,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
     }
   };
 
-  const totalImages = existingAfter.length + afterImages.length;
+  const totalImages = existingAfter.length;
 
   return (
     <div className="space-y-6">
@@ -603,29 +643,21 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
               </div>
           ))}
           
-          {/* New Images */}
-          {!isReadOnly && afterImages.map((file, i) => (
-            <div key={`new-after-${i}`} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
-              <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
-              <button
-                onClick={() => removeImage(i)}
-                className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          
           {/* Add Photo Button - only show if less than 4 total images */}
           {!isReadOnly && totalImages < 4 && (
-            <label className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all">
+            <label className={`aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center transition-all ${
+              loading ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-primary/50 hover:bg-muted/50'
+            }`}>
               <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-              <span className="text-sm text-muted-foreground text-center">Add Photo</span>
+              <span className="text-sm text-muted-foreground text-center">
+                {loading ? 'Uploading...' : 'Add Photo'}
+              </span>
               <input 
                 type="file" 
                 accept="image/*" 
                 multiple 
                 className="hidden" 
+                disabled={loading}
                 onChange={handleImageChange} 
               />
             </label>
@@ -641,7 +673,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
             <p className="text-sm">
               {isReadOnly 
                 ? 'No photos were taken after service completion'
-                : 'Upload up to 4 photos showing the completed work'
+                : 'Upload 4 photos, then click Save Service Data to continue to QC Check'
               }
             </p>
           </div>
