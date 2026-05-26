@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -62,26 +63,13 @@ const AdminBookingsPage: React.FC = () => {
       });
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'booking') {
-        if (action === 'created' || action === 'updated' || action === 'deleted' || action === 'cancelled') {
-          fetchBookings();
-        }
-      }
-    };
-
     socketService.on('bookingUpdated', bookingUpdatedHandler);
     socketService.on('bookingCreated', bookingCreatedHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.leaveRoom('admin');
         socketService.off('bookingUpdated', bookingUpdatedHandler);
         socketService.off('bookingCreated', bookingCreatedHandler);
-        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -168,6 +156,7 @@ const AdminBookingsPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['booking']} onSync={fetchBookings}>
     <div className="space-y-4 p-4 max-w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -424,6 +413,7 @@ const AdminBookingsPage: React.FC = () => {
         </div>
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

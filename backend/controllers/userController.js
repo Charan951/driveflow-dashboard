@@ -12,7 +12,10 @@ export const getAllUsers = async (req, res) => {
     if (req.query.role) query.role = req.query.role;
     if (req.query.subRole) query.subRole = req.query.subRole;
 
-    const users = await User.find(query);
+    const users = await User.find(query)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -340,6 +343,32 @@ export const updateUserRole = async (req, res) => {
   }
 };
 
+const queueWelcomeEmail = ({ name, email, password, role }) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
+
+  const readableRole = role === 'merchant' ? 'Merchant' : role === 'staff' ? 'Staff' : 'User';
+  const subject = `Welcome to Carzzi - ${readableRole} Account Created`;
+  const text = [
+    `Hi ${name || 'there'},`,
+    '',
+    `Your ${readableRole.toLowerCase()} account has been created on Carzzi.`,
+    '',
+    `Login Email: ${email}`,
+    password ? `Temporary Password: ${password}` : '',
+    '',
+    'Please log in and change your password after first login.',
+    '',
+    'Best regards,',
+    'Carzzi Team',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  setImmediate(() => {
+    sendEmail(email, subject, text).catch(() => {});
+  });
+};
+
 // @desc    Create new user (Admin only)
 // @route   POST /api/users
 // @access  Private/Admin
@@ -347,7 +376,7 @@ export const createUser = async (req, res) => {
   const { name, email, password, role, subRole, phone, location, category } = req.body;
   
   try {
-    const userExists = await User.findOne({ email });
+    const userExists = await User.exists({ email });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -364,41 +393,16 @@ export const createUser = async (req, res) => {
       isApproved: true
     });
 
-    if (user) {
-      try {
-        const readableRole = role === 'merchant' ? 'Merchant' : role === 'staff' ? 'Staff' : 'User';
-        const subject = `Welcome to Carzzi - ${readableRole} Account Created`;
-        const text = [
-          `Hi ${name || 'there'},`,
-          '',
-          `Your ${readableRole.toLowerCase()} account has been created on Carzzi.`,
-          '',
-          `Login Email: ${email}`,
-          password ? `Temporary Password: ${password}` : '',
-          '',
-          'Please log in and change your password after first login.',
-          '',
-          'Best regards,',
-          'Carzzi Team',
-        ].filter(Boolean).join('\n');
-
-        await sendEmail(email, subject, text);
-      } catch (e) {
-        
-      }
-
-      // Global Real-time Sync
-      emitEntitySync('user', 'created', user);
-
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
-    } else {
-      res.status(400).json({ message: 'Invalid user data' });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid user data' });
     }
+
+    queueWelcomeEmail({ name, email, password, role });
+
+    const safeUser = await User.findById(user._id).select('-password').lean();
+    emitEntitySync('user', 'created', safeUser);
+
+    res.status(201).json(safeUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

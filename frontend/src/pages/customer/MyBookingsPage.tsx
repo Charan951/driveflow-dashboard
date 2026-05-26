@@ -3,6 +3,7 @@ import { bookingService, Booking } from '../../services/bookingService';
 import { reviewService } from '../../services/reviewService';
 import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '../../services/approvalService';
 import { socketService } from '../../services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -85,23 +86,12 @@ const MyBookingsPage = () => {
     const newApprovalHandler = (data: any) => {
       fetchData();
     };
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if ((entity === 'booking' || entity === 'approval') && action) {
-        fetchData();
-      }
-    };
-
     socketService.on('bookingUpdated', bookingUpdatedHandler);
     socketService.on('newApproval', newApprovalHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
       socketService.off('bookingUpdated', bookingUpdatedHandler);
       socketService.off('newApproval', newApprovalHandler);
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -486,11 +476,11 @@ const MyBookingsPage = () => {
       );
   };
 
-  if (loading) {
-    return <BookingsSkeleton />;
-  }
-
   return (
+    <GlobalSyncRefresh entities={['booking', 'approval']} onSync={fetchData}>
+    {loading ? (
+    <BookingsSkeleton />
+    ) : (
     <div className="w-full h-full py-6 sm:py-8 overflow-hidden">
       
       {/* Pending Approvals Section */}
@@ -680,6 +670,8 @@ const MyBookingsPage = () => {
         </DialogContent>
       </Dialog>
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

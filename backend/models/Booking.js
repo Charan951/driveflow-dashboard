@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Counter from './Counter.js';
+import { generateOrderNumber } from '../utils/orderNumber.js';
 
 const bookingSchema = mongoose.Schema(
   {
@@ -26,9 +26,10 @@ const bookingSchema = mongoose.Schema(
       index: true,
     },
     orderNumber: {
-      type: Number,
+      type: String,
       unique: true,
       index: true,
+      trim: true,
     },
     status: {
       type: String,
@@ -285,9 +286,8 @@ bookingSchema.index({ 'carWash.isCarWashService': 1, status: 1 });
 
 bookingSchema.pre('save', async function () {
   if (!this.isNew) return;
-  if (this.orderNumber != null) return;
-  const seq = await Counter.next('booking');
-  this.orderNumber = seq;
+  if (this.orderNumber != null && String(this.orderNumber).trim() !== '') return;
+  this.orderNumber = await generateOrderNumber(this.createdAt || new Date());
 });
 
 const Booking = mongoose.model('Booking', bookingSchema);

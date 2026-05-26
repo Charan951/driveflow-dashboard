@@ -24,7 +24,9 @@ import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import '../services/review_service.dart';
+import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../state/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'chat_page.dart';
@@ -88,7 +90,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   void initState() {
     super.initState();
     _socketService = SocketService();
-    _socketService.addListener(_onSocketUpdate);
     _setupSocketListeners();
 
     if (!kIsWeb) {
@@ -286,34 +287,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       } catch (_) {}
     });
 
-    _socketService.on('global:sync', (data) {
-      if (!mounted) return;
-      if (data != null) {
-        try {
-          final mapData = data is Map<String, dynamic>
-              ? data
-              : Map<String, dynamic>.from(data as Map);
-          final entity = (mapData['entity'] ?? '').toString();
-          if (entity == 'payment' ||
-              entity == 'approval' ||
-              entity == 'booking' ||
-              entity == 'user') {
-            _load(silent: true);
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
-    });
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    if (_loading || _bookingId == null) return;
-    final event = _socketService.value;
-    if (event != null && (event.contains('booking_updated'))) {
-      _load(silent: true);
-    }
   }
 
   @override
@@ -334,11 +307,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
   @override
   void dispose() {
-    _socketService.removeListener(_onSocketUpdate);
     _socketService.off('liveLocation');
     _socketService.off('bookingUpdated');
     _socketService.off('receiveMessage');
-    _socketService.off('global:sync');
     if (_bookingId != null) {
       _socketService.emit('leave', 'booking_$_bookingId');
     }
@@ -1199,7 +1170,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: () {
+        if (_loading || _bookingId == null) return;
+        _load(silent: true);
+      },
+      child: Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
         leading: IconButton(
@@ -3046,6 +3023,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ],
         ),
       ),
+    ),
     );
   }
 

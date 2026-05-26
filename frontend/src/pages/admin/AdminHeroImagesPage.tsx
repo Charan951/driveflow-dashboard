@@ -23,6 +23,7 @@ import {
 import { heroService, HeroSlide, PageHero } from '@/services/heroService';
 import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { blogService, BlogPost, BlogCategory } from '@/services/blogService';
 import { careerService, Career } from '@/services/careerService';
 import { toast } from 'sonner';
@@ -90,21 +91,8 @@ const AdminHeroImagesPage = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      if ((entity === 'hero' || entity === 'blog' || entity === 'blogCategory' || entity === 'career') && action) {
-        fetchAllData();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -457,13 +445,13 @@ const AdminHeroImagesPage = () => {
     }
   }, [blogCategories, blogForm._id, blogForm.category]);
 
-  if (loading) return (
+  return (
+    <GlobalSyncRefresh entities={['hero', 'blog', 'blogcategory', 'career']} onSync={fetchAllData}>
+    {loading ? (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Loader2 className="w-8 h-8 animate-spin text-primary" />
     </div>
-  );
-
-  return (
+    ) : (
     <div className="max-w-6xl mx-auto p-4 lg:p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
@@ -956,6 +944,8 @@ const AdminHeroImagesPage = () => {
         className="hidden"
       />
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

@@ -5,9 +5,10 @@ import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
+import '../widgets/global_sync_refresh.dart';
 
 class MyPaymentsPage extends StatefulWidget {
   const MyPaymentsPage({super.key});
@@ -29,35 +30,6 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
-
-    // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
-  }
-
-  @override
-  void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    final event = context.read<SocketService>().value;
-    if (event == null) return;
-
-    if ((event.contains('sync:payment') ||
-            event.contains('sync:booking') ||
-            event.contains('sync:user')) &&
-        mounted) {
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -113,7 +85,10 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
-    return PopScope(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.payments,
+      onSync: _load,
+      child: PopScope(
       canPop: Navigator.of(context).canPop(),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -230,6 +205,7 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
           ],
         ),
       ),
+    ),
     );
   }
 }

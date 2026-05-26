@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -34,6 +34,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { reviewService, Review } from '@/services/reviewService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { useAuthStore } from '@/store/authStore';
 import { getTimeBasedGreeting } from '@/lib/timeUtils';
 import { cn } from '@/lib/utils';
@@ -124,28 +125,29 @@ const DashboardPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [vehiclesData, bookingsData, servicesData, reviewsData] = await Promise.all([
-          vehicleService.getVehicles(),
-          bookingService.getMyBookings(),
-          serviceService.getServices(undefined, undefined, true),
-          reviewService.getMyReviews()
-        ]);
-        setVehicles(vehiclesData);
-        setBookings(bookingsData);
-        setServices(servicesData);
-        setReviews(reviewsData);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data', error);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [vehiclesData, bookingsData, servicesData, reviewsData] = await Promise.all([
+        vehicleService.getVehicles(),
+        bookingService.getMyBookings(),
+        serviceService.getServices(undefined, undefined, true),
+        reviewService.getMyReviews()
+      ]);
+      setVehicles(vehiclesData);
+      setBookings(bookingsData);
+      setServices(servicesData);
+      setReviews(reviewsData);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (user?._id) {
@@ -165,35 +167,12 @@ const DashboardPage: React.FC = () => {
         });
       };
 
-      const handleGlobalSync = (data: any) => {
-        if (!data) return;
-        const entity = (data as any).entity;
-        const action = (data as any).action;
-        if (entity === 'booking' && action) {
-          // Refetch bookings and vehicles for fresh dashboard data
-          (async () => {
-            try {
-              const [vehiclesData, bookingsData] = await Promise.all([
-                vehicleService.getVehicles(),
-                bookingService.getMyBookings(),
-              ]);
-              setVehicles(vehiclesData);
-              setBookings(bookingsData);
-            } catch (e) {
-              void e;
-            }
-          })();
-        }
-      };
-
       socketService.on('bookingUpdated', handleUpdate);
       socketService.on('bookingCreated', handleUpdate);
-      socketService.on('global:sync', handleGlobalSync);
       
       return () => {
         socketService.off('bookingUpdated', handleUpdate);
         socketService.off('bookingCreated', handleUpdate);
-        socketService.off('global:sync', handleGlobalSync);
       };
     }
   }, [user?._id]);
@@ -314,11 +293,14 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
-
   return (
+    <GlobalSyncRefresh
+      entities={['booking', 'service', 'coupon', 'vehicle', 'payment', 'notification', 'approval', 'setting']}
+      onSync={fetchData}
+    >
+    {loading ? (
+    <DashboardSkeleton />
+    ) : (
     <div className="w-full h-full min-h-screen px-4 py-4 lg:py-6 space-y-8 overflow-x-hidden">
       {/* Welcome Header */}
       <motion.div
@@ -683,6 +665,8 @@ const DashboardPage: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

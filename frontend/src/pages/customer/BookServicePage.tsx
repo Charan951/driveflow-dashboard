@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -28,7 +28,8 @@ import { calculateOrderTotals } from '@/lib/orderPricing';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
-import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
+import type { GlobalSyncPayload } from '@/lib/globalSync';
 import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
@@ -510,59 +511,46 @@ const BookServicePage: React.FC = () => {
     }
   }, [selectedServices]);
 
-  useEffect(() => {
-    socketService.connect();
+  const handleGlobalSync = useCallback(async (payload: GlobalSyncPayload) => {
+    const entity = payload.entity;
+    const syncData = payload.data as { date?: string; availablePincodes?: string[] } | undefined;
 
-    const onGlobalSync = async (payload: unknown) => {
-      if (!payload || typeof payload !== 'object') return;
-      const data = payload as {
-        entity?: string;
-        data?: { date?: string; availablePincodes?: string[] };
-      };
-      const entity = data.entity || '';
-
-      if (entity === 'availableServicePincode') {
-        const pins = data.data?.availablePincodes;
-        if (Array.isArray(pins)) {
-          setAvailableServicePincodes(pins);
-          setPincodesReady(true);
-        } else {
-          await refreshAvailablePincodes();
-        }
-        return;
+    if (entity === 'availableservicepincode') {
+      const pins = syncData?.availablePincodes;
+      if (Array.isArray(pins)) {
+        setAvailableServicePincodes(pins);
+        setPincodesReady(true);
+      } else {
+        await refreshAvailablePincodes();
       }
+      return;
+    }
 
-      if (entity === 'slotBlock') {
-        if (!selectedDate) return;
-        const changedDateRaw = data.data?.date;
-        if (changedDateRaw) {
-          const changedDate = new Date(changedDateRaw);
-          if (!isNaN(changedDate.getTime()) && !isSameLocalCalendarDay(selectedDate, changedDate)) {
-            return;
-          }
+    if (entity === 'slotblock') {
+      if (!selectedDate) return;
+      const changedDateRaw = syncData?.date;
+      if (changedDateRaw) {
+        const changedDate = new Date(changedDateRaw);
+        if (!isNaN(changedDate.getTime()) && !isSameLocalCalendarDay(selectedDate, changedDate)) {
+          return;
         }
+      }
+      await refreshSlotsForDate(selectedDate);
+      return;
+    }
+
+    if (entity === 'booking' && selectedDate) {
+      const changedDateRaw = syncData?.date;
+      if (!changedDateRaw) {
         await refreshSlotsForDate(selectedDate);
         return;
       }
-
-      if (entity === 'booking' && selectedDate) {
-        const changedDateRaw = data.data?.date;
-        if (!changedDateRaw) {
-          await refreshSlotsForDate(selectedDate);
-          return;
-        }
-        const changedDate = new Date(changedDateRaw);
-        if (!isNaN(changedDate.getTime()) && isSameLocalCalendarDay(selectedDate, changedDate)) {
-          await refreshSlotsForDate(selectedDate);
-        }
+      const changedDate = new Date(changedDateRaw);
+      if (!isNaN(changedDate.getTime()) && isSameLocalCalendarDay(selectedDate, changedDate)) {
+        await refreshSlotsForDate(selectedDate);
       }
-    };
-
-    socketService.on('global:sync', onGlobalSync);
-    return () => {
-      socketService.off('global:sync', onGlobalSync);
-    };
-  }, [selectedDate, selectedTime]);
+    }
+  }, [selectedDate, refreshAvailablePincodes, refreshSlotsForDate]);
 
   useEffect(() => {
     if (!selectedDate || !selectedTime) return;
@@ -780,6 +768,10 @@ const BookServicePage: React.FC = () => {
   console.log('Rendering BookServicePage with category:', searchParams.get('category'));
 
   return (
+    <GlobalSyncRefresh
+      entities={['availableservicepincode', 'slotblock', 'booking']}
+      onSync={handleGlobalSync}
+    >
     <div className="w-full min-h-screen py-4 lg:py-6 space-y-6">
       {/* Header */}
       <div>
@@ -1517,6 +1509,7 @@ const BookServicePage: React.FC = () => {
             </button>
           </div>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import CashfreePayment from '@/components/CashfreePayment';
 import { couponService, ValidatedCoupon, Coupon } from '@/services/couponService';
-import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { bookingService } from '@/services/bookingService';
 import { calculateOrderTotals, isGeneralServiceList } from '@/lib/orderPricing';
 
@@ -109,27 +109,6 @@ const PaymentPage: React.FC = () => {
       loadCoupons();
     }
   }, [tempBookingData]);
-
-  // Listen for coupon updates via socket
-  useEffect(() => {
-    socketService.connect();
-
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-
-      if (entity === 'coupon' && action) {
-        loadCoupons();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
-    return () => {
-      socketService.off('global:sync', globalSyncHandler);
-    };
-  }, []);
 
   // Determine service type for display
   const getSelectedServiceType = () => {
@@ -297,15 +276,13 @@ const PaymentPage: React.FC = () => {
     // Error is already toasted in CashfreePayment component
   };
 
-  if (!tempBookingData) {
-    return (
+  return (
+    <GlobalSyncRefresh entities={['coupon']} onSync={loadCoupons}>
+    {!tempBookingData ? (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
-    );
-  }
-
-  return (
+    ) : (
     <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <motion.div 
@@ -606,6 +583,8 @@ const PaymentPage: React.FC = () => {
         <p>Powered by Cashfree Payments</p>
       </motion.div>
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

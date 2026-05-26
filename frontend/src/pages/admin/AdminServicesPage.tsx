@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
 import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { bookingService } from '@/services/bookingService';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
@@ -57,21 +58,8 @@ const AdminServicesPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      if (entity === 'service' && action) {
-        fetchServices();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -206,6 +194,14 @@ const AdminServicesPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh
+      entities={['service', 'availableservicepincode', 'slotblock']}
+      onSync={() => {
+        fetchServices();
+        if (activeTab === 'slots') fetchAdminSlots();
+        if (activeTab === 'available-pincodes') fetchAvailableServicePincodes();
+      }}
+    >
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Services</h1>
@@ -472,6 +468,7 @@ const AdminServicesPage: React.FC = () => {
         />
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

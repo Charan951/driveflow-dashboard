@@ -10,6 +10,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { Link, useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -59,26 +60,12 @@ const Dashboard: React.FC = () => {
       fetchData();
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      // Merchant should refresh for bookings, products, services, and profile/settings
-      const merchantEntities = ['booking', 'product', 'service', 'user', 'setting', 'approval'];
-      if (merchantEntities.includes(entity) && action) {
-        fetchData();
-      }
-    };
-
     socketService.on('bookingUpdated', bookingUpdatedHandler);
     socketService.on('bookingCreated', bookingCreatedHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.off('bookingUpdated', bookingUpdatedHandler);
         socketService.off('bookingCreated', bookingCreatedHandler);
-        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -127,11 +114,14 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading dashboard...</div>;
-  }
-
   return (
+    <GlobalSyncRefresh
+      entities={['booking', 'product', 'service', 'user', 'setting', 'approval']}
+      onSync={fetchData}
+    >
+    {isLoading ? (
+      <div className="p-8 text-center">Loading dashboard...</div>
+    ) : (
     <motion.div 
       variants={staggerContainer}
       initial="hidden"
@@ -241,6 +231,8 @@ const Dashboard: React.FC = () => {
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

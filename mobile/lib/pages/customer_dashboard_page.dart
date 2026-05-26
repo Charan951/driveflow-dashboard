@@ -13,7 +13,8 @@ import '../models/service.dart';
 import '../models/vehicle.dart';
 import '../services/booking_service.dart';
 import '../services/catalog_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../state/auth_provider.dart';
@@ -35,7 +36,6 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
   final _reviewService = ReviewService();
   final _couponService = CouponService();
   final _scrollController = ScrollController();
-  SocketService? _socketService;
   String? _selectedVehicleId;
 
   bool _loading = false;
@@ -60,39 +60,12 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         _restoreAndLoad();
       }
     });
-
-    // Listen to socket updates for real-time refresh
-    _socketService = context.read<SocketService>();
-    _socketService?.addListener(_onSocketUpdate);
   }
 
   @override
   void dispose() {
-    _socketService?.removeListener(_onSocketUpdate);
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService?.value;
-    if (event == null) return;
-    // Reload data if a booking was created, updated or cancelled, or new approval, or sync event
-    if ((event == 'booking_created' ||
-            event == 'booking_updated' ||
-            event == 'booking_cancelled' ||
-            event.startsWith('new_approval') ||
-            event.contains('sync:booking') ||
-            event.contains('sync:approval') ||
-            event.contains('sync:payment') ||
-            event.contains('sync:product') ||
-            event.contains('sync:service') ||
-            event.contains('sync:vehicle') ||
-            event.contains('sync:user') ||
-            event.contains('sync:notification') ||
-            event.contains('sync:setting')) &&
-        mounted) {
-      _load();
-    }
   }
 
   Future<void> _restoreAndLoad() async {
@@ -511,7 +484,12 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.customerHub,
+      onSync: () {
+        if (!_loading && mounted) _load();
+      },
+      child: Scaffold(
       extendBody: true,
       backgroundColor: isDark
           ? AppColors.backgroundPrimary
@@ -659,6 +637,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
           ),
         ),
       ),
+    ),
     );
   }
 }

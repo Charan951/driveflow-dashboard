@@ -120,14 +120,6 @@ const users = [
     isApproved: true,
     phone: '1234567890'
   },
-  {
-    name: 'Demo Merchant',
-    email: 'merchant@carzzi.com',
-    password: 'merchantpassword123',
-    role: 'merchant',
-    isApproved: true,
-    phone: '0987654321'
-  }
 ];
 
 const seedData = async () => {

@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.route('/')
   .get(protect, merchant, getAllUsers)
-  .post(protect, merchant, createUser);
+  .post(protect, admin, createUser);
 
 router.route('/me').get(protect, getUserProfile);
 router.route('/fcm-token').post(protect, updateFCMToken);

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, Plus, Edit, Trash2, X, Check } from 'lucide-react';
 import { roleService } from '../../services/roleService';
 import { socketService } from '../../services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'react-hot-toast';
 
 interface Role {
@@ -51,21 +52,8 @@ const AdminRolesPage = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      if (entity === 'role' && action) {
-        fetchRoles();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -147,9 +135,11 @@ const AdminRolesPage = () => {
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-gray-500">Loading roles...</div>;
-
   return (
+    <GlobalSyncRefresh entities={['role']} onSync={fetchRoles}>
+    {loading ? (
+      <div className="p-6 text-center text-gray-500">Loading roles...</div>
+    ) : (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -307,6 +297,8 @@ const AdminRolesPage = () => {
         </div>
       )}
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

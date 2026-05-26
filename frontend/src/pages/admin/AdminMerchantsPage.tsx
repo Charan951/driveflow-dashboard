@@ -6,15 +6,11 @@ import {
   Search, 
   Filter, 
   Plus, 
-  Briefcase, 
-  MoreVertical,
   Mail,
   Phone,
   CheckCircle,
   XCircle,
   Store,
-  DollarSign,
-  Package,
   Clock,
   Trash2,
   MapPin,
@@ -25,6 +21,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +53,7 @@ const AdminMerchantsPage: React.FC = () => {
   } | null>(null);
 
   const [showMerchantPassword, setShowMerchantPassword] = useState(false);
+  const [isAddingMerchant, setIsAddingMerchant] = useState(false);
 
   // Rejection Modal State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -78,23 +76,9 @@ const AdminMerchantsPage: React.FC = () => {
       }));
     });
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'user') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchUsers();
-        }
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('userStatusUpdate');
-      socketService.off('global:sync', globalSyncHandler);
       // Don't disconnect here if other components need it, but safe to leave room
     };
   }, []);
@@ -127,9 +111,7 @@ const AdminMerchantsPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const data = await userService.getAllUsers();
-      // Filter only merchant role
-      const merchants = data.filter((u: User) => u.role === 'merchant');
+      const merchants = await userService.getAllUsers({ role: 'merchant' });
       setUsers(merchants);
     } catch (error) {
       toast.error('Failed to load merchants');
@@ -168,18 +150,44 @@ const AdminMerchantsPage: React.FC = () => {
 
   const handleAddMerchant = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAddingMerchant) return;
+
+    setIsAddingMerchant(true);
     try {
-      await userService.addStaff({
+      const created = await userService.addStaff({
         ...newMerchant,
         location: newMerchant.location,
-        role: 'merchant' 
-      });
+        role: 'merchant',
+      }) as User;
+
+      setUsers((prev) => [
+        {
+          ...created,
+          role: 'merchant',
+          phone: created.phone ?? newMerchant.phone,
+          category: created.category ?? newMerchant.category,
+          location: created.location ?? newMerchant.location,
+          isApproved: created.isApproved ?? true,
+        },
+        ...prev,
+      ]);
       toast.success('Merchant added successfully');
       setShowAddModal(false);
-      setNewMerchant({ name: '', email: '', password: '', phone: '', category: ['general'], location: { address: '', lat: 0, lng: 0 } });
-      fetchUsers();
+      setNewMerchant({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        category: ['general'],
+        location: { address: '', lat: 0, lng: 0 },
+      });
     } catch (error) {
-      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to add merchant');
+      toast.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to add merchant'
+      );
+    } finally {
+      setIsAddingMerchant(false);
     }
   };
 
@@ -270,6 +278,7 @@ const AdminMerchantsPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['user']} onSync={fetchUsers}>
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -333,127 +342,115 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => navigate(`/admin/merchants/${merchant._id}`)}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer relative group"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col h-full"
             >
-              <div className="absolute top-4 right-4 flex items-center gap-2">
-                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${merchant.isOnline ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${merchant.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                    {merchant.isOnline ? 'Online' : 'Offline'}
-                 </div>
-
-                {merchant.isApproved ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Active
-                  </span>
-                ) : merchant.rejectionReason ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                    <XCircle className="w-3 h-3 mr-1" />
-                    Rejected
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Pending
-                  </span>
-                )}
-                <button
-                  onClick={(e) => handleEditClick(merchant, e)}
-                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  title="Edit"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => handleDeleteMerchant(merchant._id, e)}
-                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <Store className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="flex items-start gap-3 mb-3">
+                <div className="shrink-0 w-11 h-11 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <Store className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{merchant.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {merchant.email}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {Array.isArray(merchant.category) ? merchant.category.map((cat, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 uppercase">
-                          {cat}
-                        </span>
-                      )) : merchant.category && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 uppercase">
-                          {merchant.category}
-                        </span>
-                      )}
-                    </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white leading-snug break-words">
+                    {merchant.name}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                        merchant.isOnline
+                          ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                          : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          merchant.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                        }`}
+                      />
+                      {merchant.isOnline ? 'Online' : 'Offline'}
+                    </span>
+                    {merchant.isApproved ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                        <CheckCircle className="w-3 h-3 mr-0.5" />
+                        Active
+                      </span>
+                    ) : merchant.rejectionReason ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                        <XCircle className="w-3 h-3 mr-0.5" />
+                        Rejected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                        <Clock className="w-3 h-3 mr-0.5" />
+                        Pending
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    <DollarSign className="w-3 h-3" />
-                    Revenue
-                  </div>
-                  <div className="font-semibold text-gray-900 dark:text-white">₹0</div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    <Package className="w-3 h-3" />
-                    Stock Items
-                  </div>
-                  <div className="font-semibold text-gray-900 dark:text-white">-</div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <Phone className="w-4 h-4" />
-                  {merchant.phone || 'N/A'}
-                </div>
-                
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       navigate('/admin/tracking');
-                     }}
-                     className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                     title="View Live Location"
+                    onClick={(e) => handleEditClick(merchant, e)}
+                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+                    title="Edit"
                   >
-                     <MapPin className="w-5 h-5" />
+                    <Pencil className="w-4 h-4" />
                   </button>
-
-                  {!merchant.isApproved && !merchant.rejectionReason && (
-                    <>
-                      <button
-                        onClick={(e) => handleApprove(merchant._id, e)}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Approve"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => handleRejectClick(merchant, e)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Reject"
-                      >
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={(e) => handleDeleteMerchant(merchant._id, e)}
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
+
+              {(Array.isArray(merchant.category) ? merchant.category.length > 0 : merchant.category) && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(Array.isArray(merchant.category) ? merchant.category : [merchant.category]).map((cat, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800 uppercase"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 flex-1">
+                <p className="flex items-start gap-2 min-w-0">
+                  <Mail className="w-4 h-4 shrink-0 mt-0.5 text-gray-400" />
+                  <span className="break-all">{merchant.email}</span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 shrink-0 text-gray-400" />
+                  <span>{merchant.phone || 'No phone'}</span>
+                </p>
+                {merchant.location?.address && (
+                  <p className="flex items-start gap-2 min-w-0">
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-indigo-500" />
+                    <span className="break-words line-clamp-2">{merchant.location.address}</span>
+                  </p>
+                )}
+              </div>
+
+              {!merchant.isApproved && !merchant.rejectionReason && (
+                <div className="flex items-center justify-end gap-1 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={(e) => handleApprove(merchant._id, e)}
+                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                    title="Approve"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={(e) => handleRejectClick(merchant, e)}
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    title="Reject"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </motion.div>
           ))}
         </div>
@@ -584,9 +581,10 @@ const AdminMerchantsPage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={isAddingMerchant}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Add Merchant
+                    {isAddingMerchant ? 'Adding…' : 'Add Merchant'}
                   </button>
                 </div>
               </form>
@@ -762,6 +760,7 @@ const AdminMerchantsPage: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

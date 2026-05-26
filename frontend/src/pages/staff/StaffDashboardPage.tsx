@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
 import CounterCard from '@/components/CounterCard';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import { STATUS_LABELS } from '@/lib/statusFlow';
@@ -37,24 +38,10 @@ const StaffDashboardPage: React.FC = () => {
       }
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      // Staff should refresh for bookings and their own profile
-      const staffEntities = ['booking', 'user', 'notification'];
-      if (staffEntities.includes(entity) && action) {
-        fetchData();
-      }
-    };
-
     socketService.on('bookingUpdated', bookingUpdatedHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
       socketService.off('bookingUpdated', bookingUpdatedHandler);
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, [bookings.length]);
 
@@ -98,10 +85,6 @@ const StaffDashboardPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Loading...</div>;
-  }
-
   // Filter active orders to display (excluding completed/cancelled for the active list)
   const activeStatuses = [
     'ASSIGNED',
@@ -117,6 +100,10 @@ const StaffDashboardPage: React.FC = () => {
   const activeOrders = bookings.filter(b => activeStatuses.includes(b.status));
 
   return (
+    <GlobalSyncRefresh entities={['booking', 'user', 'notification']} onSync={fetchData}>
+    {isLoading ? (
+      <div className="flex items-center justify-center min-h-[50vh]">Loading...</div>
+    ) : (
     <motion.div
       variants={staggerContainer}
       initial="hidden"
@@ -196,6 +183,8 @@ const StaffDashboardPage: React.FC = () => {
         </motion.div>
       </div>
     </motion.div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

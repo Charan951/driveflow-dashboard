@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/socket_sync.dart';
 import '../../services/auth_service.dart';
 import '../../services/review_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantFeedbackPage extends StatefulWidget {
@@ -49,7 +51,12 @@ class _MerchantFeedbackPageState extends State<MerchantFeedbackPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.reviews,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Customer Feedback',
       body: RefreshIndicator(
         onRefresh: _load,
@@ -121,6 +128,7 @@ class _MerchantFeedbackPageState extends State<MerchantFeedbackPage> {
                     },
                   ),
       ),
+    ),
     );
   }
 }

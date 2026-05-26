@@ -10,7 +10,8 @@ import '../core/app_spacing.dart';
 import '../models/booking.dart';
 import '../models/vehicle.dart';
 import '../services/booking_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
 import '../state/auth_provider.dart';
 import '../utils/vehicle_health.dart';
@@ -57,30 +58,13 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
-    try {
-      final socket = context.read<SocketService>();
-      socket.addListener(_onSocketUpdate);
-    } catch (_) {}
   }
 
   @override
   void dispose() {
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {}
     _healthClock?.cancel();
     _tabController.dispose();
     super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    final event = context.read<SocketService>().value;
-    if (event == null) return;
-    if (event.contains('sync:booking') || event.contains('sync:vehicle')) {
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -200,7 +184,12 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
         ? AppColors.backgroundPrimary
         : AppColors.backgroundPrimaryLight;
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.vehicles,
+      onSync: () {
+        if (!_loading) _load();
+      },
+      child: Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -258,6 +247,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
           ],
         ),
       ),
+    ),
     );
   }
 

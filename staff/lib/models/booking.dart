@@ -1,6 +1,12 @@
+String? _orderNumberFromJson(dynamic value) {
+  if (value == null) return null;
+  final s = value.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
 class BookingSummary {
   final String id;
-  final int? orderNumber;
+  final String? orderNumber;
   final String status;
   final String? date;
   final String? vehicleName;
@@ -82,9 +88,7 @@ class BookingSummary {
 
     return BookingSummary(
       id: (getField('id') ?? getField('_id') ?? '').toString(),
-      orderNumber: getField('orderNumber') is num
-          ? (getField('orderNumber') as num).toInt()
-          : null,
+      orderNumber: _orderNumberFromJson(getField('orderNumber')),
       status: getField('status')?.toString() ?? '',
       date: getField('date')?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
@@ -128,7 +132,7 @@ class BookingLocation {
 
 class BookingDetail {
   final String id;
-  final int? orderNumber;
+  final String? orderNumber;
   final String status;
   final String date;
   final List<dynamic>? services;
@@ -233,7 +237,7 @@ class BookingDetail {
 
   BookingDetail copyWith({
     String? id,
-    int? orderNumber,
+    String? orderNumber,
     String? status,
     String? date,
     List<dynamic>? services,
@@ -382,9 +386,7 @@ class BookingDetail {
 
     return BookingDetail(
       id: (getField('id') ?? getField('_id') ?? '').toString(),
-      orderNumber: getField('orderNumber') is num
-          ? (getField('orderNumber') as num).toInt()
-          : null,
+      orderNumber: _orderNumberFromJson(getField('orderNumber')),
       status: (getField('status') ?? '').toString(),
       date: (getField('date') ?? '').toString(),
       services: getField('services') as List?,

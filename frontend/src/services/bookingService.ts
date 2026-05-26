@@ -4,7 +4,7 @@ import { Service } from './serviceService';
 
 export interface Booking {
   _id: string;
-  orderNumber?: number;
+  orderNumber?: string | number;
   user: string | { _id: string; name: string; email: string; phone?: string };
   vehicle: Vehicle | string;
   services: Service[] | string[];

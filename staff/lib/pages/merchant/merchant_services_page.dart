@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/socket_sync.dart';
 import '../../services/service_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantServicesPage extends StatefulWidget {
@@ -42,7 +44,12 @@ class _MerchantServicesPageState extends State<MerchantServicesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.services,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Our Services',
       body: RefreshIndicator(
         onRefresh: _load,
@@ -113,6 +120,7 @@ class _MerchantServicesPageState extends State<MerchantServicesPage> {
                     },
                   ),
       ),
+    ),
     );
   }
 

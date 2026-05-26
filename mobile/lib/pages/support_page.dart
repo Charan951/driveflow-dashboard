@@ -5,7 +5,9 @@ import '../core/app_colors.dart';
 import '../services/ticket_service.dart';
 import '../widgets/customer_drawer.dart';
 import '../core/storage.dart';
+import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import '../widgets/global_sync_refresh.dart';
 
 class SupportPage extends StatefulWidget {
   const SupportPage({super.key});
@@ -41,7 +43,6 @@ class _SupportPageState extends State<SupportPage> {
       _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
     }
     _socketService.off('ticketUpdated', _onTicketUpdated);
-    _socketService.removeListener(_onGlobalSync);
     _replyController.dispose();
     super.dispose();
   }
@@ -49,17 +50,6 @@ class _SupportPageState extends State<SupportPage> {
   void _initSocket() async {
     await _socketService.init();
     _socketService.on('ticketUpdated', _onTicketUpdated);
-    _socketService.addListener(_onGlobalSync);
-  }
-
-  void _onGlobalSync() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if ((event.contains('sync:ticket') || event.contains('sync:user')) &&
-        mounted) {
-      _loadTickets();
-    }
   }
 
   void _onTicketUpdated(dynamic data) {
@@ -270,7 +260,12 @@ class _SupportPageState extends State<SupportPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
-    return PopScope(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.tickets,
+      onSync: () {
+        if (!_loading) _loadTickets();
+      },
+      child: PopScope(
       canPop: Navigator.of(context).canPop(),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -537,6 +532,7 @@ class _SupportPageState extends State<SupportPage> {
           ],
         ),
       ),
+    ),
     );
   }
 

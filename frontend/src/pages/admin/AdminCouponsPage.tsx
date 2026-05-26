@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { motion } from 'framer-motion';
 import { couponService, Coupon } from '@/services/couponService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -33,21 +34,8 @@ const AdminCouponsPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-
-      if (entity === 'coupon' && action) {
-        fetchCoupons();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -98,6 +86,7 @@ const AdminCouponsPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['coupon']} onSync={fetchCoupons}>
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Coupons</h1>
@@ -224,6 +213,7 @@ const AdminCouponsPage: React.FC = () => {
         />
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

@@ -31,6 +31,8 @@ import '../services/coupon_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
+import '../state/global_sync_provider.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../widgets/custom_stepper.dart';
 import '../widgets/vehicle_card.dart';
 import '../widgets/gradient_button.dart';
@@ -105,19 +107,29 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  void _onGlobalSyncRefresh() {
+    final event = context.read<GlobalSyncProvider>().lastEvent;
+    if (event == null || !mounted) return;
+    _handleGlobalSync({
+      'entity': event.entity,
+      'action': event.action,
+      if (event.data != null) 'data': event.data,
+    });
+  }
+
   Future<void> _handleGlobalSync(dynamic data) async {
     if (!mounted || data == null) return;
     try {
       final mapData = data is Map<String, dynamic>
           ? data
           : Map<String, dynamic>.from(data as Map);
-      final entity = (mapData['entity'] ?? '').toString();
+      final entity = (mapData['entity'] ?? '').toString().toLowerCase();
       final payload = mapData['data'];
       final payloadMap = payload is Map<String, dynamic>
           ? payload
           : (payload is Map ? Map<String, dynamic>.from(payload) : null);
 
-      if (entity == 'availableServicePincode') {
+      if (entity == 'availableservicepincode') {
         final pinsRaw = payloadMap?['availablePincodes'];
         if (pinsRaw is List) {
           setState(() {
@@ -143,7 +155,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         return;
       }
 
-      if (entity == 'slotBlock') {
+      if (entity == 'slotblock') {
         final dateRaw = payloadMap?['date']?.toString();
         if (dateRaw != null && dateRaw.isNotEmpty) {
           final changedDate = DateTime.tryParse(dateRaw);
@@ -786,7 +798,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _socketService.init(context.read<AuthProvider>().user);
-      _socketService.on('global:sync', _handleGlobalSync);
     });
 
     if (!kIsWeb) {
@@ -852,7 +863,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     try {
       context.read<NavigationProvider>().removeListener(_onNavChanged);
     } catch (_) {}
-    _socketService.off('global:sync', _handleGlobalSync);
     _notesController.dispose();
     for (final controller in _tireSizeControllers.values) {
       controller.dispose();
@@ -1261,7 +1271,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
     }
 
-    return PopScope(
+    return GlobalSyncRefresh(
+      entities: const [
+        'availableservicepincode',
+        'slotblock',
+        'booking',
+        'coupon',
+        'service',
+      ],
+      onSync: _onGlobalSyncRefresh,
+      child: PopScope(
       canPop: _currentStep == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -1345,6 +1364,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 ],
               ),
       ),
+    ),
     );
   }
 

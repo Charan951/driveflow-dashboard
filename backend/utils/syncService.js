@@ -1,71 +1,110 @@
 import { getIO } from '../socket.js';
 
+const ROLE_ROOMS = ['admin', 'staff', 'merchant', 'customer'];
+
+/** Catalog / public config — broadcast to every connected socket. */
+const BROADCAST_ALL_ENTITIES = new Set([
+  'coupon',
+  'slotBlock',
+  'availableServicePincode',
+  'service',
+  'vehicle',
+  'hero',
+  'setting',
+  'blog',
+  'blogCategory',
+  'career',
+]);
+
+const toIdString = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  if (value._id != null) return String(value._id);
+  return String(value);
+};
+
+const emitToRoom = (io, room, eventName, payload) => {
+  if (!room) return;
+  io.to(room).emit(eventName, payload);
+};
+
+const emitToRoles = (io, eventName, payload) => {
+  for (const role of ROLE_ROOMS) {
+    emitToRoom(io, role, eventName, payload);
+  }
+};
+
 /**
- * Utility to emit real-time synchronization events across all platforms
+ * Real-time sync for web, mobile, and staff apps.
+ * Always emits `global:sync` + `sync:{entity}` to all role rooms, then targeted rooms.
  */
-export const emitEntitySync = (entityName, action, data) => {
+export const emitEntitySync = (entityName, action, data = {}) => {
   try {
     const io = getIO();
     const eventName = `sync:${entityName}`;
     const payload = {
       entity: entityName,
-      action, // 'created', 'updated', 'deleted'
+      action,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
-    // 1. Always notify admins
-    io.to('admin').emit(eventName, payload);
-    io.to('admin').emit('global:sync', payload);
+    // 1. Role-wide broadcast (all apps for admin / staff / merchant / customer)
+    emitToRoles(io, eventName, payload);
+    emitToRoles(io, 'global:sync', payload);
 
-    // 2. Notify specific user if data contains userId or user object
-    const userId = data.userId || (data.user && (data.user._id || data.user));
+    // 2. Owning customer
+    const userId = toIdString(
+      data.userId || data.user?._id || data.user || data.customerId
+    );
     if (userId) {
-      io.to(`user_${userId.toString()}`).emit(eventName, payload);
-      io.to(`user_${userId.toString()}`).emit('global:sync', payload);
+      emitToRoom(io, `user_${userId}`, eventName, payload);
+      emitToRoom(io, `user_${userId}`, 'global:sync', payload);
     }
 
-    // 3. Notify merchant if data contains merchantId or merchant object
-    const merchantId = data.merchantId || (data.merchant && (data.merchant._id || data.merchant));
+    // 3. Merchant on record
+    const merchantId = toIdString(data.merchantId || data.merchant?._id || data.merchant);
     if (merchantId) {
-      io.to(`user_${merchantId.toString()}`).emit(eventName, payload);
-      io.to(`user_${merchantId.toString()}`).emit('global:sync', payload);
+      emitToRoom(io, `user_${merchantId}`, eventName, payload);
+      emitToRoom(io, `user_${merchantId}`, 'global:sync', payload);
     }
 
-    // 4. Notify staff if data contains staffId or staff object
-    const staffId = data.staffId || data.pickupDriver || data.technician;
-    if (staffId) {
-      const id = staffId._id || staffId;
-      io.to(`user_${id.toString()}`).emit(eventName, payload);
-      io.to(`user_${id.toString()}`).emit('global:sync', payload);
+    // 4. Assigned staff (pickup / technician / car wash)
+    const staffIds = [
+      data.staffId,
+      data.pickupDriver,
+      data.technician,
+      data.carWash?.staffAssigned,
+    ]
+      .map(toIdString)
+      .filter(Boolean);
+
+    for (const staffId of [...new Set(staffIds)]) {
+      emitToRoom(io, `user_${staffId}`, eventName, payload);
+      emitToRoom(io, `user_${staffId}`, 'global:sync', payload);
     }
 
-    // 5. Notify role-based rooms if applicable
+    // 5. Role on payload (e.g. new user created)
     if (data.role) {
-      io.to(data.role.toLowerCase()).emit(eventName, payload);
-      io.to(data.role.toLowerCase()).emit('global:sync', payload);
+      const roleRoom = String(data.role).toLowerCase();
+      emitToRoom(io, roleRoom, eventName, payload);
+      emitToRoom(io, roleRoom, 'global:sync', payload);
     }
 
-    // 6. Special case for bookings: notify the booking-specific room
-    const bookingId = data.bookingId || (entityName === 'booking' ? data._id : null);
+    // 6. Booking room
+    const bookingId = toIdString(
+      data.bookingId || (entityName === 'booking' ? data._id : null)
+    );
     if (bookingId) {
-      io.to(`booking_${bookingId.toString()}`).emit(eventName, payload);
-      io.to(`booking_${bookingId.toString()}`).emit('global:sync', payload);
+      emitToRoom(io, `booking_${bookingId}`, eventName, payload);
+      emitToRoom(io, `booking_${bookingId}`, 'global:sync', payload);
     }
 
-    // 7. Entities that must reach all clients (customer apps included)
-    if (
-      entityName === 'coupon' ||
-      entityName === 'slotBlock' ||
-      entityName === 'availableServicePincode' ||
-      entityName === 'service' ||
-      entityName === 'vehicle'
-    ) {
+    // 7. Public catalog entities — every connected client
+    if (BROADCAST_ALL_ENTITIES.has(entityName)) {
       io.emit(eventName, payload);
       io.emit('global:sync', payload);
     }
-
-    console.log(`[Sync] Emitted ${action} for ${entityName}`);
   } catch (err) {
     console.error(`[Sync Error] Failed to emit sync event for ${entityName}:`, err.message);
   }

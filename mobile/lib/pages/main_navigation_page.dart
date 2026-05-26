@@ -5,6 +5,7 @@ import '../widgets/customer_drawer.dart';
 import '../widgets/pill_bottom_bar.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
+import '../widgets/global_sync_refresh.dart';
 import 'book_service_flow_page.dart';
 import 'speshway_vehiclecare_dashboard_page.dart';
 
@@ -107,7 +108,21 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return PopScope(
+    return GlobalSyncRefresh(
+      entities: const [
+        'booking',
+        'service',
+        'coupon',
+        'vehicle',
+        'payment',
+        'notification',
+        'approval',
+        'setting',
+      ],
+      onSync: () {
+        if (mounted) setState(() {});
+      },
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
@@ -144,6 +159,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           ),
         ),
       ),
+    ),
     );
   }
 }

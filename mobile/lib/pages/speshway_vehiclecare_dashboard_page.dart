@@ -14,7 +14,9 @@ import '../models/vehicle.dart';
 import '../services/booking_service.dart';
 import '../services/catalog_service.dart';
 import '../services/notification_service.dart';
+import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../services/coupon_service.dart';
@@ -66,7 +68,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     });
 
     final socket = SocketService();
-    socket.addListener(_onSocketUpdate);
     socket.on('bookingUpdated', _onExternalUpdate);
     socket.on('bookingCreated', _onExternalUpdate);
     socket.on('bookingCancelled', _onExternalUpdate);
@@ -76,30 +77,10 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     final socket = SocketService();
-    socket.removeListener(_onSocketUpdate);
     socket.off('bookingUpdated', _onExternalUpdate);
     socket.off('bookingCreated', _onExternalUpdate);
     socket.off('bookingCancelled', _onExternalUpdate);
     super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    final event = SocketService().value;
-    if (event == null) return;
-
-    // Reload if connection changed or specific entity sync
-    if (event == 'connected' ||
-        event.contains('sync:booking') ||
-        event.contains('sync:approval') ||
-        event.contains('sync:payment') ||
-        event.contains('sync:product') ||
-        event.contains('sync:service') ||
-        event.contains('sync:vehicle') ||
-        event.contains('sync:user') ||
-        event.contains('sync:notification') ||
-        event.contains('sync:setting')) {
-      if (mounted) _load();
-    }
   }
 
   void _onExternalUpdate(dynamic payload) {
@@ -880,15 +861,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         .toList();
     if (active.isEmpty) return null;
 
-    // Sort by orderNumber DESCENDING - Highest number (latest) first
     active.sort((a, b) {
-      final na = a.orderNumber ?? 0;
-      final nb = b.orderNumber ?? 0;
-      if (na != nb) return nb.compareTo(na);
-
       final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
       final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
-      return cb.compareTo(ca);
+      final byDate = cb.compareTo(ca);
+      if (byDate != 0) return byDate;
+      return (b.orderNumber ?? '').compareTo(a.orderNumber ?? '');
     });
 
     return active.first;
@@ -942,7 +920,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       );
     }
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.customerHub,
+      onSync: () {
+        if (!_loading && mounted) _load();
+      },
+      child: Scaffold(
       backgroundColor: isDark ? Colors.black : AppColors.backgroundPrimaryLight,
       body: Stack(
         children: [
@@ -1047,6 +1030,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           ),
         ],
       ),
+    ),
     );
   }
 

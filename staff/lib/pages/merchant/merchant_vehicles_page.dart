@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/socket_sync.dart';
 import '../../services/vehicle_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantVehiclesPage extends StatefulWidget {
@@ -42,7 +44,12 @@ class _MerchantVehiclesPageState extends State<MerchantVehiclesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.vehicles,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Customer Vehicles',
       body: RefreshIndicator(
         onRefresh: _load,
@@ -89,6 +96,7 @@ class _MerchantVehiclesPageState extends State<MerchantVehiclesPage> {
                     },
                   ),
       ),
+    ),
     );
   }
 }

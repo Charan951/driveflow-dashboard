@@ -296,9 +296,15 @@ class BookingBilling {
   };
 }
 
+String? _orderNumberFromJson(dynamic value) {
+  if (value == null) return null;
+  final s = value.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
 class Booking {
   final String id;
-  final int? orderNumber;
+  final String? orderNumber;
   final String status;
   final String date;
   final num totalAmount;
@@ -899,9 +905,7 @@ class Booking {
 
     return Booking(
       id: (map['_id'] ?? '').toString(),
-      orderNumber: map['orderNumber'] is num
-          ? (map['orderNumber'] as num).toInt()
-          : null,
+      orderNumber: _orderNumberFromJson(map['orderNumber']),
       status: (map['status'] ?? 'PENDING').toString(),
       date: (map['date'] ?? '').toString(),
       totalAmount: map['totalAmount'] is num ? (map['totalAmount'] as num) : 0,

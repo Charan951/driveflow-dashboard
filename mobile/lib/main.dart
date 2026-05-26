@@ -28,6 +28,7 @@ import 'pages/book_service_flow_page.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
 import 'state/auth_provider.dart';
+import 'state/global_sync_provider.dart';
 import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
@@ -128,6 +129,7 @@ void main() async {
   final authProvider = AuthProvider();
   final themeProvider = ThemeProvider();
   final trackingProvider = TrackingProvider();
+  final globalSyncProvider = GlobalSyncProvider();
   final socketService = SocketService();
   socketService.setTrackingProvider(trackingProvider);
   final notificationService = NotificationService();
@@ -137,6 +139,7 @@ void main() async {
     MyApp(
       authProvider: authProvider,
       themeProvider: themeProvider,
+      globalSyncProvider: globalSyncProvider,
       socketService: socketService,
       notificationService: notificationService,
       trackingProvider: trackingProvider,
@@ -291,6 +294,7 @@ class MyApp extends StatelessWidget {
   static bool _precacheOnce = false;
   final AuthProvider authProvider;
   final ThemeProvider themeProvider;
+  final GlobalSyncProvider globalSyncProvider;
   final SocketService socketService;
   final NotificationService notificationService;
   final TrackingProvider trackingProvider;
@@ -300,6 +304,7 @@ class MyApp extends StatelessWidget {
     super.key,
     required this.authProvider,
     required this.themeProvider,
+    required this.globalSyncProvider,
     required this.socketService,
     required this.notificationService,
     required this.trackingProvider,
@@ -322,6 +327,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: globalSyncProvider),
         ChangeNotifierProvider.value(value: socketService),
         ChangeNotifierProvider.value(value: trackingProvider),
         Provider.value(value: notificationService),

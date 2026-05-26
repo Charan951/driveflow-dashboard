@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { paymentService, PaymentData, PaymentHistory as PaymentHistoryType } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 interface PaymentHistoryProps {
   userId?: string;
@@ -47,25 +48,12 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
       socketService.joinRoom(`user_${userId}`);
     }
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      if (entity === 'payment' && action) {
-        fetchPayments();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       if (isAdmin) {
         socketService.leaveRoom('admin');
       } else if (userId) {
         socketService.leaveRoom(`user_${userId}`);
       }
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, [pagination.page, filters, isAdmin, userId]);
 
@@ -139,15 +127,13 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
     setFilters({ status: '', startDate: '', endDate: '' });
   };
 
-  if (loading && payments.length === 0) {
-    return (
+  return (
+    <GlobalSyncRefresh entities={['payment']} onSync={fetchPayments}>
+    {loading && payments.length === 0 ? (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-    );
-  }
-
-  return (
+    ) : (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -307,6 +293,8 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
         </div>
       )}
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

@@ -4,10 +4,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../core/env.dart';
 import '../state/navigation_provider.dart';
 import '../services/catalog_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
 import '../models/service.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
+import '../widgets/global_sync_refresh.dart';
 
 String? _resolveImageUrl(String? raw) {
   if (raw == null) return null;
@@ -34,35 +35,13 @@ class _ServiceListPageState extends State<ServiceListPage> {
   void initState() {
     super.initState();
     _future = _catalogService.listServices();
-
-    // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
   }
 
-  @override
-  void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
+  void _reloadServices() {
     if (!mounted) return;
-    final event = context.read<SocketService>().value;
-    if (event == null) return;
-
-    // Reload if services changed
-    if (event.contains('sync:service') && mounted) {
-      setState(() {
-        _future = _catalogService.listServices();
-      });
-    }
+    setState(() {
+      _future = _catalogService.listServices();
+    });
   }
 
   @override
@@ -359,7 +338,10 @@ class _ServiceListPageState extends State<ServiceListPage> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.services,
+      onSync: _reloadServices,
+      child: Scaffold(
       extendBody: true,
       drawer: const CustomerDrawer(currentRouteName: '/services'),
       body: SafeArea(
@@ -413,6 +395,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

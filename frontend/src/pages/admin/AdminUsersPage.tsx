@@ -7,6 +7,7 @@ import { Check, Shield, User as UserIcon, Briefcase, Users, X, Eye, Search } fro
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 const AdminUsersPage: React.FC = () => {
   const { user: currentUser } = useAuthStore();
@@ -37,26 +38,13 @@ const AdminUsersPage: React.FC = () => {
       setUsers(prev => [newUser, ...prev]);
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'user') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchUsers();
-        }
-      }
-    };
-
     socketService.on('userUpdated', userUpdatedHandler);
     socketService.on('userCreated', userCreatedHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('userUpdated', userUpdatedHandler);
       socketService.off('userCreated', userCreatedHandler);
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, [currentUser]);
 
@@ -160,6 +148,7 @@ const AdminUsersPage: React.FC = () => {
   });
 
   return (
+    <GlobalSyncRefresh entities={['user']} onSync={fetchUsers}>
     <div className="space-y-8 relative p-6 max-w-[1600px] mx-auto">
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -396,6 +385,7 @@ const AdminUsersPage: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

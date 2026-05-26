@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
 
@@ -15,9 +17,12 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
   final AuthService _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
 
   bool _isSubmitting = false;
   bool _showPassword = false;
+  bool _showOtpStep = false;
+  String? _maskedPhone;
   String? _errorText;
 
   bool _isValidEmail(String value) {
@@ -29,10 +34,29 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _clearError() {
+    if (_errorText != null) setState(() => _errorText = null);
+  }
+
+  void _navigateAfterLogin(StaffUser user) {
+    final role = user.role.toLowerCase();
+    if (role == 'merchant') {
+      Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
+    } else if (role == 'staff' || role == 'admin') {
+      Navigator.of(context).pushReplacementNamed('/home');
+    } else {
+      _authService.logout();
+      setState(() {
+        _errorText = 'Access denied. Staff or merchant account required.';
+      });
+    }
+  }
+
+  Future<void> _handleCredentials() async {
     FocusScope.of(context).unfocus();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -54,37 +78,93 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
       _isSubmitting = true;
       _errorText = null;
     });
-    try {
-      final user = await _authService.login(email: email, password: password);
 
-      // Re-initialize socket with the new token after login
-      await SocketService().reconnect();
+    try {
+      final result = await _authService.prepareLogin(
+        email: email,
+        password: password,
+      );
+
       if (!mounted) return;
 
-      final role = user.role.toLowerCase();
-      if (role == 'merchant') {
-        Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
-      } else {
-        Navigator.of(context).pushReplacementNamed('/home');
+      if (result.user != null) {
+        await SocketService().reconnect();
+        _navigateAfterLogin(result.user!);
+        return;
+      }
+
+      setState(() {
+        _showOtpStep = true;
+        _maskedPhone = result.maskedPhone;
+        _otpController.clear();
+      });
+
+      final masked = await _authService.sendLoginOtp(email: email);
+      if (!mounted) return;
+      if (masked.isNotEmpty) {
+        setState(() => _maskedPhone = masked);
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorText = e.message;
-        });
-      }
+      if (mounted) setState(() => _errorText = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() {
-          _errorText = 'Login failed. Please try again.';
-        });
+        setState(() => _errorText = 'Login failed. Please try again.');
       }
     } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    final email = _emailController.text.trim();
+    final otp = _otpController.text.trim();
+
+    if (otp.length != 6) {
+      setState(() => _errorText = 'Enter the 6-digit OTP');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+
+    try {
+      final user = await _authService.verifyLoginOtp(email: email, otp: otp);
+      if (!mounted) return;
+      await SocketService().reconnect();
+      _navigateAfterLogin(user);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _errorText = e.message);
+    } catch (_) {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
+        setState(() => _errorText = 'OTP verification failed. Please try again.');
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleResendOtp() async {
+    final email = _emailController.text.trim();
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+      _otpController.clear();
+    });
+
+    try {
+      final masked = await _authService.sendLoginOtp(email: email);
+      if (!mounted) return;
+      if (masked.isNotEmpty) {
+        setState(() => _maskedPhone = masked);
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _errorText = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _errorText = 'Failed to resend OTP');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -93,7 +173,6 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // Premium background with orange glow (from mobile)
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -103,7 +182,6 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
               ),
             ),
           ),
-          // Soft cinematic orange glow at center (from mobile)
           Center(
             child: Container(
               width: 400,
@@ -132,7 +210,6 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Logo (from mobile)
                       Image.asset(
                         'assets/appicon.png',
                         width: 120,
@@ -159,7 +236,7 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                'Welcome Back',
+                                _showOtpStep ? 'Verify OTP' : 'Welcome Back',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 28,
@@ -168,39 +245,74 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 32),
-                              _GlassField(
-                                controller: _emailController,
-                                hintText: 'Email',
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                prefixIcon: Icons.mail_outline,
-                                onChanged: () {
-                                  if (_errorText != null) {
-                                    setState(() => _errorText = null);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              _GlassField(
-                                controller: _passwordController,
-                                hintText: 'Password',
-                                obscureText: !_showPassword,
-                                textInputAction: TextInputAction.done,
-                                prefixIcon: Icons.lock_outline,
-                                suffix: IconButton(
-                                  onPressed: () => setState(
-                                    () => _showPassword = !_showPassword,
-                                  ),
-                                  icon: Icon(
-                                    _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.white38,
-                                    size: 20,
+                              if (_showOtpStep) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 13,
                                   ),
                                 ),
-                              ),
+                              ] else ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Sign in to your staff or merchant account',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 32),
+                              if (!_showOtpStep) ...[
+                                _GlassField(
+                                  controller: _emailController,
+                                  hintText: 'Email',
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  prefixIcon: Icons.mail_outline,
+                                  onChanged: _clearError,
+                                ),
+                                const SizedBox(height: 20),
+                                _GlassField(
+                                  controller: _passwordController,
+                                  hintText: 'Password',
+                                  obscureText: !_showPassword,
+                                  textInputAction: TextInputAction.done,
+                                  prefixIcon: Icons.lock_outline,
+                                  suffix: IconButton(
+                                    onPressed: () => setState(
+                                      () => _showPassword = !_showPassword,
+                                    ),
+                                    icon: Icon(
+                                      _showPassword
+                                          ? Icons.visibility_off
+                                          : Icons.visibility,
+                                      color: Colors.white38,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onChanged: _clearError,
+                                  onSubmitted: (_) => _handleCredentials(),
+                                ),
+                              ] else ...[
+                                _GlassField(
+                                  controller: _otpController,
+                                  hintText: '6-digit OTP',
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.done,
+                                  prefixIcon: Icons.sms_outlined,
+                                  maxLength: 6,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  onChanged: _clearError,
+                                  onSubmitted: (_) => _handleVerifyOtp(),
+                                ),
+                              ],
                               if (_errorText != null) ...[
                                 const SizedBox(height: 16),
                                 Text(
@@ -216,7 +328,11 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                               SizedBox(
                                 height: 56,
                                 child: ElevatedButton(
-                                  onPressed: _isSubmitting ? null : _submit,
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : (_showOtpStep
+                                            ? _handleVerifyOtp
+                                            : _handleCredentials),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primaryBlue,
                                     foregroundColor: Colors.white,
@@ -234,15 +350,52 @@ class _StaffLoginPageState extends State<StaffLoginPage> {
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : const Text(
-                                          'Login',
-                                          style: TextStyle(
+                                      : Text(
+                                          _showOtpStep
+                                              ? 'Verify & Sign In'
+                                              : 'Continue',
+                                          style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                 ),
                               ),
+                              if (_showOtpStep) ...[
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    TextButton(
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () {
+                                              setState(() {
+                                                _showOtpStep = false;
+                                                _otpController.clear();
+                                                _errorText = null;
+                                              });
+                                            },
+                                      child: const Text(
+                                        'Back',
+                                        style: TextStyle(color: Colors.white60),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed:
+                                          _isSubmitting ? null : _handleResendOtp,
+                                      child: const Text(
+                                        'Resend OTP',
+                                        style: TextStyle(
+                                          color: AppColors.primaryBlue,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -268,6 +421,9 @@ class _GlassField extends StatelessWidget {
   final IconData prefixIcon;
   final Widget? suffix;
   final VoidCallback? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _GlassField({
     required this.controller,
@@ -278,6 +434,9 @@ class _GlassField extends StatelessWidget {
     required this.prefixIcon,
     this.suffix,
     this.onChanged,
+    this.onSubmitted,
+    this.maxLength,
+    this.inputFormatters,
   });
 
   @override
@@ -293,7 +452,10 @@ class _GlassField extends StatelessWidget {
         obscureText: obscureText,
         keyboardType: keyboardType,
         textInputAction: textInputAction,
+        maxLength: maxLength,
+        inputFormatters: inputFormatters,
         onChanged: (_) => onChanged?.call(),
+        onSubmitted: onSubmitted,
         style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
           filled: false,
@@ -301,6 +463,7 @@ class _GlassField extends StatelessWidget {
           hintStyle: const TextStyle(color: Colors.white38, fontSize: 15),
           prefixIcon: Icon(prefixIcon, color: Colors.white38, size: 20),
           suffixIcon: suffix,
+          counterText: '',
           isDense: true,
           fillColor: Colors.transparent,
           enabledBorder: InputBorder.none,

@@ -6,7 +6,7 @@ import { cardHover } from '@/animations/variants';
 
 interface OrderCardProps {
   id: string;
-  orderNumber?: number;
+  orderNumber?: string | number;
   service: string;
   vehicle: {
     make: string;

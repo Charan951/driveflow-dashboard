@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import VehicleCard from '@/components/VehicleCard';
 import { Search, Filter, Plus, Car, User, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -21,22 +22,8 @@ const AdminVehiclesPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'vehicle') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchVehicles();
-        }
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -75,6 +62,7 @@ const AdminVehiclesPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['vehicle']} onSync={fetchVehicles}>
     <div className="space-y-8 p-6 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -157,6 +145,7 @@ const AdminVehiclesPage: React.FC = () => {
         </div>
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

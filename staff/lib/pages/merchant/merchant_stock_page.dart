@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/socket_sync.dart';
 import '../../services/product_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 
 class MerchantStockPage extends StatefulWidget {
@@ -58,7 +60,12 @@ class _MerchantStockPageState extends State<MerchantStockPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.products,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Stock Management',
       body: RefreshIndicator(
         onRefresh: _load,
@@ -167,6 +174,7 @@ class _MerchantStockPageState extends State<MerchantStockPage> {
                     },
                   ),
       ),
+    ),
     );
   }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
-import '../../services/socket_service.dart';
+import '../../core/socket_sync.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 import '../../core/app_colors.dart';
 
@@ -14,7 +15,6 @@ class MerchantOrdersPage extends StatefulWidget {
 
 class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
   final BookingService _service = BookingService();
-  final SocketService _socketService = SocketService();
   List<BookingSummary> _bookings = [];
   bool _isLoading = true;
   String _filter = 'active';
@@ -24,7 +24,6 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
   void initState() {
     super.initState();
     _load();
-    _socketService.addListener(_onSocketUpdate);
   }
 
   @override
@@ -41,26 +40,6 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
       }
     }
     _appliedInitialArgs = true;
-  }
-
-  @override
-  void dispose() {
-    _socketService.removeListener(_onSocketUpdate);
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if (event.startsWith('booking_created') ||
-        event.startsWith('booking_updated') ||
-        event.startsWith('booking_cancelled') ||
-        event.startsWith('notification') ||
-        event.contains('sync:booking')) {
-      if (_isLoading) return;
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -116,7 +95,12 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Service Orders',
       body: Column(
         children: [
@@ -173,6 +157,7 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
           ),
         ],
       ),
+    ),
     );
   }
 }

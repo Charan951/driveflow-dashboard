@@ -24,6 +24,7 @@ import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '@/service
 import { reviewService } from '@/services/reviewService';
 import { paymentService } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import Timeline from '@/components/Timeline';
 import { PICKUP_FLOW_ORDER, CAR_WASH_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, BATTERY_TIRE_FLOW_ORDER, STATUS_LABELS, BookingStatus, getFlowForService, getStatusLabel } from '@/lib/statusFlow';
 import { toast } from 'sonner';
@@ -40,6 +41,10 @@ import { routingService } from '@/services/routingService';
 import { SmoothMarker } from '@/components/SmoothMarker';
 import * as turf from '@turf/turf';
 import { Vehicle } from '@/services/vehicleService';
+import { searchVehicleReference } from '@/services/vehicleReferenceService';
+import { sumBookingServicesSubtotal } from '@/lib/vehicleServicePricing';
+import type { Service } from '@/services/serviceService';
+import { cn } from '@/lib/utils';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -82,6 +87,15 @@ const TrackServicePage: React.FC = () => {
   const { setActiveBookingId } = useTracking();
   const { user } = useAuthStore();
 
+  /** /track uses PublicLayout (no shell padding) — always pad content; safe-area for mobile */
+  const pageClass = cn(
+    'mx-auto w-full min-w-0 max-w-3xl',
+    'px-4 sm:px-5',
+    'pt-[max(1rem,env(safe-area-inset-top,0px))] sm:pt-6',
+    'pb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+1.25rem))]',
+    'space-y-4 sm:space-y-6',
+  );
+
   useEffect(() => {
     if (id) {
       setActiveBookingId(id);
@@ -104,6 +118,7 @@ const TrackServicePage: React.FC = () => {
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
   const [isMapMaximized, setIsMapMaximized] = useState(false);
+  const [vehicleRef, setVehicleRef] = useState<Record<string, unknown> | null>(null);
 
   const isCarWashService = order?.carWash?.isCarWashService || false;
 
@@ -140,11 +155,33 @@ const TrackServicePage: React.FC = () => {
   const nearAlertedRef = useRef<boolean>(false);
   const orderRef = useRef<Booking | null>(null);
 
+  const loadVehicleReference = useCallback(async (vehicle: Vehicle) => {
+    if (!vehicle?.make || !vehicle?.model) {
+      setVehicleRef(null);
+      return;
+    }
+    try {
+      const ref = await searchVehicleReference(
+        vehicle.make,
+        vehicle.model,
+        vehicle.variant,
+      );
+      setVehicleRef(ref ?? null);
+    } catch {
+      setVehicleRef(null);
+    }
+  }, []);
+
   const fetchOrder = useCallback(async () => {
       if (!id) return;
       try {
           const data = await bookingService.getBookingById(id);
           setOrder(data);
+          if (typeof data.vehicle === 'object' && data.vehicle !== null) {
+            await loadVehicleReference(data.vehicle);
+          } else {
+            setVehicleRef(null);
+          }
           
           // Check if feedback has already been submitted for this booking
           if (data.status === 'DELIVERED' && !hasSubmittedFeedback) {
@@ -184,7 +221,7 @@ const TrackServicePage: React.FC = () => {
       } finally {
           setIsLoading(false);
       }
-  }, [id, hasSubmittedFeedback]);
+  }, [id, hasSubmittedFeedback, loadVehicleReference]);
 
   useEffect(() => {
     orderRef.current = order;
@@ -270,14 +307,6 @@ const TrackServicePage: React.FC = () => {
         }
       });
 
-      socketService.on('global:sync', (data: any) => {
-        if (!data) return;
-        const entity = (data as any).entity;
-        if (entity === 'booking') {
-          fetchOrder();
-        }
-      });
-
       socketService.on('newApproval', (newApproval: ApprovalRequest) => {
         // Refresh approvals list when a new one arrives
         fetchPendingApprovals();
@@ -289,7 +318,6 @@ const TrackServicePage: React.FC = () => {
         socketService.off('liveLocation');
         socketService.off('nearbyStaff');
         socketService.off('bookingUpdated');
-        socketService.off('global:sync');
         socketService.off('newApproval');
         // Don't disconnect socket fully as it might be used elsewhere, 
         // but socketService.disconnect() usually handles ref counting or single instance logic. 
@@ -574,11 +602,11 @@ const TrackServicePage: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="p-6 text-center">Loading...</div>;
+    return <div className={cn(pageClass, 'text-center text-muted-foreground')}>Loading...</div>;
   }
 
   if (!order) {
-    return <div className="p-6 text-center">Order not found</div>;
+    return <div className={cn(pageClass, 'text-center text-muted-foreground')}>Order not found</div>;
   }
 
   // Construct timeline steps based on status
@@ -655,7 +683,11 @@ const TrackServicePage: React.FC = () => {
   const hasReplacedParts = Boolean(order.serviceExecution?.serviceParts?.length);
 
   return (
-    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 pb-24">
+    <GlobalSyncRefresh
+      entities={['booking', 'payment', 'approval', 'user']}
+      onSync={fetchOrder}
+    >
+    <div className={pageClass}>
       {/* Header */}
       <div className="flex items-center gap-3 sm:gap-4">
         {user && (
@@ -1092,11 +1124,11 @@ const TrackServicePage: React.FC = () => {
           )}
 
           {order.status !== 'DELIVERED' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card rounded-2xl border border-border p-4"
+                className="bg-card rounded-2xl border border-border p-4 sm:p-5"
               >
                 <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <Truck className="w-5 h-5 text-primary" />
@@ -1145,7 +1177,7 @@ const TrackServicePage: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-card rounded-2xl border border-border p-4"
+                  className="bg-card rounded-2xl border border-border p-4 sm:p-5"
                 >
                   <h2 className="font-semibold text-foreground mb-3">Service Center</h2>
                   <div className="flex items-center justify-between">
@@ -1178,10 +1210,10 @@ const TrackServicePage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-2xl border border-border p-6"
+              className="bg-card rounded-2xl border border-border p-4 sm:p-6"
             >
-              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" />
+              <h2 className="text-base sm:text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary shrink-0" />
                 Payment Details
               </h2>
               
@@ -1189,10 +1221,15 @@ const TrackServicePage: React.FC = () => {
                 {(order.billing && (order.billing.total > 0 || order.billing.invoiceNumber || order.billing.fileUrl)) || (order.pickupDropPrice && order.pickupDropPrice > 0) ? (
                   <>
                     {(() => {
-                      const servicesTotal = Array.isArray(order.services) 
-                        ? order.services.reduce((sum, s) => sum + (typeof s === 'object' ? (s.price || 0) : 0), 0)
-                        : 0;
-                      
+                      const serviceList = (Array.isArray(order.services)
+                        ? order.services.filter((s): s is Service => typeof s === 'object' && s !== null)
+                        : []) as Service[];
+
+                      const servicesTotal =
+                        serviceList.length > 0
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          : 0;
+
                       const parts = order.billing?.partsTotal || 0;
                       const labour = order.billing?.labourCost || 0;
                       const gst = order.billing?.gst || order.gstAmount || 0;
@@ -1289,10 +1326,21 @@ const TrackServicePage: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span>₹{order.totalAmount}</span>
-                    </div>
+                    {(() => {
+                      const serviceList = (Array.isArray(order.services)
+                        ? order.services.filter((s): s is Service => typeof s === 'object' && s !== null)
+                        : []) as Service[];
+                      const subtotalFromVehicle =
+                        serviceList.length > 0
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          : order.totalAmount;
+                      return (
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>{isGeneralService ? 'Base Service Amount' : 'Subtotal'}</span>
+                          <span>₹{subtotalFromVehicle}</span>
+                        </div>
+                      );
+                    })()}
                     {(order.discountAmount ?? 0) > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount</span>
@@ -1566,6 +1614,7 @@ const TrackServicePage: React.FC = () => {
         />
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

@@ -10,6 +10,7 @@ import {
   deleteAllVehicleReference
 } from '../../services/vehicleReferenceService';
 import { socketService } from '../../services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -78,22 +79,8 @@ const AdminVehicleDataPage = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      // 'vehicle_reference' or 'vehicle' entity change should refresh this
-      if ((entity === 'vehicle' || entity === 'vehicle_reference') && action) {
-        fetchVehicleData();
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -252,6 +239,7 @@ const AdminVehicleDataPage = () => {
   }
 
   return (
+    <GlobalSyncRefresh entities={['vehicle', 'vehicle_reference']} onSync={fetchVehicleData}>
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800">Vehicle Reference Data</h1>
@@ -681,6 +669,7 @@ const AdminVehicleDataPage = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

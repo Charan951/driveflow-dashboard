@@ -6,9 +6,10 @@ import '../core/app_spacing.dart';
 import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
+import '../widgets/global_sync_refresh.dart';
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -30,38 +31,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
-
-    // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
-  }
-
-  @override
-  void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    final event = context.read<SocketService>().value;
-    if (event == null) return;
-
-    if ((event.contains('sync:booking') ||
-            event.contains('sync:user') ||
-            event.contains('sync:vehicle') ||
-            event == 'booking_updated' ||
-            event == 'booking_created' ||
-            event == 'booking_cancelled') &&
-        mounted) {
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -194,7 +163,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return PopScope(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: _load,
+      child: PopScope(
       canPop: Navigator.of(context).canPop(),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -351,13 +323,14 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 ),
         ),
       ),
+    ),
     );
   }
 }
 
 class _BookingCard extends StatefulWidget {
   final String id;
-  final int? orderNumber;
+  final String? orderNumber;
   final String dateTimeLabel;
   final String title;
   final String? categoryLabel;

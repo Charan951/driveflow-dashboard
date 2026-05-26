@@ -22,6 +22,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 const AdminStaffPage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +38,6 @@ const AdminStaffPage: React.FC = () => {
     email: '',
     password: '',
     phone: '',
-    subRole: 'Driver'
   });
   const [showStaffPassword, setShowStaffPassword] = useState(false);
 
@@ -57,22 +57,8 @@ const AdminStaffPage: React.FC = () => {
        }));
     });
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'user') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchUsers();
-        }
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
        socketService.off('userStatusUpdate');
-       socketService.off('global:sync', globalSyncHandler);
        socketService.leaveRoom('admin');
     };
   }, []);
@@ -121,11 +107,12 @@ const AdminStaffPage: React.FC = () => {
     try {
       await userService.addStaff({
         ...newStaff,
-        role: 'staff' // Default to staff role, subRole handles specialization
+        role: 'staff',
+        subRole: 'Driver',
       });
       toast.success('Staff member added successfully');
       setShowAddModal(false);
-      setNewStaff({ name: '', email: '', password: '', phone: '', subRole: 'Driver' });
+      setNewStaff({ name: '', email: '', password: '', phone: '' });
       fetchUsers();
     } catch (error) {
       toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to add staff');
@@ -155,6 +142,7 @@ const AdminStaffPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['user']} onSync={fetchUsers}>
     <div className="space-y-6 p-6 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -185,7 +173,7 @@ const AdminStaffPage: React.FC = () => {
         </div>
         
         <div className="flex gap-2 overflow-x-auto">
-          {['all', 'Driver', 'Support', 'Admin'].map((role) => (
+          {['all', 'Driver', 'Admin'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
@@ -323,18 +311,6 @@ const AdminStaffPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select
-                  value={newStaff.subRole}
-                  onChange={e => setNewStaff({...newStaff, subRole: e.target.value})}
-                  className="w-full p-2 rounded-lg border border-border bg-background"
-                >
-                  <option value="Driver">Pickup Driver</option>
-                  <option value="Support">Support Agent</option>
-                  <option value="Manager">Manager</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
                 <div className="relative">
                   <input
@@ -375,6 +351,7 @@ const AdminStaffPage: React.FC = () => {
         </div>
       )}
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

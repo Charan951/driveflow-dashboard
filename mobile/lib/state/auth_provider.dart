@@ -73,9 +73,12 @@ class AuthProvider extends ChangeNotifier {
       } catch (e) {
         // Ignore
       }
-    } else if (event.contains('sync:user') || event.contains('sync:setting')) {
-      // Reload user data from server for global sync events
-      _refreshUserInBackground();
+    } else if (event.startsWith('sync:')) {
+      // Reload profile when user/settings change; other screens listen per-entity.
+      if (event.contains('sync:user') || event.contains('sync:setting')) {
+        _refreshUserInBackground();
+      }
+      notifyListeners();
     }
   }
 

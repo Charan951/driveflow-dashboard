@@ -80,6 +80,30 @@ class SocketService {
     }
   }
 
+  onAny(callback: (event: string, data: unknown) => void) {
+    if (!this.socket) this.connect();
+    const socket = this.socket as Socket & {
+      onAny?: (cb: (event: string, ...args: unknown[]) => void) => void;
+      offAny?: (cb?: (event: string, ...args: unknown[]) => void) => void;
+    };
+    socket.onAny?.((event, ...args) => {
+      callback(event, args[0]);
+    });
+  }
+
+  offAny(callback?: (event: string, data: unknown) => void) {
+    const socket = this.socket as Socket & {
+      offAny?: (cb?: (event: string, ...args: unknown[]) => void) => void;
+    };
+    if (!callback) {
+      socket?.offAny?.();
+      return;
+    }
+    socket?.offAny?.((event, ...args) => {
+      callback(event, args[0]);
+    });
+  }
+
   joinRoom(room: string) {
     this.currentRoom = room;
     this.emit('join', room);

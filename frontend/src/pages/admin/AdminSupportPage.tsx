@@ -5,6 +5,7 @@ import { ticketService } from '../../services/ticketService';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../store/authStore';
 import { socketService } from '../../services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 interface TicketMessage {
   sender: {
@@ -59,24 +60,10 @@ const AdminSupportPage = () => {
     socketService.on('ticketUpdated', handleUpdate);
     socketService.on('ticketCreated', handleCreate);
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'ticket') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchTickets();
-        }
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
-
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('ticketUpdated', handleUpdate);
       socketService.off('ticketCreated', handleCreate);
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []); // Back to empty array, using functional updates to state
 
@@ -145,15 +132,13 @@ const AdminSupportPage = () => {
     resolved: tickets.filter(t => t.status === 'Resolved').length,
   };
 
-  if (loading) {
-    return (
+  return (
+    <GlobalSyncRefresh entities={['ticket']} onSync={fetchTickets}>
+    {loading ? (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
-    );
-  }
-
-  return (
+    ) : (
     <div className="flex h-[calc(100vh-100px)] gap-6">
       {/* Ticket List (Left Panel) */}
       <div className={`w-full ${selectedTicket ? 'md:w-1/3 hidden md:block' : 'w-full'} flex flex-col space-y-4`}>
@@ -342,6 +327,8 @@ const AdminSupportPage = () => {
         )}
       </div>
     </div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

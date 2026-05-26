@@ -9,6 +9,8 @@ import '../core/api_client.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
+import '../core/socket_sync.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../services/socket_service.dart';
 
 class StaffOrderDetailPage extends StatefulWidget {
@@ -34,33 +36,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   final ImagePicker _picker = ImagePicker();
 
   @override
-  void initState() {
-    super.initState();
-    _socketService.addListener(_onSocketUpdate);
-  }
-
   @override
   void dispose() {
     if (_booking != null) {
       _socketService.leaveRoom('booking_${_booking!.id}');
     }
-    _socketService.removeListener(_onSocketUpdate);
     super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if (event.startsWith('booking_updated') ||
-        event.startsWith('booking_cancelled') ||
-        event.startsWith('new_approval') ||
-        event.startsWith('notification') ||
-        event.startsWith('sync:booking:updated') ||
-        event.startsWith('sync:approval:updated')) {
-      if (_loading || _booking == null) return;
-      _load(_booking!.id);
-    }
   }
 
   @override
@@ -563,6 +544,17 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: () {
+        if (_loading || _booking == null) return;
+        _load(_booking!.id);
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

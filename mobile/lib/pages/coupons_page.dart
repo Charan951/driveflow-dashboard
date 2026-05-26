@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/coupon_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
 import '../core/app_colors.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../core/app_styles.dart';
 import '../state/auth_provider.dart';
 import '../models/booking.dart';
@@ -38,33 +39,6 @@ class _CouponsPageState extends State<CouponsPage> {
   void initState() {
     super.initState();
     _fetchCoupons();
-
-    // Listen to socket updates for real-time refresh
-    final socket = context.read<SocketService>();
-    socket.addListener(_onSocketUpdate);
-  }
-
-  @override
-  void dispose() {
-    // Remove listener
-    try {
-      final socket = context.read<SocketService>();
-      socket.removeListener(_onSocketUpdate);
-    } catch (_) {
-      // Might fail if context is no longer available or Provider not found
-    }
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    final event = context.read<SocketService>().value;
-    if (event == null) return;
-
-    // Reload if coupons changed
-    if (event.contains('sync:coupon') && mounted) {
-      _fetchCoupons();
-    }
   }
 
   Future<void> _fetchCoupons() async {
@@ -146,7 +120,10 @@ class _CouponsPageState extends State<CouponsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.coupons,
+      onSync: _fetchCoupons,
+      child: Scaffold(
       backgroundColor: isDark
           ? AppColors.backgroundPrimary
           : AppColors.backgroundPrimaryLight,
@@ -161,6 +138,7 @@ class _CouponsPageState extends State<CouponsPage> {
       ),
       body: _buildBody(isDark),
       bottomNavigationBar: widget.isSelectionMode ? _buildBottomButton() : null,
+    ),
     );
   }
 

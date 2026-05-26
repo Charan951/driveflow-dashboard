@@ -10,6 +10,8 @@ class AppStorage {
   static const _tokenKey = 'staff_access_token';
   static const _userKey = 'staff_auth_user';
   static const _themeModeKey = 'theme_mode';
+  /// Cleared on app uninstall; used to wipe Keychain leftovers on fresh install.
+  static const _installMarkerKey = 'staff_install_marker';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -85,7 +87,27 @@ class AppStorage {
     try {
       await _secureStorage.deleteAll();
       final prefs = await _getPrefs();
+      final themeMode = prefs.getString(_themeModeKey);
       await prefs.clear();
+      if (themeMode != null) {
+        await prefs.setString(_themeModeKey, themeMode);
+      }
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  /// iOS Keychain can survive uninstall; SharedPreferences does not.
+  /// On first launch after install, clear stale secure credentials.
+  Future<void> ensureStorageMatchesInstall() async {
+    try {
+      final prefs = await _getPrefs();
+      if (prefs.containsKey(_installMarkerKey)) return;
+      await clearAll();
+      await prefs.setString(
+        _installMarkerKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
     } catch (e) {
       // Silent catch
     }

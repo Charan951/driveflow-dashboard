@@ -1,8 +1,134 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldAlert, Search, User, Filter, Calendar } from 'lucide-react';
+import { ShieldAlert, Search, User, Calendar, BadgeCheck, Copy } from 'lucide-react';
 import { auditService, AuditLog } from '../../services/auditService';
 import { toast } from 'react-hot-toast';
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE_CASHFREE_ORDER: 'Payment order created',
+  VERIFY_CASHFREE_PAYMENT: 'Payment verified',
+  CREATE_PAYMENT_ORDER: 'Payment order created',
+  PAYMENT_VERIFIED: 'Payment verified',
+  WEBHOOK_PROCESSED: 'Payment webhook received',
+  PAYMENT_REFUNDED: 'Payment refunded',
+};
+
+const formatAuditAction = (action: string): string => {
+  if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+  return action
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const getActionColorClass = (action: string): string => {
+  const key = action.toLowerCase();
+  if (key.includes('delete') || key.includes('refund')) return 'text-red-600';
+  if (key.includes('create')) return 'text-green-600';
+  if (key.includes('verify') || key.includes('verified')) return 'text-blue-600';
+  if (key.includes('webhook')) return 'text-amber-700';
+  if (key.includes('update')) return 'text-blue-600';
+  return 'text-gray-800';
+};
+
+const AUDIT_DETAIL_KEYS = ['amount', 'bookingId'] as const;
+
+const DETAIL_LABELS: Record<(typeof AUDIT_DETAIL_KEYS)[number], string> = {
+  amount: 'Amount',
+  bookingId: 'Booking ID',
+};
+
+const isPaidStatus = (details?: Record<string, unknown>): boolean =>
+  String(details?.status ?? '').toLowerCase() === 'paid';
+
+const formatAuditDateTime = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const hours24 = d.getHours();
+  const ampm = hours24 >= 12 ? 'pm' : 'am';
+  const hours12 = hours24 % 12 || 12;
+  const hours = String(hours12).padStart(2, '0');
+
+  return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
+};
+
+const formatInr = (value: unknown): string => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
+const copyToClipboard = async (text: string, label: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(`${label} copied`);
+  } catch {
+    toast.error(`Could not copy ${label.toLowerCase()}`);
+  }
+};
+
+const CopyButton = ({ text, label }: { text: string; label: string }) => (
+  <button
+    type="button"
+    onClick={() => copyToClipboard(text, label)}
+    className="shrink-0 p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
+    aria-label={`Copy ${label}`}
+    title={`Copy ${label}`}
+  >
+    <Copy size={14} />
+  </button>
+);
+
+const formatDetailValue = (key: (typeof AUDIT_DETAIL_KEYS)[number], value: unknown): string => {
+  if (value == null || value === '') return '—';
+  if (key === 'amount') return formatInr(value);
+  if (key === 'bookingId' && typeof value === 'object' && value !== null && '_id' in value) {
+    return String((value as { _id: unknown })._id);
+  }
+  return String(value);
+};
+
+const formatAuditDetails = (details: Record<string, unknown> | undefined) => {
+  if (!details || typeof details !== 'object') {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  const entries = AUDIT_DETAIL_KEYS.map((key) => ({
+    key,
+    label: DETAIL_LABELS[key],
+    value: formatDetailValue(key, details[key]),
+  }));
+
+  if (entries.every((e) => e.value === '—')) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <dl className="space-y-1 text-xs min-w-[200px]">
+      {entries.map(({ key, label, value }) => (
+        <div key={key} className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+          <dt className="text-gray-500 whitespace-nowrap">{label}</dt>
+          <dd className="text-gray-800 break-all font-medium">
+            {key === 'bookingId' && value !== '—' ? (
+              <span className="inline-flex items-start gap-1 max-w-full">
+                <span className="break-all">{value}</span>
+                <CopyButton text={value} label="Booking ID" />
+              </span>
+            ) : (
+              value
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
 
 const AdminAuditPage = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -117,35 +243,40 @@ const AdminAuditPage = () => {
       {/* Logs Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[1000px]">
+          <table className="w-full text-left min-w-[720px]">
             <thead className="bg-gray-50 text-gray-600 text-sm">
               <tr>
                 <th className="px-6 py-3 font-medium">Date & Time</th>
                 <th className="px-6 py-3 font-medium">User</th>
-                <th className="px-6 py-3 font-medium">Role</th>
                 <th className="px-6 py-3 font-medium">Action</th>
-                <th className="px-6 py-3 font-medium">Target</th>
                 <th className="px-6 py-3 font-medium">Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
                     Loading logs...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
                     No audit logs found matching criteria.
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                logs.map((log) => {
+                  const cashfreeOrderId =
+                    log.details?.orderId != null && String(log.details.orderId).trim() !== ''
+                      ? String(log.details.orderId)
+                      : null;
+                  const paid = isPaidStatus(log.details);
+
+                  return (
                   <tr key={log._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {formatAuditDateTime(log.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-800 font-medium">
                       <div className="flex items-center gap-2">
@@ -153,29 +284,36 @@ const AdminAuditPage = () => {
                         {log.user?.name || 'Unknown'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                        {log.user?.role || 'N/A'}
-                      </span>
+                    <td className="px-6 py-4 text-sm align-top">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`font-medium ${getActionColorClass(log.action)}`}>
+                            {formatAuditAction(log.action)}
+                          </span>
+                          {paid && (
+                            <BadgeCheck
+                              size={18}
+                              className="text-green-600 shrink-0"
+                              aria-label="Payment verified"
+                            />
+                          )}
+                        </div>
+                        {cashfreeOrderId && (
+                          <span className="inline-flex items-start gap-1 max-w-full">
+                            <span className="text-xs text-gray-500 font-mono break-all leading-snug">
+                              {cashfreeOrderId}
+                            </span>
+                            <CopyButton text={cashfreeOrderId} label="Order ID" />
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`font-medium ${
-                        log.action.toLowerCase().includes('delete') ? 'text-red-600' :
-                        log.action.toLowerCase().includes('create') ? 'text-green-600' :
-                        log.action.toLowerCase().includes('update') ? 'text-blue-600' :
-                        'text-gray-800'
-                      }`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {log.targetModel} <span className="text-xs text-gray-400">({log.targetId.slice(-6)})</span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={JSON.stringify(log.details)}>
-                      {JSON.stringify(log.details) || '-'}
+                    <td className="px-6 py-4 text-sm text-gray-600 align-top">
+                      {formatAuditDetails(log.details)}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

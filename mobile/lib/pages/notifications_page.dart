@@ -5,7 +5,8 @@ import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../services/notification_service.dart';
-import '../services/socket_service.dart';
+import '../core/socket_sync.dart';
+import '../widgets/global_sync_refresh.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -17,7 +18,6 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   final _service = NotificationService();
   final _api = ApiClient();
-  SocketService? _socket;
   bool _loading = false;
   String? _error;
   List<NotificationItem> _items = [];
@@ -28,30 +28,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _load();
-
-    // Listen to socket updates for real-time refresh
-    _socket = context.read<SocketService>();
-    _socket?.addListener(_onSocketUpdate);
-  }
-
-  @override
-  void dispose() {
-    _socket?.removeListener(_onSocketUpdate);
-    _socket = null;
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    if (!mounted) return;
-    final event = _socket?.value;
-    if (event == null) return;
-
-    if ((event.contains('sync:notification') ||
-            event.contains('sync:user') ||
-            event == 'notification') &&
-        mounted) {
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -285,7 +261,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.notifications,
+      onSync: () {
+        if (!_loading) _load();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         centerTitle: true,
@@ -639,6 +620,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 itemCount: _items.length,
               ),
       ),
+    ),
     );
   }
 }

@@ -124,6 +124,7 @@ class PaymentService {
         amount,
         currency,
         paymentId: payment._id,
+        orderNumber: booking?.orderNumber != null ? String(booking.orderNumber) : null,
         environment: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox'
       };
     } catch (error) {
@@ -163,8 +164,8 @@ class PaymentService {
         throw new Error('Service is not available for the selected pincode');
       }
 
-      const Counter = (await import('../models/Counter.js')).default;
-      const orderNumber = await Counter.next('booking');
+      const { generateOrderNumber } = await import('../utils/orderNumber.js');
+      const orderNumber = await generateOrderNumber();
       
       const subtotal = Number(tempData.subtotal ?? tempData.totalAmount) || 0;
       const discountAmount = Number(tempData.discountAmount) || 0;

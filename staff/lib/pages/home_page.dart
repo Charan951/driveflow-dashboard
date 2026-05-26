@@ -9,7 +9,9 @@ import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import '../services/notification_service.dart';
 import '../services/tracking_service.dart';
+import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import '../widgets/global_sync_refresh.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../state/theme_provider.dart';
@@ -52,24 +54,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
       }
     };
     _trackingService.info.addListener(_trackingListener);
-    _socketService.addListener(_onSocketUpdate);
     _loadData();
     _startTrackingIfEnabled();
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if (event.startsWith('booking_created') ||
-        event.startsWith('booking_updated') ||
-        event.startsWith('booking_cancelled') ||
-        event.startsWith('notification') ||
-        event.contains('sync:booking') ||
-        event.contains('sync:approval')) {
-      if (_isLoading) return;
-      _loadData();
-    }
   }
 
   Future<void> _loadData() async {
@@ -428,7 +414,6 @@ class _StaffHomePageState extends State<StaffHomePage> {
   @override
   void dispose() {
     _trackingService.info.removeListener(_trackingListener);
-    _socketService.removeListener(_onSocketUpdate);
     super.dispose();
   }
 
@@ -1422,7 +1407,12 @@ class _StaffHomePageState extends State<StaffHomePage> {
         completedCount++;
       }
     }
-    return LayoutBuilder(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: () {
+        if (!_isLoading) _loadData();
+      },
+      child: LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 720;
         if (isCompact) {
@@ -1564,6 +1554,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
           ),
         );
       },
+    ),
     );
   }
 }

@@ -11,8 +11,10 @@ import '../../core/app_colors.dart';
 import '../../models/booking.dart';
 import '../../core/storage.dart';
 import '../../services/booking_service.dart';
+import '../../core/socket_sync.dart';
 import '../../services/socket_service.dart';
 import '../../services/vehicle_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 
 class MerchantOrderDetailPage extends StatefulWidget {
   const MerchantOrderDetailPage({super.key});
@@ -82,7 +84,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   @override
   void initState() {
     super.initState();
-    _socketService.addListener(_onSocketUpdate);
     _socketService.on('receiveMessage', _handleIncomingChatForBadge);
   }
 
@@ -91,7 +92,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     if (_booking != null) {
       _socketService.leaveRoom('booking_${_booking!.id}');
     }
-    _socketService.removeListener(_onSocketUpdate);
     _tabController?.dispose();
     _extraCostReasonController.dispose();
     _extraCostAmountController.dispose();
@@ -113,20 +113,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final bookingId = data['bookingId']?.toString();
     if (bookingId != _booking!.id) return;
     setState(() => _unreadChatCount += 1);
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if (event.startsWith('booking_updated') ||
-        event.startsWith('booking_cancelled') ||
-        event.startsWith('notification')) {
-      if (_isLoading || _booking == null) {
-        return;
-      }
-      _load(_booking!.id);
-    }
   }
 
   @override
@@ -551,6 +537,17 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    return GlobalSyncRefresh(
+      entities: SyncEntities.bookings,
+      onSync: () {
+        if (_isLoading || _booking == null) return;
+        _load(_booking!.id);
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

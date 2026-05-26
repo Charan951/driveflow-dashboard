@@ -5,6 +5,57 @@ import Service from '../models/Service.js';
 import Product from '../models/Product.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Ticket from '../models/Ticket.js';
+import { formatOrderReference } from '../utils/orderNumber.js';
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+const escapeCsvCell = (value) => {
+  const str = value == null || value === '' ? 'N/A' : String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+const formatExportDate = (dateValue) => {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+};
+
+/** Subtotal (after coupon), tax, and total where total = subtotal + tax. */
+const getExportAmounts = (booking) => {
+  const discount = Number(booking.discountAmount) || 0;
+  const baseSubtotal = Number(booking.totalAmount) || 0;
+  const subtotal = round2(Math.max(0, baseSubtotal - discount));
+
+  const checkoutTax = Number(booking.gstAmount);
+  const billingTax = Number(booking.billing?.gst);
+  const tax = round2(
+    Number.isFinite(checkoutTax) && checkoutTax > 0
+      ? checkoutTax
+      : Number.isFinite(billingTax)
+        ? billingTax
+        : 0
+  );
+
+  const total = round2(subtotal + tax);
+  return { subtotal, tax, total };
+};
+
+const getAssignedStaffLabel = (booking) => {
+  const names = [];
+  const addName = (user) => {
+    const name = user?.name?.trim();
+    if (name && !names.includes(name)) names.push(name);
+  };
+
+  addName(booking.pickupDriver);
+  addName(booking.technician);
+  addName(booking.carWash?.staffAssigned);
+
+  return names.length > 0 ? names.join('; ') : 'N/A';
+};
 
 // @desc    Export report as CSV
 // @route   GET /api/reports/export
@@ -14,27 +65,38 @@ export const exportReport = async (req, res) => {
     const bookings = await Booking.find()
       .populate('user', 'name email')
       .populate('merchant', 'name email')
+      .populate('pickupDriver', 'name')
+      .populate('technician', 'name')
+      .populate('carWash.staffAssigned', 'name')
       .populate('services', 'name')
       .sort({ createdAt: -1 });
 
-    const csvHeader = 'Booking ID,Customer Name,Customer Email,Merchant Name,Merchant Email,Services,Total Amount,Payment Status,Booking Status,Date\n';
-    const csvRows = bookings.map(booking => {
-      const date = new Date(booking.createdAt);
-      const formattedDate = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-      const serviceNames = booking.services?.map(s => s.name).join('; ') || 'N/A';
-      return [
-        booking._id,
-        `"${booking.user?.name || 'N/A'}"`,
-        `"${booking.user?.email || 'N/A'}"`,
-        `"${booking.merchant?.name || 'N/A'}"`,
-        `"${booking.merchant?.email || 'N/A'}"`,
-        `"${serviceNames}"`,
-        booking.totalAmount || 0,
-        booking.paymentStatus || 'N/A',
-        booking.status || 'N/A',
-        formattedDate
-      ].join(',');
-    }).join('\n');
+    const csvHeader =
+      'Booking ID,Customer Name,Customer Email,Staff,Merchant Name,Merchant Email,Services,Subtotal,Tax,Total Amount,Payment Status,Booking Status,Date\n';
+
+    const csvRows = bookings
+      .map((booking) => {
+        const { subtotal, tax, total } = getExportAmounts(booking);
+        const serviceNames =
+          booking.services?.map((s) => s?.name).filter(Boolean).join('; ') || 'N/A';
+
+        return [
+          escapeCsvCell(formatOrderReference(booking)),
+          escapeCsvCell(booking.user?.name),
+          escapeCsvCell(booking.user?.email),
+          escapeCsvCell(getAssignedStaffLabel(booking)),
+          escapeCsvCell(booking.merchant?.name),
+          escapeCsvCell(booking.merchant?.email),
+          escapeCsvCell(serviceNames),
+          subtotal,
+          tax,
+          total,
+          escapeCsvCell(booking.paymentStatus),
+          escapeCsvCell(booking.status),
+          formatExportDate(booking.createdAt),
+        ].join(',');
+      })
+      .join('\n');
 
     const csvContent = csvHeader + csvRows;
 

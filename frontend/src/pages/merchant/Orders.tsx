@@ -7,6 +7,7 @@ import { userService, User } from '@/services/userService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 
@@ -63,23 +64,12 @@ const Orders: React.FC = () => {
       });
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'booking' && action) {
-        fetchBookings();
-      }
-    };
-
     socketService.on('bookingUpdated', bookingUpdatedHandler);
     socketService.on('bookingCreated', bookingCreatedHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.off('bookingUpdated', bookingUpdatedHandler);
         socketService.off('bookingCreated', bookingCreatedHandler);
-        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -120,11 +110,11 @@ const Orders: React.FC = () => {
     return true;
   });
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading orders...</div>;
-  }
-
   return (
+    <GlobalSyncRefresh entities={['booking']} onSync={fetchBookings}>
+    {isLoading ? (
+      <div className="p-8 text-center">Loading orders...</div>
+    ) : (
     <motion.div 
       variants={staggerContainer}
       initial="hidden"
@@ -234,6 +224,8 @@ const Orders: React.FC = () => {
         )}
       </motion.div>
     </motion.div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

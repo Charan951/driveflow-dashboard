@@ -17,6 +17,7 @@ import { reportService } from '@/services/reportService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { toast } from 'sonner';
 import { socketService } from '@/services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -49,23 +50,10 @@ const AdminDashboard: React.FC = () => {
       fetchData();
     };
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      // Admin dashboard should refresh for almost any entity change
-      const adminEntities = ['booking', 'ticket', 'user', 'merchant', 'staff', 'payment', 'approval', 'vehicle', 'product', 'service', 'setting', 'role'];
-      if (adminEntities.includes(entity) && action) {
-        fetchData();
-      }
-    };
-
     socketService.on('bookingUpdated', refreshHandler);
     socketService.on('bookingCreated', newBookingHandler);
     socketService.on('ticketUpdated', refreshHandler);
     socketService.on('ticketCreated', refreshHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
         socketService.leaveRoom('admin');
@@ -73,7 +61,6 @@ const AdminDashboard: React.FC = () => {
         socketService.off('bookingCreated', newBookingHandler);
         socketService.off('ticketUpdated', refreshHandler);
         socketService.off('ticketCreated', refreshHandler);
-        socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -107,10 +94,6 @@ const AdminDashboard: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading dashboard...</div>;
-  }
 
   const quickActions = [
     {
@@ -173,6 +156,13 @@ const AdminDashboard: React.FC = () => {
   ];
 
   return (
+    <GlobalSyncRefresh
+      entities={['booking', 'ticket', 'user', 'payment', 'approval', 'vehicle', 'product', 'service', 'setting', 'role']}
+      onSync={fetchData}
+    >
+    {isLoading ? (
+      <div className="p-8 text-center">Loading dashboard...</div>
+    ) : (
     <motion.div 
       variants={staggerContainer}
       initial="hidden"
@@ -304,6 +294,8 @@ const AdminDashboard: React.FC = () => {
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </GlobalSyncRefresh>
   );
 };
 

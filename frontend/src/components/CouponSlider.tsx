@@ -1,8 +1,84 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Tag, Ticket } from 'lucide-react';
 import { couponService, Coupon } from '@/services/couponService';
-import { Ticket } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+
+const CARD_HEIGHT = 82;
+const CARD_GAP = 16;
+const MIN_CARD_WIDTH = 168;
+const MAX_CARD_WIDTH = 220;
+
+function filterCoupons(coupons: Coupon[], user: ReturnType<typeof useAuthStore.getState>['user']) {
+  const now = Date.now();
+  return coupons.filter((c) => {
+    if (!c.isActive) return false;
+    if (c.validUntil) {
+      const until = new Date(c.validUntil).getTime();
+      if (!Number.isNaN(until) && until < now) return false;
+    }
+    if (c.targetUsers && c.targetUsers.length > 0) {
+      const isTargeted = c.targetUsers.some(
+        (target) =>
+          (user?.email &&
+            target.email &&
+            target.email.toLowerCase() === user.email.toLowerCase()) ||
+          (user?.phone && target.mobile && target.mobile === user.phone),
+      );
+      if (!isTargeted) return false;
+    }
+    return true;
+  });
+}
+
+function getCardWidth(code: string): number {
+  const calculated = (code.length * 12) / 3 * 7 + 80;
+  return Math.min(MAX_CARD_WIDTH, Math.max(MIN_CARD_WIDTH, calculated));
+}
+
+function CouponTicket({ coupon, width }: { coupon: Coupon; width: number }) {
+  return (
+    <motion.div
+      whileHover={{ scale: 1.03, y: -2 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 14 }}
+      className="relative shrink-0 overflow-hidden rounded-xl border border-[#93C5FD]/55 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:border-blue-500/45 dark:from-[#1E3A5F] dark:to-[#172554]"
+      style={{ width, height: CARD_HEIGHT }}
+    >
+      <Ticket
+        className="pointer-events-none absolute -right-2 -top-2 h-[52px] w-[52px] rotate-[6deg] text-[#4D95F9]/10 dark:text-blue-400/12"
+        strokeWidth={1.5}
+      />
+
+      <div className="absolute left-[-6px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white dark:bg-background" />
+      <div className="absolute right-[-6px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white dark:bg-background" />
+
+      <div className="relative flex h-full items-center px-2.5 py-2">
+        <div className="min-w-0 flex-[3]">
+          <div className="mb-0.5 flex items-center gap-1">
+            <Tag className="h-2 w-2 text-[#146EEC] dark:text-blue-300" strokeWidth={3} />
+            <span className="text-[7px] font-black uppercase tracking-[0.14em] text-slate-600 dark:text-blue-200">
+              OFFER
+            </span>
+          </div>
+          <p className="truncate text-[14px] font-black uppercase leading-tight text-slate-900 dark:text-slate-50">
+            {coupon.code}
+          </p>
+        </div>
+
+        <div className="mx-1.5 h-[28px] w-px shrink-0 bg-blue-600/35 dark:bg-blue-400/35" />
+
+        <div className="min-w-0 flex-[4]">
+          <p className="text-[13px] font-black leading-tight text-slate-900 dark:text-slate-50">
+            {coupon.discountPercentage}% OFF
+          </p>
+          <p className="mt-0.5 text-[8px] font-bold text-slate-600 dark:text-blue-200/80">
+            Min. ₹{coupon.minOrderAmount ?? 0}
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 const CouponSlider: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -13,21 +89,7 @@ const CouponSlider: React.FC = () => {
     const fetchCoupons = async () => {
       try {
         const data = await couponService.getCoupons();
-        const filteredCoupons = data.filter(c => {
-          if (!c.isActive) return false;
-
-          // Filter by targeted users
-          if (c.targetUsers && c.targetUsers.length > 0) {
-            const isTargeted = c.targetUsers.some(target => 
-              (user?.email && target.email && target.email.toLowerCase() === user.email.toLowerCase()) ||
-              (user?.phone && target.mobile && target.mobile === user.phone)
-            );
-            if (!isTargeted) return false;
-          }
-
-          return true;
-        });
-        setCoupons(filteredCoupons);
+        setCoupons(filterCoupons(data, user));
       } catch (error) {
         console.error('Failed to fetch coupons:', error);
         setCoupons([]);
@@ -39,81 +101,35 @@ const CouponSlider: React.FC = () => {
   }, [user]);
 
   if (loading || coupons.length === 0) return null;
-  // Create enough copies for a smooth infinite loop
+
   const displayCoupons = [...coupons, ...coupons, ...coupons, ...coupons];
-  const CARD_WIDTH = 280;
-  const GAP = 24;
-  const TOTAL_SET_WIDTH = (CARD_WIDTH + GAP) * coupons.length;
+  const totalSetWidth = coupons.reduce((sum, coupon) => {
+    return sum + getCardWidth(coupon.code) + CARD_GAP;
+  }, 0);
 
   return (
-    <div className="w-full overflow-hidden py-6 relative">
-      {/* Gradient Overlays for smooth fade effect */}
-      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
-
-      <div className="relative w-full">
-        <motion.div
-          className="flex gap-6 px-4"
-          animate={{
-            x: [0, -TOTAL_SET_WIDTH],
-          }}
-          transition={{
-            x: {
-              repeat: Infinity,
-              repeatType: "loop",
-              duration: coupons.length * 8, // Slightly faster, consistent speed
-              ease: "linear",
-            },
-          }}
-          style={{ width: 'fit-content' }}
-        >
-          {displayCoupons.map((coupon, index) => (
-            <motion.div
-              key={`${coupon._id}-${index}`}
-              whileHover={{ scale: 1.05, y: -5 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
-              className="flex-shrink-0 w-[280px] h-36 rounded-2xl bg-[#D4AF37] border-2 border-[#996515]/20 p-6 flex flex-col justify-between text-black/80 relative overflow-hidden shadow-[0_8px_30px_rgb(212,175,55,0.2)] bg-gradient-to-br from-[#D4AF37] to-[#C49E2D]"
-            >
-              {/* Background Decoration */}
-              <div className="absolute -top-6 -right-6 opacity-10 text-white">
-                <Ticket className="w-32 h-32 rotate-12" />
-              </div>
-              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/20 rounded-full blur-3xl" />
-              
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-black/10 rounded-lg">
-                    <Ticket className="w-3.5 h-3.5" />
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-80">Premium Offer</p>
-                </div>
-                <h4 className="text-3xl font-black tracking-tighter drop-shadow-sm uppercase">{coupon.code}</h4>
-                {coupon.description && (
-                  <p className="text-[11px] font-medium opacity-70 mt-1 line-clamp-1">{coupon.description}</p>
-                )}
-              </div>
-              
-              <div className="relative z-10 flex justify-between items-end border-t-2 border-black/10 pt-4 mt-auto">
-                <div>
-                  <p className="text-2xl font-black leading-none">{coupon.discountPercentage}% OFF</p>
-                  <p className="text-[10px] opacity-60 mt-1 uppercase font-black tracking-widest">Luxury Deal</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black">Min. ₹{coupon.minOrderAmount}</p>
-                  <p className="text-[9px] opacity-50 uppercase font-bold">Order Value</p>
-                </div>
-              </div>
-
-              {/* Card Notch Effect */}
-              <div className="absolute top-1/2 -left-3 w-6 h-6 bg-white rounded-full -translate-y-1/2 shadow-inner" />
-              <div className="absolute top-1/2 -right-3 w-6 h-6 bg-white rounded-full -translate-y-1/2 shadow-inner" />
-              
-              {/* Dashed line connector for notch */}
-              <div className="absolute top-1/2 left-0 right-0 border-t-2 border-dashed border-black/5 -translate-y-1/2 pointer-events-none" />
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
+    <div className="relative w-full overflow-hidden py-2">
+      <motion.div
+        className="flex px-4"
+        style={{ width: 'fit-content', gap: CARD_GAP }}
+        animate={{ x: [0, -totalSetWidth] }}
+        transition={{
+          x: {
+            repeat: Infinity,
+            repeatType: 'loop',
+            duration: coupons.length * 6,
+            ease: 'linear',
+          },
+        }}
+      >
+        {displayCoupons.map((coupon, index) => (
+          <CouponTicket
+            key={`${coupon._id}-${index}`}
+            coupon={coupon}
+            width={getCardWidth(coupon.code)}
+          />
+        ))}
+      </motion.div>
     </div>
   );
 };

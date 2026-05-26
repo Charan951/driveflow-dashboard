@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/booking_service.dart';
 import '../../services/notification_service.dart';
-import '../../services/socket_service.dart';
+import '../../core/socket_sync.dart';
 import '../../models/booking.dart';
 import '../../models/user.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 import '../../core/app_colors.dart';
 
@@ -19,7 +20,6 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
   final AuthService _authService = AuthService();
   final BookingService _bookingService = BookingService();
   final NotificationService _notificationService = NotificationService();
-  final SocketService _socketService = SocketService();
   StaffUser? _user;
   bool _isLoading = true;
   Map<String, dynamic> _stats = {
@@ -34,31 +34,6 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
   void initState() {
     super.initState();
     _init();
-    _socketService.addListener(_onSocketUpdate);
-  }
-
-  @override
-  void dispose() {
-    _socketService.removeListener(_onSocketUpdate);
-    super.dispose();
-  }
-
-  void _onSocketUpdate() {
-    final event = _socketService.value;
-    if (event == null) return;
-
-    if (event.startsWith('booking_created') ||
-        event.startsWith('booking_updated') ||
-        event.startsWith('booking_cancelled') ||
-        event.startsWith('notification') ||
-        event.startsWith('user_status_update') ||
-        event.contains('sync:booking') ||
-        event.contains('sync:approval') ||
-        event.contains('sync:payment')) {
-      // If we're already loading, skip
-      if (_isLoading) return;
-      _init(); // Refresh data on socket event
-    }
   }
 
   Future<void> _init() async {
@@ -104,7 +79,12 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.merchantHub,
+      onSync: () {
+        if (!_isLoading) _init();
+      },
+      child: MerchantScaffold(
       title: 'Carzzi Merchant',
       actions: [
         IconButton(
@@ -257,6 +237,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
           ),
         ),
       ),
+    ),
     );
   }
 

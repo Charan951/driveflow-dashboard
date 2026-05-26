@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useAppStore } from '@/store/appStore';
 
 import { updateApprovalStatus } from '@/services/approvalService';
+import { dispatchGlobalSync, normalizeGlobalSyncPayload } from '@/lib/globalSync';
 
 const SocketNotificationListener = () => {
   const queryClient = useQueryClient();
@@ -294,18 +295,26 @@ const SocketNotificationListener = () => {
 
       // Map entities to query keys
       const entityQueryMap: Record<string, string[]> = {
-        'booking': ['bookings', 'booking', 'dashboard'],
-        'ticket': ['tickets', 'ticket', 'dashboard'],
-        'vehicle': ['vehicles', 'vehicle', 'tracking', 'dashboard'],
-        'user': ['users', 'user', 'dashboard', 'profile'],
-        'approval': ['approvals', 'dashboard'],
-        'payment': ['payments', 'dashboard'],
-        'product': ['products', 'dashboard'],
-        'service': ['services', 'dashboard'],
-        'setting': ['settings', 'public-settings', 'dashboard'],
-        'role': ['roles', 'dashboard'],
-        'hero': ['hero', 'dashboard'],
-        'notification': ['notifications', 'dashboard']
+        booking: ['bookings', 'booking', 'dashboard'],
+        ticket: ['tickets', 'ticket', 'dashboard'],
+        vehicle: ['vehicles', 'vehicle', 'tracking', 'dashboard'],
+        user: ['users', 'user', 'dashboard', 'profile', 'merchants', 'staff'],
+        approval: ['approvals', 'dashboard'],
+        payment: ['payments', 'dashboard'],
+        product: ['products', 'dashboard', 'stock'],
+        service: ['services', 'dashboard'],
+        setting: ['settings', 'public-settings', 'dashboard'],
+        role: ['roles', 'dashboard'],
+        hero: ['hero', 'dashboard'],
+        notification: ['notifications', 'dashboard'],
+        coupon: ['coupons', 'dashboard'],
+        review: ['reviews', 'dashboard'],
+        slotblock: ['slot-blocks', 'dashboard'],
+        availableservicepincode: ['service-pincodes', 'dashboard'],
+        blog: ['blogs', 'dashboard'],
+        blogcategory: ['blog-categories', 'dashboard'],
+        career: ['careers', 'dashboard'],
+        careerapplication: ['career-applications', 'dashboard'],
       };
 
       const keysToInvalidate = entityQueryMap[entity] || ['dashboard'];
@@ -329,6 +338,25 @@ const SocketNotificationListener = () => {
       // Special handling for some actions
       if (action === 'deleted_all' && entity === 'notification') {
         queryClient.setQueryData(['notifications'], []);
+      }
+
+      dispatchGlobalSync({ entity, action, data: entityData, timestamp: (data as { timestamp?: string }).timestamp });
+    };
+
+    const handleTypedSyncEvent = (event: string, raw: unknown) => {
+      if (event === 'global:sync') {
+        handleGlobalSync(raw);
+        return;
+      }
+      if (!event.startsWith('sync:')) return;
+      const entity = event.slice('sync:'.length);
+      const payload = normalizeGlobalSyncPayload(
+        raw && typeof raw === 'object'
+          ? { ...(raw as object), entity: (raw as { entity?: string }).entity ?? entity }
+          : { entity, action: 'updated', data: raw }
+      );
+      if (payload) {
+        handleGlobalSync({ entity: payload.entity, action: payload.action, data: payload.data, timestamp: payload.timestamp });
       }
     };
 
@@ -356,6 +384,7 @@ const SocketNotificationListener = () => {
     socketService.on('liveLocation', handleLiveLocation);
     socketService.on('global:sync', handleGlobalSync);
     socketService.on('sync:vehicle', handleVehicleSync);
+    socketService.onAny(handleTypedSyncEvent);
 
     return () => {
       socketService.off('connect');
@@ -371,6 +400,7 @@ const SocketNotificationListener = () => {
       socketService.off('liveLocation', handleLiveLocation);
       socketService.off('global:sync', handleGlobalSync);
       socketService.off('sync:vehicle', handleVehicleSync);
+      socketService.offAny(handleTypedSyncEvent);
     };
   }, [queryClient, user, userRole, navigate, addNotification, updateUser]);
 

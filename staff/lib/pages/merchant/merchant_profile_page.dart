@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../core/api_client.dart';
+import '../../core/socket_sync.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/global_sync_refresh.dart';
 import '../../models/user.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 import '../../core/app_colors.dart';
@@ -339,7 +341,12 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return MerchantScaffold(
+    return GlobalSyncRefresh(
+      entities: SyncEntities.profile,
+      onSync: () {
+        if (!_isLoading) _load();
+      },
+      child: MerchantScaffold(
       title: 'Merchant Profile',
       actions: [
         IconButton(
@@ -484,6 +491,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                 ),
               ),
             ),
+    ),
     );
   }
 }

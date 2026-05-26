@@ -1,8 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../core/app_colors.dart';
+import '../core/storage.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -23,44 +23,49 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _bootstrap() async {
-    // Request notification permissions
     NotificationService().requestPermissions();
 
-    // Small initial delay for splash feel
+    // Wipe Keychain session left over from a previous install (iOS).
+    await AppStorage().ensureStorageMatchesInstall();
+
     await Future.delayed(const Duration(milliseconds: 300));
 
     final user = await _authService.getCurrentUser();
 
-    if (mounted && user != null) {
-      // Small delay before moving up for better visual flow
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) {
-        setState(() {
-          _isMovingUp = true;
-        });
-      }
+    if (!mounted || _navigated) return;
 
-      // Wait a bit more before navigating
+    if (user != null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+      setState(() => _isMovingUp = true);
+
       await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted && !_navigated) {
-        _navigated = true;
-        final role = user.role.toLowerCase();
-        if (role == 'merchant') {
-          Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
-        } else {
-          Navigator.of(context).pushReplacementNamed('/home');
-        }
+      if (!mounted || _navigated) return;
+
+      _navigated = true;
+      final role = user.role.toLowerCase();
+      if (role == 'merchant') {
+        Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
       }
+      return;
     }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted || _navigated) return;
+    _navigateToLogin();
   }
 
-  void _onInteract() async {
+  void _navigateToLogin() {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    Navigator.of(context).pushReplacementNamed('/login');
+  }
+
+  void _onInteract() {
     if (_navigated) return;
-    final user = await _authService.getCurrentUser();
-    if (mounted && user == null) {
-      _navigated = true;
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
+    _navigateToLogin();
   }
 
   @override
@@ -75,20 +80,18 @@ class _SplashPageState extends State<SplashPage> {
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            // Premium background with orange glow (from mobile)
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppColors.splashDeepBlack, // Deep black
-                    AppColors.splashDarkGray, // Dark gray
+                    AppColors.splashDeepBlack,
+                    AppColors.splashDarkGray,
                   ],
                 ),
               ),
             ),
-            // Soft cinematic orange glow at center (from mobile)
             Center(
               child: Container(
                 width: 400,
@@ -114,12 +117,12 @@ class _SplashPageState extends State<SplashPage> {
               child: TweenAnimationBuilder<double>(
                 duration: const Duration(milliseconds: 800),
                 tween: Tween(begin: 0.0, end: 1.0),
-                curve: Curves.easeOut, // Smooth premium finish
+                curve: Curves.easeOut,
                 builder: (context, value, child) {
                   return Transform.scale(
-                    scale: 0.9 + (0.1 * value), // Scale: 0.9 -> 1.0
+                    scale: 0.9 + (0.1 * value),
                     child: Opacity(
-                      opacity: value, // Fade: 0 -> 1
+                      opacity: value,
                       child: child,
                     ),
                   );
@@ -131,7 +134,7 @@ class _SplashPageState extends State<SplashPage> {
                     child: Image.asset(
                       'assets/appicon.png',
                       width: 180,
-                      color: Colors.white, // White logo as in mobile
+                      color: Colors.white,
                       fit: BoxFit.contain,
                     ),
                   ),

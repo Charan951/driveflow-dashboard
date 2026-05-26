@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { reportService } from '../../services/reportService';
 import { socketService } from '../../services/socket';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
 
 interface DashboardStats {
@@ -155,28 +156,15 @@ const AdminReportsPage = () => {
     socketService.joinRoom('admin');
 
     const refreshHandler = () => fetchData(dateRange);
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      
-      const relevantEntities = ['booking', 'payment', 'user', 'merchant'];
-      if (relevantEntities.includes(entity) && action) {
-        fetchData(dateRange);
-      }
-    };
-
     socketService.on('bookingUpdated', refreshHandler);
     socketService.on('bookingCreated', refreshHandler);
     socketService.on('paymentCreated', refreshHandler);
-    socketService.on('global:sync', globalSyncHandler);
 
     return () => {
       socketService.leaveRoom('admin');
       socketService.off('bookingUpdated', refreshHandler);
       socketService.off('bookingCreated', refreshHandler);
       socketService.off('paymentCreated', refreshHandler);
-      socketService.off('global:sync', globalSyncHandler);
     };
   }, []);
 
@@ -211,6 +199,10 @@ const AdminReportsPage = () => {
   }
 
   return (
+    <GlobalSyncRefresh
+      entities={['booking', 'payment', 'user']}
+      onSync={() => fetchData(dateRange)}
+    >
     <div className="p-6 space-y-6 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -494,6 +486,7 @@ const AdminReportsPage = () => {
         </div>
       </motion.div>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

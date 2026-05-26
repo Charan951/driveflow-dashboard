@@ -14,6 +14,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 
 const AdminApprovalsPage: React.FC = () => {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
@@ -34,23 +35,10 @@ const AdminApprovalsPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    const globalSyncHandler = (data: any) => {
-      if (!data) return;
-      const entity = (data as any).entity;
-      const action = (data as any).action;
-      if (entity === 'approval') {
-        if (action === 'created' || action === 'updated' || action === 'deleted') {
-          fetchApprovals();
-        }
-      }
-    };
-
-    socketService.on('global:sync', globalSyncHandler);
     socketService.on('newApproval', fetchApprovals);
 
     return () => {
       socketService.leaveRoom('admin');
-      socketService.off('global:sync', globalSyncHandler);
       socketService.off('newApproval', fetchApprovals);
     };
   }, []);
@@ -173,6 +161,7 @@ const AdminApprovalsPage: React.FC = () => {
   };
 
   return (
+    <GlobalSyncRefresh entities={['approval']} onSync={fetchApprovals}>
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -390,6 +379,7 @@ const AdminApprovalsPage: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+    </GlobalSyncRefresh>
   );
 };
 

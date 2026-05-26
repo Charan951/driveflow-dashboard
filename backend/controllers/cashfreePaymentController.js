@@ -40,7 +40,12 @@ export const createOrder = async (req, res) => {
       action: 'CREATE_CASHFREE_ORDER',
       targetModel: 'Payment',
       targetId: orderData.paymentId,
-      details: { bookingId: safeBookingId, amount: orderAmount },
+      details: {
+        orderId: orderData.orderId,
+        status: 'created',
+        amount: orderAmount,
+        bookingId: safeBookingId,
+      },
       ipAddress: req.ip
     });
     res.status(201).json({ success: true, message: 'Cashfree order created successfully', data: orderData });
@@ -58,12 +63,18 @@ export const verifyPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
     const result = await paymentService.processOrderStatus(orderId);
+    const payment = result.payment;
     await logAudit({
       user: req.user._id,
       action: 'VERIFY_CASHFREE_PAYMENT',
       targetModel: 'Payment',
-      targetId: result.payment?._id,
-      details: { orderId, status: result.payment?.status },
+      targetId: payment?._id,
+      details: {
+        orderId: payment?.orderId ?? orderId,
+        status: payment?.status,
+        amount: payment?.amount,
+        bookingId: result.booking?._id ?? payment?.bookingId ?? null,
+      },
       ipAddress: req.ip
     });
     res.json({ success: true, message: 'Payment status synced', data: result });

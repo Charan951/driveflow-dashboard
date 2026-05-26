@@ -10,6 +10,7 @@ import 'state/theme_provider.dart';
 import 'services/background_tracking.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
+import 'state/global_sync_provider.dart';
 
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
@@ -32,10 +33,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final themeProvider = ThemeProvider();
+  final globalSyncProvider = GlobalSyncProvider();
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider.value(value: themeProvider)],
+      providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: globalSyncProvider),
+      ],
       child: const StaffApp(),
     ),
   );

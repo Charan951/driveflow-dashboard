@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import SlotBlock from '../models/SlotBlock.js';
 import AvailableServicePincode from '../models/AvailableServicePincode.js';
-import Counter from '../models/Counter.js';
+import { generateOrderNumber, formatOrderReference } from '../utils/orderNumber.js';
 import User from '../models/User.js';
 import { getIO, emitChatMessage } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
@@ -31,8 +31,7 @@ const sendCustomerDeliveryOtpPush = async (booking, code) => {
       : userRef;
   if (!userId || !code) return;
 
-  const orderRef =
-    booking.orderNumber || String(booking._id).slice(-6).toUpperCase();
+  const orderRef = formatOrderReference(booking);
 
   await sendPushToUser(
     userId,
@@ -579,7 +578,7 @@ export const createBooking = async (req, res) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const orderNumber = await Counter.next('booking');
+        const orderNumber = await generateOrderNumber();
         
         // Check if this is a battery or tire service
         const isBatteryTireService = services.some(service => 
@@ -644,23 +643,6 @@ export const createBooking = async (req, res) => {
 
         if (!isDuplicate) {
           throw err;
-        }
-
-        // Align counter with current max orderNumber to avoid repeated collisions
-        try {
-          const lastWithOrder = await Booking.findOne({ orderNumber: { $ne: null } })
-            .sort({ orderNumber: -1 })
-            .select('orderNumber')
-            .lean();
-          if (lastWithOrder && typeof lastWithOrder.orderNumber === 'number') {
-            await Counter.findOneAndUpdate(
-              { name: 'booking' },
-              { $set: { seq: lastWithOrder.orderNumber } },
-              { upsert: true }
-            );
-          }
-        } catch (alignError) {
-          
         }
       }
     }
