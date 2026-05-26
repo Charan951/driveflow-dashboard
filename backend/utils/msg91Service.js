@@ -1,6 +1,7 @@
 import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { isOtpExternalDeliveryEnabled, isTestingEnv } from './appEnvironment.js';
 
 const MSG91_OTP_URL = 'https://control.msg91.com/api/v5/otp';
 const MSG91_VERIFY_URL = 'https://control.msg91.com/api/v5/otp/verify';
@@ -68,9 +69,10 @@ const maskMobileForLog = (mobile) => {
   return `******${digits.slice(-4)}`;
 };
 
-/** Local debugging — never enable LOG_OTP_TO_CONSOLE in production. */
+/** Local debugging — never enable LOG_OTP_TO_CONSOLE in production (testing always logs). */
 const logOtpToConsole = (mobile, otp, label = 'auth') => {
   const allow =
+    isTestingEnv() ||
     process.env.NODE_ENV !== 'production' ||
     process.env.LOG_OTP_TO_CONSOLE === 'true';
   if (!allow || !otp) return;
@@ -328,6 +330,15 @@ const sendMsg91Otp = async (mobile) => {
 };
 
 const sendAuthOtp = async (mobile, templateName) => {
+  if (!isOtpExternalDeliveryEnabled()) {
+    const { otp, otpHash } = generateOtp();
+    logOtpToConsole(mobile, otp, templateName || 'testing');
+    console.info(
+      `[OTP testing] APP_ENV=testing — skipped WhatsApp/SMS for ${maskMobileForLog(mobile)}`
+    );
+    return { delivery: 'testing', otpHash, channels: [] };
+  }
+
   if (useWhatsAppOutbound()) {
     const { otp, otpHash } = generateOtp();
     logOtpToConsole(mobile, otp, templateName || 'user_authentication');

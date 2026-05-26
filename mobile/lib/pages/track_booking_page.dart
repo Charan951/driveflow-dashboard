@@ -17,6 +17,7 @@ import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 
 import '../core/app_colors.dart';
 import '../core/env.dart';
+import '../core/order_pricing.dart';
 import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
@@ -2061,7 +2062,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                           ),
                                         )
                                       : Text(
-                                          'Pay ₹${booking.calculatedTotal}',
+                                          'Pay ₹${formatInrAmount(booking.calculatedTotal)}',
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
@@ -2693,10 +2694,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                   '₹${booking.billing!.labourCost}',
                                   isDark,
                                 ),
-                              if ((booking.billing?.gst ?? 0) > 0)
+                              if ((booking.billing?.gst ?? 0) > 0 ||
+                                  (!isGeneralService &&
+                                      (booking.gstAmount ?? 0) > 0))
                                 _buildCostRow(
-                                  'GST',
-                                  '₹${booking.billing!.gst}',
+                                  'Tax (GST 18%)',
+                                  '₹${formatInrAmount(booking.billing?.gst ?? booking.gstAmount ?? 0)}',
                                   isDark,
                                 ),
                               if ((booking.pickupDropPrice ??
@@ -2733,7 +2736,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '₹${booking.calculatedTotal}',
+                                        '₹${formatInrAmount(booking.calculatedTotal)}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .titleMedium
@@ -2758,18 +2761,31 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                               ),
                             ] else ...[
                               _buildCostRow(
-                                'Service Price',
-                                '₹${booking.baseServiceTotal}',
+                                'Subtotal',
+                                '₹${formatInrAmount(booking.totalAmount)}',
                                 isDark,
                               ),
+                              if ((booking.discountAmount ?? 0) > 0) ...[
+                                _buildCostRow(
+                                  'Discount',
+                                  '-₹${booking.discountAmount}',
+                                  isDark,
+                                ),
+                                _buildCalculationBreakdown(booking, isDark),
+                              ],
+                              if (!isGeneralService &&
+                                  (booking.gstAmount ?? 0) > 0)
+                                _buildCostRow(
+                                  'Tax (GST 18%)',
+                                  '₹${formatInrAmount(booking.gstAmount ?? 0)}',
+                                  isDark,
+                                ),
                               if ((booking.partsAndOtherTotal) > 0)
                                 _buildCostRow(
                                   'Additional Parts/Service',
                                   '₹${booking.partsAndOtherTotal}',
                                   isDark,
                                 ),
-                              if ((booking.discountAmount ?? 0) > 0)
-                                _buildCalculationBreakdown(booking, isDark),
                               const SizedBox(height: 8),
                               const Divider(height: 1),
                               const SizedBox(height: 8),
@@ -2789,7 +2805,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                         ),
                                   ),
                                   Text(
-                                    '₹${booking.totalAmount}',
+                                    '₹${formatInrAmount(booking.calculatedTotal)}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -3205,7 +3221,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildBreakdownRow('Total Amount', '₹$totalAmount'),
+          _buildBreakdownRow('Total Amount', '₹${formatInrAmount(totalAmount)}'),
           _buildBreakdownRow(
             'Applied Coupon (${booking.couponCode ?? 'GENERAL'})',
             '$discountPercentage% Off',
@@ -3217,11 +3233,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ),
           _buildBreakdownRow(
             'Discount Calculation',
-            '${booking.totalAmount} × $discountFactor = ₹$discount',
+            '${formatInrAmount(booking.totalAmount)} × $discountFactor = ₹${formatInrAmount(discount)}',
           ),
           _buildBreakdownRow(
             'Final Payable',
-            '${booking.totalAmount} − $discount = ₹$finalAmount',
+            '${formatInrAmount(booking.totalAmount)} − ${formatInrAmount(discount)} = ₹${formatInrAmount(finalAmount)}',
             isBold: true,
           ),
         ],

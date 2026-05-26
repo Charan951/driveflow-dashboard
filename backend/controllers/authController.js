@@ -11,8 +11,45 @@ import {
   sendAuthOtp as msg91SendAuthOtp,
   verifySignupOtp as msg91VerifySignupOtp,
 } from '../utils/msg91Service.js';
+import { isTestingEnv } from '../utils/appEnvironment.js';
 
 const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
+
+const buildAuthUserPayload = (user, extras = {}) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  subRole: user.subRole,
+  phone: user.phone,
+  isShopOpen: user.isShopOpen,
+  location: user.location,
+  addresses: user.addresses || [],
+  address: user.location?.address || '',
+  isOnline: user.isOnline,
+  token: generateToken(user._id),
+  ...extras,
+});
+
+const createUserFromPendingSignup = async (pending, mobile) => {
+  const userExists = await User.findOne({ email: pending.email });
+  if (userExists) {
+    await PendingSignup.deleteOne({ mobile });
+    throw new Error('User already exists');
+  }
+
+  const user = await User.create({
+    name: pending.name,
+    email: pending.email,
+    password: pending.password,
+    role: 'customer',
+    phone: mobile.slice(2),
+    isApproved: true,
+  });
+
+  await PendingSignup.deleteOne({ mobile });
+  return user;
+};
 
 const formatChannelLabel = (channels = ['whatsapp']) => {
   if (channels.includes('whatsapp') && channels.includes('sms')) return 'WhatsApp and SMS';
@@ -68,6 +105,18 @@ export const prepareSignup = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    if (isTestingEnv()) {
+      const pending = await PendingSignup.findOne({ mobile });
+      const user = await createUserFromPendingSignup(pending, mobile);
+      console.info('[auth testing] Signup completed without OTP verification');
+      return res.status(201).json(
+        buildAuthUserPayload(user, {
+          skipOtp: true,
+          message: 'Account created (testing — OTP skipped).',
+        })
+      );
+    }
+
     res.json({
       message: 'Details verified. Continue to OTP verification.',
       mobile: `******${mobile.slice(-4)}`,
@@ -109,7 +158,9 @@ export const sendSignupOtp = async (req, res) => {
 
     const channels = sendResult.channels || ['whatsapp'];
     res.json({
-      message: `OTP sent to your ${formatChannelLabel(channels)}`,
+      message: isTestingEnv()
+        ? 'OTP generated for testing (WhatsApp/SMS disabled). Check server logs.'
+        : `OTP sent to your ${formatChannelLabel(channels)}`,
       mobile: `******${mobile.slice(-4)}`,
       channels,
     });
@@ -125,7 +176,10 @@ export const verifySignupOtp = async (req, res) => {
   const { phone, otp } = req.body;
 
   try {
-    if (!phone?.trim() || !otp) {
+    if (!phone?.trim()) {
+      return res.status(400).json({ message: 'Phone is required' });
+    }
+    if (!isTestingEnv() && !otp) {
       return res.status(400).json({ message: 'Phone and OTP are required' });
     }
 
@@ -144,37 +198,13 @@ export const verifySignupOtp = async (req, res) => {
       return res.status(400).json({ message: 'OTP session expired. Please request a new OTP.' });
     }
 
-    await msg91VerifySignupOtp(mobile, otp, pending);
-
-    const userExists = await User.findOne({ email: pending.email });
-    if (userExists) {
-      await PendingSignup.deleteOne({ mobile });
-      return res.status(400).json({ message: 'User already exists' });
+    if (!isTestingEnv()) {
+      await msg91VerifySignupOtp(mobile, otp, pending);
     }
 
-    const user = await User.create({
-      name: pending.name,
-      email: pending.email,
-      password: pending.password,
-      role: 'customer',
-      phone: mobile.slice(2),
-      isApproved: true,
-    });
+    const user = await createUserFromPendingSignup(pending, mobile);
 
-    await PendingSignup.deleteOne({ mobile });
-
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      subRole: user.subRole,
-      phone: user.phone,
-      addresses: user.addresses || [],
-      location: user.location,
-      address: user.location?.address || '',
-      token: generateToken(user._id),
-    });
+    res.status(201).json(buildAuthUserPayload(user));
   } catch (error) {
     console.error('verifySignupOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
@@ -244,22 +274,11 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
-    if (user.role === 'admin') {
-      return res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        subRole: user.subRole,
-        phone: user.phone,
-        isShopOpen: user.isShopOpen,
-        location: user.location,
-        addresses: user.addresses || [],
-        address: user.location?.address || '',
-        isOnline: user.isOnline,
-        token: generateToken(user._id),
-        skipOtp: true,
-      });
+    if (user.role === 'admin' || isTestingEnv()) {
+      if (isTestingEnv()) {
+        console.info('[auth testing] Login completed without OTP verification');
+      }
+      return res.json(buildAuthUserPayload(user, { skipOtp: true }));
     }
 
     const mobile = resolveUserMobile(user);
@@ -320,7 +339,9 @@ export const sendLoginOtp = async (req, res) => {
 
     const channels = sendResult.channels || ['whatsapp'];
     res.json({
-      message: `OTP sent to your ${formatChannelLabel(channels)}`,
+      message: isTestingEnv()
+        ? 'OTP generated for testing (WhatsApp/SMS disabled). Check server logs.'
+        : `OTP sent to your ${formatChannelLabel(channels)}`,
       mobile: `******${pending.mobile.slice(-4)}`,
       channels,
     });
@@ -335,7 +356,10 @@ export const verifyLoginOtp = async (req, res) => {
   const { email, otp } = req.body;
 
   try {
-    if (!email?.trim() || !otp) {
+    if (!email?.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    if (!isTestingEnv() && !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
@@ -351,7 +375,9 @@ export const verifyLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'OTP session expired. Please sign in again.' });
     }
 
-    await msg91VerifySignupOtp(pending.mobile, otp, pending);
+    if (!isTestingEnv()) {
+      await msg91VerifySignupOtp(pending.mobile, otp, pending);
+    }
 
     const user = await User.findById(pending.userId);
     if (!user) {
@@ -361,20 +387,7 @@ export const verifyLoginOtp = async (req, res) => {
 
     await PendingLogin.deleteOne({ email: normalizedEmail });
 
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      subRole: user.subRole,
-      phone: user.phone,
-      isShopOpen: user.isShopOpen,
-      location: user.location,
-      addresses: user.addresses || [],
-      address: user.location?.address || '',
-      isOnline: user.isOnline,
-      token: generateToken(user._id),
-    });
+    res.json(buildAuthUserPayload(user));
   } catch (error) {
     console.error('verifyLoginOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;

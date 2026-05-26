@@ -347,6 +347,23 @@ class AuthProvider extends ChangeNotifier {
         password: password,
         phone: phone,
       );
+
+      if (prepared['skipOtp'] == true) {
+        final token = (prepared['accessToken'] ?? prepared['token'])?.toString();
+        final user = _userFromAuthResponse(prepared);
+        if (token != null && token.isNotEmpty) {
+          await AppStorage().setToken(token);
+        }
+        if (user != null) {
+          await AppStorage().setUserJson(jsonEncode(user.toJson()));
+        }
+        final authResult = AuthResult(token: token, user: user);
+        await _completeLoginSession(authResult);
+        loading = false;
+        notifyListeners();
+        return null;
+      }
+
       final res = await _auth.sendSignupOtp(phone: phone);
       loading = false;
       notifyListeners();

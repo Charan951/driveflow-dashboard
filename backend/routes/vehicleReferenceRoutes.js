@@ -123,6 +123,12 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
           car_wash_exterior_price: fuzzyMatch(item, ['car_wash_exterior_wash', 'exterior_wash', 'car_wash_exterior_price', 'carwash-exteriorwash']) || '',
           car_wash_interior_exterior_price: fuzzyMatch(item, ['car_wash_interior_exterior', 'interior_exterior', 'car_wash_interior_exterior_price', 'carwash-interior+exterior']) || '',
           car_wash_interior_exterior_underbody_price: fuzzyMatch(item, ['car_wash_interior_exterior_underbody_wash', 'underbody_wash', 'car_wash_interior_exterior_underbody_price', 'carwash-interior+exterior+underbodywash']) || '',
+          general_service_price: fuzzyMatch(item, [
+            'generalprice',
+            'general_price',
+            'general service price',
+            'generalserviceprice',
+          ]) || '',
         };
       });
 
@@ -277,7 +283,8 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
     brand_name, model, brand_model, front_tyres, rear_tyres, battery_details, pickup_drop_price,
     tyre_price_bridgestone, tyre_price_yokohama, tyre_price_apollo, tyre_price_michelin,
     tyre_price_dummy2, tyre_price_dummy, battery_price_amaron, battery_price_exide, car_wash_price,
-    car_wash_exterior_price, car_wash_interior_exterior_price, car_wash_interior_exterior_underbody_price
+    car_wash_exterior_price, car_wash_interior_exterior_price, car_wash_interior_exterior_underbody_price,
+    general_service_price
   } = req.body;
 
   if (!brand_name || !model || !brand_model) {
@@ -316,6 +323,7 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
     car_wash_exterior_price,
     car_wash_interior_exterior_price,
     car_wash_interior_exterior_underbody_price,
+    general_service_price,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -355,6 +363,7 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
       car_wash_exterior_price: req.body.car_wash_exterior_price !== undefined ? req.body.car_wash_exterior_price : allData[index].car_wash_exterior_price,
       car_wash_interior_exterior_price: req.body.car_wash_interior_exterior_price !== undefined ? req.body.car_wash_interior_exterior_price : allData[index].car_wash_interior_exterior_price,
       car_wash_interior_exterior_underbody_price: req.body.car_wash_interior_exterior_underbody_price !== undefined ? req.body.car_wash_interior_exterior_underbody_price : allData[index].car_wash_interior_exterior_underbody_price,
+      general_service_price: req.body.general_service_price !== undefined ? req.body.general_service_price : allData[index].general_service_price,
       updatedAt: new Date().toISOString()
     };
 

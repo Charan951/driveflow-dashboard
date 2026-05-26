@@ -76,7 +76,11 @@ const vehicleReferenceSchema = new mongoose.Schema({
   car_wash_interior_exterior_underbody_price: {
     type: String,
     default: '',
-  }
+  },
+  general_service_price: {
+    type: String,
+    default: '',
+  },
 }, {
   timestamps: true,
 });

@@ -1,8 +1,58 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/app_colors.dart';
 import '../services/coupon_service.dart';
 import '../state/auth_provider.dart';
+
+/// Home coupon ticket colors — readable on light and dark scaffold backgrounds.
+class _CouponTicketPalette {
+  final Color gradientStart;
+  final Color gradientEnd;
+  final Color border;
+  final Color primaryText;
+  final Color secondaryText;
+  final Color divider;
+  final Color offerAccent;
+  final Color watermark;
+
+  const _CouponTicketPalette({
+    required this.gradientStart,
+    required this.gradientEnd,
+    required this.border,
+    required this.primaryText,
+    required this.secondaryText,
+    required this.divider,
+    required this.offerAccent,
+    required this.watermark,
+  });
+
+  factory _CouponTicketPalette.of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      return const _CouponTicketPalette(
+        gradientStart: Color(0xFF1E3A5F),
+        gradientEnd: Color(0xFF172554),
+        border: Color(0xFF3B82F6),
+        primaryText: Color(0xFFF8FAFC),
+        secondaryText: Color(0xFFBFDBFE),
+        divider: Color(0xFF60A5FA),
+        offerAccent: Color(0xFF93C5FD),
+        watermark: Color(0xFF60A5FA),
+      );
+    }
+    return const _CouponTicketPalette(
+      gradientStart: Color(0xFFEFF6FF),
+      gradientEnd: Color(0xFFDBEAFE),
+      border: Color(0xFF93C5FD),
+      primaryText: Color(0xFF0F172A),
+      secondaryText: Color(0xFF475569),
+      divider: Color(0xFF3B82F6),
+      offerAccent: AppColors.primaryBlue,
+      watermark: AppColors.primaryBlueSoft,
+    );
+  }
+}
 
 class CouponSlider extends StatefulWidget {
   final List<dynamic>? initialCoupons;
@@ -167,24 +217,28 @@ class _CouponSliderState extends State<CouponSlider> {
   }
 
   Widget _buildCouponCard(dynamic coupon, double width) {
-    const cardColor = Color(0xFFD4AF37);
-    const textColor = Colors.black87;
-    const accentColor = Color(0xFF996515);
+    final palette = _CouponTicketPalette.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cardColor, cardColor.withValues(alpha: 0.9)],
+          colors: [palette.gradientStart, palette.gradientEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 1),
+        border: Border.all(
+          color: palette.border.withValues(alpha: isDark ? 0.45 : 0.55),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
+            color: isDark
+                ? AppColors.primaryBlue.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -196,14 +250,14 @@ class _CouponSliderState extends State<CouponSlider> {
             Positioned(
               top: -10,
               right: -10,
-              child: Opacity(
-                opacity: 0.08,
+                child: Opacity(
+                opacity: isDark ? 0.12 : 0.1,
                 child: Transform.rotate(
                   angle: 0.1,
-                  child: const Icon(
+                  child: Icon(
                     Icons.confirmation_number_rounded,
                     size: 60,
-                    color: Colors.white,
+                    color: palette.watermark,
                   ),
                 ),
               ),
@@ -220,16 +274,16 @@ class _CouponSliderState extends State<CouponSlider> {
                       children: [
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.local_offer_rounded,
                               size: 8,
-                              color: textColor,
+                              color: palette.offerAccent,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'OFFER',
                               style: TextStyle(
-                                color: textColor.withValues(alpha: 0.6),
+                                color: palette.secondaryText,
                                 fontSize: 7,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.0,
@@ -240,8 +294,8 @@ class _CouponSliderState extends State<CouponSlider> {
                         const SizedBox(height: 2),
                         Text(
                           coupon['code']?.toString().toUpperCase() ?? '',
-                          style: const TextStyle(
-                            color: textColor,
+                          style: TextStyle(
+                            color: palette.primaryText,
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
                           ),
@@ -253,7 +307,7 @@ class _CouponSliderState extends State<CouponSlider> {
                     width: 1,
                     height: 30,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: textColor.withValues(alpha: 0.1),
+                    color: palette.divider.withValues(alpha: 0.35),
                   ),
                   Expanded(
                     flex: 4,
@@ -263,8 +317,8 @@ class _CouponSliderState extends State<CouponSlider> {
                       children: [
                         Text(
                           '${coupon['discountPercentage']}% OFF',
-                          style: const TextStyle(
-                            color: textColor,
+                          style: TextStyle(
+                            color: palette.primaryText,
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
                           ),
@@ -273,7 +327,7 @@ class _CouponSliderState extends State<CouponSlider> {
                           Text(
                             'Min. ₹${coupon['minOrderAmount']}',
                             style: TextStyle(
-                              color: textColor.withValues(alpha: 0.7),
+                              color: palette.secondaryText,
                               fontSize: 8,
                               fontWeight: FontWeight.w700,
                             ),

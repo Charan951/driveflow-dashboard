@@ -37,6 +37,7 @@ interface VehicleData {
   car_wash_exterior_price?: string | number;
   car_wash_interior_exterior_price?: string | number;
   car_wash_interior_exterior_underbody_price?: string | number;
+  general_service_price?: string | number;
 }
 
 const AdminVehicleDataPage = () => {
@@ -65,7 +66,8 @@ const AdminVehicleDataPage = () => {
     car_wash_price: '',
     car_wash_exterior_price: '',
     car_wash_interior_exterior_price: '',
-    car_wash_interior_exterior_underbody_price: ''
+    car_wash_interior_exterior_underbody_price: '',
+    general_service_price: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,7 +157,8 @@ const AdminVehicleDataPage = () => {
         car_wash_price: vehicle.car_wash_price?.toString() || '',
         car_wash_exterior_price: vehicle.car_wash_exterior_price?.toString() || '',
         car_wash_interior_exterior_price: vehicle.car_wash_interior_exterior_price?.toString() || '',
-        car_wash_interior_exterior_underbody_price: vehicle.car_wash_interior_exterior_underbody_price?.toString() || ''
+        car_wash_interior_exterior_underbody_price: vehicle.car_wash_interior_exterior_underbody_price?.toString() || '',
+        general_service_price: vehicle.general_service_price?.toString() || '',
       });
     } else {
       setEditingVehicle(null);
@@ -178,7 +181,8 @@ const AdminVehicleDataPage = () => {
         car_wash_price: '',
         car_wash_exterior_price: '',
         car_wash_interior_exterior_price: '',
-        car_wash_interior_exterior_underbody_price: ''
+        car_wash_interior_exterior_underbody_price: '',
+        general_service_price: '',
       });
     }
     setIsModalOpen(true);
@@ -360,6 +364,7 @@ const AdminVehicleDataPage = () => {
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Ext)</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Int+Ext)</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Full)</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">General Svc</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">P/D Price</th>
                 <th className="px-6 py-4 font-semibold text-gray-700 text-right">Actions</th>
               </tr>
@@ -416,6 +421,9 @@ const AdminVehicleDataPage = () => {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {item.car_wash_interior_exterior_underbody_price ? `₹${item.car_wash_interior_exterior_underbody_price}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.general_service_price ? `₹${item.general_service_price}` : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {item.pickup_drop_price ? `₹${item.pickup_drop_price}` : '-'}
@@ -618,6 +626,16 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.car_wash_interior_exterior_underbody_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_underbody_price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="general_service_price">General Service Price</Label>
+                  <Input
+                    id="general_service_price"
+                    type="number"
+                    value={formData.general_service_price}
+                    onChange={(e) => setFormData({ ...formData, general_service_price: e.target.value })}
+                    placeholder="e.g. 600"
                   />
                 </div>
                 <div className="space-y-2">

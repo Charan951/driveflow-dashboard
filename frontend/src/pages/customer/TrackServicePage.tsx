@@ -1195,7 +1195,7 @@ const TrackServicePage: React.FC = () => {
                       
                       const parts = order.billing?.partsTotal || 0;
                       const labour = order.billing?.labourCost || 0;
-                      const gst = order.billing?.gst || 0;
+                      const gst = order.billing?.gst || order.gstAmount || 0;
                       const pickup = order.billing?.pickupDropPrice || order.pickupDropPrice || 0;
                       const discount = order.discountAmount || 0;
                       
@@ -1232,7 +1232,7 @@ const TrackServicePage: React.FC = () => {
                           )}
                           {gst > 0 && (
                             <div className="flex justify-between text-sm text-muted-foreground">
-                              <span>GST</span>
+                              <span>Tax (GST 18%)</span>
                               <span>₹{gst}</span>
                             </div>
                           )}
@@ -1288,12 +1288,28 @@ const TrackServicePage: React.FC = () => {
                     })()}
                   </>
                 ) : (
-                  <div className="flex justify-between font-bold text-foreground text-lg">
-                    <span>Total Amount</span>
-                    <span>
-                      ₹{order.finalAmount || order.totalAmount}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>₹{order.totalAmount}</span>
+                    </div>
+                    {(order.discountAmount ?? 0) > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount</span>
+                        <span>-₹{order.discountAmount}</span>
+                      </div>
+                    )}
+                    {(order.gstAmount ?? 0) > 0 && !isGeneralService && (
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Tax (GST 18%)</span>
+                        <span>₹{order.gstAmount}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border">
+                      <span>Total Amount</span>
+                      <span>₹{order.finalAmount || order.totalAmount}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between text-muted-foreground">
                   <span>Status</span>

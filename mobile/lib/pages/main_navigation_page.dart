@@ -121,9 +121,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
         body: PageView(
           controller: _pageController,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
+          physics: const NeverScrollableScrollPhysics(),
           onPageChanged: (index) {
             if (_navProvider?.selectedIndex != index) {
               _navProvider?.setTab(index);

@@ -302,6 +302,8 @@ class Booking {
   final String status;
   final String date;
   final num totalAmount;
+  final num? finalAmount;
+  final num? gstAmount;
   final num? discountAmount;
   final String? couponCode;
   final Vehicle? vehicle;
@@ -344,6 +346,8 @@ class Booking {
     required this.status,
     required this.date,
     required this.totalAmount,
+    this.finalAmount,
+    this.gstAmount,
     this.discountAmount,
     this.couponCode,
     required this.vehicle,
@@ -382,11 +386,16 @@ class Booking {
   });
 
   num get calculatedTotal {
+    if (finalAmount != null && finalAmount! > 0) {
+      return finalAmount!;
+    }
     num base = totalAmount;
     if (billing != null && billing!.total > 0) {
       base = billing!.total;
     }
-    return base - (discountAmount ?? 0);
+    final disc = discountAmount ?? 0;
+    final gst = gstAmount ?? billing?.gst ?? 0;
+    return base - disc + gst;
   }
 
   num get baseServiceTotal {
@@ -896,6 +905,8 @@ class Booking {
       status: (map['status'] ?? 'PENDING').toString(),
       date: (map['date'] ?? '').toString(),
       totalAmount: map['totalAmount'] is num ? (map['totalAmount'] as num) : 0,
+      finalAmount: map['finalAmount'] is num ? (map['finalAmount'] as num) : null,
+      gstAmount: map['gstAmount'] is num ? (map['gstAmount'] as num) : null,
       discountAmount: map['discountAmount'] is num
           ? (map['discountAmount'] as num)
           : null,

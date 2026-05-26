@@ -10,6 +10,7 @@ import { PassThrough } from 'stream';
 import { finished } from 'node:stream/promises';
 import crypto from 'crypto';
 import { encryptPDF } from '@pdfsmaller/pdf-encrypt';
+import { calculateOrderTotals, CHECKOUT_GST_RATE } from '../utils/orderPricing.js';
 
 const COLORS = {
   headerBg: '#0f172a',
@@ -470,12 +471,36 @@ export const getBookingInvoice = async (req, res) => {
       const desc = formatInvoiceServiceDescription(service);
       let price = Number(service.price) || 0;
       
-      // Use car wash price from reference data if applicable
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
-      if (isWash && refMatch && refMatch.car_wash_price) {
-        const washPrice = Number(refMatch.car_wash_price);
-        if (!isNaN(washPrice)) {
-          price = washPrice;
+      const isGeneral =
+        service.category === 'Periodic' ||
+        service.category === 'Services' ||
+        (service.name && String(service.name).toLowerCase().includes('general service'));
+
+      if (isGeneral && refMatch?.general_service_price) {
+        const generalPrice = Number(refMatch.general_service_price);
+        if (!isNaN(generalPrice) && generalPrice > 0) {
+          price = generalPrice;
+        }
+      } else if (isWash && refMatch) {
+        const sName = String(service.name || '').toLowerCase();
+        let washPrice = null;
+        if (sName.includes('exterior wash') && !sName.includes('interior')) {
+          washPrice = refMatch.car_wash_exterior_price;
+        } else if (sName.includes('interior + exterior') && !sName.includes('underbody')) {
+          washPrice = refMatch.car_wash_interior_exterior_price;
+        } else if (
+          sName.includes('underbody') ||
+          (sName.includes('interior') && sName.includes('exterior') && sName.includes('underbody'))
+        ) {
+          washPrice = refMatch.car_wash_interior_exterior_underbody_price;
+        }
+        if (!washPrice || washPrice === '') {
+          washPrice = refMatch.car_wash_price;
+        }
+        const washNum = Number(washPrice);
+        if (!isNaN(washNum) && washNum > 0) {
+          price = washNum;
         }
       }
 
@@ -525,12 +550,26 @@ export const getBookingInvoice = async (req, res) => {
     };
 
     const discount = Number(booking.discountAmount) || 0;
-    const tax = Number(booking.billing?.gst) || 0;
+    const merchantGst = Number(booking.billing?.gst) || 0;
+    const checkoutGst = isGeneralService ? 0 : Number(booking.gstAmount) || 0;
+    let tax = merchantGst > 0 ? merchantGst : checkoutGst;
     let total = Number(booking.finalAmount);
     if (!Number.isFinite(total)) {
       total = Number(booking.totalAmount);
     }
-    if (!Number.isFinite(total)) {
+    if (!isGeneralService && tax <= 0 && discount >= 0 && subtotal > 0) {
+      const computed = calculateOrderTotals(subtotal, discount, true);
+      if (tax <= 0) tax = computed.tax;
+      if (!Number.isFinite(total) || total <= 0) {
+        total = computed.total;
+      }
+    } else if (isGeneralService && merchantGst <= 0) {
+      tax = 0;
+      if (!Number.isFinite(total) || total <= 0) {
+        total = Math.round((subtotal - discount) * 100) / 100;
+      }
+    }
+    if (!Number.isFinite(total) || total <= 0) {
       total = Math.round((subtotal - discount + tax) * 100) / 100;
     }
 
@@ -540,7 +579,11 @@ export const getBookingInvoice = async (req, res) => {
       moneyRowTotals(`Discount (${pct}%)`, `- ${formatInr(discount)}`, false);
     }
     if (tax > 0) {
-      moneyRowTotals('Tax (GST)', formatInr(tax), false);
+      const taxLabel =
+        merchantGst > 0
+          ? 'Tax (GST)'
+          : `Tax (GST ${Math.round(CHECKOUT_GST_RATE * 100)}%)`;
+      moneyRowTotals(taxLabel, formatInr(tax), false);
     }
     ty += 4;
     doc.save();

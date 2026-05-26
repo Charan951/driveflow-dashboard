@@ -19,6 +19,7 @@ import '../models/service.dart';
 import '../core/app_colors.dart';
 import '../core/app_styles.dart';
 import '../core/env.dart';
+import '../core/order_pricing.dart';
 import '../models/vehicle.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -493,6 +494,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final isBattery = cat.contains('battery');
     final isTire = cat.contains('tyre') || cat.contains('tire');
 
+    final isGeneral =
+        cat == 'periodic' ||
+        cat == 'services' ||
+        service.name.toLowerCase().contains('general service');
+    if (isGeneral && _selectedVehicleReference != null) {
+      final refPrice = double.tryParse(
+        _selectedVehicleReference!['general_service_price']?.toString() ?? '',
+      );
+      if (refPrice != null && refPrice > 0) {
+        return refPrice;
+      }
+    }
+
     if ((isTire || isBattery) &&
         _selectedTireBrands.containsKey(service.id) &&
         _selectedVehicleReference != null) {
@@ -678,6 +692,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (ref != null) {
         for (final service in _allServices) {
           final cat = (service.category ?? '').toLowerCase();
+          final nameLower = service.name.toLowerCase();
+          final isGeneral =
+              cat == 'periodic' ||
+              cat == 'services' ||
+              nameLower.contains('general service');
+          if (isGeneral && ref['general_service_price'] != null) {
+            final generalPrice = double.tryParse(
+              ref['general_service_price'].toString(),
+            );
+            if (generalPrice != null && generalPrice > 0) {
+              newAdjustedPrices[service.id] = generalPrice;
+            }
+          }
           final isWash = cat == 'car wash' || cat == 'wash';
           if (isWash) {
             final sName = service.name.toLowerCase();
@@ -2997,6 +3024,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final cat = s.category;
       return cat == 'Battery' || cat == 'Tyres' || cat == 'Tyre & Battery';
     });
+    final isEssentials = selectedServices.any((s) => s.category == 'Essentials');
+    final requiresCheckoutGst =
+        !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
+    final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0).toDouble();
+    final checkoutTotals = calculateOrderTotals(
+      total,
+      couponDiscount,
+      requiresCheckoutGst,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3084,7 +3120,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         ),
                       ),
                       Text(
-                        '₹${(_getServicePrice(s) * qty).toStringAsFixed(0)}',
+                        '₹${formatInrAmount(_getServicePrice(s) * qty)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -3110,7 +3146,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              '₹${_pickupDropPrice.toStringAsFixed(0)}',
+                              '₹${formatInrAmount(_pickupDropPrice)}',
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                     ],
@@ -3124,7 +3160,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Total Amount',
+                        'Subtotal',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -3137,7 +3173,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     ],
                   ),
                   Text(
-                    '₹${total.toStringAsFixed(0)}',
+                    '₹${formatInrAmount(checkoutTotals.subtotal)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -3158,7 +3194,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       ),
                     ),
                     Text(
-                      '-₹${(_appliedCoupon!['discountAmount'] ?? 0).toStringAsFixed(0)}',
+                      '-₹${formatInrAmount(checkoutTotals.discountAmount)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -3166,50 +3202,48 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     ),
                   ],
                 ),
-                const Divider(height: 24),
+              ],
+              if (requiresCheckoutGst) ...[
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Final Amount',
+                      'Tax (GST 18%)',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
-                      '₹${(total - ((_appliedCoupon!['discountAmount'] ?? 0) as num).toDouble()).clamp(0, double.infinity).toStringAsFixed(0)}',
+                      '₹${formatInrAmount(checkoutTotals.tax)}',
                       style: const TextStyle(
-                        color: AppStyles.primaryBlue,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Final Amount',
-                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    Text(
-                      '₹${total.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        color: AppStyles.primaryBlue,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
                       ),
                     ),
                   ],
                 ),
               ],
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total payable',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  Text(
+                    '₹${formatInrAmount(requiresCheckoutGst ? checkoutTotals.total : total - checkoutTotals.discountAmount)}',
+                    style: const TextStyle(
+                      color: AppStyles.primaryBlue,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -3666,21 +3700,25 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         // Redirect to a payment page or show a payment dialog
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
-          // If a coupon is applied, update tempBookingData with coupon details
+          res['requiresPaymentService'] = true;
+          final double baseSubtotal = (res['totalAmount'] as num).toDouble();
+          final double discountAmount = _appliedCoupon != null
+              ? (_appliedCoupon!['discountAmount'] ?? 0).toDouble()
+              : 0;
+          final applyTax = !isGeneralServiceList(selectedServices);
+          final pricing = calculateOrderTotals(
+            baseSubtotal,
+            discountAmount,
+            applyTax,
+          );
+          res['subtotal'] = pricing.subtotal;
+          res['totalAmount'] = pricing.subtotal;
+          res['discountAmount'] = pricing.discountAmount;
+          res['gstAmount'] = pricing.tax;
+          res['finalAmount'] = pricing.total;
+          res['applyCheckoutGst'] = applyTax;
           if (_appliedCoupon != null) {
-            final double baseTotal = (res['totalAmount'] as num).toDouble();
-            final double discountAmount =
-                (_appliedCoupon!['discountAmount'] ?? 0).toDouble();
-            final double finalAmount = (baseTotal - discountAmount).clamp(
-              0,
-              double.infinity,
-            );
-
             res['coupon'] = _appliedCoupon!['_id'];
-            res['discountAmount'] = discountAmount;
-            res['finalAmount'] = finalAmount;
-            res['totalAmount'] =
-                finalAmount; // Used as amount in cashfree create order
           }
           await _processPayment(tempBookingData: res);
         } else {

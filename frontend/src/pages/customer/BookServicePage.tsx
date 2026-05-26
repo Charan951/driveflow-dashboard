@@ -24,6 +24,7 @@ import api from '@/services/api';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
+import { calculateOrderTotals } from '@/lib/orderPricing';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
@@ -132,7 +133,18 @@ const BookServicePage: React.FC = () => {
   const getPackagePrice = (service: Service) => {
     const isWash = service.category === 'Car Wash' || service.category === 'Wash';
     const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
-    
+    const isGeneral =
+      service.category === 'Periodic' ||
+      service.category === 'Services' ||
+      service.name.toLowerCase().includes('general service');
+
+    if (isGeneral && selectedVehicleReference?.general_service_price != null) {
+      const refPrice = Number(selectedVehicleReference.general_service_price);
+      if (!Number.isNaN(refPrice) && refPrice > 0) {
+        return refPrice;
+      }
+    }
+
     if (isTire) {
       const selectedBrandName = selectedTireBrands[service._id];
       if (selectedBrandName && selectedVehicleReference) {
@@ -171,6 +183,17 @@ const BookServicePage: React.FC = () => {
     const basePrice = getPackagePrice(service);
     return sum + (basePrice * qty);
   }, 0) + (isGeneralService ? pickupDropPrice : 0);
+
+  const requiresPrepaidCheckout = selectedServicesData.some(service =>
+    service.category === 'Car Wash' ||
+    service.category === 'Wash' ||
+    service.category === 'Detailing' ||
+    service.category === 'Battery' ||
+    service.category === 'Tyres' ||
+    service.category === 'Tyre & Battery' ||
+    service.category === 'Essentials'
+  );
+  const checkoutPreview = calculateOrderTotals(totalPrice, 0, !isGeneralService);
 
   useEffect(() => {
     fetchData();
@@ -1409,8 +1432,20 @@ const BookServicePage: React.FC = () => {
                     )}
 
                     <div className="flex justify-between items-center pt-2">
-                        <span className="font-semibold text-muted-foreground">Total</span>
-                        <span className="text-xl font-bold text-primary">₹{totalPrice}</span>
+                        <span className="font-semibold text-muted-foreground">Subtotal</span>
+                        <span className="text-lg font-bold text-primary">₹{checkoutPreview.subtotal}</span>
+                    </div>
+                    {requiresPrepaidCheckout && !isGeneralService && (
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="font-semibold text-muted-foreground">Tax (GST 18%)</span>
+                        <span className="text-lg font-bold text-primary">₹{checkoutPreview.tax}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-border">
+                        <span className="font-semibold text-foreground">Total payable</span>
+                        <span className="text-xl font-bold text-primary">
+                          ₹{requiresPrepaidCheckout ? checkoutPreview.total : totalPrice}
+                        </span>
                     </div>
                   </div>
 

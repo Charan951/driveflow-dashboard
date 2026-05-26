@@ -155,6 +155,11 @@ const bookingSchema = mongoose.Schema(
       type: Number,
       default: 0
     },
+    /** 18% GST on discounted subtotal for customer prepaid checkout */
+    gstAmount: {
+      type: Number,
+      default: 0
+    },
     finalAmount: {
       type: Number,
       required: true

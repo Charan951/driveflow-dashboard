@@ -138,6 +138,11 @@ const RegisterPage: React.FC = () => {
         password: formData.password,
         phone: formData.phone,
       });
+      if (result.skipOtp && result.token) {
+        completeLoginAndRedirect(result);
+        toast.success('Account created');
+        return;
+      }
       setMaskedPhone(result.mobile || `******${formData.phone.slice(-4)}`);
       setOtp('');
       otpSentRef.current = false;

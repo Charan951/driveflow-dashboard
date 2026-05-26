@@ -3,6 +3,10 @@ import Order from '../models/Order.js';
 import { Cashfree } from 'cashfree-pg';
 import mongoose from 'mongoose';
 import paymentService from '../services/paymentService.js';
+import {
+  calculateOrderTotals,
+  shouldApplyCheckoutGst,
+} from '../utils/orderPricing.js';
 import { logAudit } from './auditController.js';
 
 export const createOrder = async (req, res) => {
@@ -13,7 +17,19 @@ export const createOrder = async (req, res) => {
     console.log('User ID:', userId);
     const safeBookingId = bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
     console.log('Safe booking ID:', safeBookingId);
-    let orderAmount = Number(amount || tempBookingData?.totalAmount);
+    let orderAmount = Number(amount);
+    if ((!orderAmount || isNaN(orderAmount)) && tempBookingData) {
+      if (tempBookingData.finalAmount != null) {
+        orderAmount = Number(tempBookingData.finalAmount);
+      } else if (tempBookingData.requiresPaymentService) {
+        const subtotal = Number(tempBookingData.subtotal ?? tempBookingData.totalAmount) || 0;
+        const discount = Number(tempBookingData.discountAmount) || 0;
+        const applyTax = await shouldApplyCheckoutGst(tempBookingData);
+        orderAmount = calculateOrderTotals(subtotal, discount, applyTax).total;
+      } else {
+        orderAmount = Number(tempBookingData.totalAmount);
+      }
+    }
     if (isNaN(orderAmount) || orderAmount < 1) {
       return res.status(400).json({ success: false, message: 'Invalid order amount' });
     }

@@ -8,6 +8,7 @@ import CashfreePayment from '@/components/CashfreePayment';
 import { couponService, ValidatedCoupon, Coupon } from '@/services/couponService';
 import { socketService } from '@/services/socket';
 import { bookingService } from '@/services/bookingService';
+import { calculateOrderTotals, isGeneralServiceList } from '@/lib/orderPricing';
 
 type PaymentLocationState = {
   tempBookingData?: Record<string, unknown>;
@@ -185,16 +186,29 @@ const PaymentPage: React.FC = () => {
 
   const billAmount = Number(tempBookingData?.totalAmount);
   const orderSubtotal = Number.isFinite(billAmount) ? billAmount : 0;
+  const isGeneralServiceBooking = isGeneralServiceList(tempBookingData?.services);
+  const applyCheckoutGst =
+    !isGeneralServiceBooking &&
+    !isPayingExistingBooking &&
+    !!tempBookingData?.requiresPaymentService;
 
-  const calculateFinalAmount = () => {
-    if (!tempBookingData) return 0;
-    const baseAmount = Number(tempBookingData.totalAmount) || 0;
-    if (appliedCoupon) {
-      const discount = Number(appliedCoupon.discountAmount) || 0;
-      return Math.max(0, baseAmount - discount);
+  const orderTotals = () => {
+    const discount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
+    if (applyCheckoutGst) {
+      return calculateOrderTotals(orderSubtotal, discount, true);
     }
-    return baseAmount;
+    const afterDiscount = Math.max(0, orderSubtotal - discount);
+    return {
+      subtotal: orderSubtotal,
+      discountAmount: discount,
+      discountedSubtotal: afterDiscount,
+      tax: 0,
+      total: afterDiscount,
+    };
   };
+
+  const totals = orderTotals();
+  const calculateFinalAmount = () => totals.total;
 
   const loadCoupons = async () => {
     setLoadingCoupons(true);
@@ -525,14 +539,21 @@ const PaymentPage: React.FC = () => {
         
         <div className="space-y-3">
           <div className="flex justify-between text-foreground">
-            <span className="text-sm sm:text-base">Service Amount</span>
-            <span className="font-semibold text-sm sm:text-base">₹{tempBookingData.totalAmount}</span>
+            <span className="text-sm sm:text-base">Subtotal</span>
+            <span className="font-semibold text-sm sm:text-base">₹{totals.subtotal}</span>
           </div>
 
-          {appliedCoupon && (
+          {appliedCoupon && totals.discountAmount > 0 && (
             <div className="flex justify-between text-green-600">
               <span className="text-sm sm:text-base">Discount ({appliedCoupon.discountPercentage}%)</span>
-              <span className="font-semibold text-sm sm:text-base">-₹{appliedCoupon.discountAmount}</span>
+              <span className="font-semibold text-sm sm:text-base">-₹{totals.discountAmount}</span>
+            </div>
+          )}
+
+          {applyCheckoutGst && totals.tax > 0 && (
+            <div className="flex justify-between text-foreground">
+              <span className="text-sm sm:text-base">Tax (GST 18%)</span>
+              <span className="font-semibold text-sm sm:text-base">₹{totals.tax}</span>
             </div>
           )}
           
@@ -557,12 +578,14 @@ const PaymentPage: React.FC = () => {
             amount={calculateFinalAmount()}
             tempBookingData={{
               ...tempBookingData,
-              totalAmount: Number(tempBookingData.totalAmount) || 0,
+              subtotal: totals.subtotal,
+              totalAmount: totals.subtotal,
               customerEmail: user.email,
               customerPhone: user.phone,
               coupon: appliedCoupon?._id || null,
-              discountAmount: appliedCoupon?.discountAmount || 0,
-              finalAmount: calculateFinalAmount()
+              discountAmount: totals.discountAmount,
+              gstAmount: totals.tax,
+              finalAmount: totals.total,
             }}
             onSuccess={handlePaymentSuccess}
             onFailure={handlePaymentFailure}

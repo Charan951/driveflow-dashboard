@@ -8,6 +8,10 @@ import Booking from '../models/Booking.js';
 import Coupon from '../models/Coupon.js';
 import AvailableServicePincode from '../models/AvailableServicePincode.js';
 import { emitBookingUpdate } from '../controllers/bookingController.js';
+import {
+  calculateOrderTotals,
+  shouldApplyCheckoutGst,
+} from '../utils/orderPricing.js';
 
 const extractPincodeFromAddress = (address) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
@@ -162,9 +166,21 @@ class PaymentService {
       const Counter = (await import('../models/Counter.js')).default;
       const orderNumber = await Counter.next('booking');
       
-      const totalAmount = tempData.totalAmount;
-      const discountAmount = tempData.discountAmount || 0;
-      const finalAmount = tempData.finalAmount || totalAmount;
+      const subtotal = Number(tempData.subtotal ?? tempData.totalAmount) || 0;
+      const discountAmount = Number(tempData.discountAmount) || 0;
+      const applyTax = await shouldApplyCheckoutGst(tempData);
+      const pricing =
+        tempData.gstAmount != null && tempData.finalAmount != null
+          ? {
+              subtotal,
+              discountAmount,
+              discountedSubtotal: Math.max(0, subtotal - discountAmount),
+              tax: applyTax ? Number(tempData.gstAmount) || 0 : 0,
+              total: applyTax
+                ? Number(tempData.finalAmount) || subtotal
+                : Math.max(0, subtotal - discountAmount),
+            }
+          : calculateOrderTotals(subtotal, discountAmount, applyTax);
 
       const booking = new Booking({
         user: userId,
@@ -174,11 +190,12 @@ class PaymentService {
         orderNumber,
         notes: tempData.notes,
         location: tempData.location,
-        totalAmount: totalAmount,
+        totalAmount: pricing.subtotal,
         pickupDropPrice: tempData.pickupDropPrice || 0,
         coupon: tempData.coupon || null,
-        discountAmount: discountAmount,
-        finalAmount: finalAmount,
+        discountAmount: pricing.discountAmount,
+        gstAmount: pricing.tax,
+        finalAmount: pricing.total,
         paymentStatus: 'paid',
         status: 'CREATED',
         paymentId: paymentId,
@@ -194,8 +211,8 @@ class PaymentService {
 
       // Calculate platform commission (10%) based on final amount
       const commissionRate = 0.10;
-      booking.platformFee = finalAmount * commissionRate;
-      booking.merchantEarnings = finalAmount - booking.platformFee;
+      booking.platformFee = pricing.total * commissionRate;
+      booking.merchantEarnings = pricing.total - booking.platformFee;
 
       await booking.save();
 

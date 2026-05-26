@@ -104,8 +104,19 @@ const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}
     services.forEach(service => {
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
       const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+      const isGeneral =
+        service.category === 'Periodic' ||
+        service.category === 'Services' ||
+        (service.name && service.name.toLowerCase().includes('general service'));
 
-      if (isWash && refMatch) {
+      if (isGeneral && refMatch) {
+        const generalPrice = Number(refMatch.general_service_price);
+        if (refMatch.general_service_price && !isNaN(generalPrice) && generalPrice > 0) {
+          total += generalPrice;
+        } else {
+          total += service.price;
+        }
+      } else if (isWash && refMatch) {
         let washPrice = null;
         const sName = service.name.toLowerCase();
 

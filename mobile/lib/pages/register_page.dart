@@ -163,6 +163,9 @@ class _RegisterPageState extends State<RegisterPage>
           _maskedPhone = masked;
           _otpController.clear();
         });
+      } else if (auth.isAuthenticated) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed(auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Failed to send OTP');
       }

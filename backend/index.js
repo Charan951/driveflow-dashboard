@@ -15,6 +15,7 @@ import Review from './models/Review.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { errorHandler, logger } from './middleware/errorHandler.js';
+import { getAppEnv, isTestingEnv } from './utils/appEnvironment.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import serviceRoutes from './routes/serviceRoutes.js';
@@ -40,6 +41,13 @@ import careerRoutes from './routes/careerRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
 
 dotenv.config();
+
+const appEnv = getAppEnv();
+console.info(
+  `[app] APP_ENV=${appEnv}${
+    isTestingEnv() ? ' (auth OTP send & verification disabled)' : ''
+  }`
+);
 
 const app = express();
 // Force nodemon restart for review route changes
