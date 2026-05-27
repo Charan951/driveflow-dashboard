@@ -333,10 +333,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       final nowIso = DateTime.now().toIso8601String();
       final payload = <String, dynamic>{};
       _healthDraft.forEach((key, draft) {
+        final fixedKm = draft.fixedKm < 0 ? 0 : draft.fixedKm;
+        final fixedDays = draft.fixedDays < 0 ? 0 : draft.fixedDays;
         payload[key] = {
           'value': draft.value.round().clamp(0, 100),
-          'fixedKm': draft.fixedKm,
-          'fixedDays': draft.fixedDays,
+          'fixedKm': fixedKm,
+          'fixedDays': fixedDays,
           'lastUpdated': draft.lastUpdated ?? nowIso,
         };
       });
@@ -1938,9 +1940,32 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Future<void> _requestExtraCost() async {
-    if (_booking == null ||
-        _extraCostAmountController.text.isEmpty ||
-        _extraCostReasonController.text.isEmpty) {
+    final amountText = _extraCostAmountController.text.trim();
+    final reasonText = _extraCostReasonController.text.trim();
+    final amount = double.tryParse(amountText);
+
+    if (_booking == null || amountText.isEmpty || reasonText.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Amount and reason are required')),
+        );
+      }
+      return;
+    }
+    if (amount == null || amount <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid amount greater than 0')),
+        );
+      }
+      return;
+    }
+    if (reasonText.length < 5) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reason should be at least 5 characters')),
+        );
+      }
       return;
     }
     setState(() => _isSaving = true);
@@ -1950,8 +1975,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         'relatedId': _booking!.id,
         'relatedModel': 'Booking',
         'data': {
-          'amount': double.tryParse(_extraCostAmountController.text) ?? 0.0,
-          'reason': _extraCostReasonController.text,
+          'amount': amount,
+          'reason': reasonText,
         },
       });
       _extraCostAmountController.clear();

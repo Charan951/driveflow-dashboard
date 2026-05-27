@@ -6,6 +6,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 type RegisterStep = 'form' | 'otp';
 
@@ -58,20 +59,18 @@ const RegisterPage: React.FC = () => {
       return false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
+    if (!isValidEmail(formData.email)) {
       toast.error('Please enter a valid email address');
       return false;
     }
 
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(formData.phone)) {
+    if (!isValidPhone10(formData.phone)) {
       toast.error('Please enter a valid 10-digit WhatsApp number');
       return false;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+    if (!isStrongPassword(formData.password)) {
+      toast.error('Password must be 8+ chars with upper, lower, and number');
       return false;
     }
 

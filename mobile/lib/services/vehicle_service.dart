@@ -54,6 +54,7 @@ class VehicleService {
   void clearCache() {
     _cachedVehicles = null;
     _lastFetchAt = null;
+    _activeFetch = null;
   }
 
   Future<Vehicle> getVehicleById(String id) async {

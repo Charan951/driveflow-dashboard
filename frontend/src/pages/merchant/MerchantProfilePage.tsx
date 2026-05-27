@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
 import api from '@/services/api';
 import { toast } from 'sonner';
+import { isValidPhone10 } from '@/lib/formValidation';
 
 const MerchantProfilePage: React.FC = () => {
   const { user, updateUser } = useAuthStore();
@@ -114,18 +115,41 @@ const MerchantProfilePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const name = String(formData.name || '').trim();
+    const phone = String(formData.phone || '').trim();
+    const address = String(formData.address || '').trim();
+    const lat = formData.lat === '' ? undefined : Number(formData.lat);
+    const lng = formData.lng === '' ? undefined : Number(formData.lng);
+
+    if (!name) {
+      toast.error('Shop name is required');
+      return;
+    }
+    if (phone && !isValidPhone10(phone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if ((lat !== undefined && Number.isNaN(lat)) || (lng !== undefined && Number.isNaN(lng))) {
+      toast.error('Latitude and longitude must be valid numbers');
+      return;
+    }
+    if ((lat !== undefined && (lat < -90 || lat > 90)) || (lng !== undefined && (lng < -180 || lng > 180))) {
+      toast.error('Latitude/longitude values are out of range');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const locationData = {
-        address: formData.address,
-        lat: formData.lat ? Number(formData.lat) : undefined,
-        lng: formData.lng ? Number(formData.lng) : undefined
+        address,
+        lat,
+        lng
       };
 
       const updatedUser = await userService.updateProfile({
-        name: formData.name,
+        name,
         email: formData.email,
-        phone: formData.phone,
+        phone: phone ? phone.replace(/\D/g, '') : '',
         location: locationData
       });
       

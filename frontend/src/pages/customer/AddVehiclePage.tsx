@@ -8,6 +8,7 @@ import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
+import { isValidLicensePlate } from '@/lib/formValidation';
 
 const AddVehiclePage: React.FC = () => {
   const navigate = useNavigate();
@@ -85,6 +86,10 @@ const AddVehiclePage: React.FC = () => {
 
   const handleRegNoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidLicensePlate(formData.licensePlate)) {
+      toast.error('Please enter a valid registration number');
+      return;
+    }
     setIsLoading(true);
     
     try {
@@ -134,6 +139,16 @@ const AddVehiclePage: React.FC = () => {
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const year = Number.parseInt(formData.year, 10);
+    const currentYear = new Date().getFullYear();
+    if (!formData.make.trim() || !formData.model.trim()) {
+      toast.error('Brand and model are required');
+      return;
+    }
+    if (Number.isNaN(year) || year < 1980 || year > currentYear + 1) {
+      toast.error(`Year must be between 1980 and ${currentYear + 1}`);
+      return;
+    }
     setIsLoading(true);
     
     try {
@@ -142,7 +157,7 @@ const AddVehiclePage: React.FC = () => {
         make: formData.make.trim(),
         model: formData.model.trim(),
         variant: formData.variant.trim(),
-        year: parseInt(formData.year) || new Date().getFullYear(),
+        year,
         color: formData.color.trim() || undefined,
         fuelType: formData.fuel.trim() || undefined,
         frontTyres: formData.frontTyres,

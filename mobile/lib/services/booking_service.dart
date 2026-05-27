@@ -9,6 +9,11 @@ class BookingService {
   static DateTime? _lastMyBookingsFetchAt;
   static const Duration _cacheDuration = Duration(minutes: 2);
 
+  static void clearSessionCache() {
+    _cachedMyBookings = null;
+    _lastMyBookingsFetchAt = null;
+  }
+
   Future<dynamic> createBooking({
     required String vehicleId,
     required List<String> serviceIds,

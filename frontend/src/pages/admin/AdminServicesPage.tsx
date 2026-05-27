@@ -530,9 +530,33 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error('Service name is required');
+      return;
+    }
+    if (!formData.description.trim()) {
+      toast.error('Service description is required');
+      return;
+    }
+    if (Number(formData.price) <= 0) {
+      toast.error('Price must be greater than 0');
+      return;
+    }
+    if (Number(formData.duration) <= 0) {
+      toast.error('Duration must be greater than 0');
+      return;
+    }
+    if (!formData.image.trim()) {
+      toast.error('Service image is required');
+      return;
+    }
     // Clean up features: remove empty ones
     const cleanedData = {
       ...formData,
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      estimationTime: formData.estimationTime.trim(),
+      image: formData.image.trim(),
       features: formData.features.filter(f => f.trim() !== '')
     };
     onSave(cleanedData);

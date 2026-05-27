@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
+import { isValidEmail } from "@/lib/formValidation";
 
 const Contact = () => {
   const [hero, setHero] = useState({
@@ -54,6 +55,28 @@ const Contact = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    const subject = formData.subject.trim();
+    const message = formData.message.trim();
+
+    if (name.length < 2) {
+      toast.error("Please enter your full name");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (subject.length < 3) {
+      toast.error("Subject should be at least 3 characters");
+      return;
+    }
+    if (message.length < 10) {
+      toast.error("Message should be at least 10 characters");
+      return;
+    }
+
     setLoading(true);
     // Simulate API call
     setTimeout(() => {

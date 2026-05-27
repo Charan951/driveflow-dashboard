@@ -101,13 +101,19 @@ const AdminRolesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) {
+    const roleName = name.trim();
+    const roleDescription = description.trim();
+    if (!roleName) {
       toast.error('Role name is required');
+      return;
+    }
+    if (selectedPermissions.length === 0) {
+      toast.error('Select at least one permission');
       return;
     }
 
     try {
-      const payload = { name, description, permissions: selectedPermissions };
+      const payload = { name: roleName, description: roleDescription, permissions: selectedPermissions };
       if (editingRole) {
         await roleService.updateRole(editingRole._id, payload);
         toast.success('Role updated successfully');

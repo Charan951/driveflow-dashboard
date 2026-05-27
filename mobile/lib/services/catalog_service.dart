@@ -84,4 +84,10 @@ class CatalogService {
 
     return items;
   }
+
+  void clearCache() {
+    _cachedServices = null;
+    _lastFetchAt = null;
+    _activeFetch = null;
+  }
 }

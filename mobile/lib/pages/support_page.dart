@@ -223,17 +223,34 @@ class _SupportPageState extends State<SupportPage> {
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: () async {
-                  if (subjectController.text.isEmpty ||
-                      messageController.text.isEmpty) {
+                  final subject = subjectController.text.trim();
+                  final message = messageController.text.trim();
+                  if (subject.isEmpty || message.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please fill all fields')),
                     );
                     return;
                   }
+                  if (subject.length < 3) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Subject must be at least 3 characters'),
+                      ),
+                    );
+                    return;
+                  }
+                  if (message.length < 10) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Description must be at least 10 characters'),
+                      ),
+                    );
+                    return;
+                  }
                   try {
                     await _ticketService.createTicket(
-                      subject: subjectController.text,
-                      message: messageController.text,
+                      subject: subject,
+                      message: message,
                       category: category,
                     );
                     if (context.mounted) Navigator.pop(context);

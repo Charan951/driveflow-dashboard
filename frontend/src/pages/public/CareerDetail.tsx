@@ -5,6 +5,7 @@ import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
+import { isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,13 +53,31 @@ const CareerDetail: React.FC = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    if (!form.name || !form.email || !form.mobileNumber || !form.resumeUrl) {
+    if (!form.name.trim() || !form.email.trim() || !form.mobileNumber.trim() || !form.resumeUrl) {
       toast.error('Please complete all required fields');
+      return;
+    }
+    if (!isValidEmail(form.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!isValidPhone10(form.mobileNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    if (form.additionalMessage.trim().length > 1000) {
+      toast.error('Additional message is too long');
       return;
     }
     try {
       setSubmitting(true);
-      await careerService.applyForCareer(id, form);
+      await careerService.applyForCareer(id, {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        mobileNumber: form.mobileNumber.replace(/\D/g, ''),
+        additionalMessage: form.additionalMessage.trim(),
+      });
       toast.success('Application submitted successfully');
       setForm({
         name: '',

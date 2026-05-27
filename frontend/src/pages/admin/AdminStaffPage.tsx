@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
+import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 const AdminStaffPage: React.FC = () => {
   const navigate = useNavigate();
@@ -104,9 +105,28 @@ const AdminStaffPage: React.FC = () => {
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newStaff.name.trim()) {
+      toast.error('Full name is required');
+      return;
+    }
+    if (!isValidEmail(newStaff.email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (!isValidPhone10(newStaff.phone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if (!isStrongPassword(newStaff.password)) {
+      toast.error('Password must be 8+ chars with upper, lower, and number');
+      return;
+    }
     try {
       await userService.addStaff({
         ...newStaff,
+        name: newStaff.name.trim(),
+        email: newStaff.email.trim(),
+        phone: newStaff.phone.replace(/\D/g, ''),
         role: 'staff',
         subRole: 'Driver',
       });

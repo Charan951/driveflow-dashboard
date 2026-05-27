@@ -66,13 +66,22 @@ const SupportPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject || !description) return;
+    const cleanSubject = subject.trim();
+    const cleanDescription = description.trim();
+    if (cleanSubject.length < 3) {
+      toast.error('Subject should be at least 3 characters');
+      return;
+    }
+    if (cleanDescription.length < 10) {
+      toast.error('Description should be at least 10 characters');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       await ticketService.createTicket({
-        subject,
-        message: description,
+        subject: cleanSubject,
+        message: cleanDescription,
         category: 'General',
         priority: 'Medium'
       });

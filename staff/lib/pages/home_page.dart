@@ -10,7 +10,7 @@ import '../services/booking_service.dart';
 import '../services/notification_service.dart';
 import '../services/tracking_service.dart';
 import '../core/socket_sync.dart';
-import '../services/socket_service.dart';
+// import '../services/socket_service.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
@@ -30,7 +30,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   final ApiClient _api = ApiClient();
   final AuthService _authService = AuthService();
   final StaffTrackingService _trackingService = StaffTrackingService.instance;
-  final SocketService _socketService = SocketService();
+  // final SocketService _socketService = SocketService();
   final NotificationService _notificationService = NotificationService();
 
   List<BookingSummary> _bookings = [];

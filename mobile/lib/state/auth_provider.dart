@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../main.dart'; // import rootNavigatorKey
 import '../core/api_client.dart';
 import '../core/storage.dart';
+import '../core/session_cache.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
@@ -218,6 +219,7 @@ class AuthProvider extends ChangeNotifier {
       }
     }
     await AppStorage().clearHasSeenNoVehicleModal();
+    await SessionCache.clearForNewSession();
     SocketService().init(user);
     NotificationService().syncToken();
   }
@@ -340,6 +342,8 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String phone,
   }) async {
+    await logout();
+
     loading = true;
     lastError = null;
     notifyListeners();
@@ -401,6 +405,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         await AppStorage().clearHasSeenNoVehicleModal();
+        await SessionCache.clearForNewSession();
         SocketService().init(user);
         NotificationService().syncToken();
         loading = false;
@@ -439,6 +444,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         await AppStorage().clearHasSeenNoVehicleModal();
+        await SessionCache.clearForNewSession();
         SocketService().init(user);
         NotificationService().syncToken();
         loading = false;
@@ -462,11 +468,10 @@ class AuthProvider extends ChangeNotifier {
       SocketService().trackingProvider?.clear();
       SocketService().disconnect();
 
-      // 2. Clear storage
+      // 2. Clear storage and in-memory session caches
       await AppStorage().clearToken();
       await AppStorage().clearUser();
-      await AppStorage().clearDashboard();
-      await AppStorage().clearHasSeenNoVehicleModal();
+      await SessionCache.clearForNewSession();
 
       // 3. Call backend logout (optional, depends on implementation)
       try {

@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
+import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -151,11 +152,39 @@ const AdminMerchantsPage: React.FC = () => {
   const handleAddMerchant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAddingMerchant) return;
+    const name = newMerchant.name.trim();
+    const email = newMerchant.email.trim();
+    const phone = newMerchant.phone.trim();
+    const password = newMerchant.password.trim();
+    if (!name) {
+      toast.error('Merchant name is required');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (!isValidPhone10(phone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      toast.error('Password must be 8+ chars with upper, lower, and number');
+      return;
+    }
+    if (!newMerchant.location?.address?.trim()) {
+      toast.error('Merchant location is required');
+      return;
+    }
 
     setIsAddingMerchant(true);
     try {
       const created = await userService.addStaff({
         ...newMerchant,
+        name,
+        email,
+        phone: phone.replace(/\D/g, ''),
+        password,
         location: newMerchant.location,
         role: 'merchant',
       }) as User;
@@ -211,12 +240,31 @@ const AdminMerchantsPage: React.FC = () => {
   const handleUpdateMerchant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMerchant) return;
+    const name = editingMerchant.name.trim();
+    const email = editingMerchant.email.trim();
+    const phone = editingMerchant.phone.trim();
+    if (!name) {
+      toast.error('Merchant name is required');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (!isValidPhone10(phone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if (!editingMerchant.location?.address?.trim()) {
+      toast.error('Merchant location is required');
+      return;
+    }
 
     try {
       await userService.updateUser(editingMerchant.id, {
-        name: editingMerchant.name,
-        email: editingMerchant.email,
-        phone: editingMerchant.phone,
+        name,
+        email,
+        phone: phone.replace(/\D/g, ''),
         category: editingMerchant.category,
         location: editingMerchant.location
       });

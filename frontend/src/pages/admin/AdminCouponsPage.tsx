@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 const AdminCouponsPage: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -282,13 +283,23 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   };
 
   const addUser = () => {
-    if (!newUser.email && !newUser.mobile) {
+    const email = newUser.email.trim();
+    const mobile = newUser.mobile.trim();
+    if (!email && !mobile) {
       toast.error('Please enter at least email or mobile');
+      return;
+    }
+    if (email && !isValidEmail(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (mobile && !isValidPhone10(mobile)) {
+      toast.error('Enter a valid 10-digit mobile number');
       return;
     }
     setFormData(prev => ({
       ...prev,
-      targetUsers: [...prev.targetUsers, { ...newUser }]
+      targetUsers: [...prev.targetUsers, { email, mobile: mobile ? mobile.replace(/\D/g, '') : '' }]
     }));
     setNewUser({ email: '', mobile: '' });
   };
@@ -328,9 +339,36 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const validFrom = new Date(formData.validFrom);
+    const validUntil = new Date(formData.validUntil);
+    if (!formData.code.trim()) {
+      toast.error('Coupon code is required');
+      return;
+    }
+    if (Number(formData.discountPercentage) < 1 || Number(formData.discountPercentage) > 100) {
+      toast.error('Discount percentage must be between 1 and 100');
+      return;
+    }
+    if (Number(formData.minOrderAmount) < 0) {
+      toast.error('Min order amount cannot be negative');
+      return;
+    }
+    if (formData.maxDiscountAmount !== '' && Number(formData.maxDiscountAmount) < 0) {
+      toast.error('Max discount cannot be negative');
+      return;
+    }
+    if (formData.usageLimit !== '' && Number(formData.usageLimit) < 1) {
+      toast.error('Usage limit must be at least 1');
+      return;
+    }
+    if (validUntil < validFrom) {
+      toast.error('Valid until date must be after valid from date');
+      return;
+    }
     
     const cleanedData = {
       ...formData,
+      code: formData.code.trim().toUpperCase(),
       maxDiscountAmount: formData.maxDiscountAmount === '' ? null : Number(formData.maxDiscountAmount),
       usageLimit: formData.usageLimit === '' ? null : Number(formData.usageLimit),
       minOrderAmount: Number(formData.minOrderAmount) || 0,

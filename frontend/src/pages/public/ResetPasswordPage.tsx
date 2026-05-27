@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
+import { isStrongPassword } from '@/lib/formValidation';
 
 const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +35,10 @@ const ResetPasswordPage: React.FC = () => {
 
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      toast.error('Password must be 8+ chars with upper, lower, and number');
       return;
     }
 

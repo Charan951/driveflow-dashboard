@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/vehicle_service.dart';
 import '../../core/app_colors.dart';
 
@@ -31,6 +32,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _pickupDropPriceController = TextEditingController();
   String _type = 'Car';
   String _fuelType = 'Petrol';
+  final RegExp _plateRegex = RegExp(r'^[A-Z]{2}\d{1,2}[A-Z]{1,2}\d{4}$');
 
   @override
   void initState() {
@@ -105,14 +107,25 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   }
 
   Future<void> _handleRegNoSubmit() async {
-    final plate = _licensePlateController.text.trim();
-    if (plate.isEmpty) return;
+    final plate = _licensePlateController.text.trim().toUpperCase();
+    final normalized = plate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (!_plateRegex.hasMatch(normalized)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a valid registration number (e.g. MH12AB1234)'),
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() => _isFetching = true);
     try {
       final details = await _service.fetchDetails(plate);
       if (details != null && details['found'] == true) {
         setState(() {
+          _licensePlateController.text = normalized;
           _makeController.text = details['make']?.toString() ?? '';
           _modelController.text = details['model']?.toString() ?? '';
           _variantController.text = details['variant']?.toString() ?? '';
@@ -161,6 +174,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
   Future<void> _handleFinalSubmit() async {
     if (!_formKey.currentState!.validate()) return;
+    final parsedYear = int.tryParse(_yearController.text);
+    final currentYear = DateTime.now().year;
+    if (parsedYear == null || parsedYear < 1980 || parsedYear > currentYear + 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Year must be between 1980 and ${currentYear + 1}'),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -168,7 +191,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         licensePlate: _licensePlateController.text.trim().toUpperCase(),
         make: _makeController.text.trim(),
         model: _modelController.text.trim(),
-        year: int.tryParse(_yearController.text) ?? DateTime.now().year,
+        year: parsedYear,
         type: _type,
         color: _colorController.text.trim(),
         fuelType: _fuelType,
@@ -291,6 +314,10 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         TextField(
           controller: _licensePlateController,
           textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s-]')),
+            LengthLimitingTextInputFormatter(13),
+          ],
           style: const TextStyle(color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'e.g. MH12AB1234',
@@ -495,10 +522,31 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           controller: controller,
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
-          style: const TextStyle(color: AppColors.textPrimary),
-          validator: required
-              ? (v) => (v == null || v.isEmpty) ? 'Required' : null
+          inputFormatters: keyboardType == TextInputType.number
+              ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)]
               : null,
+          style: const TextStyle(color: AppColors.textPrimary),
+          validator: (v) {
+            final value = (v ?? '').trim();
+            if (required && value.isEmpty) return 'Required';
+            if (label == 'Registration Number' && value.isNotEmpty) {
+              final normalized = value.toUpperCase().replaceAll(
+                RegExp(r'[^A-Z0-9]'),
+                '',
+              );
+              if (!_plateRegex.hasMatch(normalized)) {
+                return 'Invalid registration number';
+              }
+            }
+            if (label == 'Year' && value.isNotEmpty) {
+              final year = int.tryParse(value);
+              final currentYear = DateTime.now().year;
+              if (year == null || year < 1980 || year > currentYear + 1) {
+                return 'Enter a valid year';
+              }
+            }
+            return null;
+          },
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: AppColors.textMuted),

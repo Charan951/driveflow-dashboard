@@ -144,7 +144,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
     try {
       final results = await Future.wait<dynamic>([
-        _vehicleService.listMyVehicles(),
+        _vehicleService.listMyVehicles(forceRefresh: isInitial),
         _bookingService.listMyBookings(forceRefresh: true),
         _catalogService.listServices(isQuickService: true),
         _reviewService.getMyReviews(),
@@ -777,11 +777,22 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   Future<void> _loadFromCache() async {
     if (!mounted) return;
     try {
+      final currentUserId = await AppStorage().getUserId();
+      if (currentUserId == null || currentUserId.isEmpty) return;
+
       final jsonStr = await AppStorage().getDashboardJson();
       if (jsonStr == null || jsonStr.isEmpty) return;
       final decoded = jsonDecode(jsonStr);
       if (decoded is! Map) return;
       final map = Map<String, dynamic>.from(decoded);
+
+      final cachedUserId = map['userId']?.toString();
+      if (cachedUserId == null ||
+          cachedUserId.isEmpty ||
+          cachedUserId != currentUserId) {
+        await AppStorage().clearDashboard();
+        return;
+      }
 
       final coupons = (map['coupons'] as List? ?? [])
           .where((c) => c is Map && c['isActive'] == true)
@@ -839,7 +850,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
   Future<void> _persistDashboardState() async {
     try {
+      final userId = await AppStorage().getUserId();
       final map = {
+        'userId': userId,
         'vehicles': _vehicles.map((v) => v.toJson()).toList(),
         'bookings': _bookings.map((b) => b.toJson()).toList(),
         'services': _services.map((s) => s.toJson()).toList(),

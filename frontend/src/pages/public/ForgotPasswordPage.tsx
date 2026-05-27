@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowRight } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
+import { isValidEmail } from '@/lib/formValidation';
 
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,10 @@ const ForgotPasswordPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidEmail(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
     setIsSubmitting(true);
 
     try {

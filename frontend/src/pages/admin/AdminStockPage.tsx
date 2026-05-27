@@ -177,12 +177,29 @@ const AdminVehicleDataPage = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.brand_name.trim() || !formData.model.trim() || !formData.brand_model.trim()) {
+      toast.error('Brand, model, and brand model are required');
+      return;
+    }
+    if (!formData.front_tyres.trim() || !formData.rear_tyres.trim()) {
+      toast.error('Front and rear tyre details are required');
+      return;
+    }
     try {
+      const cleaned = {
+        ...formData,
+        brand_name: formData.brand_name.trim(),
+        model: formData.model.trim(),
+        brand_model: formData.brand_model.trim(),
+        front_tyres: formData.front_tyres.trim(),
+        rear_tyres: formData.rear_tyres.trim(),
+        battery_details: formData.battery_details.trim(),
+      };
       if (editingVehicle) {
-        await updateVehicleReference(editingVehicle._id, formData);
+        await updateVehicleReference(editingVehicle._id, cleaned);
         toast.success('Vehicle data updated successfully');
       } else {
-        await createVehicleReference(formData);
+        await createVehicleReference(cleaned);
         toast.success('Vehicle data created successfully');
       }
       setIsModalOpen(false);
