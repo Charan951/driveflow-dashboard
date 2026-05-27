@@ -26,8 +26,8 @@ class ApiException implements Exception {
 
 class ApiClient {
   final http.Client _client = http.Client();
-  static const Duration _timeout = Duration(seconds: 12);
-  static const int _maxRetries = 2;
+  static const Duration _timeout = Duration(seconds: 30);
+  static const int _maxRetries = 3;
 
   Future<dynamic> _decodeBody(http.Response res) async {
     if (res.body.isEmpty) {
@@ -61,6 +61,9 @@ class ApiClient {
               'Method Not Allowed (405). Possible server misconfiguration.';
         } else if (status == 502) {
           errorMessage = 'Bad Gateway (502). The server might be down.';
+        } else if (status == 504) {
+          errorMessage =
+              'Gateway Timeout (504). Server is taking too long. Please try again.';
         } else if (status == 404) {
           errorMessage = 'API endpoint not found (404).';
         } else if (status == 503) {
@@ -154,6 +157,7 @@ class ApiClient {
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
     return _safeRequest(
       () => _client.post(uri, headers: headers, body: jsonEncode(body ?? {})),
+      canRetry: true,
     );
   }
 
@@ -176,6 +180,7 @@ class ApiClient {
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
     return _safeRequest(
       () => _client.put(uri, headers: headers, body: jsonEncode(body ?? {})),
+      canRetry: true,
     );
   }
 
@@ -198,6 +203,7 @@ class ApiClient {
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
     return _safeRequest(
       () => _client.delete(uri, headers: headers, body: jsonEncode(body ?? {})),
+      canRetry: true,
     );
   }
 }

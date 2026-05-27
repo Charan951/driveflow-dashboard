@@ -331,7 +331,7 @@ class _LoginPageState extends State<LoginPage>
                                   Text(
                                     _showOtpStep
                                         ? 'Verify OTP'
-                                        : 'Welcome Back',
+                                        : '',
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/coupon_service.dart';
 import '../core/socket_sync.dart';
 import '../core/app_colors.dart';
+import '../core/order_pricing.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../core/app_styles.dart';
 import '../state/auth_provider.dart';
@@ -124,21 +125,23 @@ class _CouponsPageState extends State<CouponsPage> {
       entities: SyncEntities.coupons,
       onSync: _fetchCoupons,
       child: Scaffold(
-      backgroundColor: isDark
-          ? AppColors.backgroundPrimary
-          : AppColors.backgroundPrimaryLight,
-      appBar: AppBar(
-        title: Text(
-          widget.isSelectionMode ? 'Checkout' : 'Available Coupons',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        backgroundColor: isDark
+            ? AppColors.backgroundPrimary
+            : AppColors.backgroundPrimaryLight,
+        appBar: AppBar(
+          title: Text(
+            widget.isSelectionMode ? 'Checkout' : 'Available Coupons',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
+        body: _buildBody(isDark),
+        bottomNavigationBar: widget.isSelectionMode
+            ? _buildBottomButton()
+            : null,
       ),
-      body: _buildBody(isDark),
-      bottomNavigationBar: widget.isSelectionMode ? _buildBottomButton() : null,
-    ),
     );
   }
 
@@ -270,7 +273,7 @@ class _CouponsPageState extends State<CouponsPage> {
                 _buildBillItem('Replaced Parts Cost', partsTotal, isDark),
 
               // Pickup and Drop Cost
-              if (pickupDropPrice > 0)
+              if (pickupDropPrice > 0 && isGeneralServiceList(booking.services))
                 _buildBillItem('Pickup & Drop Cost', pickupDropPrice, isDark),
 
               // GST

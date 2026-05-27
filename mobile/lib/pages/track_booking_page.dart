@@ -18,12 +18,14 @@ import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../core/order_pricing.dart';
+import '../core/vehicle_service_pricing.dart';
 import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import '../services/review_service.dart';
+import '../services/vehicle_service.dart';
 import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
 import '../widgets/global_sync_refresh.dart';
@@ -51,6 +53,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   final _paymentService = PaymentService();
   final _cashfreeGateway = CFPaymentGatewayService();
   final _reviewService = ReviewService();
+  final _vehicleService = VehicleService();
   final _mapController = MapController();
   final _api = ApiClient();
 
@@ -58,6 +61,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   String? _error;
   Booking? _booking;
   String? _bookingId;
+  Map<String, dynamic>? _vehicleRef;
 
   late SocketService _socketService;
   bool _nearAlertShown = false;
@@ -286,7 +290,6 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         }
       } catch (_) {}
     });
-
   }
 
   @override
@@ -465,6 +468,18 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       final booking = await _service.getBooking(id);
       if (mounted) {
         setState(() => _booking = booking);
+        if (booking.vehicle != null &&
+            booking.vehicle!.make != null &&
+            booking.vehicle!.model != null) {
+          final ref = await _vehicleService.searchReference(
+            make: booking.vehicle!.make!,
+            model: booking.vehicle!.model!,
+            variant: booking.vehicle!.variant,
+          );
+          if (mounted) {
+            setState(() => _vehicleRef = ref);
+          }
+        }
         _fetchPendingApprovals();
         _startApprovalsTimer();
         if (booking.status == 'DELIVERED' || booking.status == 'COMPLETED') {
@@ -1177,652 +1192,1415 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         _load(silent: true);
       },
       child: Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
-            size: 22,
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              size: 22,
+            ),
+            onPressed: () {
+              final navigator = Navigator.of(context);
+              if (navigator.canPop()) {
+                navigator.pop();
+                return;
+              }
+              navigator.pushReplacementNamed('/customer');
+            },
           ),
-          onPressed: () {
-            final navigator = Navigator.of(context);
-            if (navigator.canPop()) {
-              navigator.pop();
-              return;
-            }
-            navigator.pushReplacementNamed('/customer');
-          },
-        ),
-        automaticallyImplyLeading: false,
-        centerTitle: true,
-        backgroundColor: isDark ? Colors.transparent : Colors.white,
-        surfaceTintColor: isDark ? Colors.transparent : Colors.white,
-        elevation: isDark ? 0 : 5.0,
-        shadowColor: isDark
-            ? Colors.transparent
-            : Colors.black.withValues(alpha: 0.1),
-        title: Text(
-          'Track Service',
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w700,
+          automaticallyImplyLeading: false,
+          centerTitle: true,
+          backgroundColor: isDark ? Colors.transparent : Colors.white,
+          surfaceTintColor: isDark ? Colors.transparent : Colors.white,
+          elevation: isDark ? 0 : 5.0,
+          shadowColor: isDark
+              ? Colors.transparent
+              : Colors.black.withValues(alpha: 0.1),
+          title: Text(
+            'Track Service',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        actions: [
-          if (canDownloadInvoice)
-            Padding(
-              padding: const EdgeInsets.only(right: 5.0),
-              child: IconButton(
-                tooltip: 'Download Invoice',
-                onPressed: () async {
-                  String? url = _resolveImageUrl(booking?.invoiceUrl);
+          actions: [
+            if (canDownloadInvoice)
+              Padding(
+                padding: const EdgeInsets.only(right: 5.0),
+                child: IconButton(
+                  tooltip: 'Download Invoice',
+                  onPressed: () async {
+                    String? url = _resolveImageUrl(booking?.invoiceUrl);
 
-                  // If no direct URL, fallback to auto-generation endpoint
-                  if (url == null && booking != null) {
-                    final token = await AppStorage().getToken();
-                    if (token != null) {
-                      url =
-                          '${Env.apiBaseUrl}${ApiEndpoints.bookings}/${booking.id}/invoice?token=$token';
-                    }
-                  }
-
-                  if (url != null) {
-                    final uri = Uri.parse(url);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: kIsWeb
-                            ? LaunchMode.platformDefault
-                            : LaunchMode.externalApplication,
-                      );
-                    } else {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Could not launch invoice URL'),
-                          ),
-                        );
+                    // If no direct URL, fallback to auto-generation endpoint
+                    if (url == null && booking != null) {
+                      final token = await AppStorage().getToken();
+                      if (token != null) {
+                        url =
+                            '${Env.apiBaseUrl}${ApiEndpoints.bookings}/${booking.id}/invoice?token=$token';
                       }
                     }
-                  }
-                },
-                icon: const Icon(Icons.download_rounded, size: 26),
+
+                    if (url != null) {
+                      final uri = Uri.parse(url);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: kIsWeb
+                              ? LaunchMode.platformDefault
+                              : LaunchMode.externalApplication,
+                        );
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not launch invoice URL'),
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 26),
+                ),
               ),
-            ),
-        ],
-      ),
-      floatingActionButton:
-          booking != null &&
-              [
-                'SERVICE_STARTED',
-                'CAR_WASH_STARTED',
-                'INSTALLATION',
-                'On Hold',
-              ].contains(booking.status.toUpperCase())
-          ? FloatingActionButton(
-              onPressed: () {
-                setState(() => _chatUnreadCount = 0);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => DraggableScrollableSheet(
-                    initialChildSize: 0.8,
-                    minChildSize: 0.5,
-                    maxChildSize: 0.95,
-                    builder: (_, scrollController) => Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(24),
+          ],
+        ),
+        floatingActionButton:
+            booking != null &&
+                [
+                  'SERVICE_STARTED',
+                  'CAR_WASH_STARTED',
+                  'INSTALLATION',
+                  'On Hold',
+                ].contains(booking.status.toUpperCase())
+            ? FloatingActionButton(
+                onPressed: () {
+                  setState(() => _chatUnreadCount = 0);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => DraggableScrollableSheet(
+                      initialChildSize: 0.8,
+                      minChildSize: 0.5,
+                      maxChildSize: 0.95,
+                      builder: (_, scrollController) => Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
                         ),
+                        child: ChatPage(booking: booking),
                       ),
-                      child: ChatPage(booking: booking),
                     ),
-                  ),
-                );
-              },
-              backgroundColor: const Color(0xFF2563EB),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                  if (_chatUnreadCount > 0)
-                    Positioned(
-                      right: -10,
-                      top: -8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.white, width: 1.2),
-                        ),
-                        child: Text(
-                          _chatUnreadCount > 99
-                              ? '99+'
-                              : _chatUnreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                  );
+                },
+                backgroundColor: const Color(0xFF2563EB),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                    if (_chatUnreadCount > 0)
+                      Positioned(
+                        right: -10,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Colors.white, width: 1.2),
+                          ),
+                          child: Text(
+                            _chatUnreadCount > 99
+                                ? '99+'
+                                : _chatUnreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            )
-          : null,
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(16, isBookedStatus ? 8 : 16, 16, 16),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Failed to load booking',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white : Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('Retry'),
-                    ),
                   ],
                 ),
               )
-            else if (_booking == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: Text('Booking not found')),
-              )
-            else ...[
-              Builder(
-                builder: (context) {
-                  final booking = _booking!;
-                  final isCarWash =
-                      booking.services.any((s) {
-                        final cat = (s.category ?? '').toLowerCase();
-                        return cat.contains('car wash') ||
-                            cat.contains('wash') ||
-                            cat.contains('detailing') ||
-                            cat.contains('essentials');
-                      }) ||
-                      booking.carWash?.isCarWashService == true;
-                  final isBatteryTire =
-                      booking.services.any((s) {
-                        final cat = (s.category ?? '').toLowerCase();
-                        return cat.contains('battery') ||
-                            cat.contains('tyres') ||
-                            cat.contains('tyre') ||
-                            cat.contains('tire');
-                      }) ||
-                      booking.batteryTire?.isBatteryTireService == true;
-                  final isGeneralService = booking.services.any((s) {
-                    final cat = (s.category ?? '').toLowerCase();
-                    final name = s.name.toLowerCase();
-                    return cat == 'periodic' ||
-                        cat == 'services' ||
-                        name.contains('general service');
-                  });
-                  final isDeliveredStatus =
-                      booking.status.toUpperCase() == 'DELIVERED';
-                  final canShowTopReviewCta =
-                      (booking.status == 'DELIVERED' ||
-                          booking.status == 'COMPLETED') &&
-                      (!_hasMerchantReview || !_hasPlatformReview);
-                  final inspectionItems = <_PhotoCarouselItem>[
-                    if (booking.inspection?.frontPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.frontPhoto) !=
-                            null)
-                      _PhotoCarouselItem(
-                        url: _resolveImageUrl(booking.inspection!.frontPhoto)!,
-                        label: 'Front',
+            : null,
+        body: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(16, isBookedStatus ? 8 : 16, 16, 16),
+            children: [
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Failed to load booking',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                    if (booking.inspection?.backPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.backPhoto) != null)
-                      _PhotoCarouselItem(
-                        url: _resolveImageUrl(booking.inspection!.backPhoto)!,
-                        label: 'Back',
-                      ),
-                    if (booking.inspection?.leftPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.leftPhoto) != null)
-                      _PhotoCarouselItem(
-                        url: _resolveImageUrl(booking.inspection!.leftPhoto)!,
-                        label: 'Left',
-                      ),
-                    if (booking.inspection?.rightPhoto != null &&
-                        _resolveImageUrl(booking.inspection!.rightPhoto) !=
-                            null)
-                      _PhotoCarouselItem(
-                        url: _resolveImageUrl(booking.inspection!.rightPhoto)!,
-                        label: 'Right',
-                      ),
-                  ];
-                  final prePickupItems = <_PhotoCarouselItem>[
-                    for (int i = 0; i < booking.prePickupPhotos.length; i++)
-                      if (_resolveImageUrl(booking.prePickupPhotos[i]) != null)
-                        _PhotoCarouselItem(
-                          url: _resolveImageUrl(booking.prePickupPhotos[i])!,
-                          label: i == 0
-                              ? 'Front'
-                              : i == 1
-                              ? 'Back'
-                              : i == 2
-                              ? 'Left'
-                              : i == 3
-                              ? 'Right'
-                              : 'Photo ${i + 1}',
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white : Colors.black54,
                         ),
-                  ];
-                  final servicePhotoItems = <_PhotoCarouselItem>[];
-                  final beforeCarWashItems = <_PhotoCarouselItem>[];
-                  final afterCarWashItems = <_PhotoCarouselItem>[];
-                  final isEssentialsCarWash =
-                      isCarWash &&
-                      booking.services.any(
-                        (s) => (s.category ?? '').toLowerCase().contains(
-                          'essentials',
-                        ),
-                      );
-                  final beforeCarWashTitle = isEssentialsCarWash
-                      ? 'Before Service'
-                      : 'Before Car Wash';
-                  final afterCarWashTitle = isEssentialsCarWash
-                      ? 'After Service'
-                      : 'After Car Wash';
-                  const directionalLabels = ['Front', 'Back', 'Left', 'Right'];
-                  void addServicePhotos(
-                    List<String> photos,
-                    String labelPrefix,
-                  ) {
-                    for (int i = 0; i < photos.length; i++) {
-                      final resolved = _resolveImageUrl(photos[i]);
-                      if (resolved == null) continue;
-                      servicePhotoItems.add(
-                        _PhotoCarouselItem(
-                          url: resolved,
-                          label: i < directionalLabels.length
-                              ? directionalLabels[i]
-                              : '$labelPrefix ${i + 1}',
-                        ),
-                      );
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _load,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_booking == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: Center(child: Text('Booking not found')),
+                )
+              else ...[
+                Builder(
+                  builder: (context) {
+                    final booking = _booking!;
+                    final isCarWash =
+                        booking.services.any((s) {
+                          final cat = (s.category ?? '').toLowerCase();
+                          return cat.contains('car wash') ||
+                              cat.contains('wash') ||
+                              cat.contains('detailing') ||
+                              cat.contains('essentials');
+                        }) ||
+                        booking.carWash?.isCarWashService == true;
+                    final isBatteryTire =
+                        booking.services.any((s) {
+                          final cat = (s.category ?? '').toLowerCase();
+                          return cat.contains('battery') ||
+                              cat.contains('tyres') ||
+                              cat.contains('tyre') ||
+                              cat.contains('tire');
+                        }) ||
+                        booking.batteryTire?.isBatteryTireService == true;
+                    final isGeneralService = booking.services.any((s) {
+                      final cat = (s.category ?? '').toLowerCase();
+                      final name = s.name.toLowerCase();
+                      return cat == 'periodic' ||
+                          cat == 'services' ||
+                          name.contains('general service');
+                    });
+                    final parts = (booking.billing?.partsTotal ?? 0).toDouble();
+                    final labour = (booking.billing?.labourCost ?? 0)
+                        .toDouble();
+                    final merchantGst = (booking.billing?.gst ?? 0).toDouble();
+                    final pickup =
+                        (booking.billing?.pickupDropPrice ??
+                                booking.pickupDropPrice ??
+                                0)
+                            .toDouble();
+                    final discount = (booking.discountAmount ?? 0).toDouble();
+                    double servicesTotal = sumBookingServicesSubtotal(
+                      booking.services,
+                      _vehicleRef,
+                    );
+                    if (servicesTotal == 0) {
+                      final rawTotal = booking.totalAmount.toDouble();
+                      servicesTotal =
+                          (rawTotal - parts - labour - merchantGst - pickup)
+                              .clamp(0, double.infinity);
                     }
-                  }
-
-                  if (isCarWash) {
-                    final allCarWashPhotos = <String>[
-                      ...(booking.carWash?.beforeWashPhotos ?? const []),
-                      ...(booking.carWash?.afterWashPhotos ?? const []),
+                    double subtotal = servicesTotal;
+                    if (isGeneralService && pickup > 0) {
+                      subtotal += pickup;
+                    }
+                    OrderTotals orderTotals = calculateOrderTotals(
+                      subtotal,
+                      discount,
+                      !isGeneralService,
+                    );
+                    double tax = merchantGst > 0
+                        ? merchantGst
+                        : (!isGeneralService ? orderTotals.tax : 0);
+                    double finalTotal =
+                        (booking.finalAmount ??
+                                booking.billing?.total ??
+                                booking.totalAmount)
+                            .toDouble();
+                    if (finalTotal <= 0) {
+                      finalTotal = orderTotals.total;
+                    }
+                    final isDeliveredStatus =
+                        booking.status.toUpperCase() == 'DELIVERED';
+                    final canShowTopReviewCta =
+                        (booking.status == 'DELIVERED' ||
+                            booking.status == 'COMPLETED') &&
+                        (!_hasMerchantReview || !_hasPlatformReview);
+                    final inspectionItems = <_PhotoCarouselItem>[
+                      if (booking.inspection?.frontPhoto != null &&
+                          _resolveImageUrl(booking.inspection!.frontPhoto) !=
+                              null)
+                        _PhotoCarouselItem(
+                          url: _resolveImageUrl(
+                            booking.inspection!.frontPhoto,
+                          )!,
+                          label: 'Front',
+                        ),
+                      if (booking.inspection?.backPhoto != null &&
+                          _resolveImageUrl(booking.inspection!.backPhoto) !=
+                              null)
+                        _PhotoCarouselItem(
+                          url: _resolveImageUrl(booking.inspection!.backPhoto)!,
+                          label: 'Back',
+                        ),
+                      if (booking.inspection?.leftPhoto != null &&
+                          _resolveImageUrl(booking.inspection!.leftPhoto) !=
+                              null)
+                        _PhotoCarouselItem(
+                          url: _resolveImageUrl(booking.inspection!.leftPhoto)!,
+                          label: 'Left',
+                        ),
+                      if (booking.inspection?.rightPhoto != null &&
+                          _resolveImageUrl(booking.inspection!.rightPhoto) !=
+                              null)
+                        _PhotoCarouselItem(
+                          url: _resolveImageUrl(
+                            booking.inspection!.rightPhoto,
+                          )!,
+                          label: 'Right',
+                        ),
                     ];
-                    for (int i = 0; i < allCarWashPhotos.length; i++) {
-                      final resolved = _resolveImageUrl(allCarWashPhotos[i]);
-                      if (resolved == null) continue;
-                      if (i < 4) {
-                        beforeCarWashItems.add(
+                    final prePickupItems = <_PhotoCarouselItem>[
+                      for (int i = 0; i < booking.prePickupPhotos.length; i++)
+                        if (_resolveImageUrl(booking.prePickupPhotos[i]) !=
+                            null)
                           _PhotoCarouselItem(
-                            url: resolved,
-                            label: directionalLabels[i],
+                            url: _resolveImageUrl(booking.prePickupPhotos[i])!,
+                            label: i == 0
+                                ? 'Front'
+                                : i == 1
+                                ? 'Back'
+                                : i == 2
+                                ? 'Left'
+                                : i == 3
+                                ? 'Right'
+                                : 'Photo ${i + 1}',
+                          ),
+                    ];
+                    final servicePhotoItems = <_PhotoCarouselItem>[];
+                    final beforeCarWashItems = <_PhotoCarouselItem>[];
+                    final afterCarWashItems = <_PhotoCarouselItem>[];
+                    final isEssentialsCarWash =
+                        isCarWash &&
+                        booking.services.any(
+                          (s) => (s.category ?? '').toLowerCase().contains(
+                            'essentials',
                           ),
                         );
-                      } else {
-                        afterCarWashItems.add(
+                    final beforeCarWashTitle = isEssentialsCarWash
+                        ? 'Before Service'
+                        : 'Before Car Wash';
+                    final afterCarWashTitle = isEssentialsCarWash
+                        ? 'After Service'
+                        : 'After Car Wash';
+                    const directionalLabels = [
+                      'Front',
+                      'Back',
+                      'Left',
+                      'Right',
+                    ];
+                    void addServicePhotos(
+                      List<String> photos,
+                      String labelPrefix,
+                    ) {
+                      for (int i = 0; i < photos.length; i++) {
+                        final resolved = _resolveImageUrl(photos[i]);
+                        if (resolved == null) continue;
+                        servicePhotoItems.add(
                           _PhotoCarouselItem(
                             url: resolved,
-                            label: directionalLabels[(i - 4) % 4],
+                            label: i < directionalLabels.length
+                                ? directionalLabels[i]
+                                : '$labelPrefix ${i + 1}',
                           ),
                         );
                       }
                     }
-                  } else {
-                    addServicePhotos(
-                      booking.beforeServicePhotos,
-                      'Before Service',
-                    );
-                    addServicePhotos(
-                      booking.duringServicePhotos,
-                      'During Service',
-                    );
-                    addServicePhotos(
-                      booking.postServicePhotos,
-                      'After Service',
-                    );
-                  }
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (showLiveTrackingMap) ...[
-                        RepaintBoundary(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            height: _isMapMaximized ? 500 : 260,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                              ),
+                    if (isCarWash) {
+                      final allCarWashPhotos = <String>[
+                        ...(booking.carWash?.beforeWashPhotos ?? const []),
+                        ...(booking.carWash?.afterWashPhotos ?? const []),
+                      ];
+                      for (int i = 0; i < allCarWashPhotos.length; i++) {
+                        final resolved = _resolveImageUrl(allCarWashPhotos[i]);
+                        if (resolved == null) continue;
+                        if (i < 4) {
+                          beforeCarWashItems.add(
+                            _PhotoCarouselItem(
+                              url: resolved,
+                              label: directionalLabels[i],
                             ),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: FlutterMap(
-                                    mapController: _mapController,
-                                    options: MapOptions(
-                                      initialCenter: center,
-                                      initialZoom: 13,
-                                      onMapReady: () {
-                                        if (mounted) {
-                                          setState(() => _mapReady = true);
-                                        }
-                                      },
-                                    ),
-                                    children: [
-                                      TileLayer(
-                                        urlTemplate:
-                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                        userAgentPackageName: Env.userAgent,
-                                        tileProvider:
-                                            CancellableNetworkTileProvider(),
+                          );
+                        } else {
+                          afterCarWashItems.add(
+                            _PhotoCarouselItem(
+                              url: resolved,
+                              label: directionalLabels[(i - 4) % 4],
+                            ),
+                          );
+                        }
+                      }
+                    } else {
+                      addServicePhotos(
+                        booking.beforeServicePhotos,
+                        'Before Service',
+                      );
+                      addServicePhotos(
+                        booking.duringServicePhotos,
+                        'During Service',
+                      );
+                      addServicePhotos(
+                        booking.postServicePhotos,
+                        'After Service',
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showLiveTrackingMap) ...[
+                          RepaintBoundary(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              height: _isMapMaximized ? 500 : 260,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: FlutterMap(
+                                      mapController: _mapController,
+                                      options: MapOptions(
+                                        initialCenter: center,
+                                        initialZoom: 13,
+                                        onMapReady: () {
+                                          if (mounted) {
+                                            setState(() => _mapReady = true);
+                                          }
+                                        },
                                       ),
-                                      PolylineLayer(
-                                        polylines: [
-                                          if (_routePoints.isNotEmpty)
-                                            Polyline(
-                                              points: _routePoints,
-                                              color: const Color(0xFF2563EB),
-                                              strokeWidth: 4,
-                                            ),
-                                        ],
-                                      ),
-                                      MarkerLayer(
-                                        markers: [
-                                          if (booking.pickupRequired &&
-                                              _liveLatLng != null)
-                                            Marker(
-                                              point: _liveLatLng!,
-                                              width: 40,
-                                              height: 40,
-                                              child: Transform.rotate(
-                                                angle: _bearingRad,
-                                                child: const Icon(
-                                                  Icons.two_wheeler,
-                                                  size: 34,
-                                                  color: Color(0xFFEF4444),
+                                      children: [
+                                        TileLayer(
+                                          urlTemplate:
+                                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                          userAgentPackageName: Env.userAgent,
+                                          tileProvider:
+                                              CancellableNetworkTileProvider(),
+                                        ),
+                                        PolylineLayer(
+                                          polylines: [
+                                            if (_routePoints.isNotEmpty)
+                                              Polyline(
+                                                points: _routePoints,
+                                                color: const Color(0xFF2563EB),
+                                                strokeWidth: 4,
+                                              ),
+                                          ],
+                                        ),
+                                        MarkerLayer(
+                                          markers: [
+                                            if (booking.pickupRequired &&
+                                                _liveLatLng != null)
+                                              Marker(
+                                                point: _liveLatLng!,
+                                                width: 40,
+                                                height: 40,
+                                                child: Transform.rotate(
+                                                  angle: _bearingRad,
+                                                  child: const Icon(
+                                                    Icons.two_wheeler,
+                                                    size: 34,
+                                                    color: Color(0xFFEF4444),
+                                                  ),
                                                 ),
                                               ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: GestureDetector(
+                                      onTap: () => setState(
+                                        () =>
+                                            _isMapMaximized = !_isMapMaximized,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.9,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
                                             ),
-                                        ],
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          _isMapMaximized
+                                              ? Icons.fullscreen_exit
+                                              : Icons.fullscreen,
+                                          size: 20,
+                                          color: const Color(0xFF2563EB),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (booking.delay?.isDelayed == true) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFFECACA),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Color(0xFFDC2626),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Service Delayed',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF991B1B),
+                                            ),
+                                      ),
+                                      Text(
+                                        '${booking.delay?.reason ?? 'Other'}: ${booking.delay?.note ?? 'No additional details'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: const Color(0xFF991B1B),
+                                            ),
                                       ),
                                     ],
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 12,
-                                  right: 12,
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                      () => _isMapMaximized = !_isMapMaximized,
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.1,
-                                            ),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        _isMapMaximized
-                                            ? Icons.fullscreen_exit
-                                            : Icons.fullscreen,
-                                        size: 20,
-                                        color: const Color(0xFF2563EB),
-                                      ),
-                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                      if (booking.delay?.isDelayed == true) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFFECACA)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Color(0xFFDC2626),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Service Delayed',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF991B1B),
-                                          ),
-                                    ),
-                                    Text(
-                                      '${booking.delay?.reason ?? 'Other'}: ${booking.delay?.note ?? 'No additional details'}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: const Color(0xFF991B1B),
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (booking.revisit?.isRevisit == true) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.refresh,
-                                color: Color(0xFF2563EB),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Revisit Service',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF1E40AF),
-                                          ),
-                                    ),
-                                    Text(
-                                      booking.revisit?.reason ??
-                                          'This is a revisit for a previous service.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: const Color(0xFF1E40AF),
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (booking.pickupRequired && _nearAlertShown) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF3),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFBBF7D0)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color(0xFF22C55E),
-                                ),
-                                child: Icon(
-                                  isCarWash
-                                      ? Icons.wash
-                                      : Icons.directions_car_filled,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isCarWash
-                                          ? 'Staff is nearby'
-                                          : 'Staff is nearby',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF166534),
-                                          ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      isCarWash
-                                          ? (booking.services.any(
-                                                  (s) => (s.category ?? '')
-                                                      .toLowerCase()
-                                                      .contains('essentials'),
-                                                )
-                                                ? 'Your service partner has almost reached your location.'
-                                                : 'Your car wash partner has almost reached your location.')
-                                          : 'Your pickup partner has almost reached your location.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: const Color(0xFF166534),
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (canShowTopReviewCta) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Container(
+                        ],
+                        if (booking.revisit?.isRevisit == true) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.primaryBlue,
-                                  AppColors.primaryBlueDark,
-                                ],
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFBFDBFE),
                               ),
-                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: ElevatedButton.icon(
-                              onPressed: _showReviewDialog,
-                              icon: const Icon(Icons.star),
-                              label: const Text(
-                                'Rate your experience',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.refresh,
+                                  color: Color(0xFF2563EB),
+                                  size: 20,
                                 ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Revisit Service',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF1E40AF),
+                                            ),
+                                      ),
+                                      Text(
+                                        booking.revisit?.reason ??
+                                            'This is a revisit for a previous service.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: const Color(0xFF1E40AF),
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (booking.pickupRequired && _nearAlertShown) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF3),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFBBF7D0),
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: AppColors.textPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFF22C55E),
+                                  ),
+                                  child: Icon(
+                                    isCarWash
+                                        ? Icons.wash
+                                        : Icons.directions_car_filled,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isCarWash
+                                            ? 'Staff is nearby'
+                                            : 'Staff is nearby',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF166534),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        isCarWash
+                                            ? (booking.services.any(
+                                                    (s) => (s.category ?? '')
+                                                        .toLowerCase()
+                                                        .contains('essentials'),
+                                                  )
+                                                  ? 'Your service partner has almost reached your location.'
+                                                  : 'Your car wash partner has almost reached your location.')
+                                            : 'Your pickup partner has almost reached your location.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: const Color(0xFF166534),
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (canShowTopReviewCta) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    AppColors.primaryBlue,
+                                    AppColors.primaryBlueDark,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ElevatedButton.icon(
+                                onPressed: _showReviewDialog,
+                                icon: const Icon(Icons.star),
+                                label: const Text(
+                                  'Rate your experience',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  foregroundColor: AppColors.textPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                        ],
+                        if (!isDeliveredStatus && showLiveTrackingMap) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1E1E1E)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.grey.shade800
+                                    : Colors.grey.shade200,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark
+                                      ? Colors.black.withValues(alpha: 0.2)
+                                      : Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    if (booking.pickupRequired ||
+                                        isCarWash) ...[
+                                      Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: _socketConnected
+                                              ? const Color(0xFF22C55E)
+                                              : const Color(0xFF94A3B8),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _socketConnected
+                                              ? 'Live tracking connected'
+                                              : 'Live tracking disconnected',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                      if (_liveLatLng != null &&
+                                          _liveUpdatedAt != null)
+                                        Text(
+                                          ' • ${_formatClockTime(context, _liveUpdatedAt!)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      if (_etaTextDuration != null &&
+                                          _etaTextDistance != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                          ),
+                                          child: Text(
+                                            'ETA: $_etaTextDuration • $_etaTextDistance',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
+                                    ] else ...[
+                                      Expanded(
+                                        child: Text(
+                                          'Pickup not required. Go directly to the workshop.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  (booking.pickupRequired || isCarWash)
+                                      ? (bookingLoc?.address != null &&
+                                                bookingLoc!.address!.isNotEmpty
+                                            ? bookingLoc.address!
+                                            : (bookingLatLng == null
+                                                  ? 'Service location not set'
+                                                  : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'))
+                                      : (merchantLoc?.address != null &&
+                                                merchantLoc!.address!.isNotEmpty
+                                            ? merchantLoc.address!
+                                            : (merchantLatLng == null
+                                                  ? 'Workshop location not set'
+                                                  : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black87,
+                                      ),
+                                ),
+                                if ((booking.pickupRequired || isCarWash) &&
+                                    _liveLatLng != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black87,
+                                        ),
+                                  ),
+                                ],
+                                if ((booking.pickupRequired || isCarWash) &&
+                                    _socketError != null &&
+                                    _socketError!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _socketError!,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                        ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if ((booking.status == 'SERVICE_COMPLETED' ||
+                                booking.status == 'COMPLETED' ||
+                                booking.status == 'DELIVERED') &&
+                            booking.paymentStatus != 'paid') ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFF6366F1),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.payment,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Payment Required',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF4F46E5),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Payment awaiting to dispatch vehicle. Service is completed',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF4B5563),
+                                      ),
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _isPaymentLoading
+                                        ? null
+                                        : () => _onPayNowClicked(
+                                            isGeneralService,
+                                          ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF4F46E5),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: _isPaymentLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            'Pay ₹${formatInrAmount(booking.calculatedTotal)}',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (booking.shouldShowCustomerDeliveryOtp) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFF6366F1),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (isCarWash || isBatteryTire)
+                                      ? 'Completion OTP'
+                                      : 'Delivery OTP',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF4F46E5),
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      booking.deliveryOtp!.code,
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        letterSpacing: 4,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  (isCarWash || isBatteryTire)
+                                      ? 'Share this code with our staff to confirm service completion.'
+                                      : 'Share this code only with our staff at the time of delivery.',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF4B5563),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (!isCarWash &&
+                            !isBatteryTire &&
+                            !isGeneralService) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Detailed Status',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.grey.shade900
+                                    : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                _StatusRow(
+                                  label: 'Inspection',
+                                  isCompleted:
+                                      booking.inspectionCompletedAt != null,
+                                  time: _formatDateTime(
+                                    context,
+                                    booking.inspectionCompletedAt,
+                                  ),
+                                  isDark: isDark,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Divider(height: 1),
+                                ),
+                                _StatusRow(
+                                  label: 'Service & QC',
+                                  isCompleted: booking.qcCompletedAt != null,
+                                  time: _formatDateTime(
+                                    context,
+                                    booking.qcCompletedAt,
+                                  ),
+                                  isDark: isDark,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Divider(height: 1),
+                                ),
+                                _StatusRow(
+                                  label: 'Payment',
+                                  isCompleted: booking.paymentStatus == 'paid',
+                                  time: booking.paymentStatus == 'paid'
+                                      ? 'Completed'
+                                      : 'Pending',
+                                  isDark: isDark,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        Text(
+                          'Service Progress',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                      ],
-                      if (!isDeliveredStatus && showLiveTrackingMap) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.only(
+                            top: 20,
+                            left: 20,
+                            right: 20,
+                            bottom: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.black : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.grey.shade900
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (booking.pickupRequired &&
+                                  booking.status == 'REACHED_CUSTOMER' &&
+                                  _nearAlertShown) ...[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFF22C55E),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Staff is nearby',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF166534),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              Builder(
+                                builder: (context) {
+                                  final flow = Booking.getFlowForBooking(
+                                    booking,
+                                  );
+                                  final labels = flow
+                                      .map(
+                                        (s) => Booking.getStatusLabel(
+                                          s,
+                                          booking.services,
+                                        ),
+                                      )
+                                      .toList();
+                                  final labelToStatus = Map.fromIterables(
+                                    labels,
+                                    flow,
+                                  );
+
+                                  // Determine active index based on status flow
+                                  int activeIndex = flow.indexOf(
+                                    booking.status.toUpperCase(),
+                                  );
+                                  if (activeIndex == -1) {
+                                    // Handle some aliases or special cases
+                                    if (booking.status.toUpperCase() ==
+                                            'COMPLETED' &&
+                                        flow.contains('DELIVERED')) {
+                                      activeIndex = flow.indexOf('DELIVERED');
+                                    } else if (booking.status.toUpperCase() ==
+                                            'DELIVERED' &&
+                                        flow.contains('COMPLETED')) {
+                                      activeIndex = flow.indexOf('COMPLETED');
+                                    } else {
+                                      activeIndex = 0;
+                                    }
+                                  }
+
+                                  return _VerticalStepper(
+                                    labels: labels,
+                                    activeIndex: activeIndex,
+                                    statusHistory: booking.statusHistory,
+                                    labelToStatus: labelToStatus,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isDeliveredStatus) ...[
+                          // Driver/Staff Details Section
+                          const SizedBox(height: 16),
+                          (() {
+                            final name =
+                                booking.carWash?.staffName ??
+                                booking.driverName ??
+                                booking.technicianName;
+                            final phone =
+                                booking.carWash?.staffPhone ??
+                                booking.driverPhone ??
+                                booking.technicianPhone;
+
+                            return _buildInfoCard(
+                              context,
+                              title: isCarWash
+                                  ? 'Staff Details'
+                                  : 'Driver Details',
+                              icon: isCarWash
+                                  ? Icons.person
+                                  : Icons.two_wheeler,
+                              name: name,
+                              phone: phone,
+                              subtitle: name == null
+                                  ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
+                                  : null,
+                              isDark: isDark,
+                              actions: phone != null
+                                  ? [
+                                      _buildCircleActionButton(
+                                        icon: Icons.phone,
+                                        color: const Color(0xFF22C55E),
+                                        bgColor: const Color(0xFFDCFCE7),
+                                        onTap: () =>
+                                            launchUrl(Uri.parse('tel:$phone')),
+                                      ),
+                                    ]
+                                  : [],
+                            );
+                          })(),
+                          const SizedBox(height: 12),
+                          // Service Center Section - only for non-car wash
+                          if (!isCarWash) ...[
+                            _buildInfoCard(
+                              context,
+                              title: 'Service Center',
+                              icon: Icons.storefront,
+                              name: booking.merchantName,
+                              phone: booking.merchantPhone,
+                              subtitle: booking.merchantName == null
+                                  ? 'your authorised service center details provide shortly'
+                                  : null,
+                              isDark: isDark,
+                              actions: [
+                                if (booking.merchantPhone != null)
+                                  _buildCircleActionButton(
+                                    icon: Icons.phone,
+                                    color: const Color(0xFF22C55E),
+                                    bgColor: const Color(0xFFDCFCE7),
+                                    onTap: () => launchUrl(
+                                      Uri.parse('tel:${booking.merchantPhone}'),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+                        if (inspectionItems.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _buildPhotoGridSection(
+                            title: 'Vehicle Inspection',
+                            subtitle:
+                                'Photos of your vehicle taken by the service center before starting the service.',
+                            items: inspectionItems,
+                            isDark: isDark,
+                          ),
+                        ],
+
+                        // Replaced Parts Section (Frontend Parity)
+                        if (booking.serviceParts.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Replaced Parts',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 12),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: booking.serviceParts.length,
+                            separatorBuilder: (context, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final part = booking.serviceParts[index];
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () =>
+                                      _showPartDetailsDialog(part, isDark),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.black
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.grey.shade900
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                part.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Qty: ${part.quantity} • Price: ₹${part.price}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: isDark
+                                                      ? Colors.white60
+                                                      : Colors.black54,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: part.fromInspection
+                                                      ? const Color(0xFFDCFCE7)
+                                                      : const Color(0xFFDBEAFE),
+                                                  borderRadius:
+                                                      BorderRadius.circular(99),
+                                                ),
+                                                child: Text(
+                                                  part.fromInspection
+                                                      ? 'From inspection'
+                                                      : 'New discovery',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: part.fromInspection
+                                                        ? const Color(
+                                                            0xFF166534,
+                                                          )
+                                                        : const Color(
+                                                            0xFF1E40AF,
+                                                          ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildPartImage(
+                                          part.oldImage,
+                                          'Before',
+                                          isDark,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildPartImage(
+                                          part.image,
+                                          'After',
+                                          isDark,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                        if (prePickupItems.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _buildPhotoGridSection(
+                            title: isBatteryTire
+                                ? 'Pickup & Installation'
+                                : 'Pre-Picked Photos',
+                            items: prePickupItems,
+                            isDark: isDark,
+                          ),
+                        ],
+                        if (isCarWash &&
+                            (beforeCarWashItems.isNotEmpty ||
+                                afterCarWashItems.isNotEmpty)) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Service Photos',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          if (beforeCarWashItems.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _buildPhotoGridSection(
+                              title: beforeCarWashTitle,
+                              items: beforeCarWashItems,
+                              isDark: isDark,
+                            ),
+                          ],
+                          if (afterCarWashItems.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _buildPhotoGridSection(
+                              title: afterCarWashTitle,
+                              items: afterCarWashItems,
+                              isDark: isDark,
+                            ),
+                          ],
+                        ] else if (servicePhotoItems.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _buildPhotoGridSection(
+                            title: 'Service Photos',
+                            items: servicePhotoItems,
+                            isDark: isDark,
+                          ),
+                        ],
+                        const SizedBox(height: 24),
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -1848,1182 +2626,536 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  if (booking.pickupRequired || isCarWash) ...[
-                                    Container(
-                                      width: 10,
-                                      height: 10,
-                                      decoration: BoxDecoration(
-                                        color: _socketConnected
-                                            ? const Color(0xFF22C55E)
-                                            : const Color(0xFF94A3B8),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 220,
+                                    ),
+                                    child: Text(
+                                      'Booking #${booking.orderNumber ?? booking.id}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEDE9FE),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      _statusLabel(booking.status),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color.fromARGB(255, 76, 42, 230),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _socketConnected
-                                            ? 'Live tracking connected'
-                                            : 'Live tracking disconnected',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                    if (_liveLatLng != null &&
-                                        _liveUpdatedAt != null)
-                                      Text(
-                                        ' • ${_formatClockTime(context, _liveUpdatedAt!)}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    if (_etaTextDuration != null &&
-                                        _etaTextDistance != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 8),
-                                        child: Text(
-                                          'ETA: $_etaTextDuration • $_etaTextDistance',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                      ),
-                                  ] else ...[
-                                    Expanded(
-                                      child: Text(
-                                        'Pickup not required. Go directly to the workshop.',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Text(
-                                (booking.pickupRequired || isCarWash)
-                                    ? (bookingLoc?.address != null &&
-                                              bookingLoc!.address!.isNotEmpty
-                                          ? bookingLoc.address!
-                                          : (bookingLatLng == null
-                                                ? 'Service location not set'
-                                                : '${bookingLatLng.latitude.toStringAsFixed(6)}, ${bookingLatLng.longitude.toStringAsFixed(6)}'))
-                                    : (merchantLoc?.address != null &&
-                                              merchantLoc!.address!.isNotEmpty
-                                          ? merchantLoc.address!
-                                          : (merchantLatLng == null
-                                                ? 'Workshop location not set'
-                                                : '${merchantLatLng.latitude.toStringAsFixed(6)}, ${merchantLatLng.longitude.toStringAsFixed(6)}')),
+                                _formatDateTime(context, booking.date),
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: isDark
                                           ? Colors.white70
-                                          : Colors.black87,
+                                          : Colors.black54,
                                     ),
                               ),
-                              if ((booking.pickupRequired || isCarWash) &&
-                                  _liveLatLng != null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_liveName ?? 'Staff'} • ${_liveUpdatedAt != null ? _formatClockTime(context, _liveUpdatedAt!) : 'Live'}',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black87,
-                                      ),
-                                ),
-                              ],
-                              if ((booking.pickupRequired || isCarWash) &&
-                                  _socketError != null &&
-                                  _socketError!.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  _socketError!,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                      if ((booking.status == 'SERVICE_COMPLETED' ||
-                              booking.status == 'COMPLETED' ||
-                              booking.status == 'DELIVERED') &&
-                          booking.paymentStatus != 'paid') ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF6366F1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.payment,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Payment Required',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF4F46E5),
+                              const SizedBox(height: 12),
+                              if (booking.vehicle != null) ...[
+                                Row(
+                                  children: [
+                                    if (_resolveImageUrl(
+                                          booking.vehicle!.image,
+                                        ) !=
+                                        null)
+                                      Container(
+                                        width: 60,
+                                        height: 60,
+                                        margin: const EdgeInsets.only(
+                                          right: 12,
                                         ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Payment awaiting to dispatch vehicle. Service is completed',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: const Color(0xFF4B5563)),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isPaymentLoading
-                                      ? null
-                                      : () =>
-                                            _onPayNowClicked(isGeneralService),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4F46E5),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: _isPaymentLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                        )
-                                      : Text(
-                                          'Pay ₹${formatInrAmount(booking.calculatedTotal)}',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
+                                          border: Border.all(
+                                            color: isDark
+                                                ? Colors.grey.shade900
+                                                : const Color(0xFFE5E7EB),
                                           ),
                                         ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      if (booking.shouldShowCustomerDeliveryOtp) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF6366F1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                (isCarWash || isBatteryTire)
-                                    ? 'Completion OTP'
-                                    : 'Delivery OTP',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF4F46E5),
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    booking.deliveryOtp!.code,
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      letterSpacing: 4,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF111827),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                (isCarWash || isBatteryTire)
-                                    ? 'Share this code with our staff to confirm service completion.'
-                                    : 'Share this code only with our staff at the time of delivery.',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: const Color(0xFF4B5563)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (!isCarWash &&
-                          !isBatteryTire &&
-                          !isGeneralService) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Detailed Status',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.grey.shade900
-                                  : const Color(0xFFE5E7EB),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              _StatusRow(
-                                label: 'Inspection',
-                                isCompleted:
-                                    booking.inspectionCompletedAt != null,
-                                time: _formatDateTime(
-                                  context,
-                                  booking.inspectionCompletedAt,
-                                ),
-                                isDark: isDark,
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(height: 1),
-                              ),
-                              _StatusRow(
-                                label: 'Service & QC',
-                                isCompleted: booking.qcCompletedAt != null,
-                                time: _formatDateTime(
-                                  context,
-                                  booking.qcCompletedAt,
-                                ),
-                                isDark: isDark,
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(height: 1),
-                              ),
-                              _StatusRow(
-                                label: 'Payment',
-                                isCompleted: booking.paymentStatus == 'paid',
-                                time: booking.paymentStatus == 'paid'
-                                    ? 'Completed'
-                                    : 'Pending',
-                                isDark: isDark,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Text(
-                        'Service Progress',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.only(
-                          top: 20,
-                          left: 20,
-                          right: 20,
-                          bottom: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (booking.pickupRequired &&
-                                booking.status == 'REACHED_CUSTOMER' &&
-                                _nearAlertShown) ...[
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFF22C55E),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Staff is nearby',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF166534),
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            Builder(
-                              builder: (context) {
-                                final flow = Booking.getFlowForBooking(booking);
-                                final labels = flow
-                                    .map(
-                                      (s) => Booking.getStatusLabel(
-                                        s,
-                                        booking.services,
-                                      ),
-                                    )
-                                    .toList();
-                                final labelToStatus = Map.fromIterables(
-                                  labels,
-                                  flow,
-                                );
-
-                                // Determine active index based on status flow
-                                int activeIndex = flow.indexOf(
-                                  booking.status.toUpperCase(),
-                                );
-                                if (activeIndex == -1) {
-                                  // Handle some aliases or special cases
-                                  if (booking.status.toUpperCase() ==
-                                          'COMPLETED' &&
-                                      flow.contains('DELIVERED')) {
-                                    activeIndex = flow.indexOf('DELIVERED');
-                                  } else if (booking.status.toUpperCase() ==
-                                          'DELIVERED' &&
-                                      flow.contains('COMPLETED')) {
-                                    activeIndex = flow.indexOf('COMPLETED');
-                                  } else {
-                                    activeIndex = 0;
-                                  }
-                                }
-
-                                return _VerticalStepper(
-                                  labels: labels,
-                                  activeIndex: activeIndex,
-                                  statusHistory: booking.statusHistory,
-                                  labelToStatus: labelToStatus,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!isDeliveredStatus) ...[
-                        // Driver/Staff Details Section
-                        const SizedBox(height: 16),
-                        (() {
-                          final name =
-                              booking.carWash?.staffName ??
-                              booking.driverName ??
-                              booking.technicianName;
-                          final phone =
-                              booking.carWash?.staffPhone ??
-                              booking.driverPhone ??
-                              booking.technicianPhone;
-
-                          return _buildInfoCard(
-                            context,
-                            title: isCarWash
-                                ? 'Staff Details'
-                                : 'Driver Details',
-                            icon: isCarWash ? Icons.person : Icons.two_wheeler,
-                            name: name,
-                            phone: phone,
-                            subtitle: name == null
-                                ? 'your ${isCarWash ? 'staff' : 'driver'} details provided shortly'
-                                : null,
-                            isDark: isDark,
-                            actions: phone != null
-                                ? [
-                                    _buildCircleActionButton(
-                                      icon: Icons.phone,
-                                      color: const Color(0xFF22C55E),
-                                      bgColor: const Color(0xFFDCFCE7),
-                                      onTap: () =>
-                                          launchUrl(Uri.parse('tel:$phone')),
-                                    ),
-                                  ]
-                                : [],
-                          );
-                        })(),
-                        const SizedBox(height: 12),
-                        // Service Center Section - only for non-car wash
-                        if (!isCarWash) ...[
-                          _buildInfoCard(
-                            context,
-                            title: 'Service Center',
-                            icon: Icons.storefront,
-                            name: booking.merchantName,
-                            phone: booking.merchantPhone,
-                            subtitle: booking.merchantName == null
-                                ? 'your authorised service center details provide shortly'
-                                : null,
-                            isDark: isDark,
-                            actions: [
-                              if (booking.merchantPhone != null)
-                                _buildCircleActionButton(
-                                  icon: Icons.phone,
-                                  color: const Color(0xFF22C55E),
-                                  bgColor: const Color(0xFFDCFCE7),
-                                  onTap: () => launchUrl(
-                                    Uri.parse('tel:${booking.merchantPhone}'),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      ],
-                      if (inspectionItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _buildPhotoGridSection(
-                          title: 'Vehicle Inspection',
-                          subtitle:
-                              'Photos of your vehicle taken by the service center before starting the service.',
-                          items: inspectionItems,
-                          isDark: isDark,
-                        ),
-                      ],
-
-                      // Replaced Parts Section (Frontend Parity)
-                      if (booking.serviceParts.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Replaced Parts',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: booking.serviceParts.length,
-                          separatorBuilder: (context, _) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final part = booking.serviceParts[index];
-                            return Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () =>
-                                    _showPartDetailsDialog(part, isDark),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.black : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? Colors.grey.shade900
-                                          : const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              part.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Qty: ${part.quantity} • Price: ₹${part.price}',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: isDark
-                                                    ? Colors.white60
-                                                    : Colors.black54,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: part.fromInspection
-                                                    ? const Color(0xFFDCFCE7)
-                                                    : const Color(0xFFDBEAFE),
-                                                borderRadius:
-                                                    BorderRadius.circular(99),
-                                              ),
-                                              child: Text(
-                                                part.fromInspection
-                                                    ? 'From inspection'
-                                                    : 'New discovery',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: part.fromInspection
-                                                      ? const Color(0xFF166534)
-                                                      : const Color(0xFF1E40AF),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            11,
+                                          ),
+                                          child: CachedNetworkImage(
+                                            imageUrl: _resolveImageUrl(
+                                              booking.vehicle!.image,
+                                            )!,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _buildPartImage(
-                                        part.oldImage,
-                                        'Before',
-                                        isDark,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _buildPartImage(
-                                        part.image,
-                                        'After',
-                                        isDark,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                      if (prePickupItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _buildPhotoGridSection(
-                          title: isBatteryTire
-                              ? 'Pickup & Installation'
-                              : 'Pre-Picked Photos',
-                          items: prePickupItems,
-                          isDark: isDark,
-                        ),
-                      ],
-                      if (isCarWash &&
-                          (beforeCarWashItems.isNotEmpty ||
-                              afterCarWashItems.isNotEmpty)) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Service Photos',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (beforeCarWashItems.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _buildPhotoGridSection(
-                            title: beforeCarWashTitle,
-                            items: beforeCarWashItems,
-                            isDark: isDark,
-                          ),
-                        ],
-                        if (afterCarWashItems.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _buildPhotoGridSection(
-                            title: afterCarWashTitle,
-                            items: afterCarWashItems,
-                            isDark: isDark,
-                          ),
-                        ],
-                      ] else if (servicePhotoItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _buildPhotoGridSection(
-                          title: 'Service Photos',
-                          items: servicePhotoItems,
-                          isDark: isDark,
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E1E1E)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey.shade800
-                                : Colors.grey.shade200,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.2)
-                                  : Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 220,
-                                  ),
-                                  child: Text(
-                                    'Booking #${booking.orderNumber ?? booking.id}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEDE9FE),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    _statusLabel(booking.status),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color.fromARGB(255, 76, 42, 230),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _formatDateTime(context, booking.date),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: isDark
-                                        ? Colors.white70
-                                        : Colors.black54,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (booking.vehicle != null) ...[
-                              Row(
-                                children: [
-                                  if (_resolveImageUrl(
-                                        booking.vehicle!.image,
-                                      ) !=
-                                      null)
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? Colors.grey.shade900
-                                              : const Color(0xFFE5E7EB),
-                                        ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(11),
-                                        child: CachedNetworkImage(
-                                          imageUrl: _resolveImageUrl(
-                                            booking.vehicle!.image,
-                                          )!,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) =>
-                                              const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
+                                            errorWidget:
+                                                (context, url, error) =>
+                                                    const Icon(
+                                                      Icons.broken_image,
+                                                      size: 20,
                                                     ),
-                                              ),
-                                          errorWidget: (context, url, error) =>
-                                              const Icon(
-                                                Icons.broken_image,
-                                                size: 20,
-                                              ),
-                                        ),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${booking.vehicle!.make} ${booking.vehicle!.model}${booking.vehicle!.variant != null && booking.vehicle!.variant!.isNotEmpty ? ' ${booking.vehicle!.variant}' : ''}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                        Text(
-                                          booking.vehicle!.licensePlate,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: isDark
-                                                    ? Colors.white70
-                                                    : Colors.black54,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            if ((booking.billing != null &&
-                                    (booking.billing!.total > 0 ||
-                                        booking.billing!.invoiceNumber !=
-                                            null)) ||
-                                (booking.pickupDropPrice != null &&
-                                    booking.pickupDropPrice! > 0)) ...[
-                              const SizedBox(height: 12),
-                              const Divider(height: 1),
-                              const SizedBox(height: 12),
-                              _buildCostRow(
-                                'Base Service Amount',
-                                '₹${booking.totalAmount - (booking.billing?.partsTotal ?? 0) - (booking.billing?.labourCost ?? 0) - (booking.billing?.gst ?? 0) - (booking.pickupDropPrice ?? booking.billing?.pickupDropPrice ?? 0)}',
-                                isDark,
-                              ),
-                              if ((booking.billing?.partsTotal ?? 0) > 0)
-                                _buildCostRow(
-                                  'Parts Total',
-                                  '₹${booking.billing!.partsTotal}',
-                                  isDark,
-                                ),
-                              if ((booking.billing?.labourCost ?? 0) > 0)
-                                _buildCostRow(
-                                  'Labour Cost',
-                                  '₹${booking.billing!.labourCost}',
-                                  isDark,
-                                ),
-                              if ((booking.billing?.gst ?? 0) > 0 ||
-                                  (!isGeneralService &&
-                                      (booking.gstAmount ?? 0) > 0))
-                                _buildCostRow(
-                                  'Tax (GST 18%)',
-                                  '₹${formatInrAmount(booking.billing?.gst ?? booking.gstAmount ?? 0)}',
-                                  isDark,
-                                ),
-                              if ((booking.pickupDropPrice ??
-                                      booking.billing?.pickupDropPrice ??
-                                      0) >
-                                  0)
-                                _buildCostRow(
-                                  'Pickup/Drop Price',
-                                  '₹${booking.pickupDropPrice ?? booking.billing?.pickupDropPrice}',
-                                  isDark,
-                                ),
-                              if ((booking.discountAmount ?? 0) > 0)
-                                _buildCalculationBreakdown(booking, isDark),
-                              const SizedBox(height: 8),
-                              const Divider(height: 1),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Total Billed Amount',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark
-                                              ? Colors.white
-                                              : Colors.black87,
-                                        ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '₹${formatInrAmount(booking.calculatedTotal)}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              color: const Color(0xFF2563EB),
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                      ),
-                                      if ((booking.discountAmount ?? 0) > 0)
-                                        Text(
-                                          '₹${(booking.billing?.total ?? booking.totalAmount)}',
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.grey,
-                                            decoration:
-                                                TextDecoration.lineThrough,
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ] else ...[
-                              _buildCostRow(
-                                'Subtotal',
-                                '₹${formatInrAmount(booking.totalAmount)}',
-                                isDark,
-                              ),
-                              if ((booking.discountAmount ?? 0) > 0) ...[
-                                _buildCostRow(
-                                  'Discount',
-                                  '-₹${booking.discountAmount}',
-                                  isDark,
+                                      ),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${booking.vehicle!.make} ${booking.vehicle!.model}${booking.vehicle!.variant != null && booking.vehicle!.variant!.isNotEmpty ? ' ${booking.vehicle!.variant}' : ''}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                          Text(
+                                            booking.vehicle!.licensePlate,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: isDark
+                                                      ? Colors.white70
+                                                      : Colors.black54,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                _buildCalculationBreakdown(booking, isDark),
                               ],
-                              if (!isGeneralService &&
-                                  (booking.gstAmount ?? 0) > 0)
+                              if ((booking.billing != null &&
+                                      (booking.billing!.total > 0 ||
+                                          booking.billing!.invoiceNumber !=
+                                              null)) ||
+                                  (booking.pickupDropPrice != null &&
+                                      booking.pickupDropPrice! > 0)) ...[
+                                const SizedBox(height: 12),
+                                const Divider(height: 1),
+                                const SizedBox(height: 12),
                                 _buildCostRow(
-                                  'Tax (GST 18%)',
-                                  '₹${formatInrAmount(booking.gstAmount ?? 0)}',
+                                  'Base Service Amount',
+                                  '₹${servicesTotal.toInt()}',
                                   isDark,
                                 ),
-                              if ((booking.partsAndOtherTotal) > 0)
-                                _buildCostRow(
-                                  'Additional Parts/Service',
-                                  '₹${booking.partsAndOtherTotal}',
-                                  isDark,
-                                ),
-                              const SizedBox(height: 8),
-                              const Divider(height: 1),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Total Amount',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: isDark
-                                              ? Colors.white70
-                                              : Colors.black54,
-                                        ),
+                                if ((booking.billing?.partsTotal ?? 0) > 0)
+                                  _buildCostRow(
+                                    'Parts Total',
+                                    '₹${booking.billing!.partsTotal}',
+                                    isDark,
                                   ),
-                                  Text(
-                                    '₹${formatInrAmount(booking.calculatedTotal)}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: isDark
-                                              ? Colors.white
-                                              : Colors.black87,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                if ((booking.billing?.labourCost ?? 0) > 0)
+                                  _buildCostRow(
+                                    'Labour Cost',
+                                    '₹${booking.billing!.labourCost}',
+                                    isDark,
                                   ),
-                                ],
-                              ),
-                            ],
-                            if (booking.paymentStatus != 'paid' &&
-                                (booking.status == 'SERVICE_COMPLETED' ||
-                                    booking.status == 'COMPLETED' ||
-                                    booking.status == 'DELIVERED') &&
-                                !isCarWash &&
-                                !isBatteryTire)
-                              ...[],
-                            if ((isCarWash || isBatteryTire) &&
-                                booking.paymentStatus == 'pending')
-                              Container(
-                                margin: const EdgeInsets.only(top: 12),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF7ED),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFFFEDD5),
+                                if ((tax > 0) ||
+                                    (!isGeneralService && orderTotals.tax > 0))
+                                  _buildCostRow(
+                                    'Tax (GST 18%)',
+                                    '₹${formatInrAmount(tax)}',
+                                    isDark,
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 16,
-                                      color: Color(0xFFC2410C),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        isCarWash
-                                            ? (booking.services.any(
-                                                    (s) => (s.category ?? '')
-                                                        .toLowerCase()
-                                                        .contains('essentials'),
-                                                  )
-                                                  ? 'Payment required to confirm your service booking'
-                                                  : 'Payment required to confirm your car wash booking')
-                                            : 'Payment required to confirm your battery/tire booking',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFFC2410C),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if ((isCarWash || isBatteryTire) &&
-                                booking.paymentStatus == 'paid')
-                              Container(
-                                margin: const EdgeInsets.only(top: 12),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFDCFCE7),
+                                if (((booking.pickupDropPrice ??
+                                            booking.billing?.pickupDropPrice ??
+                                            0) >
+                                        0) &&
+                                    isGeneralServiceList(booking.services))
+                                  _buildCostRow(
+                                    'Pickup/Drop Price',
+                                    '₹${booking.pickupDropPrice ?? booking.billing?.pickupDropPrice}',
+                                    isDark,
                                   ),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_outline,
-                                      size: 16,
-                                      color: Color(0xFF15803D),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Payment completed',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF15803D),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (booking.paymentStatus != 'paid' &&
-                                ((isCarWash || isBatteryTire) ||
-                                    booking.status == 'SERVICE_COMPLETED' ||
-                                    booking.status == 'COMPLETED' ||
-                                    booking.status == 'DELIVERED')) ...[
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isPaymentLoading
-                                      ? null
-                                      : () =>
-                                            _onPayNowClicked(isGeneralService),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2563EB),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 0,
+                                if ((booking.discountAmount ?? 0) > 0)
+                                  _buildCalculationBreakdown(
+                                    booking: booking,
+                                    isDark: isDark,
+                                    isGeneralService: isGeneralService,
+                                    discount: discount,
+                                    totalAmount: orderTotals.subtotal,
+                                    finalAmount: finalTotal,
                                   ),
-                                  child: _isPaymentLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : Text(
-                                          (isCarWash || isBatteryTire)
-                                              ? 'Pay Now to Confirm'
-                                              : 'Pay Now',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      // Warranty Information - Only for battery/tire
-                      if (isBatteryTire &&
-                          booking.batteryTire?.warrantyName != null) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Warranty Information',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.black : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.grey.shade900
-                                  : const Color(0xFFE5E7EB),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (booking.batteryTire?.warrantyImage != null)
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? Colors.grey.shade900
-                                          : const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(11),
-                                    child: CachedNetworkImage(
-                                      imageUrl: _resolveImageUrl(
-                                        booking.batteryTire!.warrantyImage,
-                                      )!,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(height: 8),
+                                const Divider(height: 1),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      booking.batteryTire!.warrantyName!,
+                                      'Total Billed Amount',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
                                           ?.copyWith(
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
                                           ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '₹${formatInrAmount(finalTotal)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: const Color(0xFF2563EB),
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                        if (discount > 0)
+                                          Text(
+                                            '₹${(finalTotal + discount).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ] else ...[
+                                _buildCostRow(
+                                  isGeneralService
+                                      ? 'Base Service Amount'
+                                      : 'Subtotal',
+                                  '₹${formatInrAmount(subtotal)}',
+                                  isDark,
+                                ),
+                                if (discount > 0) ...[
+                                  _buildCostRow(
+                                    'Discount',
+                                    '-₹${discount}',
+                                    isDark,
+                                  ),
+                                  _buildCalculationBreakdown(
+                                    booking: booking,
+                                    isDark: isDark,
+                                    isGeneralService: isGeneralService,
+                                    discount: discount,
+                                    totalAmount: orderTotals.subtotal,
+                                    finalAmount: finalTotal,
+                                  ),
+                                ],
+                                if (!isGeneralService && tax > 0)
+                                  _buildCostRow(
+                                    'Tax (GST 18%)',
+                                    '₹${formatInrAmount(tax)}',
+                                    isDark,
+                                  ),
+                                if ((booking.partsAndOtherTotal) > 0)
+                                  _buildCostRow(
+                                    'Additional Parts/Service',
+                                    '₹${booking.partsAndOtherTotal}',
+                                    isDark,
+                                  ),
+                                const SizedBox(height: 8),
+                                const Divider(height: 1),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
                                     Text(
-                                      'Warranty: ${booking.batteryTire!.warrantyMonths} Months',
+                                      'Total Amount',
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall
+                                          .bodyMedium
                                           ?.copyWith(
                                             color: isDark
                                                 ? Colors.white70
                                                 : Colors.black54,
                                           ),
                                     ),
-                                    const SizedBox(height: 2),
                                     Text(
-                                      'Price: ₹${booking.batteryTire!.warrantyPrice}',
+                                      '₹${formatInrAmount(finalTotal)}',
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall
+                                          .titleMedium
                                           ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF2563EB),
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
+                                            fontWeight: FontWeight.w800,
                                           ),
                                     ),
                                   ],
                                 ),
-                              ),
+                              ],
+                              if (booking.paymentStatus != 'paid' &&
+                                  (booking.status == 'SERVICE_COMPLETED' ||
+                                      booking.status == 'COMPLETED' ||
+                                      booking.status == 'DELIVERED') &&
+                                  !isCarWash &&
+                                  !isBatteryTire)
+                                ...[],
+                              if ((isCarWash || isBatteryTire) &&
+                                  booking.paymentStatus == 'pending')
+                                Container(
+                                  margin: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF7ED),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFEDD5),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 16,
+                                        color: Color(0xFFC2410C),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          isCarWash
+                                              ? (booking.services.any(
+                                                      (s) => (s.category ?? '')
+                                                          .toLowerCase()
+                                                          .contains(
+                                                            'essentials',
+                                                          ),
+                                                    )
+                                                    ? 'Payment required to confirm your service booking'
+                                                    : 'Payment required to confirm your car wash booking')
+                                              : 'Payment required to confirm your battery/tire booking',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFC2410C),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if ((isCarWash || isBatteryTire) &&
+                                  booking.paymentStatus == 'paid')
+                                Container(
+                                  margin: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFDCFCE7),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        size: 16,
+                                        color: Color(0xFF15803D),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Payment completed',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF15803D),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (booking.paymentStatus != 'paid' &&
+                                  ((isCarWash || isBatteryTire) ||
+                                      booking.status == 'SERVICE_COMPLETED' ||
+                                      booking.status == 'COMPLETED' ||
+                                      booking.status == 'DELIVERED')) ...[
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _isPaymentLoading
+                                        ? null
+                                        : () => _onPayNowClicked(
+                                            isGeneralService,
+                                          ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2563EB),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: _isPaymentLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            (isCarWash || isBatteryTire)
+                                                ? 'Pay Now to Confirm'
+                                                : 'Pay Now',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
+                        // Warranty Information - Only for battery/tire
+                        if (isBatteryTire &&
+                            booking.batteryTire?.warrantyName != null) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Warranty Information',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.grey.shade900
+                                    : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (booking.batteryTire?.warrantyImage != null)
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.grey.shade900
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(11),
+                                      child: CachedNetworkImage(
+                                        imageUrl: _resolveImageUrl(
+                                          booking.batteryTire!.warrantyImage,
+                                        )!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        booking.batteryTire!.warrantyName!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Warranty: ${booking.batteryTire!.warrantyMonths} Months',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black54,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Price: ₹${booking.batteryTire!.warrantyPrice}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF2563EB),
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -3150,12 +3282,15 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     );
   }
 
-  Widget _buildCalculationBreakdown(Booking booking, bool isDark) {
-    final discount = booking.discountAmount ?? 0;
+  Widget _buildCalculationBreakdown({
+    required Booking booking,
+    required bool isDark,
+    required bool isGeneralService,
+    required double discount,
+    required double totalAmount,
+    required double finalAmount,
+  }) {
     if (discount <= 0) return const SizedBox.shrink();
-
-    final totalAmount = booking.totalAmount;
-    final finalAmount = booking.calculatedTotal;
 
     // Calculate percentage if not explicitly provided
     final discountPercentage = totalAmount > 0
@@ -3199,9 +3334,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildBreakdownRow('Total Amount', '₹${formatInrAmount(totalAmount)}'),
           _buildBreakdownRow(
-            'Applied Coupon (${booking.couponCode ?? 'GENERAL'})',
+            'Total Amount',
+            '₹${formatInrAmount(totalAmount)}',
+          ),
+          _buildBreakdownRow(
+            'Applied Coupon (${booking.couponCode ?? 'DISCOUNT'})',
             '$discountPercentage% Off',
             valueColor: const Color(0xFF16A34A),
           ),
@@ -3211,11 +3349,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           ),
           _buildBreakdownRow(
             'Discount Calculation',
-            '${formatInrAmount(booking.totalAmount)} × $discountFactor = ₹${formatInrAmount(discount)}',
+            '${formatInrAmount(totalAmount)} × $discountFactor = ₹${formatInrAmount(discount)}',
           ),
           _buildBreakdownRow(
             'Final Payable',
-            '${formatInrAmount(booking.totalAmount)} − ${formatInrAmount(discount)} = ₹${formatInrAmount(finalAmount)}',
+            '${formatInrAmount(totalAmount)} − ${formatInrAmount(discount)} = ₹${formatInrAmount(finalAmount)}',
             isBold: true,
           ),
         ],

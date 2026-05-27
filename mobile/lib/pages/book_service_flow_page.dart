@@ -94,6 +94,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   double _pickupDropPrice = 0;
   bool _pickupDropLoading = false;
   Map<String, double> _adjustedPrices = {};
+  OrderTotals? _cachedCheckoutTotals;
+  List<ServiceItem>? _cachedSelectedServices;
+  double? _cachedTotal;
+
   /// Pincode cache for saved addresses (key: label::lat::lng).
   final Map<String, String?> _savedAddressPincodes = {};
 
@@ -433,6 +437,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         if (result['valid'] == true && result['coupon'] != null) {
           setState(() {
             _appliedCoupon = result['coupon'];
+            _cachedCheckoutTotals = null;
+            _cachedSelectedServices = null;
+            _cachedTotal = null;
+            if (_currentStep == 3) {
+              _precomputeConfirmStepData();
+            }
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Coupon applied successfully!')),
@@ -562,6 +572,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   void _removeCoupon() {
     setState(() {
       _appliedCoupon = null;
+      _cachedCheckoutTotals = null;
+      _cachedSelectedServices = null;
+      _cachedTotal = null;
+      if (_currentStep == 3) {
+        _precomputeConfirmStepData();
+      }
     });
   }
 
@@ -794,15 +810,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize Cashfree EARLY for better performance
+    if (!kIsWeb) {
+      _cashfreeGateway.setCallback(_handlePaymentSuccess, _handlePaymentError);
+    }
+
     _fetchInitialData();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _socketService.init(context.read<AuthProvider>().user);
     });
-
-    if (!kIsWeb) {
-      _cashfreeGateway.setCallback(_handlePaymentSuccess, _handlePaymentError);
-    }
 
     if (widget.initialCategory == 'Tyres' ||
         widget.initialCategory == 'Tyre & Battery') {
@@ -938,10 +956,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     final routeName = ModalRoute.of(context)?.settings.name;
     if (routeName == '/book') {
-      Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
-        '/customer',
-        (route) => false,
-      );
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pushNamedAndRemoveUntil('/customer', (route) => false);
     }
 
     // Reset wizard after switching away so user does not land on step 1 when revisiting a tab
@@ -1281,90 +1299,93 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       ],
       onSync: _onGlobalSyncRefresh,
       child: PopScope(
-      canPop: _currentStep == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        _handleBack();
-      },
-      child: Scaffold(
-        backgroundColor: isDark
-            ? AppColors.backgroundPrimary
-            : AppStyles.softBackground,
-        appBar: AppBar(
-          title: Text(
-            widget.initialCategory == 'Tyres' ||
-                    widget.initialCategory == 'Tyre & Battery'
-                ? 'Book Tyre & Battery'
-                : widget.initialCategory != null &&
-                      widget.initialCategory != 'Services'
-                ? 'Book ${widget.initialCategory}'
-                : 'Book a Service',
-            style: AppStyles.headingStyle.copyWith(
-              color: isDark ? AppColors.textPrimary : const Color(0xFF222222),
+        canPop: _currentStep == 0,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          _handleBack();
+        },
+        child: Scaffold(
+          backgroundColor: isDark
+              ? AppColors.backgroundPrimary
+              : AppStyles.softBackground,
+          appBar: AppBar(
+            title: Text(
+              widget.initialCategory == 'Tyres' ||
+                      widget.initialCategory == 'Tyre & Battery'
+                  ? 'Book Tyre & Battery'
+                  : widget.initialCategory != null &&
+                        widget.initialCategory != 'Services'
+                  ? 'Book ${widget.initialCategory}'
+                  : 'Book a Service',
+              style: AppStyles.headingStyle.copyWith(
+                color: isDark ? AppColors.textPrimary : const Color(0xFF222222),
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            iconTheme: IconThemeData(
+              color: isDark ? AppColors.textPrimary : Colors.black,
             ),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          iconTheme: IconThemeData(
-            color: isDark ? AppColors.textPrimary : Colors.black,
-          ),
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : Stack(
-                children: [
-                  Positioned.fill(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 200),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RepaintBoundary(
-                            child: CustomStepper(
-                              steps: _steps,
-                              currentStep: _currentStep,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          RepaintBoundary(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 250),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              transitionBuilder:
-                                  (Widget child, Animation<double> animation) {
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: SlideTransition(
-                                        position: Tween<Offset>(
-                                          begin: const Offset(0.05, 0),
-                                          end: Offset.zero,
-                                        ).animate(animation),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                              child: KeyedSubtree(
-                                key: ValueKey(_currentStep),
-                                child: _buildStepContent(),
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Stack(
+                  children: [
+                    Positioned.fill(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 200),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RepaintBoundary(
+                              child: CustomStepper(
+                                steps: _steps,
+                                currentStep: _currentStep,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 32),
+                            RepaintBoundary(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder:
+                                    (
+                                      Widget child,
+                                      Animation<double> animation,
+                                    ) {
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: SlideTransition(
+                                          position: Tween<Offset>(
+                                            begin: const Offset(0.05, 0),
+                                            end: Offset.zero,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                child: KeyedSubtree(
+                                  key: ValueKey(_currentStep),
+                                  child: _buildStepContent(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    bottom: 120, // Adjusted for the new PillBottomBar height
-                    left: 20,
-                    right: 20,
-                    child: RepaintBoundary(child: _buildBottomButtons()),
-                  ),
-                ],
-              ),
+                    Positioned(
+                      bottom: 120, // Adjusted for the new PillBottomBar height
+                      left: 20,
+                      right: 20,
+                      child: RepaintBoundary(child: _buildBottomButtons()),
+                    ),
+                  ],
+                ),
+        ),
       ),
-    ),
     );
   }
 
@@ -1438,17 +1459,60 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     if (_currentStep < _steps.length - 1) {
       final enteringConfirm = _currentStep == 2;
       setState(() => _currentStep++);
-      if (enteringConfirm && _selectedVehicleId != null) {
-        for (final v in _vehicles) {
-          if (v.id == _selectedVehicleId) {
-            _loadPickupDropPrice(v);
-            break;
+      if (enteringConfirm) {
+        // Precompute pricing data when entering confirm step for better performance
+        _precomputeConfirmStepData();
+        if (_selectedVehicleId != null) {
+          for (final v in _vehicles) {
+            if (v.id == _selectedVehicleId) {
+              _loadPickupDropPrice(v);
+              break;
+            }
           }
         }
       }
     } else {
       _submitBooking();
     }
+  }
+
+  void _precomputeConfirmStepData() {
+    final selectedServices = _allServices
+        .where((s) => _selectedServiceIds.contains(s.id))
+        .toList();
+    final total = _calculateTotal();
+    final isGeneralService = selectedServices.any((s) {
+      final cat = s.category;
+      final name = s.name.toLowerCase();
+      return cat == 'Periodic' ||
+          cat == 'Services' ||
+          name.contains('general service');
+    });
+    final isCarWash = selectedServices.any((s) {
+      final cat = s.category;
+      return cat == 'Car Wash' || cat == 'Wash' || cat == 'Detailing';
+    });
+    final isBatteryTire = selectedServices.any((s) {
+      final cat = s.category;
+      return cat == 'Battery' || cat == 'Tyres' || cat == 'Tyre & Battery';
+    });
+    final isEssentials = selectedServices.any(
+      (s) => s.category == 'Essentials',
+    );
+    final requiresCheckoutGst =
+        !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
+    final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0).toDouble();
+    final checkoutTotals = calculateOrderTotals(
+      total,
+      couponDiscount,
+      requiresCheckoutGst,
+    );
+
+    setState(() {
+      _cachedSelectedServices = selectedServices;
+      _cachedTotal = total;
+      _cachedCheckoutTotals = checkoutTotals;
+    });
   }
 
   void _handleBack() {
@@ -2845,9 +2909,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       final message = pin == null
                           ? '${addr.label}: could not detect pincode. Edit the address in Profile or use the map.'
                           : '${addr.label}: service is not available for pincode $pin.';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(message)),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(message)));
                       return;
                     }
                     setState(() {
@@ -3017,9 +3081,44 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
     }
 
-    final selectedServices = _allServices
-        .where((s) => _selectedServiceIds.contains(s.id))
-        .toList();
+    // Use cached data if available, otherwise compute (fallback)
+    final selectedServices =
+        _cachedSelectedServices ??
+        _allServices.where((s) => _selectedServiceIds.contains(s.id)).toList();
+    final total = _cachedTotal ?? _calculateTotal();
+    final checkoutTotals =
+        _cachedCheckoutTotals ??
+        (() {
+          final isGeneralService = selectedServices.any((s) {
+            final cat = s.category;
+            final name = s.name.toLowerCase();
+            return cat == 'Periodic' ||
+                cat == 'Services' ||
+                name.contains('general service');
+          });
+          final isCarWash = selectedServices.any((s) {
+            final cat = s.category;
+            return cat == 'Car Wash' || cat == 'Wash' || cat == 'Detailing';
+          });
+          final isBatteryTire = selectedServices.any((s) {
+            final cat = s.category;
+            return cat == 'Battery' ||
+                cat == 'Tyres' ||
+                cat == 'Tyre & Battery';
+          });
+          final isEssentials = selectedServices.any(
+            (s) => s.category == 'Essentials',
+          );
+          final requiresCheckoutGst =
+              !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
+          final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0)
+              .toDouble();
+          return calculateOrderTotals(
+            total,
+            couponDiscount,
+            requiresCheckoutGst,
+          );
+        })();
 
     final isGeneralService = selectedServices.any((s) {
       final cat = s.category;
@@ -3028,8 +3127,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           cat == 'Services' ||
           name.contains('general service');
     });
-
-    final double total = _calculateTotal();
 
     final totalTime = selectedServices.fold<num>(
       0,
@@ -3044,15 +3141,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final cat = s.category;
       return cat == 'Battery' || cat == 'Tyres' || cat == 'Tyre & Battery';
     });
-    final isEssentials = selectedServices.any((s) => s.category == 'Essentials');
+    final isEssentials = selectedServices.any(
+      (s) => s.category == 'Essentials',
+    );
     final requiresCheckoutGst =
         !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
-    final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0).toDouble();
-    final checkoutTotals = calculateOrderTotals(
-      total,
-      couponDiscount,
-      requiresCheckoutGst,
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3167,7 +3260,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                             )
                           : Text(
                               '₹${formatInrAmount(_pickupDropPrice)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ],
                   ),
@@ -3230,15 +3325,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   children: [
                     const Text(
                       'Tax (GST 18%)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                     Text(
                       '₹${formatInrAmount(checkoutTotals.tax)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -3249,10 +3340,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 children: [
                   const Text(
                     'Total payable',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   Text(
                     '₹${formatInrAmount(requiresCheckoutGst ? checkoutTotals.total : total - checkoutTotals.discountAmount)}',
@@ -3721,18 +3809,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
           res['requiresPaymentService'] = true;
-          final double baseSubtotal = (res['totalAmount'] as num).toDouble();
+
+          // Calculate the same way as shown on the confirm screen
+          final double total = _calculateTotal();
           final double discountAmount = _appliedCoupon != null
               ? (_appliedCoupon!['discountAmount'] ?? 0).toDouble()
               : 0;
           final applyTax = !isGeneralServiceList(selectedServices);
-          final pricing = calculateOrderTotals(
-            baseSubtotal,
-            discountAmount,
-            applyTax,
-          );
+          final pricing = calculateOrderTotals(total, discountAmount, applyTax);
           res['subtotal'] = pricing.subtotal;
-          res['totalAmount'] = pricing.subtotal;
+          res['totalAmount'] = pricing.total;
           res['discountAmount'] = pricing.discountAmount;
           res['gstAmount'] = pricing.tax;
           res['finalAmount'] = pricing.total;
@@ -3778,65 +3864,98 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Future<void> _processPayment({Map<String, dynamic>? tempBookingData}) async {
-    // Show a loading dialog
+    // Show loading dialog immediately
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.backgroundSecondary
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Preparing payment...',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
 
     try {
+      // Create order
       final orderData = await _paymentService.createOrder(
         tempBookingData: tempBookingData,
       );
 
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
 
-        _currentTempBookingData = tempBookingData;
-        final orderId =
-            (orderData['orderId'] ??
-                    orderData['order_id'] ??
-                    orderData['id'] ??
-                    '')
-                .toString();
-        final paymentSessionId = (orderData['paymentSessionId'] ?? '')
-            .toString();
-        final environment = (orderData['environment'] ?? 'sandbox').toString();
+      _currentTempBookingData = tempBookingData;
+      final orderId =
+          (orderData['orderId'] ??
+                  orderData['order_id'] ??
+                  orderData['id'] ??
+                  '')
+              .toString();
+      final paymentSessionId = (orderData['paymentSessionId'] ?? '').toString();
+      final environment = (orderData['environment'] ?? 'sandbox').toString();
 
-        if (orderId.isEmpty || paymentSessionId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment setup failed. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
+      if (orderId.isEmpty || paymentSessionId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment setup failed. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-        if (kIsWeb) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payments are only available on mobile'),
-            ),
-          );
-        } else {
-          final session = CFSessionBuilder()
-              .setEnvironment(
-                environment == 'production'
-                    ? CFEnvironment.PRODUCTION
-                    : CFEnvironment.SANDBOX,
-              )
-              .setOrderId(orderId)
-              .setPaymentSessionId(paymentSessionId)
-              .build();
+      if (kIsWeb) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payments are only available on mobile'),
+          ),
+        );
+      } else {
+        // Build and launch payment immediately without extra delays
+        final session = CFSessionBuilder()
+            .setEnvironment(
+              environment == 'production'
+                  ? CFEnvironment.PRODUCTION
+                  : CFEnvironment.SANDBOX,
+            )
+            .setOrderId(orderId)
+            .setPaymentSessionId(paymentSessionId)
+            .build();
 
-          final cfPayment = CFWebCheckoutPaymentBuilder()
-              .setSession(session)
-              .build();
+        final cfPayment = CFWebCheckoutPaymentBuilder()
+            .setSession(session)
+            .build();
 
-          _cashfreeGateway.doPayment(cfPayment);
-        }
+        // Launch payment immediately
+        _cashfreeGateway.doPayment(cfPayment);
       }
     } catch (e) {
       if (mounted) {
