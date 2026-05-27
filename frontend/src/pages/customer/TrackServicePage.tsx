@@ -1261,7 +1261,7 @@ const TrackServicePage: React.FC = () => {
                               <span>₹{labour}</span>
                             </div>
                           )}
-                          {pickup > 0 && (
+                          {isGeneralService && pickup > 0 && (
                             <div className="flex justify-between text-sm text-muted-foreground">
                               <span>Pickup/Drop Price</span>
                               <span>₹{pickup}</span>

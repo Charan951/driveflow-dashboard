@@ -5,7 +5,7 @@ import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowRight, ArrowLeft } from 'luc
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
 import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 type RegisterStep = 'form' | 'otp';
@@ -346,17 +346,15 @@ const RegisterPage: React.FC = () => {
           </form>
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+            <div className="relative">
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="Enter 6-digit OTP"
+                maxLength={6}
+                className="w-full px-4 py-2.5 bg-muted/40 border border-border rounded-xl text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
             </div>
 
             <motion.button

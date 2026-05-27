@@ -89,7 +89,7 @@ const MyPaymentsPage = () => {
                           Service for {typeof booking.vehicle === 'object' && booking.vehicle !== null ? booking.vehicle.licensePlate : 'Vehicle'}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm font-medium">₹{booking.totalAmount}</TableCell>
+                      <TableCell className="text-xs sm:text-sm font-medium">₹{(booking.billing?.total || booking.finalAmount || booking.totalAmount)}</TableCell>
                       <TableCell>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <Badge variant={booking.paymentStatus === 'paid' ? 'success' : booking.paymentStatus === 'failed' ? 'destructive' : 'outline' as any} className="text-xs">

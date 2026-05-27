@@ -61,6 +61,9 @@ const setSessionToken = (token: string) => {
 export const authService = {
     prepareSignup: async (data: PrepareSignupData) => {
         const response = await api.post('/auth/signup/prepare', data);
+        if (response.data.token) {
+            setSessionToken(response.data.token);
+        }
         return response.data;
     },
     sendSignupOtp: async (data: SendSignupOtpData) => {

@@ -59,6 +59,9 @@ const extractPincodeFromAddress = (address?: string) => {
 };
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 const BookingSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-6">
@@ -98,6 +101,8 @@ const BookServicePage: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [pickupDropPrice, setPickupDropPrice] = useState<number>(0);
   const [carWashPrices, setCarWashPrices] = useState<Record<string, number | null>>({});
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [newAddress, setNewAddress] = useState({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
 
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -305,6 +310,21 @@ const BookServicePage: React.FC = () => {
     } catch {
       setAvailableServicePincodes([]);
       setPincodesReady(true);
+    }
+  };
+
+  const handleAddAddress = async () => {
+    if (!newAddress.address) return;
+    try {
+      const currentAddresses = user?.addresses || [];
+      const updatedAddresses = [...currentAddresses, { ...newAddress, isDefault: currentAddresses.length === 0 }];
+      const updatedUser = await userService.updateProfile({ addresses: updatedAddresses });
+      updateUser(updatedUser);
+      setIsAddressModalOpen(false);
+      setNewAddress({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
+      toast.success('Address added');
+    } catch (error) {
+      toast.error('Failed to add address');
     }
   };
 
@@ -1146,28 +1166,29 @@ const BookServicePage: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    {user?.addresses && user.addresses.length > 0 ? (
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setShowCustomLocation(!showCustomLocation);
-                          if (!showCustomLocation) {
-                            setPickupLocation({ address: '' });
-                          }
-                        }}
-                        className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/15 transition-colors"
-                      >
-                        {showCustomLocation ? 'Cancel Custom' : '+ Add Custom'}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/profile')}
+                        onClick={() => setIsAddressModalOpen(true)}
                         className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/15 transition-colors"
                       >
                         + Add Address
                       </button>
-                    )}
+                      {user?.addresses && user.addresses.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCustomLocation(!showCustomLocation);
+                            if (!showCustomLocation) {
+                              setPickupLocation({ address: '' });
+                            }
+                          }}
+                          className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/15 transition-colors"
+                        >
+                          {showCustomLocation ? 'Cancel Custom' : '+ Add Custom'}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-4 sm:space-y-6">
@@ -1238,7 +1259,7 @@ const BookServicePage: React.FC = () => {
                     )}
 
                     <div className={cn("pt-3 sm:pt-4", user?.addresses?.length > 0 && "border-t border-border/50")}>
-                      {(showCustomLocation && user?.addresses && user.addresses.length > 0) ? (
+                      {(showCustomLocation && user?.addresses && user.addresses.length > 0) || (!user?.addresses || user.addresses.length === 0) ? (
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -1250,12 +1271,6 @@ const BookServicePage: React.FC = () => {
                             mapClassName="h-[250px] sm:h-[300px] w-full rounded-lg sm:rounded-xl mt-3 sm:mt-4 border-2 border-border shadow-inner"
                           />
                         </motion.div>
-                      ) : (!user?.addresses || user.addresses.length === 0) ? (
-                        <div className="text-center py-8 sm:py-10 bg-muted/20 rounded-xl sm:rounded-2xl border-2 border-dashed border-border">
-                          <p className="text-sm text-muted-foreground font-medium px-4">
-                            No saved addresses found. Add an address in your profile to continue booking.
-                          </p>
-                        </div>
                       ) : null}
 
                       {pickupLocation.address && !showCustomLocation && user?.addresses?.length > 0 && (
@@ -1509,6 +1524,49 @@ const BookServicePage: React.FC = () => {
             </button>
           </div>
     </div>
+    <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Address</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Label</Label>
+            <select 
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={newAddress.label}
+              onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
+            >
+              <option value="Home">Home</option>
+              <option value="Work">Work</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Full Address</Label>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <LocationPicker
+                value={{
+                  address: newAddress.address,
+                  lat: newAddress.lat,
+                  lng: newAddress.lng
+                }}
+                onChange={(val: LocationValue) => {
+                  setNewAddress({
+                    ...newAddress,
+                    address: val.address,
+                    lat: val.lat || 0,
+                    lng: val.lng || 0
+                  });
+                }}
+                mapClassName="h-[250px]"
+              />
+            </div>
+          </div>
+          <Button onClick={handleAddAddress} className="w-full">Save Address</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     </GlobalSyncRefresh>
   );
 };

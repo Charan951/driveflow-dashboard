@@ -691,10 +691,12 @@ const BookingDetailPage: React.FC = () => {
                 <CreditCard className="w-5 h-5 text-primary" /> Payment Info
              </h3>
              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                   <span className="text-muted-foreground">Pickup/Drop Price:</span>
-                   <span className="font-bold">₹{booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0}</span>
-                </div>
+                {isGeneralService && (
+                  <div className="flex justify-between">
+                     <span className="text-muted-foreground">Pickup/Drop Price:</span>
+                     <span className="font-bold">₹{booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                    <span className="text-muted-foreground">Total Amount:</span>
                    <span className="font-bold">
@@ -791,10 +793,12 @@ const BookingDetailPage: React.FC = () => {
                     <span className="text-muted-foreground">Labour Cost:</span>
                     <span>₹{booking.billing.labourCost || 0}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Pickup/Drop:</span>
-                    <span>₹{booking.billing.pickupDropPrice || 0}</span>
-                  </div>
+                  {isGeneralService && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Pickup/Drop:</span>
+                      <span>₹{booking.billing.pickupDropPrice || 0}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">GST:</span>
                     <span>₹{booking.billing.gst || 0}</span>

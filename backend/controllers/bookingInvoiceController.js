@@ -508,7 +508,7 @@ export const getBookingInvoice = async (req, res) => {
       subtotal += price;
     });
 
-    if (booking.pickupDropPrice && booking.pickupDropPrice > 0) {
+    if (isGeneralService && booking.pickupDropPrice && booking.pickupDropPrice > 0) {
       drawRow('Pickup & Drop Charges', 1, booking.pickupDropPrice, booking.pickupDropPrice);
       subtotal += booking.pickupDropPrice;
     }
