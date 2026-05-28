@@ -62,7 +62,8 @@ const getAssignedStaffLabel = (booking) => {
 // @access  Private/Admin
 export const exportReport = async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    const dateFilter = buildDateFilter(req.query);
+    const bookings = await Booking.find(dateFilter)
       .populate('user', 'name email')
       .populate('merchant', 'name email')
       .populate('pickupDriver', 'name')
@@ -108,11 +109,36 @@ export const exportReport = async (req, res) => {
   }
 };
 
+// Helper to build date filter
+const buildDateFilter = (query) => {
+  const filter = {};
+  const { startDate, endDate } = query;
+  
+  if (startDate) {
+    const start = new Date(startDate);
+    if (!isNaN(start.getTime())) {
+      start.setHours(0, 0, 0, 0);
+      filter.createdAt = { ...filter.createdAt, $gte: start };
+    }
+  }
+  
+  if (endDate) {
+    const end = new Date(endDate);
+    if (!isNaN(end.getTime())) {
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt = { ...filter.createdAt, $lte: end };
+    }
+  }
+  
+  return filter;
+};
+
 // @desc    Get dashboard summary stats
 // @route   GET /api/reports/dashboard
 // @access  Private/Admin
 export const getDashboardStats = async (req, res) => {
   try {
+    const dateFilter = buildDateFilter(req.query);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -133,26 +159,27 @@ export const getDashboardStats = async (req, res) => {
       openTickets,
     ] = await Promise.all([
       Booking.aggregate([
+        { $match: dateFilter },
         { $group: { _id: '$user' } },
         { $count: 'count' }
       ]),
       Vehicle.countDocuments(),
-      Booking.countDocuments(),
-      Booking.countDocuments({ createdAt: { $gte: today } }),
-      Booking.countDocuments({ status: { $in: ['CREATED', 'ASSIGNED', 'Pending'] } }),
+      Booking.countDocuments(dateFilter),
+      Booking.countDocuments({ ...dateFilter, createdAt: { $gte: today } }),
+      Booking.countDocuments({ ...dateFilter, status: { $in: ['CREATED', 'ASSIGNED', 'Pending'] } }),
       Booking.aggregate([
-        { $match: { paymentStatus: 'paid', createdAt: { $gte: today } } },
+        { $match: { ...dateFilter, paymentStatus: 'paid', createdAt: { $gte: today } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
       Booking.aggregate([
-        { $match: { paymentStatus: 'paid' } },
+        { $match: { ...dateFilter, paymentStatus: 'paid' } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
       Vehicle.countDocuments({ status: 'On Route' }),
       Vehicle.countDocuments({ status: 'In Service' }),
-      Booking.countDocuments({ status: { $in: ['CREATED', 'ASSIGNED'] } }),
-      Booking.countDocuments({ status: 'SERVICE_COMPLETED' }),
-      Booking.countDocuments({ paymentStatus: 'pending', status: { $ne: 'CANCELLED' } }),
+      Booking.countDocuments({ ...dateFilter, status: { $in: ['CREATED', 'ASSIGNED'] } }),
+      Booking.countDocuments({ ...dateFilter, status: 'SERVICE_COMPLETED' }),
+      Booking.countDocuments({ ...dateFilter, paymentStatus: 'pending', status: { $ne: 'CANCELLED' } }),
       ApprovalRequest.countDocuments({ status: 'Pending', type: { $ne: 'UserRegistration' } }),
       Ticket.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
     ]);
@@ -178,19 +205,22 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
-// @desc    Get revenue analytics (Last 7 days)
+// @desc    Get revenue analytics
 // @route   GET /api/reports/revenue
 // @access  Private/Admin
 export const getRevenueAnalytics = async (req, res) => {
   try {
+    const dateFilter = buildDateFilter(req.query);
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const filter = Object.keys(dateFilter).length > 0 ? dateFilter : { createdAt: { $gte: sevenDaysAgo } };
 
     const revenue = await Booking.aggregate([
       {
         $match: {
           paymentStatus: 'paid',
-          createdAt: { $gte: sevenDaysAgo },
+          ...filter,
         },
       },
       {
@@ -214,7 +244,9 @@ export const getRevenueAnalytics = async (req, res) => {
 // @access  Private/Admin
 export const getTopServices = async (req, res) => {
   try {
+    const dateFilter = buildDateFilter(req.query);
     const services = await Booking.aggregate([
+      { $match: dateFilter },
       { $group: { _id: '$serviceType', count: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
       { $sort: { count: -1 } },
       { $limit: 5 },
@@ -230,8 +262,9 @@ export const getTopServices = async (req, res) => {
 // @access  Private/Admin
 export const getMerchantPerformance = async (req, res) => {
   try {
+    const dateFilter = buildDateFilter(req.query);
     const merchants = await Booking.aggregate([
-      { $match: { merchant: { $exists: true, $ne: null } } },
+      { $match: { ...dateFilter, merchant: { $exists: true, $ne: null } } },
       {
         $group: {
           _id: '$merchant',

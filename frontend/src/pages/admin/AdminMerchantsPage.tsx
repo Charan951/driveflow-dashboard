@@ -347,9 +347,10 @@ const AdminMerchantsPage: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search merchants..."
+            placeholder="Search merchants (max 15 characters)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            maxLength={15}
             className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -381,6 +382,12 @@ const AdminMerchantsPage: React.FC = () => {
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : filteredMerchants.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <div className="text-center">
+            <p className="text-gray-500 dark:text-gray-400 text-lg">No data found</p>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -604,7 +611,7 @@ const AdminMerchantsPage: React.FC = () => {
                   </label>
                   <div className="relative">
                     <input
-                      type={showMerchantPassword ? 'text' : 'password'}
+                      type={showMerchantPassword ? 'password' : 'text'}
                       required
                       value={newMerchant.password}
                       onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
@@ -615,7 +622,7 @@ const AdminMerchantsPage: React.FC = () => {
                       onClick={() => setShowMerchantPassword(!showMerchantPassword)}
                       className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-200"
                     >
-                      {showMerchantPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showMerchantPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

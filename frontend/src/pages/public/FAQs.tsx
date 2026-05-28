@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, Search, MessageCircle, ChevronRight } from 'lucide-react';
 import { heroService } from "@/services/heroService";
+import { useNavigate } from "react-router-dom";
 import {
   Accordion,
   AccordionContent,
@@ -66,6 +67,7 @@ const faqs = [
 ];
 
 const FAQs = () => {
+  const navigate = useNavigate();
   const [hero, setHero] = useState({
     image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=2000",
     title: "Frequently Asked Questions",
@@ -144,7 +146,7 @@ const FAQs = () => {
                 <p className="text-muted-foreground mb-6">
                   Can't find the answer you're looking for? Please chat to our friendly team.
                 </p>
-                <Button className="w-full gap-2 group">
+                <Button className="w-full gap-2 group" onClick={() => navigate('/contact')}>
                   Contact Support 
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Button>

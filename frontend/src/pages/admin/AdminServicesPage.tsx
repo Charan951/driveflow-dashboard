@@ -229,6 +229,10 @@ const AdminServicesPage: React.FC = () => {
         <TabsContent value="services" className="space-y-4">
           {loading ? (
             <p>Loading...</p>
+          ) : services.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No services found. Add a service to get started.</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {services.map((service) => (
@@ -612,6 +616,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
+                  min="1"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
@@ -624,6 +629,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   name="duration"
                   value={formData.duration}
                   onChange={handleChange}
+                  min="1"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />

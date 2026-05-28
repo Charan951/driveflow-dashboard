@@ -107,6 +107,7 @@ const AdminBookingsPage: React.FC = () => {
         const matchesSearch = 
           (b._id?.toLowerCase() || '').includes(query) ||
           (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
+          (b.billing?.invoiceNumber && b.billing.invoiceNumber.toLowerCase().includes(query)) ||
           (typeof b.user === 'object' && b.user?.name?.toLowerCase().includes(query)) ||
           (typeof b.user === 'object' && b.user?.email?.toLowerCase().includes(query)) ||
           (typeof b.user === 'object' && b.user?.phone?.toLowerCase().includes(query)) ||

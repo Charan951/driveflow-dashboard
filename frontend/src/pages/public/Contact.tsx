@@ -24,6 +24,29 @@ const Contact = () => {
     email: "info@carzzi.com"
   });
 
+  const MAX_NAME_LENGTH = 50;
+  const MAX_EMAIL_LENGTH = 30;
+  const MAX_SUBJECT_LENGTH = 100;
+  const MAX_MESSAGE_LENGTH = 1000;
+
+  const isValidName = (name: string) => {
+    // Allow letters, spaces, hyphens, and apostrophes
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+    return nameRegex.test(name);
+  };
+
+  const isValidSubject = (subject: string) => {
+    // Allow letters, numbers, spaces, and common punctuation
+    const subjectRegex = /^[a-zA-Z0-9\s.,!?'-]+$/;
+    return subjectRegex.test(subject);
+  };
+
+  const isValidMessage = (message: string) => {
+    // Allow a reasonable set of characters for a message
+    const messageRegex = /^[a-zA-Z0-9\s.,!?'"()\[\]{}:;@#$%&*+-_=/\\|]+$/;
+    return messageRegex.test(message);
+  };
+
   useEffect(() => {
     fetchHero();
   }, []);
@@ -64,16 +87,44 @@ const Contact = () => {
       toast.error("Please enter your full name");
       return;
     }
+    if (name.length > MAX_NAME_LENGTH) {
+      toast.error("Too long data not accepted");
+      return;
+    }
+    if (!isValidName(name)) {
+      toast.error("Please enter valid data");
+      return;
+    }
+    if (email.length > MAX_EMAIL_LENGTH) {
+      toast.error("Too long data not accepted");
+      return;
+    }
     if (!isValidEmail(email)) {
-      toast.error("Please enter a valid email address");
+      toast.error("Wrong email id");
+      return;
+    }
+    if (subject.length > MAX_SUBJECT_LENGTH) {
+      toast.error("Too long data not accepted");
       return;
     }
     if (subject.length < 3) {
       toast.error("Subject should be at least 3 characters");
       return;
     }
+    if (!isValidSubject(subject)) {
+      toast.error("Please enter valid data");
+      return;
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      toast.error("Too long data not accepted");
+      return;
+    }
     if (message.length < 10) {
       toast.error("Message should be at least 10 characters");
+      return;
+    }
+    if (!isValidMessage(message)) {
+      toast.error("Please enter valid data");
       return;
     }
 
@@ -87,7 +138,11 @@ const Contact = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    let value = e.target.value;
+    if (e.target.name === 'email') {
+      value = value.toLowerCase();
+    }
+    setFormData(prev => ({ ...prev, [e.target.name]: value }));
   };
 
   return (
@@ -205,11 +260,12 @@ const Contact = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground/80">Full Name</label>
+                    <label className="text-sm font-medium text-foreground/80">Full Name (max {MAX_NAME_LENGTH} characters)</label>
                     <input
                       type="text"
                       name="name"
                       required
+                      maxLength={MAX_NAME_LENGTH}
                       value={formData.name}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
@@ -217,11 +273,12 @@ const Contact = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground/80">Email Address</label>
+                    <label className="text-sm font-medium text-foreground/80">Email Address (max {MAX_EMAIL_LENGTH} characters)</label>
                     <input
                       type="email"
                       name="email"
                       required
+                      maxLength={MAX_EMAIL_LENGTH}
                       value={formData.email}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
@@ -231,11 +288,12 @@ const Contact = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Subject</label>
+                  <label className="text-sm font-medium text-foreground/80">Subject (max {MAX_SUBJECT_LENGTH} characters)</label>
                   <input
                     type="text"
                     name="subject"
                     required
+                    maxLength={MAX_SUBJECT_LENGTH}
                     value={formData.subject}
                     onChange={handleChange}
                     className="w-full px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
@@ -244,11 +302,12 @@ const Contact = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Message</label>
+                  <label className="text-sm font-medium text-foreground/80">Message (max {MAX_MESSAGE_LENGTH} characters)</label>
                   <textarea
                     name="message"
                     required
                     rows={6}
+                    maxLength={MAX_MESSAGE_LENGTH}
                     value={formData.message}
                     onChange={handleChange}
                     className="w-full px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 resize-none"

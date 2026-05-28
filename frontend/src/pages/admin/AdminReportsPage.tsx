@@ -122,7 +122,24 @@ const AdminReportsPage = () => {
     setQuickDate('custom');
   };
 
+  const isValidDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return !isNaN(date.getTime());
+  };
+
   const applyCustomDateRange = () => {
+    if (dateRange.startDate && !isValidDate(dateRange.startDate)) {
+      toast.error('Invalid start date');
+      return;
+    }
+    if (dateRange.endDate && !isValidDate(dateRange.endDate)) {
+      toast.error('Invalid end date');
+      return;
+    }
+    if (dateRange.startDate && dateRange.endDate && new Date(dateRange.startDate) > new Date(dateRange.endDate)) {
+      toast.error('Start date cannot be after end date');
+      return;
+    }
     fetchData(dateRange);
   };
 

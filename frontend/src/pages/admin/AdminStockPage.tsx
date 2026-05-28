@@ -340,10 +340,11 @@ const AdminVehicleDataPage = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search by brand, model or brand_model..."
+            placeholder="Search by brand, model or brand_model (max 50 characters)..."
             className="w-full pl-10 pr-4 py-2 text-sm md:text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            maxLength={50}
           />
         </div>
       </div>
@@ -529,59 +530,65 @@ const AdminVehicleDataPage = () => {
               <h4 className="font-semibold text-sm text-gray-700">Tyre Prices</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="tyre_price_bridgestone">Bridgestone</Label>
-                  <Input
-                    id="tyre_price_bridgestone"
-                    type="number"
-                    value={formData.tyre_price_bridgestone}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_bridgestone: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tyre_price_yokohama">Yokohama</Label>
-                  <Input
-                    id="tyre_price_yokohama"
-                    type="number"
-                    value={formData.tyre_price_yokohama}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_yokohama: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tyre_price_apollo">Apollo</Label>
-                  <Input
-                    id="tyre_price_apollo"
-                    type="number"
-                    value={formData.tyre_price_apollo}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_apollo: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tyre_price_michelin">Michelin</Label>
-                  <Input
-                    id="tyre_price_michelin"
-                    type="number"
-                    value={formData.tyre_price_michelin}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_michelin: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tyre_price_dummy">Tyre Price - Dummy</Label>
-                  <Input
-                    id="tyre_price_dummy"
-                    type="number"
-                    value={formData.tyre_price_dummy}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_dummy: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tyre_price_dummy2">Tyre Price - Dummy 2</Label>
-                  <Input
-                    id="tyre_price_dummy2"
-                    type="number"
-                    value={formData.tyre_price_dummy2}
-                    onChange={(e) => setFormData({ ...formData, tyre_price_dummy2: e.target.value })}
-                  />
-                </div>
+                <Label htmlFor="tyre_price_bridgestone">Bridgestone</Label>
+                <Input
+                  id="tyre_price_bridgestone"
+                  type="number"
+                  value={formData.tyre_price_bridgestone}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_bridgestone: e.target.value })}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tyre_price_yokohama">Yokohama</Label>
+                <Input
+                  id="tyre_price_yokohama"
+                  type="number"
+                  value={formData.tyre_price_yokohama}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_yokohama: e.target.value })}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tyre_price_apollo">Apollo</Label>
+                <Input
+                  id="tyre_price_apollo"
+                  type="number"
+                  value={formData.tyre_price_apollo}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_apollo: e.target.value })}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tyre_price_michelin">Michelin</Label>
+                <Input
+                  id="tyre_price_michelin"
+                  type="number"
+                  value={formData.tyre_price_michelin}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_michelin: e.target.value })}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tyre_price_dummy">Tyre Price - Dummy</Label>
+                <Input
+                  id="tyre_price_dummy"
+                  type="number"
+                  value={formData.tyre_price_dummy}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_dummy: e.target.value })}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tyre_price_dummy2">Tyre Price - Dummy 2</Label>
+                <Input
+                  id="tyre_price_dummy2"
+                  type="number"
+                  value={formData.tyre_price_dummy2}
+                  onChange={(e) => setFormData({ ...formData, tyre_price_dummy2: e.target.value })}
+                  min="0"
+                />
+              </div>
               </div>
             </div>
 
@@ -595,6 +602,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.battery_price_amaron}
                     onChange={(e) => setFormData({ ...formData, battery_price_amaron: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -604,6 +612,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.battery_price_exide}
                     onChange={(e) => setFormData({ ...formData, battery_price_exide: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -613,6 +622,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.car_wash_exterior_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_exterior_price: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -622,6 +632,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.car_wash_interior_exterior_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_price: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -631,6 +642,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.car_wash_interior_exterior_underbody_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_underbody_price: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -641,6 +653,7 @@ const AdminVehicleDataPage = () => {
                     value={formData.general_service_price}
                     onChange={(e) => setFormData({ ...formData, general_service_price: e.target.value })}
                     placeholder="e.g. 600"
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -650,6 +663,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.pickup_drop_price}
                     onChange={(e) => setFormData({ ...formData, pickup_drop_price: e.target.value })}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2 hidden">
@@ -659,6 +673,7 @@ const AdminVehicleDataPage = () => {
                     type="number"
                     value={formData.car_wash_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_price: e.target.value })}
+                    min="0"
                   />
                 </div>
               </div>

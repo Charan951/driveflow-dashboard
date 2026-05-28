@@ -196,7 +196,8 @@ const AdminAuditPage = () => {
                 name="action"
                 value={filters.action}
                 onChange={handleFilterChange}
-                placeholder="e.g. Create, Update"
+                placeholder="e.g. Create, Update "
+                maxLength={50}
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
               />
             </div>
