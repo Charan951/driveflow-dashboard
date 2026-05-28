@@ -12,14 +12,6 @@ import '../core/storage.dart';
 @pragma('vm:entry-point')
 Future<void> _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) {
-      service.setAsForegroundService();
-    });
-    service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundService();
-    });
-  }
 
   final api = ApiClient();
   final storage = AppStorage();
@@ -77,11 +69,6 @@ Future<void> _onStart(ServiceInstance service) async {
           intervalDuration: const Duration(
             seconds: 3,
           ), // Match StaffTrackingService (3s)
-          foregroundNotificationConfig: const ForegroundNotificationConfig(
-            notificationText: " ",
-            notificationTitle: " ",
-            enableWakeLock: true,
-          ),
         )
       : Platform.isIOS || Platform.isMacOS
       ? AppleSettings(
@@ -171,10 +158,8 @@ class BackgroundTracking {
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
-        isForegroundMode: true,
+        isForegroundMode: false,
         autoStart: false,
-        foregroundServiceNotificationId: 888,
-        foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,

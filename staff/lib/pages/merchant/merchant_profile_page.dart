@@ -35,7 +35,10 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      throw ApiException(statusCode: 403, message: 'Location permission denied');
+      throw ApiException(
+        statusCode: 403,
+        message: 'Location permission denied',
+      );
     }
 
     final position = await Geolocator.getCurrentPosition(
@@ -111,7 +114,9 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                       decoration: InputDecoration(
                         labelText: 'Shop/Owner Name',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -145,7 +150,9 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -178,7 +185,9 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                       decoration: InputDecoration(
                         labelText: 'Address',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -219,12 +228,14 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                                     final message = e is ApiException
                                         ? e.message
                                         : 'Failed to fetch current location';
-                                    ScaffoldMessenger.of(
-                                      context,
-                                    ).showSnackBar(SnackBar(content: Text(message)));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(message)),
+                                    );
                                   } finally {
                                     if (context.mounted) {
-                                      setModalState(() => isPickingLocation = false);
+                                      setModalState(
+                                        () => isPickingLocation = false,
+                                      );
                                     }
                                   }
                                 },
@@ -232,7 +243,9 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Icon(
                                   Icons.my_location_rounded,
@@ -307,10 +320,12 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      final message = e is ApiException ? e.message : 'Failed to update profile';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      final message = e is ApiException
+          ? e.message
+          : 'Failed to update profile';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -347,151 +362,145 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
         if (!_isLoading) _load();
       },
       child: MerchantScaffold(
-      title: 'Merchant Profile',
-      actions: [
-        IconButton(
-          tooltip: 'Edit Profile',
-          onPressed: _isLoading ? null : _showEditProfileDialog,
-          icon: const Icon(Icons.edit_outlined),
-        ),
-      ],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _user == null
-          ? Center(
-              child: Text(
-                'User not found',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
-                ),
-              ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.backgroundSecondary : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isDark
-                        ? AppColors.borderColor
-                        : const Color(0xFFE5E7EB),
+        title: 'Merchant Profile',
+        actions: [
+          IconButton(
+            tooltip: 'Edit Profile',
+            onPressed: _isLoading ? null : _showEditProfileDialog,
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _user == null
+            ? Center(
+                child: Text(
+                  'User not found',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: isDark
-                          ? AppColors.backgroundSurface
-                          : const Color(0xFFE0EAFF),
-                      child: Icon(
-                        Icons.store_rounded,
-                        size: 48,
-                        color: isDark
-                            ? AppColors.primaryBlue
-                            : const Color(0xFF2563EB),
-                      ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.backgroundSecondary
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderColor
+                          : const Color(0xFFE5E7EB),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _user!.name,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF111827),
-                      ),
-                    ),
-                    Text(
-                      _user!.role.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark
-                            ? AppColors.primaryBlue
-                            : const Color(0xFF2563EB),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(height: 1),
-                    const SizedBox(height: 24),
-                    _ProfileDetailItem(
-                      icon: Icons.email_outlined,
-                      label: 'Email Address',
-                      value: _user!.email,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 16),
-                    _ProfileDetailItem(
-                      icon: Icons.phone_android_rounded,
-                      label: 'Phone Number',
-                      value: _user!.phone ?? 'Not provided',
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 16),
-                    if (_user!.subRole != null) ...[
-                      const SizedBox(height: 16),
-                      _ProfileDetailItem(
-                        icon: Icons.work_outline_rounded,
-                        label: 'Department',
-                        value: _user!.subRole!,
-                        isDark: isDark,
-                      ),
-                    ],
-                    if (_user!.location?.address != null) ...[
-                      const SizedBox(height: 16),
-                      _ProfileDetailItem(
-                        icon: Icons.location_on_outlined,
-                        label: 'Address',
-                        value: _user!.location!.address!,
-                        isDark: isDark,
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await _authService.logout();
-                          if (!context.mounted) return;
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/login',
-                            (route) => false,
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: AppColors.error,
+                  ),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: isDark
+                            ? AppColors.backgroundSurface
+                            : const Color(0xFFE0EAFF),
+                        child: Icon(
+                          Icons.store_rounded,
+                          size: 48,
+                          color: isDark
+                              ? AppColors.primaryBlue
+                              : const Color(0xFF2563EB),
                         ),
-                        label: const Text(
-                          'Logout',
-                          style: TextStyle(
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _user!.name,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111827),
+                        ),
+                      ),
+                      Text(
+                        _user!.role.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? AppColors.primaryBlue
+                              : const Color(0xFF2563EB),
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Divider(height: 1),
+                      const SizedBox(height: 24),
+                      _ProfileDetailItem(
+                        icon: Icons.email_outlined,
+                        label: 'Email Address',
+                        value: _user!.email,
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 16),
+                      _ProfileDetailItem(
+                        icon: Icons.phone_android_rounded,
+                        label: 'Phone Number',
+                        value: _user!.phone ?? 'Not provided',
+                        isDark: isDark,
+                      ),
+                      if (_user!.location?.address != null) ...[
+                        const SizedBox(height: 16),
+                        _ProfileDetailItem(
+                          icon: Icons.location_on_outlined,
+                          label: 'Address',
+                          value: _user!.location!.address!,
+                          isDark: isDark,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await _authService.logout();
+                            if (!context.mounted) return;
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/login',
+                              (route) => false,
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.logout_rounded,
                             color: AppColors.error,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(
-                            color: isDark
-                                ? AppColors.error.withValues(alpha: 0.45)
-                                : AppColors.error.withValues(alpha: 0.25),
+                          label: const Text(
+                            'Logout',
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(
+                              color: isDark
+                                  ? AppColors.error.withValues(alpha: 0.45)
+                                  : AppColors.error.withValues(alpha: 0.25),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-    ),
+      ),
     );
   }
 }

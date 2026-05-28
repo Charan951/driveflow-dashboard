@@ -25,22 +25,24 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
   const [loading, setLoading] = useState(false);
 
   const handleAddSidePhoto = async (side: 'front' | 'back' | 'left' | 'right', e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadingSides(prev => ({ ...prev, [side]: true }));
-      try {
-        const res = await uploadService.uploadFile(e.target.files[0]);
-        switch (side) {
-          case 'front': setFrontPhoto(res.url); break;
-          case 'back': setBackPhoto(res.url); break;
-          case 'left': setLeftPhoto(res.url); break;
-          case 'right': setRightPhoto(res.url); break;
-        }
-        toast.success(`${side.charAt(0).toUpperCase() + side.slice(1)} photo uploaded`);
-      } catch (err) {
-        toast.error(`Failed to upload ${side} photo`);
-      } finally {
-        setUploadingSides(prev => ({ ...prev, [side]: false }));
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingSides(prev => ({ ...prev, [side]: true }));
+    try {
+      const res = await uploadService.uploadFile(file);
+      switch (side) {
+        case 'front': setFrontPhoto(res.url); break;
+        case 'back': setBackPhoto(res.url); break;
+        case 'left': setLeftPhoto(res.url); break;
+        case 'right': setRightPhoto(res.url); break;
       }
+      toast.success(`${side.charAt(0).toUpperCase() + side.slice(1)} photo uploaded`);
+    } catch (err) {
+      toast.error(`Failed to upload ${side} photo`);
+    } finally {
+      setUploadingSides(prev => ({ ...prev, [side]: false }));
+      e.target.value = '';
     }
   };
 

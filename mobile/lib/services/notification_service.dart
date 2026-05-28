@@ -1,18 +1,50 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../firebase_options.dart';
+import '../core/api_client.dart';
+import '../core/app_colors.dart';
+import '../core/env.dart';
+import '../main.dart'; // Import to use rootNavigatorKey
 
 // Import PlatformUtils only for non-web
 import './platform_utils.dart'
     if (dart.library.html) './platform_utils_web.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../core/api_client.dart';
-import '../core/app_colors.dart';
-import '../main.dart'; // Import to use rootNavigatorKey
+
+Future<String?> _downloadAndSaveImage(String? imageUrl) async {
+  if (imageUrl == null || imageUrl.isEmpty) return null;
+  try {
+    final response = await http.get(Uri.parse(imageUrl));
+    if (response.statusCode != 200) return null;
+
+    final directory = await getTemporaryDirectory();
+    final filePath =
+        '${directory.path}/notification_image_${DateTime.now().millisecondsSinceEpoch}.png';
+    final file = File(filePath);
+    await file.writeAsBytes(response.bodyBytes);
+    return filePath;
+  } catch (e) {
+    return null;
+  }
+}
+
+String? _resolveImageUrlForNotification(String? imagePath) {
+  if (imagePath == null || imagePath.isEmpty) return null;
+  final value = imagePath.trim();
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  if (value.startsWith('/uploads/')) return '${Env.baseUrl}$value';
+  if (value.startsWith('uploads/')) return '${Env.baseUrl}/$value';
+  return '${Env.baseUrl}/uploads/$value';
+}
 
 // Background message handler
 @pragma('vm:entry-point')
@@ -218,11 +250,18 @@ class NotificationItem {
       return int.tryParse(v.toString());
     }
 
-    final partName = data?['partName']?.toString();
-    final quantity = parseQty(data?['quantity']);
-    final unitPrice = parseAmount(data?['unitPrice']);
-    final totalAmount = parseAmount(data?['totalAmount']);
-    final approvalImage = data?['image']?.toString();
+    final partName =
+        data?['partName']?.toString() ?? json['partName']?.toString();
+    final quantity = parseQty(data?['quantity']) ?? parseQty(json['quantity']);
+    final unitPrice =
+        parseAmount(data?['unitPrice']) ?? parseAmount(json['unitPrice']);
+    final totalAmount =
+        parseAmount(data?['totalAmount']) ?? parseAmount(json['totalAmount']);
+    final approvalImage =
+        data?['image']?.toString() ??
+        json['image']?.toString() ??
+        data?['approvalImage']?.toString() ??
+        json['approvalImage']?.toString();
 
     if (extractedBookingId == null) {
       final booking = json['booking'];
@@ -362,6 +401,7 @@ class NotificationService {
     final quantity = data['quantity']?.toString() ?? '';
     final totalAmount = data['totalAmount']?.toString() ?? '';
     final approvalType = data['approvalType']?.toString() ?? '';
+    final imagePath = data['image']?.toString();
 
     String body;
     if (approvalType == 'PartReplacement' &&
@@ -379,7 +419,22 @@ class NotificationService {
           'New approval request from your merchant.';
     }
 
-    const androidDetails = AndroidNotificationDetails(
+    BigPictureStyleInformation? bigPictureStyleInformation;
+    String? localImagePath;
+    if (imagePath != null && imagePath.isNotEmpty) {
+      final resolvedImageUrl = _resolveImageUrlForNotification(imagePath);
+      if (resolvedImageUrl != null) {
+        localImagePath = await _downloadAndSaveImage(resolvedImageUrl);
+        if (localImagePath != null) {
+          bigPictureStyleInformation = BigPictureStyleInformation(
+            FilePathAndroidBitmap(localImagePath),
+            largeIcon: FilePathAndroidBitmap(localImagePath),
+          );
+        }
+      }
+    }
+
+    final androidDetails = AndroidNotificationDetails(
       'merchant_approval_channel',
       'Merchant Approvals',
       channelDescription:
@@ -389,7 +444,8 @@ class NotificationService {
       icon: '@mipmap/ic_launcher',
       visibility: NotificationVisibility.public,
       category: AndroidNotificationCategory.message,
-      actions: <AndroidNotificationAction>[
+      styleInformation: bigPictureStyleInformation,
+      actions: const <AndroidNotificationAction>[
         AndroidNotificationAction(
           'approval_reject',
           'Reject',
@@ -417,7 +473,7 @@ class NotificationService {
       merchantApprovalNotificationId(approvalId),
       title,
       body,
-      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: jsonEncode(data),
     );
   }
@@ -1004,12 +1060,19 @@ class NotificationService {
       }
 
       BigPictureStyleInformation? bigPictureStyleInformation;
+
+      String? localImagePath;
       if (imageUrl != null && imageUrl.isNotEmpty) {
-        // TODO: Download image and save locally for offline display
-        bigPictureStyleInformation = BigPictureStyleInformation(
-          FilePathAndroidBitmap(imageUrl),
-          largeIcon: FilePathAndroidBitmap(imageUrl),
-        );
+        final resolvedImageUrl = _resolveImageUrlForNotification(imageUrl);
+        if (resolvedImageUrl != null) {
+          localImagePath = await _downloadAndSaveImage(resolvedImageUrl);
+          if (localImagePath != null) {
+            bigPictureStyleInformation = BigPictureStyleInformation(
+              FilePathAndroidBitmap(localImagePath),
+              largeIcon: FilePathAndroidBitmap(localImagePath),
+            );
+          }
+        }
       }
 
       final int fcmTrayId = fcmBookingSummary
@@ -1032,9 +1095,9 @@ class NotificationService {
             visibility: NotificationVisibility.public,
             onlyAlertOnce: fcmBookingSummary,
             styleInformation: bigPictureStyleInformation,
-            largeIcon: imageUrl != null
-                ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
-                : null,
+            largeIcon: localImagePath != null
+                ? FilePathAndroidBitmap(localImagePath)
+                : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
           ),
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
@@ -1129,11 +1192,18 @@ class NotificationService {
     }
 
     BigPictureStyleInformation? bigPictureStyleInformation;
+    String? localImagePath;
     if (imageUrl != null && imageUrl.isNotEmpty) {
-      bigPictureStyleInformation = BigPictureStyleInformation(
-        FilePathAndroidBitmap(imageUrl),
-        largeIcon: FilePathAndroidBitmap(imageUrl),
-      );
+      final resolvedImageUrl = _resolveImageUrlForNotification(imageUrl);
+      if (resolvedImageUrl != null) {
+        localImagePath = await _downloadAndSaveImage(resolvedImageUrl);
+        if (localImagePath != null) {
+          bigPictureStyleInformation = BigPictureStyleInformation(
+            FilePathAndroidBitmap(localImagePath),
+            largeIcon: FilePathAndroidBitmap(localImagePath),
+          );
+        }
+      }
     }
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -1149,9 +1219,9 @@ class NotificationService {
           icon: '@mipmap/ic_launcher',
           onlyAlertOnce: useBookingSummarySlot,
           styleInformation: bigPictureStyleInformation,
-          largeIcon: imageUrl != null
-              ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
-              : null,
+          largeIcon: localImagePath != null
+              ? FilePathAndroidBitmap(localImagePath)
+              : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(
@@ -1197,7 +1267,7 @@ class NotificationService {
           autoCancel: false,
           showWhen: false,
           icon: '@mipmap/ic_launcher',
-          onlyAlertOnce: !forcePop,
+          onlyAlertOnce: true,
           category: AndroidNotificationCategory.status,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[

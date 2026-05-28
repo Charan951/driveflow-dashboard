@@ -10,34 +10,18 @@ class PlatformUtils {
     FlutterLocalNotificationsPlugin localNotifications,
   ) async {
     if (Platform.isAndroid) {
-      const AndroidNotificationChannel highImportanceChannel =
-          AndroidNotificationChannel(
-            'high_importance_channel',
-            'High Importance Notifications',
-            description: 'This channel is used for important notifications.',
-            importance: Importance.max,
-            playSound: true,
-          );
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'staff_notifications',
+        'Staff Notifications',
+        description: 'Notifications for staff assignments and updates',
+        importance: Importance.max,
+      );
 
-      const AndroidNotificationChannel trackingChannel =
-          AndroidNotificationChannel(
-            'tracking_channel',
-            'Live Tracking',
-            description: 'Used for live tracking updates on lockscreen.',
-            importance: Importance.high,
-            playSound: false,
-            showBadge: false,
-          );
-
-      final plugin = localNotifications
+      await localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >();
-
-      if (plugin != null) {
-        await plugin.createNotificationChannel(highImportanceChannel);
-        await plugin.createNotificationChannel(trackingChannel);
-      }
+          >()
+          ?.createNotificationChannel(channel);
     }
   }
 

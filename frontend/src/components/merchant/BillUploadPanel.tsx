@@ -196,9 +196,12 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      setFile(file);
     }
+    // Reset input value
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

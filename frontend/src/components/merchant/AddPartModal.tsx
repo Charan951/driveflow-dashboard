@@ -19,9 +19,11 @@ const AddPartModal: React.FC<AddPartModalProps> = ({ bookingId, onClose, onUpdat
   const [loading, setLoading] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
     }
+    e.target.value = '';
   };
 
   const handleSubmit = async () => {

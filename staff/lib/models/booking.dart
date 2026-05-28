@@ -9,6 +9,7 @@ class BookingSummary {
   final String? orderNumber;
   final String status;
   final String? date;
+  final String? createdAt;
   final String? vehicleName;
   final String? locationAddress;
   final String? serviceName;
@@ -19,6 +20,7 @@ class BookingSummary {
     this.orderNumber,
     required this.status,
     this.date,
+    this.createdAt,
     this.vehicleName,
     this.locationAddress,
     this.serviceName,
@@ -91,6 +93,7 @@ class BookingSummary {
       orderNumber: _orderNumberFromJson(getField('orderNumber')),
       status: getField('status')?.toString() ?? '',
       date: getField('date')?.toString(),
+      createdAt: getField('createdAt')?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
       locationAddress: location?['address']?.toString(),
       serviceName: serviceName,

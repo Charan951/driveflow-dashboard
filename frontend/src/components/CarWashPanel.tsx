@@ -40,6 +40,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         });
       }
     }
+    e.target.value = '';
   };
 
   const handleAfterImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +58,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
         });
       }
     }
+    e.target.value = '';
   };
 
   const removeBeforeImage = (index: number) => {

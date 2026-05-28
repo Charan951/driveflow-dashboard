@@ -6,7 +6,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
-import { isValidEmail } from '@/lib/formValidation';
+import { isValidEmail, isEmailTooLong, hasLeadingTrailingSpaces, isPasswordTooLong, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
 
 type LoginStep = 'credentials' | 'otp';
 
@@ -40,12 +40,25 @@ const LoginPage: React.FC = () => {
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (hasLeadingTrailingSpaces(email)) {
+      toast.error('invalid email id');
+      return;
+    }
+
+    if (isEmailTooLong(email)) {
+      toast.error('Too long data not accept');
+      return;
+    }
     if (!isValidEmail(email)) {
-      toast.error('Please enter a valid email address');
+      toast.error('invalid email id');
       return;
     }
     if (!password) {
       toast.error('Please enter your password');
+      return;
+    }
+    if (isPasswordTooLong(password)) {
+      toast.error('Too long data not accept');
       return;
     }
 
@@ -250,6 +263,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
+                maxLength={MAX_EMAIL_LENGTH}
                 className="w-full pl-10 pr-4 py-2.5 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
@@ -262,6 +276,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
                 required
+                maxLength={MAX_PASSWORD_LENGTH}
                 className="w-full pl-10 pr-10 py-2.5 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
               <button

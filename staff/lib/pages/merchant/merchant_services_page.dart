@@ -13,7 +13,7 @@ class MerchantServicesPage extends StatefulWidget {
 
 class _MerchantServicesPageState extends State<MerchantServicesPage> {
   final ServiceService _service = ServiceService();
-  List<ServiceItem> _services = [];
+  List<ServiceModel> _services = [];
   bool _isLoading = true;
 
   @override

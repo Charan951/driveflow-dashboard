@@ -6,7 +6,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
-import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isEmailTooLong, hasLeadingTrailingSpaces, isPasswordTooLong, isValidName, isNameTooLong, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
 
 type RegisterStep = 'form' | 'otp';
 
@@ -30,6 +30,7 @@ const RegisterPage: React.FC = () => {
     confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const otpSentRef = useRef(false);
 
@@ -58,9 +59,27 @@ const RegisterPage: React.FC = () => {
       toast.error('Please enter your full name');
       return false;
     }
+    if (isNameTooLong(formData.name)) {
+      toast.error('Too long data not accept');
+      return false;
+    }
+    if (!isValidName(formData.name)) {
+      toast.error('Please enter a valid full name (must contain letters only with spaces, apostrophes, or hyphens)');
+      return false;
+    }
+
+    if (hasLeadingTrailingSpaces(formData.email)) {
+      toast.error('invalid email id');
+      return false;
+    }
+
+    if (isEmailTooLong(formData.email)) {
+      toast.error('Too long data not accept');
+      return false;
+    }
 
     if (!isValidEmail(formData.email)) {
-      toast.error('Please enter a valid email address');
+      toast.error('invalid email id');
       return false;
     }
 
@@ -69,6 +88,14 @@ const RegisterPage: React.FC = () => {
       return false;
     }
 
+    if (isPasswordTooLong(formData.password)) {
+      toast.error('Too long data not accept');
+      return false;
+    }
+    if (isPasswordTooLong(formData.confirmPassword)) {
+      toast.error('Too long data not accept');
+      return false;
+    }
     if (!isStrongPassword(formData.password)) {
       toast.error('Password must be 8+ chars with upper, lower, and number');
       return false;
@@ -255,6 +282,7 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Full name"
                 required
+                maxLength={MAX_NAME_LENGTH}
                 className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
@@ -268,6 +296,7 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Email address"
                 required
+                maxLength={MAX_EMAIL_LENGTH}
                 readOnly={Boolean((location.state as { fromGoogle?: boolean })?.fromGoogle && formData.email)}
                 className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all read-only:opacity-80"
               />
@@ -296,6 +325,7 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Password"
                 required
+                maxLength={MAX_PASSWORD_LENGTH}
                 className="w-full pl-10 pr-10 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
               <button
@@ -310,14 +340,22 @@ const RegisterPage: React.FC = () => {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm"
                 required
-                className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                maxLength={MAX_PASSWORD_LENGTH}
+                className="w-full pl-10 pr-10 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
             </div>
 
             <motion.button

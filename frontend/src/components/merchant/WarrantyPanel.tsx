@@ -44,6 +44,7 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
       setLocalPreview(null); // Clear preview on error
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 

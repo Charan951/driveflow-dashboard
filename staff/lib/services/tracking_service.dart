@@ -235,11 +235,6 @@ class StaffTrackingService {
         intervalDuration: const Duration(
           seconds: 3,
         ), // Increased to 3s for better GPS lock stability
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationText: " ",
-          notificationTitle: " ",
-          enableWakeLock: true,
-        ),
       );
     } else if (Platform.isIOS || Platform.isMacOS) {
       settings = AppleSettings(

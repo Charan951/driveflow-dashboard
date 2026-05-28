@@ -59,8 +59,10 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   final TextEditingController _partsCostController = TextEditingController();
   final TextEditingController _labourCostController = TextEditingController();
   final TextEditingController _gstController = TextEditingController();
-  final TextEditingController _discountAmountController =
+  final TextEditingController _pickupDropPriceController =
       TextEditingController();
+  final TextEditingController _invoiceDateController = TextEditingController();
+  DateTime? _selectedInvoiceDate;
   XFile? _billFile;
 
   // QC State
@@ -99,7 +101,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     _partsCostController.dispose();
     _labourCostController.dispose();
     _gstController.dispose();
-    _discountAmountController.dispose();
+    _pickupDropPriceController.dispose();
+    _invoiceDateController.dispose();
     _warrantyNameController.dispose();
     _warrantyPriceController.dispose();
     _warrantyMonthsController.dispose();
@@ -178,8 +181,21 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
           _labourCostController.text =
               data.billing?.labourCost.toString() ?? '0';
           _gstController.text = data.billing?.gst.toString() ?? '0';
-          _discountAmountController.text =
-              data.discountAmount?.toString() ?? '0';
+          _pickupDropPriceController.text =
+              (data.billing?.pickupDropPrice ?? data.pickupDropPrice)
+                  ?.toString() ??
+              '';
+          if (data.billing?.invoiceDate != null) {
+            _selectedInvoiceDate = DateTime.parse(data.billing!.invoiceDate!);
+            _invoiceDateController.text = DateFormat(
+              'yyyy-MM-dd',
+            ).format(_selectedInvoiceDate!);
+          } else {
+            _selectedInvoiceDate = DateTime.now();
+            _invoiceDateController.text = DateFormat(
+              'yyyy-MM-dd',
+            ).format(_selectedInvoiceDate!);
+          }
 
           // Sync QC checklist
           _testRideChecked = data.qc?.testRide ?? false;
@@ -1963,7 +1979,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     if (reasonText.length < 5) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reason should be at least 5 characters')),
+          const SnackBar(
+            content: Text('Reason should be at least 5 characters'),
+          ),
         );
       }
       return;
@@ -1974,10 +1992,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         'type': 'ExtraCost',
         'relatedId': _booking!.id,
         'relatedModel': 'Booking',
-        'data': {
-          'amount': amount,
-          'reason': reasonText,
-        },
+        'data': {'amount': amount, 'reason': reasonText},
       });
       _extraCostAmountController.clear();
       _extraCostReasonController.clear();
@@ -3254,6 +3269,48 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             ),
           ),
           const SizedBox(height: 16),
+          InkWell(
+            onTap: () async {
+              final DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedInvoiceDate ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                setState(() {
+                  _selectedInvoiceDate = picked;
+                  _invoiceDateController.text = DateFormat(
+                    'yyyy-MM-dd',
+                  ).format(picked);
+                });
+              }
+            },
+            child: TextField(
+              controller: _invoiceDateController,
+              enabled: false,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              decoration: InputDecoration(
+                labelText: 'Invoice Date',
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[700],
+                ),
+                suffixIcon: const Icon(Icons.calendar_today),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : const Color(0xFFE5E7EB),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -3334,19 +3391,20 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
               Expanded(
                 child: TextField(
-                  controller: _discountAmountController,
+                  controller: _pickupDropPriceController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   decoration: InputDecoration(
-                    labelText: 'Discount',
+                    labelText: 'Pickup/Drop Price',
                     labelStyle: TextStyle(
-                      color: isDark ? Colors.red[300] : Colors.red[700],
+                      color: isDark ? Colors.grey[400] : Colors.grey[700],
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -3355,8 +3413,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
                         color: isDark
-                            ? Colors.red.withValues(alpha: 0.3)
-                            : Colors.red[100]!,
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : const Color(0xFFE5E7EB),
                       ),
                     ),
                   ),
@@ -3532,19 +3590,21 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       final partsCost = double.tryParse(_partsCostController.text) ?? 0.0;
       final labourCost = double.tryParse(_labourCostController.text) ?? 0.0;
       final gst = double.tryParse(_gstController.text) ?? 0.0;
-      final discountAmount =
-          double.tryParse(_discountAmountController.text) ?? 0.0;
-      final total = partsCost + labourCost + gst;
+      final pickupDropPrice =
+          double.tryParse(_pickupDropPriceController.text) ?? 0.0;
+      final total = partsCost + labourCost + gst + pickupDropPrice;
 
       await _service.updateBookingDetails(_booking!.id, {
         'billing': {
           'invoiceNumber': _invoiceNumberController.text,
-          'invoiceDate': DateTime.now().toIso8601String(),
+          'invoiceDate':
+              _selectedInvoiceDate?.toIso8601String() ??
+              DateTime.now().toIso8601String(),
           'partsTotal': partsCost,
           'labourCost': labourCost,
           'gst': gst,
+          'pickupDropPrice': pickupDropPrice,
           'total': total,
-          'discountAmount': discountAmount,
           'fileUrl': fileUrl,
         },
         'serviceExecution': {'jobEndTime': DateTime.now().toIso8601String()},

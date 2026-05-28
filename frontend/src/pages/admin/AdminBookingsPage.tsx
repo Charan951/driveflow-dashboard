@@ -102,13 +102,18 @@ const AdminBookingsPage: React.FC = () => {
 
     // Search Filter
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase().replace(/^#/, ''); // Remove # prefix if present
       result = result.filter(b => {
         const matchesSearch = 
           (b._id?.toLowerCase() || '').includes(query) ||
           (b.orderNumber && String(b.orderNumber).toLowerCase().includes(query)) ||
           (typeof b.user === 'object' && b.user?.name?.toLowerCase().includes(query)) ||
-          (typeof b.vehicle === 'object' && b.vehicle?.licensePlate?.toLowerCase().includes(query));
+          (typeof b.user === 'object' && b.user?.email?.toLowerCase().includes(query)) ||
+          (typeof b.user === 'object' && b.user?.phone?.toLowerCase().includes(query)) ||
+          (typeof b.vehicle === 'object' && b.vehicle?.licensePlate?.toLowerCase().includes(query)) ||
+          (typeof b.vehicle === 'object' && b.vehicle?.make?.toLowerCase().includes(query)) ||
+          (typeof b.vehicle === 'object' && b.vehicle?.model?.toLowerCase().includes(query)) ||
+          (Array.isArray(b.services) && b.services.some(s => typeof s === 'object' && s.name?.toLowerCase().includes(query)));
           
         const dateStr = new Date(b.date).toLocaleDateString('en-GB').toLowerCase();
         const matchesDate = dateStr.includes(query);
@@ -196,6 +201,7 @@ const AdminBookingsPage: React.FC = () => {
             placeholder="Search ID, Customer, or Vehicle..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            maxLength={20}
             className="pl-9 pr-4 py-2 w-full rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>

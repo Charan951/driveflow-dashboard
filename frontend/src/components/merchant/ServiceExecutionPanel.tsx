@@ -84,6 +84,7 @@ const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, 
         toast.error('Failed to upload photos');
       } finally {
         setLoading(false);
+        e.target.value = '';
       }
     }
   };

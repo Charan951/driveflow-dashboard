@@ -88,6 +88,7 @@ const AdminVehiclesPage: React.FC = () => {
             placeholder="Search by plate, model, or owner..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            maxLength={20}
             className="pl-9 pr-4 py-2 w-full rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>

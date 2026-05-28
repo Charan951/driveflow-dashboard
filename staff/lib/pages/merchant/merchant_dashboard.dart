@@ -51,9 +51,11 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
       final notifications = await _notificationService.listMyNotifications();
       bookings.sort((a, b) {
         final aDate =
-            DateTime.tryParse(a.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.tryParse(a.createdAt ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         final bDate =
-            DateTime.tryParse(b.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.tryParse(b.createdAt ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         return bDate.compareTo(aDate);
       });
       if (mounted) {
@@ -85,159 +87,166 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
         if (!_isLoading) _init();
       },
       child: MerchantScaffold(
-      title: 'Carzzi Merchant',
-      actions: [
-        IconButton(
-          tooltip: 'Notifications',
-          onPressed: () async {
-            await Navigator.pushNamed(context, '/merchant-notifications');
-            if (!mounted) return;
-            _init();
-          },
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.notifications_none_rounded),
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: -6,
-                  top: -6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEF4444),
-                      borderRadius: BorderRadius.all(Radius.circular(999)),
-                    ),
-                    constraints: const BoxConstraints(minWidth: 16),
-                    child: Text(
-                      _unreadNotifications > 99
-                          ? '99+'
-                          : _unreadNotifications.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
+        title: 'Carzzi Merchant',
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/merchant-notifications');
+              if (!mounted) return;
+              _init();
+            },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded),
+                if (_unreadNotifications > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        borderRadius: BorderRadius.all(Radius.circular(999)),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        _unreadNotifications > 99
+                            ? '99+'
+                            : _unreadNotifications.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-      body: RefreshIndicator(
-        onRefresh: _init,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome, ${_user?.name ?? 'Merchant'}',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
+        ],
+        body: RefreshIndicator(
+          onRefresh: _init,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, ${_user?.name ?? 'Merchant'}',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Manage your service center orders and status.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                const SizedBox(height: 8),
+                Text(
+                  'Manage your service center orders and status.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  _buildStatCard(
-                    context,
-                    title: 'Ongoing Orders',
-                    value: _stats['activeOrders'].toString(),
-                    icon: Icons.pending_actions,
-                    color: AppColors.primaryBlue,
-                    isDark: isDark,
-                    onTap: () => Navigator.pushNamed(
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    _buildStatCard(
                       context,
-                      '/merchant-orders',
-                      arguments: {'filter': 'active'},
+                      title: 'Ongoing Orders',
+                      value: _stats['activeOrders'].toString(),
+                      icon: Icons.pending_actions,
+                      color: AppColors.primaryBlue,
+                      isDark: isDark,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/merchant-orders',
+                        arguments: {'filter': 'active'},
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  _buildStatCard(
-                    context,
-                    title: 'Completed Orders',
-                    value: _stats['completedOrders'].toString(),
-                    icon: Icons.check_circle_outline,
-                    color: AppColors.success,
-                    isDark: isDark,
-                    onTap: () => Navigator.pushNamed(
+                    const SizedBox(width: 16),
+                    _buildStatCard(
                       context,
-                      '/merchant-orders',
-                      arguments: {'filter': 'completed'},
+                      title: 'Completed Orders',
+                      value: _stats['completedOrders'].toString(),
+                      icon: Icons.check_circle_outline,
+                      color: AppColors.success,
+                      isDark: isDark,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/merchant-orders',
+                        arguments: {'filter': 'completed'},
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  _buildStatCard(
-                    context,
-                    title: 'Pending Payments',
-                    value: _stats['pendingBills'].toString(),
-                    icon: Icons.receipt_long,
-                    color: AppColors.warning,
-                    isDark: isDark,
-                    onTap: () => Navigator.pushNamed(
+                    const SizedBox(width: 16),
+                    _buildStatCard(
                       context,
-                      '/merchant-orders',
-                      arguments: {'filter': 'all'},
+                      title: 'Pending Payments',
+                      value: _stats['pendingBills'].toString(),
+                      icon: Icons.receipt_long,
+                      color: AppColors.warning,
+                      isDark: isDark,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/merchant-orders',
+                        arguments: {'filter': 'all'},
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Recent Orders',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              if (_recentOrders.isEmpty)
-                Card(
-                  elevation: 0,
-                  color: isDark ? AppColors.backgroundSecondary : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: isDark ? AppColors.borderColor : Colors.grey[200]!,
+                const SizedBox(height: 32),
+                Text(
+                  'Recent Orders',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_recentOrders.isEmpty)
+                  Card(
+                    elevation: 0,
+                    color: isDark
+                        ? AppColors.backgroundSecondary
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : Colors.grey[200]!,
+                      ),
                     ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('No recent orders found'),
+                    ),
+                  )
+                else
+                  Column(
+                    children: _recentOrders
+                        .map(
+                          (order) => _buildRecentOrderCard(
+                            context,
+                            order: order,
+                            isDark: isDark,
+                          ),
+                        )
+                        .toList(),
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No recent orders found'),
-                  ),
-                )
-              else
-                Column(
-                  children: _recentOrders
-                      .map(
-                        (order) => _buildRecentOrderCard(
-                          context,
-                          order: order,
-                          isDark: isDark,
-                        ),
-                      )
-                      .toList(),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -320,7 +329,9 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
       color: isDark ? AppColors.backgroundSecondary : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? AppColors.borderColor : Colors.grey[200]!),
+        side: BorderSide(
+          color: isDark ? AppColors.borderColor : Colors.grey[200]!,
+        ),
       ),
       child: ListTile(
         onTap: () => Navigator.pushNamed(

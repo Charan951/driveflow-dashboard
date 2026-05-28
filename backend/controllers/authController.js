@@ -13,6 +13,20 @@ import {
 } from '../utils/msg91Service.js';
 import { isTestingEnv } from '../utils/appEnvironment.js';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MAX_NAME_LENGTH = 50;
+const MAX_PASSWORD_LENGTH = 15;
+
+const isValidName = (value) => {
+  const trimmed = value.trim();
+  // Allow letters, spaces, apostrophes, hyphens only
+  return /^[a-zA-Z][a-zA-Z\s'-]*$/.test(trimmed) && trimmed.length > 0;
+};
+
+const isNameTooLong = (value) => {
+  return value.trim().length > MAX_NAME_LENGTH;
+};
+
 const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
 
 const buildAuthUserPayload = (user, extras = {}) => ({
@@ -68,11 +82,33 @@ export const prepareSignup = async (req, res) => {
   const { name, email, password, phone } = req.body;
 
   try {
-    if (!name?.trim() || !email?.trim() || !password || !phone?.trim()) {
-      return res.status(400).json({ message: 'Name, email, password, and phone are required' });
+    if (!name?.trim()) {
+      return res.status(400).json({ message: 'Please enter your full name' });
+    }
+    if (isNameTooLong(name)) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+    if (!isValidName(name)) {
+      return res.status(400).json({ message: 'Please enter a valid full name (must contain letters only with spaces, apostrophes, or hyphens)' });
+    }
+
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+
+    if (email.length !== email.trim().length) {
+      return res.status(400).json({ message: 'invalid email id' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    
+    if (normalizedEmail.length > 35) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+    
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'invalid email id' });
+    }
     const mobile = normalizeIndianMobile(phone);
 
     if (!mobile) {
@@ -263,11 +299,36 @@ export const prepareLogin = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+
+    if (email.length !== email.trim().length) {
+      return res.status(400).json({ message: 'invalid email id' });
+    }
+
     const normalizedEmail = email.toLowerCase().trim();
+    
+    if (normalizedEmail.length > 35) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+    
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'invalid email id' });
+    }
     const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user || !(await user.matchPassword(password))) {
+    if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const isPasswordCorrect = await user.matchPassword(password);
+    if (!isPasswordCorrect) {
+      return res.status(401).json({ message: 'Wrong password' });
     }
 
     if (!user.isApproved) {

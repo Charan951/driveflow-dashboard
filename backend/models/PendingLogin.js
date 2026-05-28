@@ -7,6 +7,7 @@ const pendingLoginSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
       trim: true,
+      maxlength: 35,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

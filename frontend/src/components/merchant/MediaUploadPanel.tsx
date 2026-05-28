@@ -222,20 +222,26 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   };
 
   const handleServicePartImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      updateServicePart(index, 'image', e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      updateServicePart(index, 'image', file);
       // Mark that new image has been uploaded
       updateServicePart(index, 'needsNewImage', false);
     }
+    // Reset input value
+    e.target.value = '';
   };
 
   const handleExistingPartImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    const file = e.target.files?.[0];
+    if (file) {
       setNewImagesForExistingParts(prev => ({
         ...prev,
-        [index]: e.target.files![0]
+        [index]: file
       }));
     }
+    // Reset input value
+    e.target.value = '';
   };
 
   const handleUpload = async () => {

@@ -15,10 +15,12 @@ const pendingSignupSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
       trim: true,
+      maxlength: 35,
     },
     password: {
       type: String,
       required: true,
+      maxlength: 100,
     },
     /** Set when OTP is sent via WhatsApp outbound (we verify locally). */
     otpHash: {

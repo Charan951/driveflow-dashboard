@@ -509,6 +509,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
       toast.error('Failed to upload image');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 

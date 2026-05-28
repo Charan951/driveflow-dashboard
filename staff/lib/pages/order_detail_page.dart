@@ -306,6 +306,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+
+        if (status == 'DELIVERED' || status == 'COMPLETED') {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        }
       }
       if (status == 'ACCEPTED' ||
           status == 'REACHED_CUSTOMER' ||
@@ -689,25 +693,24 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         _updatingStatus ||
         isWaitingForPayment ||
         (nextAction?.status == 'VEHICLE_PICKED' &&
-            booking.prePickupPhotos.length <
-                requiredPhotos) ||
+            booking.prePickupPhotos.length < requiredPhotos) ||
         (isBatteryTire &&
             (nextAction?.status == 'INSTALLATION' ||
                 nextAction?.status == 'DELIVERY') &&
-            booking.prePickupPhotos.length <
-                requiredPhotos) ||
+            booking.prePickupPhotos.length < requiredPhotos) ||
         (isCarWash &&
             (nextAction?.status == 'CAR_WASH_STARTED' ||
                 nextAction?.status == 'CAR_WASH_COMPLETED') &&
-            booking.prePickupPhotos.length <
-                requiredPhotos);
+            booking.prePickupPhotos.length < requiredPhotos);
 
     // Always add directions button if it makes sense for current status
     final canShowDirections =
         booking.status != 'DELIVERED' &&
         booking.status != 'COMPLETED' &&
         booking.status != 'CAR_WASH_COMPLETED' &&
-        booking.status != 'SERVICE_COMPLETED';
+        booking.status != 'SERVICE_COMPLETED' &&
+        booking.status != 'REACHED_MERCHANT' &&
+        booking.status != 'STAFF_REACHED_MERCHANT';
 
     if (!canShowPrimary && !canShowDirections && !shouldShowUpload) {
       return const SizedBox.shrink();
@@ -772,7 +775,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             SizedBox(width: double.infinity, child: _directionsButton(booking)),
           if (shouldShowUpload) ...[
             if (canShowDirections || canShowPrimary) const SizedBox(height: 12),
-            SizedBox(width: double.infinity, child: _photoUploadButton(booking)),
+            SizedBox(
+              width: double.infinity,
+              child: _photoUploadButton(booking),
+            ),
           ],
         ],
       ),
@@ -798,7 +804,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     if (isCarWash) {
       switch (status) {
         case 'ASSIGNED':
-          return const _NextStatusAction('REACHED_CUSTOMER', 'Reached Customer');
+          return const _NextStatusAction(
+            'REACHED_CUSTOMER',
+            'Reached Customer',
+          );
         case 'REACHED_CUSTOMER':
           return _NextStatusAction(
             'CAR_WASH_STARTED',
@@ -829,13 +838,19 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             'Pickup Battery/Tire',
           );
         case 'PICKUP_BATTERY_TIRE':
-          return const _NextStatusAction('REACHED_CUSTOMER', 'Reached Customer');
+          return const _NextStatusAction(
+            'REACHED_CUSTOMER',
+            'Reached Customer',
+          );
         case 'REACHED_CUSTOMER':
           return const _NextStatusAction('INSTALLATION', 'Start Installation');
         case 'INSTALLATION':
           return const _NextStatusAction('DELIVERY', 'Complete and Deliver');
         case 'DELIVERY':
-          return const _NextStatusAction('COMPLETED', 'Verify OTP and Complete');
+          return const _NextStatusAction(
+            'COMPLETED',
+            'Verify OTP and Complete',
+          );
         default:
           return null;
       }
@@ -883,7 +898,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final int currentIndex = flow.indexOf(booking.status.toUpperCase());
     final visibleCount = isCompletedOrDelivered
         ? flow.length
-        : (_showFullWorkflow ? flow.length : (flow.length < 3 ? flow.length : 3));
+        : (_showFullWorkflow
+              ? flow.length
+              : (flow.length < 3 ? flow.length : 3));
     final visibleStatuses = flow.take(visibleCount).toList();
     final hasMore = !isCompletedOrDelivered && flow.length > 3;
 
@@ -972,11 +989,17 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 _showFullWorkflow ? Icons.expand_less : Icons.expand_more,
                 size: 18,
               ),
-              label: Text(_showFullWorkflow ? 'Show Less' : 'Show All Statuses'),
+              label: Text(
+                _showFullWorkflow ? 'Show Less' : 'Show All Statuses',
+              ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                foregroundColor: isDark
+                    ? Colors.white
+                    : const Color(0xFF111827),
                 side: BorderSide(
-                  color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+                  color: isDark
+                      ? AppColors.borderColor
+                      : const Color(0xFFE5E7EB),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -1039,7 +1062,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             ],
           ),
           const SizedBox(height: 12),
-          if (_detailsTabIndex == 0) _buildWorkflowCard(booking) else _buildOrderDetailsCard(booking),
+          if (_detailsTabIndex == 0)
+            _buildWorkflowCard(booking)
+          else
+            _buildOrderDetailsCard(booking),
         ],
       ),
     );
@@ -1058,11 +1084,15 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         style: FilledButton.styleFrom(
           backgroundColor: selected
               ? (isDark ? AppColors.primaryPurple : const Color(0xFF7C3AED))
-              : (isDark ? AppColors.backgroundSurface : const Color(0xFFF3F4F6)),
+              : (isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFF3F4F6)),
           foregroundColor: selected
               ? Colors.white
               : (isDark ? Colors.grey[300] : const Color(0xFF4B5563)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
         child: Text(
@@ -1140,10 +1170,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 color: isCompleted
                     ? const Color(0xFF10B981)
                     : (isActive
-                        ? accent
-                        : (isDark
-                            ? AppColors.backgroundSurface
-                            : const Color(0xFFF3F4F6))),
+                          ? accent
+                          : (isDark
+                                ? AppColors.backgroundSurface
+                                : const Color(0xFFF3F4F6))),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isActive
@@ -1160,7 +1190,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+                          color: isActive
+                              ? Colors.white
+                              : const Color(0xFF9CA3AF),
                         ),
                       ),
               ),
@@ -1171,7 +1203,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 height: 42,
                 color: isCompleted
                     ? const Color(0xFF10B981)
-                    : (isDark ? AppColors.borderColor : const Color(0xFFE5E7EB)),
+                    : (isDark
+                          ? AppColors.borderColor
+                          : const Color(0xFFE5E7EB)),
               ),
           ],
         ),
@@ -1183,13 +1217,18 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  BookingDetail.getStatusLabel(status, services: _booking?.services),
+                  BookingDetail.getStatusLabel(
+                    status,
+                    services: _booking?.services,
+                  ),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                     color: isCompleted || isActive
                         ? (isDark ? Colors.white : const Color(0xFF111827))
-                        : (isDark ? AppColors.textMuted : const Color(0xFF9CA3AF)),
+                        : (isDark
+                              ? AppColors.textMuted
+                              : const Color(0xFF9CA3AF)),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1220,7 +1259,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return SizedBox(
       height: 54,
       child: FilledButton(
-        onPressed: (_updatingStatus || disabled) ? null : () => _updateStatus(status),
+        onPressed: (_updatingStatus || disabled)
+            ? null
+            : () => _updateStatus(status),
         style: FilledButton.styleFrom(
           backgroundColor: isDark
               ? AppColors.primaryPurple
@@ -1273,7 +1314,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         label = 'Upload Photos';
       }
     } else if (normalizedStatus == 'REACHED_CUSTOMER') {
-      const prePickupLabels = ['Upload Front Photo', 'Upload Right Photo', 'Upload Back Photo', 'Upload Left Photo'];
+      const prePickupLabels = [
+        'Upload Front Photo',
+        'Upload Right Photo',
+        'Upload Back Photo',
+        'Upload Left Photo',
+      ];
       final idx = booking.prePickupPhotos.length.clamp(0, 3);
       label = booking.prePickupPhotos.length < requiredPhotos
           ? prePickupLabels[idx]
@@ -1315,7 +1361,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             : Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
       ),
     );
@@ -1376,7 +1425,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               Icon(
                 Icons.receipt_long_outlined,
                 size: 20,
-                color: isDark ? AppColors.primaryPurple : const Color(0xFF7C3AED),
+                color: isDark
+                    ? AppColors.primaryPurple
+                    : const Color(0xFF7C3AED),
               ),
               const SizedBox(width: 8),
               Text(
@@ -1395,8 +1446,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           const SizedBox(height: 14),
           _buildDetailRow(
             'Status',
-            BookingDetail.getStatusLabel(booking.status, services: booking.services),
-            valueColor: isDark ? AppColors.primaryPurple : const Color(0xFF2563EB),
+            BookingDetail.getStatusLabel(
+              booking.status,
+              services: booking.services,
+            ),
+            valueColor: isDark
+                ? AppColors.primaryPurple
+                : const Color(0xFF2563EB),
           ),
           const SizedBox(height: 14),
           _buildDetailRow(
@@ -1417,12 +1473,19 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                   child: Text(
                     'Photos',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                      color: isDark
+                          ? Colors.grey[400]
+                          : const Color(0xFF6B7280),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                Expanded(child: Align(alignment: Alignment.centerLeft, child: _buildPhotoBadge(booking))),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildPhotoBadge(booking),
+                  ),
+                ),
               ],
             ),
           ],
@@ -1451,7 +1514,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           child: Text(
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: valueColor ?? (isDark ? Colors.white : const Color(0xFF111827)),
+              color:
+                  valueColor ??
+                  (isDark ? Colors.white : const Color(0xFF111827)),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1469,11 +1534,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         : (isDark ? AppColors.warning : const Color(0xFFF59E0B));
     final bgColor = completed
         ? (isDark
-            ? AppColors.success.withValues(alpha: 0.1)
-            : const Color(0xFFBBF7D0))
+              ? AppColors.success.withValues(alpha: 0.1)
+              : const Color(0xFFBBF7D0))
         : (isDark
-            ? AppColors.warning.withValues(alpha: 0.1)
-            : const Color(0xFFFEF3C7));
+              ? AppColors.warning.withValues(alpha: 0.1)
+              : const Color(0xFFFEF3C7));
     final textColor = completed
         ? (isDark ? AppColors.success : const Color(0xFF166534))
         : (isDark ? AppColors.warning : const Color(0xFF92400E));
@@ -1511,7 +1576,6 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       ),
     );
   }
-
 }
 
 class _NextStatusAction {

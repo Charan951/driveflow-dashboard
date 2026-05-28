@@ -199,6 +199,10 @@ const AdminHeroImagesPage = () => {
       toast.error('Failed to upload image');
     } finally {
       setUploading(null);
+      // Reset file input value to allow uploading the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 

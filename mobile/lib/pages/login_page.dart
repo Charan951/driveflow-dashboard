@@ -76,12 +76,24 @@ class _LoginPageState extends State<LoginPage>
       setState(() => _error = 'Email is required');
       return;
     }
+    if (_emailController.text != _emailController.text.trim()) {
+      setState(() => _error = 'invalid email id');
+      return;
+    }
+    if (email.length > 35) {
+      setState(() => _error = 'Too long data not accept');
+      return;
+    }
     if (!_isValidEmail(email)) {
-      setState(() => _error = 'Enter a valid email address');
+      setState(() => _error = 'invalid email id');
       return;
     }
     if (password.isEmpty) {
       setState(() => _error = 'Password is required');
+      return;
+    }
+    if (password.length > 15) {
+      setState(() => _error = 'Too long data not accept');
       return;
     }
 
@@ -329,9 +341,7 @@ class _LoginPageState extends State<LoginPage>
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(
-                                    _showOtpStep
-                                        ? 'Verify OTP'
-                                        : '',
+                                    _showOtpStep ? 'Verify OTP' : '',
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
@@ -359,6 +369,7 @@ class _LoginPageState extends State<LoginPage>
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.mail_outline,
+                                      maxLength: 35,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 20),
@@ -368,6 +379,7 @@ class _LoginPageState extends State<LoginPage>
                                       obscureText: !_showPassword,
                                       textInputAction: TextInputAction.done,
                                       prefixIcon: Icons.lock_outline,
+                                      maxLength: 15,
                                       suffix: IconButton(
                                         onPressed: () => setState(
                                           () => _showPassword = !_showPassword,

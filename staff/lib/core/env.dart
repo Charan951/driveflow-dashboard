@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = false;
+  static const bool useProduction = true;
 
   static const String mapTileUrlTemplate = String.fromEnvironment(
     'MAP_TILE_URL_TEMPLATE',
@@ -50,6 +50,26 @@ class ApiEndpoints {
   static String bookingVerifyOtp(String id) => '/bookings/$id/verify-otp';
   static String bookingDetails(String id) => '/bookings/$id/details';
   static const String uploadMultiple = '/upload/multiple';
+
+  // Services Endpoints
+  static const String services = '/services';
+  static String serviceById(String id) => '/services/$id';
+
+  // Booking Car Wash Endpoints
+  static const String carWashBookings = '/bookings/carwash';
+  static String carWashBeforePhotos(String bookingId) =>
+      '/bookings/$bookingId/carwash/before-photos';
+  static String carWashAfterPhotos(String bookingId) =>
+      '/bookings/$bookingId/carwash/after-photos';
+  static String carWashStart(String bookingId) =>
+      '/bookings/$bookingId/carwash/start';
+  static String carWashComplete(String bookingId) =>
+      '/bookings/$bookingId/carwash/complete';
+
+  // Battery/Tire Endpoints
+  static String batteryTireApproval(String id) =>
+      '/bookings/$id/battery-tire-approval';
+  static String addWarranty(String id) => '/bookings/$id/warranty';
 
   // Merchant Endpoints
   static const String products = '/products';

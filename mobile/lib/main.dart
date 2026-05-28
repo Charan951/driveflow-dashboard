@@ -47,7 +47,7 @@ Future<void> initializeBackgroundService() async {
       notificationChannelId: 'high_importance_channel',
       initialNotificationTitle: 'Carzzi Service',
       initialNotificationContent: 'Running in background',
-      foregroundServiceNotificationId: 888,
+      foregroundServiceNotificationId: 999,
     ),
     iosConfiguration: IosConfiguration(
       autoStart: false,

@@ -10,7 +10,7 @@ import '../services/booking_service.dart';
 import '../services/notification_service.dart';
 import '../services/tracking_service.dart';
 import '../core/socket_sync.dart';
-// import '../services/socket_service.dart';
+import '../services/socket_service.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
@@ -30,7 +30,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   final ApiClient _api = ApiClient();
   final AuthService _authService = AuthService();
   final StaffTrackingService _trackingService = StaffTrackingService.instance;
-  // final SocketService _socketService = SocketService();
+  final SocketService _socketService = SocketService();
   final NotificationService _notificationService = NotificationService();
 
   List<BookingSummary> _bookings = [];
@@ -54,6 +54,17 @@ class _StaffHomePageState extends State<StaffHomePage> {
       }
     };
     _trackingService.info.addListener(_trackingListener);
+
+    // Socket listener for notifications
+    _socketService.addListener(() {
+      final event = _socketService.value;
+      if (event != null && event.startsWith('notification:')) {
+        if (mounted) {
+          _loadData();
+        }
+      }
+    });
+
     _loadData();
     _startTrackingIfEnabled();
   }
@@ -171,7 +182,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       decoration: InputDecoration(
                         labelText: 'Full Name',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -205,7 +218,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -238,7 +253,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       decoration: InputDecoration(
                         labelText: 'Address',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF6B7280),
                         ),
                         filled: true,
                         fillColor: isDark
@@ -294,7 +311,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
                                     final position =
                                         await Geolocator.getCurrentPosition(
-                                          desiredAccuracy: LocationAccuracy.high,
+                                          desiredAccuracy:
+                                              LocationAccuracy.high,
                                         );
                                     String address =
                                         '${position.latitude}, ${position.longitude}';
@@ -317,12 +335,14 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                     final message = e is ApiException
                                         ? e.message
                                         : 'Failed to fetch current location';
-                                    ScaffoldMessenger.of(
-                                      context,
-                                    ).showSnackBar(SnackBar(content: Text(message)));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(message)),
+                                    );
                                   } finally {
                                     if (context.mounted) {
-                                      setModalState(() => isPickingLocation = false);
+                                      setModalState(
+                                        () => isPickingLocation = false,
+                                      );
                                     }
                                   }
                                 },
@@ -330,7 +350,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Icon(
                                   Icons.my_location_rounded,
@@ -404,10 +426,12 @@ class _StaffHomePageState extends State<StaffHomePage> {
       ).showSnackBar(const SnackBar(content: Text('Profile updated')));
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : 'Failed to update profile';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      final message = e is ApiException
+          ? e.message
+          : 'Failed to update profile';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -529,184 +553,190 @@ class _StaffHomePageState extends State<StaffHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-          _NavItem(
-            icon: Icons.dashboard_rounded,
-            label: 'Dashboard',
-            selected: _selectedTab == StaffBottomNavTab.dashboard,
-            isDark: isDark,
-            onTap: () {
-              setState(() {
-                _selectedTab = StaffBottomNavTab.dashboard;
-              });
-              if (isCompact) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          _NavItem(
-            icon: Icons.list_alt_rounded,
-            label: 'Orders',
-            selected: _selectedTab == StaffBottomNavTab.orders,
-            isDark: isDark,
-            onTap: () {
-              setState(() {
-                _selectedTab = StaffBottomNavTab.orders;
-              });
-              if (isCompact) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          _NavItem(
-            icon: Icons.person_rounded,
-            label: 'Profile',
-            selected: _selectedTab == StaffBottomNavTab.profile,
-            isDark: isDark,
-            onTap: () {
-              setState(() {
-                _selectedTab = StaffBottomNavTab.profile;
-              });
-              if (isCompact) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          _NavItem(
-            icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-            label: isDark ? 'Light Mode' : 'Dark Mode',
-            selected: false,
-            isDark: isDark,
-            onTap: () {
-              context.read<ThemeProvider>().toggleTheme();
-            },
-          ),
-          const SizedBox(height: 8),
-          _NavItem(
-            icon: Icons.privacy_tip_rounded,
-            label: 'Privacy Policy',
-            selected: false,
-            isDark: isDark,
-            onTap: () async {
-              const url = 'https://carzzi.com/privacy';
-              if (await canLaunchUrl(Uri.parse(url))) {
-                await launchUrl(Uri.parse(url));
-              }
-            },
-          ),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Live Status',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : Colors.black,
+                _NavItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Dashboard',
+                  selected: _selectedTab == StaffBottomNavTab.dashboard,
+                  isDark: isDark,
+                  onTap: () {
+                    setState(() {
+                      _selectedTab = StaffBottomNavTab.dashboard;
+                    });
+                    if (isCompact) {
+                      Navigator.of(context).pop();
+                    }
+                  },
                 ),
-              ),
-              Switch(
-                value: _shareLocation,
-                onChanged: (v) {
-                  setState(() {
-                    _shareLocation = v;
-                  });
-                  _handleToggleTracking(v);
-                },
-                activeThumbColor: Colors.white,
-                activeTrackColor: isDark
-                    ? AppColors.success
-                    : const Color(0xFF22C55E),
-              ),
-            ],
-          ),
-          Text(
-            'Share location',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: isDark ? AppColors.textMuted : const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.backgroundSurface
-                  : const Color(0xFFECFDF3),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark ? AppColors.borderColor : const Color(0xFFBBF7D0),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                const SizedBox(height: 8),
+                _NavItem(
+                  icon: Icons.list_alt_rounded,
+                  label: 'Orders',
+                  selected: _selectedTab == StaffBottomNavTab.orders,
+                  isDark: isDark,
+                  onTap: () {
+                    setState(() {
+                      _selectedTab = StaffBottomNavTab.orders;
+                    });
+                    if (isCompact) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                _NavItem(
+                  icon: Icons.person_rounded,
+                  label: 'Profile',
+                  selected: _selectedTab == StaffBottomNavTab.profile,
+                  isDark: isDark,
+                  onTap: () {
+                    setState(() {
+                      _selectedTab = StaffBottomNavTab.profile;
+                    });
+                    if (isCompact) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                _NavItem(
+                  icon: isDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                  label: isDark ? 'Light Mode' : 'Dark Mode',
+                  selected: false,
+                  isDark: isDark,
+                  onTap: () {
+                    context.read<ThemeProvider>().toggleTheme();
+                  },
+                ),
+                const SizedBox(height: 8),
+                _NavItem(
+                  icon: Icons.privacy_tip_rounded,
+                  label: 'Privacy Policy',
+                  selected: false,
+                  isDark: isDark,
+                  onTap: () async {
+                    const url = 'https://carzzi.com/privacy';
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url));
+                    }
+                  },
+                ),
+                const SizedBox(height: 32),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? AppColors.success
-                            : const Color(0xFF22C55E),
-                      ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: Colors.white,
+                    Text(
+                      'Live Status',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _shareLocation
-                            ? 'You are Online & Tracking'
-                            : 'Tracking paused',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.success
-                              : const Color(0xFF166534),
-                        ),
-                      ),
+                    Switch(
+                      value: _shareLocation,
+                      onChanged: (v) {
+                        setState(() {
+                          _shareLocation = v;
+                        });
+                        _handleToggleTracking(v);
+                      },
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: isDark
+                          ? AppColors.success
+                          : const Color(0xFF22C55E),
                     ),
                   ],
                 ),
+                Text(
+                  'Share location',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.textMuted
+                        : const Color(0xFF6B7280),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                _StatusLine(
-                  label: 'Latitude',
-                  value: trackingInfo.lat != null
-                      ? trackingInfo.lat!.toStringAsFixed(6)
-                      : '-',
-                  isDark: isDark,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.backgroundSurface
+                        : const Color(0xFFECFDF3),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderColor
+                          : const Color(0xFFBBF7D0),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isDark
+                                  ? AppColors.success
+                                  : const Color(0xFF22C55E),
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _shareLocation
+                                  ? 'You are Online & Tracking'
+                                  : 'Tracking paused',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? AppColors.success
+                                    : const Color(0xFF166534),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _StatusLine(
+                        label: 'Latitude',
+                        value: trackingInfo.lat != null
+                            ? trackingInfo.lat!.toStringAsFixed(6)
+                            : '-',
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 4),
+                      _StatusLine(
+                        label: 'Longitude',
+                        value: trackingInfo.lng != null
+                            ? trackingInfo.lng!.toStringAsFixed(6)
+                            : '-',
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 4),
+                      _StatusLine(
+                        label: 'Last Update',
+                        value: _formatTime(trackingInfo.lastUpdate),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 4),
+                      _StatusLine(
+                        label: 'Server Sync',
+                        value: _formatTime(trackingInfo.lastServerSync),
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                _StatusLine(
-                  label: 'Longitude',
-                  value: trackingInfo.lng != null
-                      ? trackingInfo.lng!.toStringAsFixed(6)
-                      : '-',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 4),
-                _StatusLine(
-                  label: 'Last Update',
-                  value: _formatTime(trackingInfo.lastUpdate),
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 4),
-                _StatusLine(
-                  label: 'Server Sync',
-                  value: _formatTime(trackingInfo.lastServerSync),
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ),
               ],
             ),
           ),
@@ -760,8 +790,12 @@ class _StaffHomePageState extends State<StaffHomePage> {
       return s == 'DELIVERED' || s == 'COMPLETED';
     }).toList();
     deliveredJobs.sort((a, b) {
-      final aDate = DateTime.tryParse(a.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = DateTime.tryParse(b.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final aDate =
+          DateTime.tryParse(a.date ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate =
+          DateTime.tryParse(b.date ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       return bDate.compareTo(aDate);
     });
     final jobsForDisplay = _selectedTab == StaffBottomNavTab.dashboard
@@ -778,9 +812,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
       }
       filteredOrders.sort((a, b) {
         final aDate =
-            DateTime.tryParse(a.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.tryParse(a.date ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         final bDate =
-            DateTime.tryParse(b.date ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.tryParse(b.date ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         final cmp = bDate.compareTo(aDate);
         return _ordersSort == 'latest' ? cmp : -cmp;
       });
@@ -843,7 +879,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                         child: Text(
                           'No ongoing assigned services.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                            color: isDark
+                                ? Colors.grey[400]
+                                : const Color(0xFF6B7280),
                           ),
                         ),
                       )
@@ -871,10 +909,13 @@ class _StaffHomePageState extends State<StaffHomePage> {
                                   ),
                                   title: Text(
                                     b.vehicleName ?? 'Booking',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
                                   ),
                                   subtitle: Text(
                                     'Order #${b.orderNumber ?? b.id}',
@@ -948,7 +989,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    
+
                     RepaintBoundary(
                       child: Row(
                         children: [
@@ -1339,21 +1380,15 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 value: user.phone ?? 'Not provided',
                 isDark: isDark,
               ),
-              if (user.subRole != null) ...[
-                const SizedBox(height: 16),
-                _ProfileDetailItem(
-                  icon: Icons.work_outline_rounded,
-                  label: 'Department',
-                  value: user.subRole!,
-                  isDark: isDark,
-                ),
-              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _logout,
-                  icon: const Icon(Icons.logout_rounded, color: AppColors.error),
+                  icon: const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.error,
+                  ),
                   label: const Text(
                     'Logout',
                     style: TextStyle(
@@ -1413,148 +1448,148 @@ class _StaffHomePageState extends State<StaffHomePage> {
         if (!_isLoading) _loadData();
       },
       child: LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 720;
-        if (isCompact) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(
-                _selectedTitle,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF1E3A8A),
-                              ),
-              ),
-              actions: [
-                if (_selectedTab == StaffBottomNavTab.profile)
-                  IconButton(
-                    tooltip: 'Edit Profile',
-                    onPressed: _showEditStaffProfileDialog,
-                    icon: const Icon(Icons.edit_outlined),
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 720;
+          if (isCompact) {
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  _selectedTitle,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF1E3A8A),
                   ),
-                IconButton(
-                  tooltip: 'Notifications',
-                  onPressed: () async {
-                    await Navigator.pushNamed(context, '/notifications');
-                    if (!mounted) return;
-                    _loadData();
-                  },
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications_none_rounded),
-                      if (_unreadNotifications > 0)
-                        Positioned(
-                          right: -6,
-                          top: -6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEF4444),
-                              borderRadius: BorderRadius.all(Radius.circular(999)),
-                            ),
-                            constraints: const BoxConstraints(minWidth: 16),
-                            child: Text(
-                              _unreadNotifications > 99
-                                  ? '99+'
-                                  : _unreadNotifications.toString(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
+                ),
+                actions: [
+                  if (_selectedTab == StaffBottomNavTab.profile)
+                    IconButton(
+                      tooltip: 'Edit Profile',
+                      onPressed: _showEditStaffProfileDialog,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  IconButton(
+                    tooltip: 'Notifications',
+                    onPressed: () async {
+                      await Navigator.pushNamed(context, '/notifications');
+                      if (!mounted) return;
+                      _loadData();
+                    },
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications_none_rounded),
+                        if (_unreadNotifications > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEF4444),
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(999),
+                                ),
+                              ),
+                              constraints: const BoxConstraints(minWidth: 16),
+                              child: Text(
+                                _unreadNotifications > 99
+                                    ? '99+'
+                                    : _unreadNotifications.toString(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            drawer: Drawer(
-              child: SafeArea(
-                child: _buildSidebarContent(theme, trackingInfo, true),
+                ],
               ),
-            ),
-            bottomNavigationBar: StaffBottomNav(
-              selectedTab: _selectedTab,
-              onTabSelected: (tab) {
-                setState(() {
-                  _selectedTab = tab;
-                });
-              },
-            ),
-            body: Container(
-              color: isDark
-                  ? AppColors.backgroundPrimary
-                  : const Color(0xFFF3F4F6),
-              child: _buildMainContent(
-                theme,
-                bookings,
-                todayCount,
-                completedCount,
-                isDark,
+              drawer: Drawer(
+                child: SafeArea(
+                  child: _buildSidebarContent(theme, trackingInfo, true),
+                ),
+              ),
+              bottomNavigationBar: StaffBottomNav(
+                selectedTab: _selectedTab,
+                onTabSelected: (tab) {
+                  setState(() {
+                    _selectedTab = tab;
+                  });
+                },
+              ),
+              body: Container(
+                color: isDark
+                    ? AppColors.backgroundPrimary
+                    : const Color(0xFFF3F4F6),
+                child: _buildMainContent(
+                  theme,
+                  bookings,
+                  todayCount,
+                  completedCount,
+                  isDark,
+                ),
+              ),
+            );
+          }
+
+          return Scaffold(
+            body: SafeArea(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 260,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.backgroundSecondary
+                          : Colors.white,
+                      border: Border(
+                        right: BorderSide(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark
+                              ? Colors.black.withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 20,
+                          offset: const Offset(4, 0),
+                        ),
+                      ],
+                    ),
+                    child: _buildSidebarContent(theme, trackingInfo, false),
+                  ),
+                  Expanded(
+                    child: Container(
+                      color: isDark
+                          ? AppColors.backgroundPrimary
+                          : const Color(0xFFF3F4F6),
+                      child: _buildMainContent(
+                        theme,
+                        bookings,
+                        todayCount,
+                        completedCount,
+                        isDark,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
-        }
-
-        return Scaffold(
-          body: SafeArea(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 260,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.backgroundSecondary
-                        : Colors.white,
-                    border: Border(
-                      right: BorderSide(
-                        color: isDark
-                            ? AppColors.borderColor
-                            : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isDark
-                            ? Colors.black.withValues(alpha: 0.3)
-                            : Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 20,
-                        offset: const Offset(4, 0),
-                      ),
-                    ],
-                  ),
-                  child: _buildSidebarContent(theme, trackingInfo, false),
-                ),
-                Expanded(
-                  child: Container(
-                    color: isDark
-                        ? AppColors.backgroundPrimary
-                        : const Color(0xFFF3F4F6),
-                    child: _buildMainContent(
-                      theme,
-                      bookings,
-                      todayCount,
-                      completedCount,
-                      isDark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
+        },
+      ),
     );
   }
 }

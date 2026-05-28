@@ -40,6 +40,35 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<void> _handleDelete(NotificationItem item) async {
+    final originalItems = List<NotificationItem>.from(_items);
+    setState(() {
+      _items.removeWhere((n) => n.id == item.id);
+    });
+
+    try {
+      await _notificationService.deleteNotification(item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notification deleted'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = originalItems;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete notification: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _openNotification(NotificationItem item) async {
     try {
       if (!item.isRead) {
@@ -82,9 +111,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       await _notificationService.clearAll();
       if (!mounted) return;
       setState(() => _items = []);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('All notifications cleared')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All notifications cleared')),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,79 +155,123 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 separatorBuilder: (_, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final item = _items[index];
-                  final hasOrder = (item.orderId ?? item.bookingId)?.isNotEmpty == true;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: hasOrder ? () => _openNotification(item) : null,
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
+                  final hasOrder =
+                      (item.orderId ?? item.bookingId)?.isNotEmpty == true;
+                  return Dismissible(
+                    key: Key('notif_${item.id}'),
+                    direction: DismissDirection.horizontal,
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+                        color: Colors.redAccent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: item.isRead
-                              ? (isDark
-                                    ? AppColors.borderColor
-                                    : const Color(0xFFE5E7EB))
-                              : (isDark
-                                    ? AppColors.primaryPurple.withValues(alpha: 0.5)
-                                    : const Color(0xFFC7D2FE)),
-                        ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(top: 6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: item.isRead
-                                  ? (isDark ? Colors.grey[600] : Colors.grey[400])
-                                  : AppColors.primaryPurple,
-                            ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    onDismissed: (direction) => _handleDelete(item),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: hasOrder ? () => _openNotification(item) : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.backgroundSecondary
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: item.isRead
+                                ? (isDark
+                                      ? AppColors.borderColor
+                                      : const Color(0xFFE5E7EB))
+                                : (isDark
+                                      ? AppColors.primaryPurple.withValues(
+                                          alpha: 0.5,
+                                        )
+                                      : const Color(0xFFC7D2FE)),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.title.isEmpty ? 'Notification' : item.title,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark ? Colors.white : Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.message,
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.grey[300]
-                                        : const Color(0xFF374151),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  DateFormat('dd MMM, hh:mm a').format(item.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : const Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: item.isRead
+                                    ? (isDark
+                                          ? Colors.grey[600]
+                                          : Colors.grey[400])
+                                    : AppColors.primaryPurple,
+                              ),
                             ),
-                          ),
-                          if (hasOrder)
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: isDark ? Colors.grey[500] : Colors.grey[400],
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.title.isEmpty
+                                        ? 'Notification'
+                                        : item.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.message,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.grey[300]
+                                          : const Color(0xFF374151),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    DateFormat(
+                                      'dd MMM, hh:mm a',
+                                    ).format(item.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.grey[500]
+                                          : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                        ],
+                            if (hasOrder)
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: isDark
+                                    ? Colors.grey[500]
+                                    : Colors.grey[400],
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   );

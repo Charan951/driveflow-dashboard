@@ -63,6 +63,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
     processFiles(selectedFiles);
+    // Reset input value
+    e.target.value = '';
   };
 
   const removeFile = (index: number) => {

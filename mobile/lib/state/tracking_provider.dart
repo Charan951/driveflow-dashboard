@@ -9,6 +9,8 @@ class TrackingProvider extends ChangeNotifier {
   Map<String, dynamic>? _eta;
   bool _isVisible = false;
   String? _lastStatus;
+  String? _lastNotificationBody;
+  DateTime? _lastNotificationTime;
   final NotificationService _notificationService = NotificationService();
 
   Booking? get activeBooking => _activeBooking;
@@ -55,6 +57,8 @@ class TrackingProvider extends ChangeNotifier {
     _eta = null;
     _isVisible = false;
     _lastStatus = null;
+    _lastNotificationBody = null;
+    _lastNotificationTime = null;
     _notificationService.cancelTrackingNotification();
     notifyListeners();
   }
@@ -129,6 +133,18 @@ class TrackingProvider extends ChangeNotifier {
       }
     }
 
+    final now = DateTime.now();
+
+    if (!forcePop &&
+        _lastNotificationBody == body &&
+        _lastNotificationTime != null &&
+        now.difference(_lastNotificationTime!) < const Duration(seconds: 30)) {
+      return;
+    }
+
+    _lastNotificationBody = body;
+    _lastNotificationTime = now;
+
     _notificationService.showOngoingTrackingNotification(
       title: "Tracking Order #$orderNum",
       body: body,
@@ -139,6 +155,8 @@ class TrackingProvider extends ChangeNotifier {
 
   void dismiss() {
     _isVisible = false;
+    _lastNotificationBody = null;
+    _lastNotificationTime = null;
     _notificationService.cancelTrackingNotification();
     notifyListeners();
   }

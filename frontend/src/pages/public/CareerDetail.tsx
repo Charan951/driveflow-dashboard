@@ -36,7 +36,7 @@ const CareerDetail: React.FC = () => {
     fetchCareer();
   }, [id]);
 
-  const onUploadResume = async (file?: File) => {
+  const onUploadResume = async (file?: File, event?: React.ChangeEvent<HTMLInputElement>) => {
     if (!file) return;
     try {
       setUploadingResume(true);
@@ -47,6 +47,9 @@ const CareerDetail: React.FC = () => {
       toast.error(error?.response?.data?.message || 'Resume upload failed');
     } finally {
       setUploadingResume(false);
+      if (event?.target) {
+        event.target.value = '';
+      }
     }
   };
 
@@ -156,7 +159,7 @@ const CareerDetail: React.FC = () => {
                 <label className="px-4 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer inline-flex items-center gap-2">
                   <Upload className="w-4 h-4" />
                   {uploadingResume ? 'Uploading...' : 'Choose File'}
-                  <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => onUploadResume(e.target.files?.[0])} />
+                  <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => onUploadResume(e.target.files?.[0], e)} />
                 </label>
                 <span className="text-xs text-muted-foreground truncate">{form.resumeUrl ? 'Resume uploaded' : 'No file uploaded'}</span>
               </div>

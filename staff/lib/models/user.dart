@@ -4,9 +4,14 @@ class StaffUser {
   final String email;
   final String role;
   final String? subRole;
+  final String? status;
   final String? category;
   final String? phone;
   final bool? isShopOpen;
+  final bool? isOnline;
+  final String? lastSeen;
+  final bool? isApproved;
+  final String? createdAt;
   final UserLocation? location;
 
   StaffUser({
@@ -15,9 +20,14 @@ class StaffUser {
     required this.email,
     required this.role,
     this.subRole,
+    this.status,
     this.category,
     this.phone,
     this.isShopOpen,
+    this.isOnline,
+    this.lastSeen,
+    this.isApproved,
+    this.createdAt,
     this.location,
   });
 
@@ -28,9 +38,14 @@ class StaffUser {
       email: json['email']?.toString() ?? '',
       role: json['role']?.toString() ?? '',
       subRole: json['subRole']?.toString(),
+      status: json['status']?.toString(),
       category: json['category']?.toString(),
       phone: json['phone']?.toString(),
       isShopOpen: json['isShopOpen'] as bool?,
+      isOnline: json['isOnline'] as bool?,
+      lastSeen: json['lastSeen']?.toString(),
+      isApproved: json['isApproved'] as bool?,
+      createdAt: json['createdAt']?.toString(),
       location: json['location'] != null
           ? UserLocation.fromJson(Map<String, dynamic>.from(json['location']))
           : null,
@@ -44,9 +59,14 @@ class StaffUser {
       'email': email,
       'role': role,
       'subRole': subRole,
+      'status': status,
       'category': category,
       'phone': phone,
       'isShopOpen': isShopOpen,
+      'isOnline': isOnline,
+      'lastSeen': lastSeen,
+      'isApproved': isApproved,
+      'createdAt': createdAt,
       if (location != null) 'location': location!.toJson(),
     };
   }

@@ -514,8 +514,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                               height: 120,
                                               width: double.infinity,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, _, _) =>
-                                                  const SizedBox.shrink(),
+                                              errorBuilder: (_, __, ___) => Container(
+                                                height: 120,
+                                                color: Colors.grey.shade100,
+                                                alignment: Alignment.center,
+                                                child: const Icon(Icons.broken_image, color: Colors.grey),
+                                              ),
+                                              loadingBuilder: (context, child, progress) {
+                                                if (progress == null) return child;
+                                                return Container(
+                                                  height: 120,
+                                                  color: Colors.grey.shade100,
+                                                  alignment: Alignment.center,
+                                                  child: const SizedBox(
+                                                    width: 24,
+                                                    height: 24,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  ),
+                                                );
+                                              },
                                             ),
                                           ),
                                         );

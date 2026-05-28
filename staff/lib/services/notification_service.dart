@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 import '../firebase_options.dart';
 
 // Import PlatformUtils only for non-web
 import './platform_utils.dart'
     if (dart.library.html) './platform_utils_web.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../core/api_client.dart';
 import '../main.dart'; // Import to use rootNavigatorKey
 
@@ -17,21 +18,11 @@ import '../main.dart'; // Import to use rootNavigatorKey
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
   debugPrint("Handling a background message: ${message.messageId}");
-}
-
-@pragma('vm:entry-point')
-void _onDidReceiveBackgroundNotificationResponse(
-  NotificationResponse response,
-) {
-  try {
-    NotificationService()._handleNotificationClick(
-      response.payload,
-      actionId: response.actionId,
-    );
-  } catch (_) {}
 }
 
 class NotificationItem {
@@ -59,10 +50,12 @@ class NotificationItem {
     final nestedData = json['data'];
     final Map<String, dynamic> dataMap = nestedData is Map<String, dynamic>
         ? nestedData
-        : (nestedData is Map ? Map<String, dynamic>.from(nestedData) : <String, dynamic>{});
+        : (nestedData is Map
+              ? Map<String, dynamic>.from(nestedData)
+              : <String, dynamic>{});
     final bookingId = (json['bookingId'] ?? dataMap['bookingId'])?.toString();
-    final orderId =
-        (json['orderId'] ?? dataMap['orderId'] ?? bookingId)?.toString();
+    final orderId = (json['orderId'] ?? dataMap['orderId'] ?? bookingId)
+        ?.toString();
     return NotificationItem(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
@@ -92,7 +85,9 @@ class NotificationService {
 
   Future<void> _ensureFirebaseReady() async {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   }
 
@@ -104,36 +99,7 @@ class NotificationService {
     if (_initialized) return;
     await _ensureFirebaseReady();
 
-    // 1. Initialize Local Notifications
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        );
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsIOS,
-        );
-
-    await _localNotifications.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        _handleNotificationClick(response.payload, actionId: response.actionId);
-      },
-      onDidReceiveBackgroundNotificationResponse:
-          _onDidReceiveBackgroundNotificationResponse,
-    );
-
-    // 2. Create Android Notification Channels
-    await PlatformUtils.createAndroidNotificationChannels(_localNotifications);
-
-    // 3. Set up FCM listeners
+    // Set up FCM listeners
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     await FirebaseMessaging.instance
@@ -143,8 +109,14 @@ class NotificationService {
           sound: true,
         );
 
-    // Foreground messages
+    // Initialize local notifications for foreground display
+    await _initLocalNotifications();
+
+    // Foreground message listener - show local notification
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint('Got a message whilst in the foreground!');
+      debugPrint('Message data: ${message.data}');
+
       _showLocalNotification(message);
     });
 
@@ -159,10 +131,98 @@ class NotificationService {
       _handleNotificationClick(jsonEncode(initialMessage.data));
     }
 
-    // 4. Token Management (Listeners only, actual sync happens in syncToken)
+    // Token Management (Listeners only, actual sync happens in syncToken)
     _setupTokenListeners();
 
     _initialized = true;
+  }
+
+  Future<void> _initLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings();
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
+
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          _handleNotificationClick(response.payload!);
+        }
+      },
+    );
+
+    // Create notification channel for Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'staff_notifications',
+      'Staff Notifications',
+      description: 'Notifications for staff assignments and updates',
+      importance: Importance.max,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    RemoteNotification? notification = message.notification;
+
+    if (notification != null) {
+      final String? imageUrl =
+          notification.android?.imageUrl ?? notification.apple?.imageUrl;
+      AndroidBitmap<Object>? largeIcon;
+
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        try {
+          final http.Response response = await http.get(Uri.parse(imageUrl));
+          if (response.statusCode == 200) {
+            largeIcon = ByteArrayAndroidBitmap(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint('Error loading notification image: $e');
+        }
+      }
+
+      final AndroidNotificationDetails androidPlatformChannelSpecifics =
+          AndroidNotificationDetails(
+            'staff_notifications',
+            'Staff Notifications',
+            channelDescription:
+                'Notifications for staff assignments and updates',
+            importance: Importance.max,
+            priority: Priority.high,
+            showWhen: true,
+            largeIcon:
+                largeIcon ??
+                const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          );
+
+      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+          DarwinNotificationDetails();
+
+      final NotificationDetails platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSPlatformChannelSpecifics,
+      );
+
+      await _localNotifications.show(
+        DateTime.now().millisecond,
+        notification.title,
+        notification.body,
+        platformChannelSpecifics,
+        payload: jsonEncode(message.data),
+      );
+    }
   }
 
   Future<void> requestPermissions() async {
@@ -201,110 +261,7 @@ class NotificationService {
     }
   }
 
-  void _showLocalNotification(RemoteMessage message) async {
-    if (kIsWeb) return;
-    RemoteNotification? notification = message.notification;
-    String? imageUrl =
-        message.data['image'] ??
-        notification?.android?.imageUrl ??
-        notification?.apple?.imageUrl;
-
-    if (notification != null) {
-      BigPictureStyleInformation? bigPictureStyleInformation;
-      if (imageUrl != null && imageUrl.isNotEmpty) {
-        // TODO: Download image and save locally for offline display
-        bigPictureStyleInformation = BigPictureStyleInformation(
-          FilePathAndroidBitmap(imageUrl),
-          largeIcon: FilePathAndroidBitmap(imageUrl),
-        );
-      }
-
-      await _localNotifications.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel',
-            'High Importance Notifications',
-            channelDescription:
-                'This channel is used for important notifications.',
-            importance: Importance.max,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-            visibility: NotificationVisibility.public,
-            styleInformation: bigPictureStyleInformation,
-            largeIcon: imageUrl != null
-                ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
-                : null,
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            interruptionLevel: InterruptionLevel.active,
-          ),
-        ),
-        payload: jsonEncode(message.data),
-      );
-    }
-  }
-
-  Future<void> showLocalNotification({
-    required String title,
-    required String body,
-    String? imageUrl,
-    String? payload,
-  }) async {
-    if (kIsWeb) return;
-
-    BigPictureStyleInformation? bigPictureStyleInformation;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      bigPictureStyleInformation = BigPictureStyleInformation(
-        FilePathAndroidBitmap(imageUrl),
-        largeIcon: FilePathAndroidBitmap(imageUrl),
-      );
-    }
-
-    final AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'high_importance_channel',
-          'High Importance Notifications',
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.max,
-          priority: Priority.high,
-          showWhen: true,
-          playSound: true,
-          icon: '@mipmap/ic_launcher',
-          styleInformation: bigPictureStyleInformation,
-          largeIcon: imageUrl != null
-              ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
-              : null,
-        );
-
-    final NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: const DarwinNotificationDetails(
-        presentAlert: true,
-        presentSound: true,
-        presentBadge: true,
-      ),
-    );
-
-    await _localNotifications.show(
-      (DateTime.now().millisecondsSinceEpoch % 100000).toInt(),
-      title,
-      body,
-      platformChannelSpecifics,
-      payload: payload,
-    );
-  }
-
-  Future<void> _handleNotificationClick(
-    String? payload, {
-    String? actionId,
-  }) async {
+  Future<void> _handleNotificationClick(String? payload) async {
     if (payload == null) return;
     try {
       Map<String, dynamic> data = jsonDecode(payload);
@@ -316,7 +273,23 @@ class NotificationService {
         final String? orderId = data['orderId']?.toString() ?? bookingId;
         final String? type = data['type']?.toString();
 
-        if (type == 'new_order' || type == 'assignment') {
+        // Staff-specific notification types
+        if (type == 'assignment' || type == 'staff_assigned') {
+          // Admin assigned booking to staff
+          if (orderId != null) {
+            Navigator.pushNamed(context, '/order', arguments: orderId);
+          } else {
+            Navigator.pushNamed(context, '/home');
+          }
+        } else if (type == 'service_completed' ||
+            type == 'merchant_service_complete') {
+          // Merchant completed service - staff should pick up vehicle
+          if (orderId != null) {
+            Navigator.pushNamed(context, '/order', arguments: orderId);
+          } else {
+            Navigator.pushNamed(context, '/home');
+          }
+        } else if (type == 'new_order' || type == 'status_update') {
           if (orderId != null) {
             Navigator.pushNamed(context, '/order', arguments: orderId);
           } else {
@@ -324,14 +297,13 @@ class NotificationService {
           }
         } else if (type == 'merchant_update') {
           Navigator.pushNamed(context, '/merchant-orders');
-        } else if (type == 'status_update') {
+        } else {
+          // Default navigation for other notifications
           if (orderId != null) {
             Navigator.pushNamed(context, '/order', arguments: orderId);
           } else {
             Navigator.pushNamed(context, '/home');
           }
-        } else {
-          Navigator.pushNamed(context, '/home');
         }
       }
     } catch (e) {
@@ -360,6 +332,11 @@ class NotificationService {
   Future<void> markAsRead(String id) async {
     if (id.isEmpty) return;
     await _api.putAny('/notifications/$id/read');
+  }
+
+  Future<void> deleteNotification(String id) async {
+    if (id.isEmpty) return;
+    await _api.deleteAny('/notifications/$id');
   }
 
   Future<void> clearAll() async {

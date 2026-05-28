@@ -85,6 +85,12 @@ class _RegisterPageState extends State<RegisterPage>
     return hasLen && hasNum && hasUpper;
   }
 
+  bool _isValidName(String value) {
+    final trimmed = value.trim();
+    // Allow letters, spaces, apostrophes, hyphens only
+    return RegExp(r'^[a-zA-Z][a-zA-Z\s\'-]*$').hasMatch(trimmed);
+  }
+
   bool _validateSignupForm({
     required String name,
     required String email,
@@ -96,12 +102,32 @@ class _RegisterPageState extends State<RegisterPage>
       setState(() => _error = 'Full name is required');
       return false;
     }
+    if (name.length > 50) {
+      setState(() => _error = 'Too long data not accept');
+      return false;
+    }
+    if (!_isValidName(name)) {
+      setState(() => _error = 'Please enter a valid full name (must contain letters only with spaces, apostrophes, or hyphens)');
+      return false;
+    }
     if (email.isEmpty) {
       setState(() => _error = 'Email is required');
       return false;
     }
+    if (_emailController.text != _emailController.text.trim()) {
+      setState(() => _error = 'invalid email id');
+      return false;
+    }
+    if (email.length > 35) {
+      setState(() => _error = 'Too long data not accept');
+      return false;
+    }
     if (!_isValidEmail(email)) {
-      setState(() => _error = 'Enter a valid email address');
+      setState(() => _error = 'invalid email id');
+      return false;
+    }
+    if (pass.length > 15) {
+      setState(() => _error = 'Too long data not accept');
       return false;
     }
     final digits = _digitsOnly(phone);
@@ -248,7 +274,7 @@ class _RegisterPageState extends State<RegisterPage>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.cinematicOrange.withValues(alpha: 0.15),
+                    AppColors.cinematicOrange.withOpacity(0.15),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.7],
@@ -282,15 +308,13 @@ class _RegisterPageState extends State<RegisterPage>
                           ),
                           const SizedBox(height: 24),
                           Card(
-                            color: AppColors.backgroundSecondary.withValues(
-                              alpha: 0.9,
-                            ),
+                            color: AppColors.backgroundSecondary.withOpacity(0.9),
                             elevation: 8,
-                            shadowColor: Colors.black.withValues(alpha: 0.5),
+                            shadowColor: Colors.black.withOpacity(0.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                               side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.05),
+                                color: Colors.white.withOpacity(0.05),
                               ),
                             ),
                             child: Padding(
@@ -335,6 +359,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       hintText: 'Full Name',
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.person_outline,
+                                      maxLength: 50,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 16),
@@ -344,6 +369,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.mail_outline,
+                                      maxLength: 35,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 16),
@@ -353,6 +379,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.lock_outline,
                                       obscureText: !_showPassword,
+                                      maxLength: 15,
                                       suffix: IconButton(
                                         onPressed: () => setState(
                                           () => _showPassword = !_showPassword,
@@ -374,6 +401,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.lock_outline,
                                       obscureText: !_showPassword,
+                                      maxLength: 15,
                                       suffix: IconButton(
                                         onPressed: () => setState(
                                           () => _showPassword = !_showPassword,
@@ -417,9 +445,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         vertical: 8,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.error.withValues(
-                                          alpha: 0.1,
-                                        ),
+                                        color: AppColors.error.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
@@ -458,7 +484,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         foregroundColor: Colors.white,
                                         elevation: 4,
                                         shadowColor: AppColors.cinematicOrange
-                                            .withValues(alpha: 0.4),
+                                            .withOpacity(0.4),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             16,
@@ -466,7 +492,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         disabledBackgroundColor: AppColors
                                             .cinematicOrange
-                                            .withValues(alpha: 0.6),
+                                            .withOpacity(0.6),
                                       ),
                                       child: _submitting
                                           ? const SizedBox(
@@ -591,6 +617,7 @@ class _GlassField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final Widget? suffix;
+  final int? maxLength;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -602,6 +629,7 @@ class _GlassField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.suffix,
+    this.maxLength,
     this.onChanged,
     this.onSubmitted,
   });
@@ -613,6 +641,7 @@ class _GlassField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      maxLength: maxLength,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       style: const TextStyle(color: Colors.white),
@@ -634,19 +663,20 @@ class _GlassField extends StatelessWidget {
           size: 20,
         ),
         suffixIcon: suffix,
+        counterText: '',
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.03),
+        fillColor: Colors.white.withOpacity(0.03),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
