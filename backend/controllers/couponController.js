@@ -125,15 +125,63 @@ export const createCoupon = async (req, res) => {
     const missingFields = [];
     if (!code) missingFields.push('code');
     if (!discountPercentage) missingFields.push('discountPercentage');
+    if (!maxDiscountAmount && maxDiscountAmount !== 0) missingFields.push('maxDiscountAmount');
+    if (!minOrderAmount && minOrderAmount !== 0) missingFields.push('minOrderAmount');
+    if (!usageLimit && usageLimit !== 0) missingFields.push('usageLimit');
     if (!validFrom) missingFields.push('validFrom');
     if (!validUntil) missingFields.push('validUntil');
+    if (!description) missingFields.push('description');
 
     if (missingFields.length > 0) {
       return res.status(400).json({ message: `Missing fields: ${missingFields.join(', ')}` });
     }
 
+    // Validate coupon code: only alphanumeric, underscores, and hyphens
+    const couponCodeRegex = /^[A-Z0-9_-]+$/i;
+    if (!couponCodeRegex.test(code)) {
+      return res.status(400).json({ message: 'Please enter valid data' });
+    }
+    // Validate coupon code length
+    if (code.length > 20) {
+      return res.status(400).json({ message: 'Coupon code cannot exceed 20 characters' });
+    }
+
     if (discountPercentage < 1 || discountPercentage > 100) {
       return res.status(400).json({ message: 'Discount percentage must be between 1 and 100' });
+    }
+    if (Number(maxDiscountAmount) < 0 || Number(maxDiscountAmount) > 999999) {
+      return res.status(400).json({ message: 'Max discount must be between 0 and 999999' });
+    }
+    if (Number(minOrderAmount) < 0 || Number(minOrderAmount) > 999999) {
+      return res.status(400).json({ message: 'Min order amount must be between 0 and 999999' });
+    }
+    if (Number(usageLimit) < 1 || Number(usageLimit) > 999999) {
+      return res.status(400).json({ message: 'Usage limit must be between 1 and 999999' });
+    }
+    if (description && description.length > 500) {
+      return res.status(400).json({ message: 'Description cannot exceed 500 characters' });
+    }
+    const descriptionRegex = /^[\w\s.,!?'"()-]*$/;
+    if (!descriptionRegex.test(description)) {
+      return res.status(400).json({ message: 'Please enter valid data' });
+    }
+    // Validate target users
+    if (targetUsers && Array.isArray(targetUsers)) {
+      for (const user of targetUsers) {
+        if (user.email && user.email.length > 100) {
+          return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+        }
+      }
+    }
+    // Validate date ranges
+    const maxDate = new Date('2999-12-31');
+    const validFromDate = new Date(validFrom);
+    const validUntilDate = new Date(validUntil);
+    if (validFromDate > maxDate) {
+      return res.status(400).json({ message: 'Valid From date cannot exceed 2999-12-31' });
+    }
+    if (validUntilDate > maxDate) {
+      return res.status(400).json({ message: 'Valid Until date cannot exceed 2999-12-31' });
     }
 
     const existingCoupon = await Coupon.findOne({ code: code.toUpperCase() });
@@ -144,8 +192,8 @@ export const createCoupon = async (req, res) => {
     const coupon = new Coupon({
       code: code.toUpperCase(),
       discountPercentage,
-      maxDiscountAmount: maxDiscountAmount || null,
-      minOrderAmount: minOrderAmount || 0,
+      maxDiscountAmount: Number(maxDiscountAmount),
+      minOrderAmount: Number(minOrderAmount),
       usageLimit: usageLimit || null,
       usageCount: 0,
       validFrom: new Date(validFrom),
@@ -187,6 +235,15 @@ export const updateCoupon = async (req, res) => {
     }
 
     if (code !== undefined) {
+      // Validate coupon code: only alphanumeric, underscores, and hyphens
+      const couponCodeRegex = /^[A-Z0-9_-]+$/i;
+      if (!couponCodeRegex.test(code)) {
+        return res.status(400).json({ message: 'Please enter valid data' });
+      }
+      // Validate coupon code length
+      if (code.length > 20) {
+        return res.status(400).json({ message: 'Coupon code cannot exceed 20 characters' });
+      }
       const existingCoupon = await Coupon.findOne({ 
         code: code.toUpperCase(), 
         _id: { $ne: req.params.id } 
@@ -203,10 +260,52 @@ export const updateCoupon = async (req, res) => {
       }
       coupon.discountPercentage = discountPercentage;
     }
-
-    if (maxDiscountAmount !== undefined) coupon.maxDiscountAmount = maxDiscountAmount || null;
-    if (minOrderAmount !== undefined) coupon.minOrderAmount = minOrderAmount || 0;
-    if (usageLimit !== undefined) coupon.usageLimit = usageLimit || null;
+    if (maxDiscountAmount !== undefined) {
+      if (Number(maxDiscountAmount) < 0 || Number(maxDiscountAmount) > 999999) {
+        return res.status(400).json({ message: 'Max discount must be between 0 and 999999' });
+      }
+      coupon.maxDiscountAmount = Number(maxDiscountAmount);
+    }
+    if (minOrderAmount !== undefined) {
+      if (Number(minOrderAmount) < 0 || Number(minOrderAmount) > 999999) {
+        return res.status(400).json({ message: 'Min order amount must be between 0 and 999999' });
+      }
+      coupon.minOrderAmount = Number(minOrderAmount);
+    }
+    if (usageLimit !== undefined) {
+      if (Number(usageLimit) < 1 || Number(usageLimit) > 999999) {
+        return res.status(400).json({ message: 'Usage limit must be between 1 and 999999' });
+      }
+      coupon.usageLimit = Number(usageLimit);
+    }
+    // Validate target users
+    if (targetUsers !== undefined && Array.isArray(targetUsers)) {
+      for (const user of targetUsers) {
+        if (user.email && user.email.length > 100) {
+          return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+        }
+      }
+    }
+    if (description !== undefined) {
+      if (description && description.length > 500) {
+        return res.status(400).json({ message: 'Description cannot exceed 500 characters' });
+      }
+      const descriptionRegex = /^[\w\s.,!?'"()-]*$/;
+      if (!descriptionRegex.test(description)) {
+        return res.status(400).json({ message: 'Please enter valid data' });
+      }
+    }
+    if (validFrom !== undefined || validUntil !== undefined) {
+      const maxDate = new Date('2999-12-31');
+      const validFromDate = validFrom !== undefined ? new Date(validFrom) : coupon.validFrom;
+      const validUntilDate = validUntil !== undefined ? new Date(validUntil) : coupon.validUntil;
+      if (validFromDate > maxDate) {
+        return res.status(400).json({ message: 'Valid From date cannot exceed 2999-12-31' });
+      }
+      if (validUntilDate > maxDate) {
+        return res.status(400).json({ message: 'Valid Until date cannot exceed 2999-12-31' });
+      }
+    }
     if (validFrom !== undefined) coupon.validFrom = new Date(validFrom);
     if (validUntil !== undefined) coupon.validUntil = new Date(validUntil);
     if (isActive !== undefined) coupon.isActive = isActive;

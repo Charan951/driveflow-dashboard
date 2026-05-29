@@ -6,7 +6,9 @@ const couponSchema = new mongoose.Schema({
     required: true,
     unique: true,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    match: [/^[A-Z0-9_-]+$/, 'Please enter valid data'],
+    maxlength: [20, 'Coupon code cannot exceed 20 characters']
   },
   discountPercentage: {
     type: Number,
@@ -16,15 +18,21 @@ const couponSchema = new mongoose.Schema({
   },
   maxDiscountAmount: {
     type: Number,
-    default: null
+    required: true,
+    min: 0,
+    max: 999999
   },
   minOrderAmount: {
     type: Number,
-    default: 0
+    required: true,
+    min: 0,
+    max: 999999
   },
   usageLimit: {
     type: Number,
-    default: null
+    required: true,
+    min: 1,
+    max: 999999
   },
   usageCount: {
     type: Number,
@@ -52,7 +60,9 @@ const couponSchema = new mongoose.Schema({
   }],
   description: {
     type: String,
-    default: ''
+    required: true,
+    maxlength: [500, 'Description cannot exceed 500 characters'],
+    match: [/^[\w\s.,!?'"()-]*$/, 'Please enter valid data']
   }
 }, {
   timestamps: true

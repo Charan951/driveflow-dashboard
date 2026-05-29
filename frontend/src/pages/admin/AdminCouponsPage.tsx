@@ -221,10 +221,11 @@ const AdminCouponsPage: React.FC = () => {
 const CouponModal = ({ coupon, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     code: coupon?.code || '',
+
     discountPercentage: coupon?.discountPercentage || 10,
-    maxDiscountAmount: coupon?.maxDiscountAmount || '',
-    minOrderAmount: coupon?.minOrderAmount || 0,
-    usageLimit: coupon?.usageLimit || '',
+    maxDiscountAmount: coupon?.maxDiscountAmount !== undefined ? coupon.maxDiscountAmount : '',
+    minOrderAmount: coupon?.minOrderAmount !== undefined ? coupon.minOrderAmount : '',
+    usageLimit: coupon?.usageLimit !== undefined ? coupon.usageLimit : '',
     validFrom: coupon?.validFrom ? new Date(coupon.validFrom).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     validUntil: coupon?.validUntil ? new Date(coupon.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     isActive: coupon?.isActive !== undefined ? coupon.isActive : true,
@@ -256,10 +257,18 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
         }
 
         const newUsers = data.map((row: any) => {
-          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
-          const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
-          return { email: email || undefined, mobile: mobile || undefined };
-        }).filter(user => user.email || user.mobile);
+      const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
+      const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
+      if (!email || !mobile) {
+        toast.error('Please provide both email and mobile for all entries');
+        return null;
+      }
+      if (email.length > 100) {
+        toast.error('Email cannot exceed 100 characters');
+        return null;
+      }
+      return { email: email || undefined, mobile: mobile || undefined };
+    }).filter(user => user && user.email && user.mobile);
 
         if (newUsers.length === 0) {
           toast.error('No valid Email or Phone numbers found in the sheet');
@@ -285,15 +294,19 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   const addUser = () => {
     const email = newUser.email.trim();
     const mobile = newUser.mobile.trim();
-    if (!email && !mobile) {
-      toast.error('Please enter at least email or mobile');
+    if (!email || !mobile) {
+      toast.error('Please enter both email and mobile number');
       return;
     }
-    if (email && !isValidEmail(email)) {
+    if (email.length > 100) {
+      toast.error('Email cannot exceed 100 characters');
+      return;
+    }
+    if (!isValidEmail(email)) {
       toast.error('Enter a valid email address');
       return;
     }
-    if (mobile && !isValidPhone10(mobile)) {
+    if (!isValidPhone10(mobile)) {
       toast.error('Enter a valid 10-digit mobile number');
       return;
     }
@@ -345,6 +358,17 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       toast.error('Coupon code is required');
       return;
     }
+    // Validate coupon code: only alphanumeric, underscores, and hyphens
+    const couponCodeRegex = /^[A-Z0-9_-]+$/i;
+    if (!couponCodeRegex.test(formData.code.trim())) {
+      toast.error('Please enter valid data');
+      return;
+    }
+    // Validate coupon code length
+    if (formData.code.trim().length > 20) {
+      toast.error('Coupon code cannot exceed 20 characters');
+      return;
+    }
     if (Number(formData.discountPercentage) < 1 || Number(formData.discountPercentage) > 100) {
       toast.error('Discount percentage must be between 1 and 100');
       return;
@@ -353,25 +377,42 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       toast.error('Min order amount cannot be negative');
       return;
     }
-    if (formData.maxDiscountAmount !== '' && Number(formData.maxDiscountAmount) < 0) {
+    if (Number(formData.minOrderAmount) > 999999) {
+      toast.error('Min order amount cannot exceed 999999');
+      return;
+    }
+    if (Number(formData.maxDiscountAmount) < 0) {
       toast.error('Max discount cannot be negative');
       return;
     }
-    if (formData.usageLimit !== '' && Number(formData.usageLimit) < 1) {
-      toast.error('Usage limit must be at least 1');
+    if (Number(formData.maxDiscountAmount) > 999999) {
+      toast.error('Max discount cannot exceed 999999');
+      return;
+    }
+    if (Number(formData.usageLimit) < 1 || Number(formData.usageLimit) > 999999) {
+      toast.error('Usage limit must be between 1 and 999999');
       return;
     }
     if (validUntil < validFrom) {
       toast.error('Valid until date must be after valid from date');
       return;
     }
+    if (formData.description.length > 500) {
+      toast.error('Description cannot exceed 500 characters');
+      return;
+    }
+    const descriptionRegex = /^[\w\s.,!?'"()-]*$/;
+    if (!descriptionRegex.test(formData.description)) {
+      toast.error('Please enter valid data');
+      return;
+    }
     
     const cleanedData = {
       ...formData,
       code: formData.code.trim().toUpperCase(),
-      maxDiscountAmount: formData.maxDiscountAmount === '' ? null : Number(formData.maxDiscountAmount),
-      usageLimit: formData.usageLimit === '' ? null : Number(formData.usageLimit),
-      minOrderAmount: Number(formData.minOrderAmount) || 0,
+      maxDiscountAmount: Number(formData.maxDiscountAmount),
+      usageLimit: Number(formData.usageLimit),
+      minOrderAmount: Number(formData.minOrderAmount),
       targetUsers: formData.targetUsers,
     };
     onSave(cleanedData);
@@ -395,7 +436,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           <form id="coupon-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Coupon Code</label>
+                <label className="block text-sm font-semibold mb-2">Coupon Code (Max 20 characters)</label>
                 <input
                   type="text"
                   name="code"
@@ -403,6 +444,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   onChange={handleChange}
                   placeholder="e.g. SAVE10"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all uppercase"
+                  maxLength={20}
                   required
                 />
               </div>
@@ -422,64 +464,73 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Max Discount Amount (₹)</label>
+                <label className="block text-sm font-semibold mb-2">Max Discount Amount (₹) (Max 999999)</label>
                 <input
                   type="number"
                   name="maxDiscountAmount"
                   value={formData.maxDiscountAmount}
                   onChange={handleChange}
                   min="0"
-                  placeholder="Leave empty for no limit"
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Min Order Amount (₹)</label>
-                <input
-                  type="number"
-                  name="minOrderAmount"
-                  value={formData.minOrderAmount}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Usage Limit</label>
-                <input
-                  type="number"
-                  name="usageLimit"
-                  value={formData.usageLimit}
-                  onChange={handleChange}
-                  min="1"
-                  placeholder="Leave empty for unlimited"
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Valid From</label>
-                <input
-                  type="date"
-                  name="validFrom"
-                  value={formData.validFrom}
-                  onChange={handleChange}
-                  min={new Date().toISOString().split('T')[0]}
+                  max="999999"
+                  placeholder="Enter max discount amount"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Valid Until</label>
+                <label className="block text-sm font-semibold mb-2">Min Order Amount (₹) (Max 999999)</label>
+                <input
+                  type="number"
+                  name="minOrderAmount"
+                  value={formData.minOrderAmount}
+                  onChange={handleChange}
+                  min="0"
+                  max="999999"
+                  placeholder="Enter min order amount"
+                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">Usage Limit (Max 999999)</label>
+                <input
+                  type="number"
+                  name="usageLimit"
+                  value={formData.usageLimit}
+                  onChange={handleChange}
+                  min="1"
+                  max="999999"
+                  placeholder="Enter usage limit"
+                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">Valid From (YYYY-MM-DD, Max: 2999-12-31)</label>
+                <input
+                  type="date"
+                  name="validFrom"
+                  value={formData.validFrom}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split('T')[0]}
+                  max="2999-12-31"
+                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">Valid Until (YYYY-MM-DD, Max: 2999-12-31)</label>
                 <input
                   type="date"
                   name="validUntil"
                   value={formData.validUntil}
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
+                  max="2999-12-31"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
@@ -530,34 +581,49 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex gap-2">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addUser();
+                    }}
+                    className="flex gap-2"
+                  >
                     <div className="flex-1">
+                      <Label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Email address (Max 100 characters)
+                      </Label>
                       <Input
                         type="email"
                         placeholder="Email address"
                         value={newUser.email}
                         onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                         className="h-9 text-sm"
+                        required
+                        maxLength={100}
                       />
                     </div>
                     <div className="flex-1">
+                      <Label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Mobile number (10 digits)
+                      </Label>
                       <Input
                         type="tel"
                         placeholder="Mobile number"
                         value={newUser.mobile}
                         onChange={(e) => setNewUser(prev => ({ ...prev, mobile: e.target.value }))}
                         className="h-9 text-sm"
+                        maxLength={15}
+                        required
                       />
                     </div>
                     <Button 
-                      type="button" 
-                      onClick={addUser}
+                      type="submit" 
                       size="sm"
                       className="h-9"
                     >
                       Add
                     </Button>
-                  </div>
+                  </form>
 
                   <div className="border border-border rounded-lg overflow-hidden bg-background">
                     <div className="max-h-[200px] overflow-y-auto">
@@ -601,13 +667,17 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Description</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Description (Max 500 characters)
+                </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  placeholder="Optional description for the coupon"
+                  placeholder="Enter coupon description"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all min-h-[80px]"
+                  required
+                  maxLength={500}
                 />
               </div>
             </div>
