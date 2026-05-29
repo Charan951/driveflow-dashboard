@@ -20,6 +20,8 @@ import {
   X,
   Loader2
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { heroService, HeroSlide, PageHero } from '@/services/heroService';
 import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
@@ -43,6 +45,8 @@ const AdminHeroImagesPage = () => {
   const navigate = useNavigate();
   const [homeSlides, setHomeSlides] = useState<HeroSlide[]>([]);
   const [pageHeroes, setPageHeroes] = useState<Record<string, PageHero>>({});
+  const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
+  const [showLearnMore, setShowLearnMore] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -135,6 +139,13 @@ const AdminHeroImagesPage = () => {
           email: data.contactDetails.email || '',
         });
       }
+      // Toggle settings
+      if (data.showGetStarted !== undefined) {
+        setShowGetStarted(data.showGetStarted);
+      }
+      if (data.showLearnMore !== undefined) {
+        setShowLearnMore(data.showLearnMore);
+      }
 
       setBlogCategories(categoriesData);
       setBlogs(blogsData);
@@ -213,6 +224,8 @@ const AdminHeroImagesPage = () => {
         homeSlides,
         pageHeroes,
         contactDetails,
+        showGetStarted,
+        showLearnMore,
       });
       toast.success('Hero settings saved to S3 successfully');
     } catch (error) {
@@ -489,6 +502,29 @@ const AdminHeroImagesPage = () => {
               <Plus className="w-4 h-4" />
               Add Slide
             </button>
+          </div>
+
+          {/* CTA Button Toggles */}
+          <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+            <h3 className="font-semibold text-lg mb-4">CTA Button Visibility</h3>
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="show-get-started" className="text-base">Show "Get Started" Button</Label>
+                <Switch
+                  id="show-get-started"
+                  checked={showGetStarted}
+                  onCheckedChange={setShowGetStarted}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="show-learn-more" className="text-base">Show "Learn More" Button</Label>
+                <Switch
+                  id="show-learn-more"
+                  checked={showLearnMore}
+                  onCheckedChange={setShowLearnMore}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-6">

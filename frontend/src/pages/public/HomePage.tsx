@@ -92,6 +92,8 @@ const defaultHeroSlides = [
 const HomePage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
+  const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
+  const [showLearnMore, setShowLearnMore] = useState<boolean>(true);
   // Initialize with staticServices to ensure content is always visible (Optimistic UI / Fallback)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [services, setServices] = useState<any[]>(staticServices);
@@ -150,6 +152,13 @@ const HomePage: React.FC = () => {
           };
         });
         setHeroSlides(processedSlides);
+      }
+      // Update toggle settings
+      if (data.showGetStarted !== undefined) {
+        setShowGetStarted(data.showGetStarted);
+      }
+      if (data.showLearnMore !== undefined) {
+        setShowLearnMore(data.showLearnMore);
       }
     } catch (error) {
       console.error('Failed to fetch hero settings from S3', error);
@@ -245,23 +254,25 @@ const HomePage: React.FC = () => {
                 {heroSlides[currentSlide]?.subtitle || ''}
               </p>
               {
-                heroSlides === defaultHeroSlides ? (
-                  <></>
-                ) : (
+                heroSlides !== defaultHeroSlides && (
                   <div className="flex flex-row items-center gap-3 sm:gap-5">
-                    <Link
-                      to="/register"
-                      className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
-                    >
-                      Get Started
-                      <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
-                    </Link>   
-                    <Link
-                      to="/about-us"
-                      className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
-                    >
-                      Learn More
-                    </Link>
+                    {showGetStarted && (
+                      <Link
+                        to="/register"
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
+                      >
+                        Get Started
+                        <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
+                      </Link>
+                    )}
+                    {showLearnMore && (
+                      <Link
+                        to="/about-us"
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
+                      >
+                        Learn More
+                      </Link>
+                    )}
                   </div>
                 )
               }

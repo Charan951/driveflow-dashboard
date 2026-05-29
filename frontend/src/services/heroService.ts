@@ -24,6 +24,8 @@ export interface HeroConfig {
     mobileNumber: string;
     email: string;
   };
+  showGetStarted: boolean;
+  showLearnMore: boolean;
 }
 
 export const heroService = {

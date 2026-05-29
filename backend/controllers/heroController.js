@@ -19,6 +19,8 @@ export const getHeroSettings = async (req, res) => {
           mobileNumber: '+91 9849964945',
           email: 'info@carzzi.com',
         },
+        showGetStarted: true,
+        showLearnMore: true,
       });
     }
     res.json({
@@ -28,6 +30,8 @@ export const getHeroSettings = async (req, res) => {
         mobileNumber: data?.contactDetails?.mobileNumber || '+91 9849964945',
         email: data?.contactDetails?.email || 'info@carzzi.com',
       },
+      showGetStarted: data?.showGetStarted !== undefined ? data.showGetStarted : true,
+      showLearnMore: data?.showLearnMore !== undefined ? data.showLearnMore : true,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -39,7 +43,7 @@ export const getHeroSettings = async (req, res) => {
 // @access  Private/Admin
 export const updateHeroSettings = async (req, res) => {
   try {
-    const { homeSlides, pageHeroes, contactDetails } = req.body;
+    const { homeSlides, pageHeroes, contactDetails, showGetStarted, showLearnMore } = req.body;
     const config = {
       homeSlides,
       pageHeroes,
@@ -48,6 +52,8 @@ export const updateHeroSettings = async (req, res) => {
         mobileNumber: contactDetails?.mobileNumber || '',
         email: contactDetails?.email || '',
       },
+      showGetStarted: showGetStarted !== undefined ? showGetStarted : true,
+      showLearnMore: showLearnMore !== undefined ? showLearnMore : true,
       updatedAt: new Date().toISOString()
     };
     
