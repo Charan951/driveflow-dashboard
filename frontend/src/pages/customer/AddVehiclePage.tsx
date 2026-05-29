@@ -300,13 +300,22 @@ const AddVehiclePage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Year</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Year (4 digits)</label>
                   <input
                     type="number"
                     name="year"
                     value={formData.year}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      if (value.length > 4) {
+                        value = value.slice(0, 4);
+                      }
+                      setFormData({ ...formData, year: value });
+                    }}
                     required
+                    min={1900}
+                    max={new Date().getFullYear() + 1}
+                    placeholder="e.g. 2024"
                     className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

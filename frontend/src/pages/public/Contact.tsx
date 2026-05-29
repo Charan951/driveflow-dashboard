@@ -42,8 +42,8 @@ const Contact = () => {
   };
 
   const isValidMessage = (message: string) => {
-    // Allow a reasonable set of characters for a message
-    const messageRegex = /^[a-zA-Z0-9\s.,!?'"()\[\]{}:;@#$%&*+-_=/\\|]+$/;
+    // Allow letters, spaces, and basic punctuation only
+    const messageRegex = /^[a-zA-Z\s.,!?'"()-]+$/;
     return messageRegex.test(message);
   };
 
