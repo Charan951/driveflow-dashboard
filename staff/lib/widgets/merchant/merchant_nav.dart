@@ -34,11 +34,6 @@ const List<MerchantNavItem> allMerchantNavItems = [
     route: '/merchant-feedback',
   ),
   MerchantNavItem(
-    icon: Icons.people_outline,
-    label: 'Users',
-    route: '/merchant-users',
-  ),
-  MerchantNavItem(
     icon: Icons.person_outline,
     label: 'Profile',
     route: '/merchant-profile',
@@ -78,12 +73,7 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
     final user = await _authService.getCurrentUser();
     if (mounted) {
       setState(() {
-        _filteredItems = allMerchantNavItems.where((item) {
-          if (item.label == 'Users') {
-            return user?.role == 'admin';
-          }
-          return true;
-        }).toList();
+        _filteredItems = List<MerchantNavItem>.from(allMerchantNavItems);
         _isShopOpen = user?.isShopOpen ?? true;
       });
     }

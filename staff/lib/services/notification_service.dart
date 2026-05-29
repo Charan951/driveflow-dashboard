@@ -334,6 +334,12 @@ class NotificationService {
     await _api.putAny('/notifications/$id/read');
   }
 
+  Future<void> markAllAsRead(List<NotificationItem> items) async {
+    final unread = items.where((n) => !n.isRead).toList();
+    if (unread.isEmpty) return;
+    await Future.wait(unread.map((n) => markAsRead(n.id)));
+  }
+
   Future<void> deleteNotification(String id) async {
     if (id.isEmpty) return;
     await _api.deleteAny('/notifications/$id');

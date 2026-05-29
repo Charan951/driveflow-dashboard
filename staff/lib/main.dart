@@ -20,12 +20,8 @@ import 'pages/splash_page.dart';
 import 'pages/merchant/merchant_dashboard.dart';
 import 'pages/merchant/merchant_orders_page.dart';
 import 'pages/merchant/merchant_order_detail_page.dart';
-import 'pages/merchant/merchant_stock_page.dart';
 import 'pages/merchant/merchant_feedback_page.dart';
 import 'pages/merchant/merchant_profile_page.dart';
-import 'pages/merchant/merchant_services_page.dart';
-import 'pages/merchant/merchant_vehicles_page.dart';
-import 'pages/merchant/merchant_placeholder.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -274,12 +270,7 @@ class StaffApp extends StatelessWidget {
         '/merchant-dashboard': (context) => const MerchantDashboardPage(),
         '/merchant-orders': (context) => const MerchantOrdersPage(),
         '/merchant-order-detail': (context) => const MerchantOrderDetailPage(),
-        '/merchant-stock': (context) => const MerchantStockPage(),
         '/merchant-feedback': (context) => const MerchantFeedbackPage(),
-        '/merchant-services': (context) => const MerchantServicesPage(),
-        '/merchant-vehicles': (context) => const MerchantVehiclesPage(),
-        '/merchant-users': (context) =>
-            const MerchantPlaceholderPage(title: 'Users'),
         '/merchant-profile': (context) => const MerchantProfilePage(),
         '/order': (context) => const StaffOrderDetailPage(),
         '/notifications': (context) => const NotificationsPage(),

@@ -88,7 +88,7 @@ class _RegisterPageState extends State<RegisterPage>
   bool _isValidName(String value) {
     final trimmed = value.trim();
     // Allow letters, spaces, apostrophes, hyphens only
-    return RegExp(r'^[a-zA-Z][a-zA-Z\s\'-]*$').hasMatch(trimmed);
+    return RegExp(r"^[a-zA-Z][a-zA-Z\s'-]*$").hasMatch(trimmed);
   }
 
   bool _validateSignupForm({

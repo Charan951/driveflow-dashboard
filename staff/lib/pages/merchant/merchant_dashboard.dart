@@ -47,7 +47,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     try {
       final user = await _authService.getCurrentUser(forceRefresh: true);
       final stats = await _bookingService.getMerchantStats();
-      final bookings = await _bookingService.getMyBookings();
+      final bookings = await _bookingService.getMerchantBookings();
       final notifications = await _notificationService.listMyNotifications();
       bookings.sort((a, b) {
         final aDate =
@@ -149,7 +149,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Manage your service center orders and status.',
+                  'Overview of your workshop performance',
                   style: TextStyle(
                     fontSize: 14,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -196,7 +196,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
                       onTap: () => Navigator.pushNamed(
                         context,
                         '/merchant-orders',
-                        arguments: {'filter': 'all'},
+                        arguments: {'filter': 'pending-bills'},
                       ),
                     ),
                   ],
@@ -341,14 +341,15 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
-          'Order #${order.orderNumber ?? order.id.substring(order.id.length - 6).toUpperCase()}',
+          order.licensePlate ??
+              'Order #${order.orderNumber ?? order.id.substring(order.id.length - 6).toUpperCase()}',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         subtitle: Text(
-          '${order.vehicleName ?? 'Booking'} • ${BookingDetail.getStatusLabel(order.status, services: order.services)}',
+          '${order.customerName ?? order.vehicleName ?? 'Booking'} • ${BookingDetail.getStatusLabel(order.status, services: order.services)}',
           style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
         ),
         trailing: Icon(

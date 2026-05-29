@@ -434,6 +434,17 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                           letterSpacing: 1.1,
                         ),
                       ),
+                      if (_user!.categories.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Category: ${_user!.categories.join(', ')}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       const Divider(height: 1),
                       const SizedBox(height: 24),

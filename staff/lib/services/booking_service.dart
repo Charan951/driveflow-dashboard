@@ -4,28 +4,43 @@ import 'package:image_picker/image_picker.dart';
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../models/booking.dart';
+import '../utils/merchant_booking_filters.dart';
 
 class BookingService {
   final ApiClient _api = ApiClient();
 
-  Future<List<BookingSummary>> getMyBookings() async {
-    final data = await _api.getAny(ApiEndpoints.myBookings);
+  List<BookingSummary> _parseBookingList(dynamic data) {
     final items = <BookingSummary>[];
-    if (data is List) {
-      for (final e in data) {
-        try {
-          if (e is Map<String, dynamic>) {
-            items.add(BookingSummary.fromJson(e));
-          } else if (e is Map) {
-            items.add(BookingSummary.fromJson(Map<String, dynamic>.from(e)));
-          }
-        } catch (err) {
-          debugPrint('Error parsing booking summary: $err');
-        }
-      }
-      return items;
+    if (data is! List) {
+      throw ApiException(statusCode: 500, message: 'Unexpected response type');
     }
-    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+    for (final e in data) {
+      try {
+        if (e is Map<String, dynamic>) {
+          items.add(BookingSummary.fromJson(e));
+        } else if (e is Map) {
+          items.add(BookingSummary.fromJson(Map<String, dynamic>.from(e)));
+        }
+      } catch (err) {
+        debugPrint('Error parsing booking summary: $err');
+      }
+    }
+    return items;
+  }
+
+  /// Merchant bookings — same endpoint as web (`GET /bookings`).
+  Future<List<BookingSummary>> getMerchantBookings() async {
+    try {
+      final data = await _api.getAny(ApiEndpoints.bookings);
+      return _parseBookingList(data);
+    } catch (_) {
+      final data = await _api.getAny(ApiEndpoints.myBookings);
+      return _parseBookingList(data);
+    }
+  }
+
+  Future<List<BookingSummary>> getMyBookings() async {
+    return getMerchantBookings();
   }
 
   Future<List<BookingSummary>> getCarWashBookings() async {
@@ -72,37 +87,8 @@ class BookingService {
   }
 
   Future<Map<String, dynamic>> getMerchantStats() async {
-    final bookings = await getMyBookings();
-
-    final activeStatuses = [
-      'CREATED',
-      'ASSIGNED',
-      'ACCEPTED',
-      'REACHED_CUSTOMER',
-      'VEHICLE_PICKED',
-      'REACHED_MERCHANT',
-      'VEHICLE_AT_MERCHANT',
-      'SERVICE_STARTED',
-      'SERVICE_COMPLETED',
-      'OUT_FOR_DELIVERY',
-      'CAR_WASH_STARTED',
-      'INSTALLATION',
-      'PICKUP_BATTERY_TIRE',
-    ];
-
-    final active = bookings
-        .where((b) => activeStatuses.contains(b.status))
-        .length;
-    final completed = bookings.where((b) => b.status == 'DELIVERED' || b.status == 'COMPLETED' || b.status == 'CAR_WASH_COMPLETED').length;
-    final pendingBills = bookings
-        .where((b) => b.status == 'SERVICE_COMPLETED')
-        .length;
-
-    return {
-      'activeOrders': active,
-      'completedOrders': completed,
-      'pendingBills': pendingBills,
-    };
+    final bookings = await getMerchantBookings();
+    return computeMerchantStats(bookings);
   }
 
   Future<List<String>> uploadPrePickupPhotos(

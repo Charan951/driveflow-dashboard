@@ -64,5 +64,7 @@ abstract final class SyncEntities {
     'notification',
     'user',
     'product',
+    'service',
+    'setting',
   ];
 }

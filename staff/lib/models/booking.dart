@@ -11,8 +11,13 @@ class BookingSummary {
   final String? date;
   final String? createdAt;
   final String? vehicleName;
+  final String? vehicleModel;
+  final String? licensePlate;
+  final String? customerName;
+  final String? paymentStatus;
   final String? locationAddress;
   final String? serviceName;
+  final List<String> serviceNames;
   final List<dynamic>? services;
 
   BookingSummary({
@@ -22,8 +27,13 @@ class BookingSummary {
     this.date,
     this.createdAt,
     this.vehicleName,
+    this.vehicleModel,
+    this.licensePlate,
+    this.customerName,
+    this.paymentStatus,
     this.locationAddress,
     this.serviceName,
+    this.serviceNames = const [],
     this.services,
   });
 
@@ -70,21 +80,37 @@ class BookingSummary {
       if (plate != null && plate.isNotEmpty) plate,
     ].join(' ');
 
+    Map<String, dynamic>? user;
+    try {
+      final u = getField('user');
+      if (u is Map<String, dynamic>) {
+        user = u;
+      } else if (u is Map) {
+        user = Map<String, dynamic>.from(u);
+      }
+    } catch (_) {}
+
     List<dynamic>? allServices;
+    final serviceNames = <String>[];
     String serviceName = 'General Service';
     try {
       final services = getField('services');
       if (services is List) {
         allServices = services;
+        for (final item in services) {
+          if (item is Map) {
+            final name = item['name']?.toString();
+            if (name != null && name.isNotEmpty) serviceNames.add(name);
+          }
+        }
       }
       final service = getField('service');
-      if (services is List && services.isNotEmpty) {
-        final firstService = services[0];
-        if (firstService is Map) {
-          serviceName = firstService['name']?.toString() ?? 'General Service';
-        }
+      if (serviceNames.isNotEmpty) {
+        serviceName = serviceNames.first;
       } else if (service is Map) {
         serviceName = service['name']?.toString() ?? 'General Service';
+        final name = service['name']?.toString();
+        if (name != null && name.isNotEmpty) serviceNames.add(name);
       }
     } catch (_) {}
 
@@ -95,8 +121,13 @@ class BookingSummary {
       date: getField('date')?.toString(),
       createdAt: getField('createdAt')?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
+      vehicleModel: model,
+      licensePlate: plate,
+      customerName: user?['name']?.toString(),
+      paymentStatus: getField('paymentStatus')?.toString(),
       locationAddress: location?['address']?.toString(),
       serviceName: serviceName,
+      serviceNames: serviceNames,
       services: allServices,
     );
   }

@@ -1,3 +1,14 @@
+List<String> _parseCategories(dynamic value) {
+  if (value is List) {
+    return value.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+  }
+  if (value != null) {
+    final s = value.toString().trim();
+    if (s.isNotEmpty) return [s];
+  }
+  return [];
+}
+
 class StaffUser {
   final String id;
   final String name;
@@ -5,7 +16,7 @@ class StaffUser {
   final String role;
   final String? subRole;
   final String? status;
-  final String? category;
+  final List<String> categories;
   final String? phone;
   final bool? isShopOpen;
   final bool? isOnline;
@@ -21,7 +32,7 @@ class StaffUser {
     required this.role,
     this.subRole,
     this.status,
-    this.category,
+    this.categories = const [],
     this.phone,
     this.isShopOpen,
     this.isOnline,
@@ -39,7 +50,7 @@ class StaffUser {
       role: json['role']?.toString() ?? '',
       subRole: json['subRole']?.toString(),
       status: json['status']?.toString(),
-      category: json['category']?.toString(),
+      categories: _parseCategories(json['category']),
       phone: json['phone']?.toString(),
       isShopOpen: json['isShopOpen'] as bool?,
       isOnline: json['isOnline'] as bool?,
@@ -60,7 +71,7 @@ class StaffUser {
       'role': role,
       'subRole': subRole,
       'status': status,
-      'category': category,
+      'category': categories,
       'phone': phone,
       'isShopOpen': isShopOpen,
       'isOnline': isOnline,

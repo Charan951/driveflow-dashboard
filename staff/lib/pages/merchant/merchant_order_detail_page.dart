@@ -15,6 +15,7 @@ import '../../core/socket_sync.dart';
 import '../../services/socket_service.dart';
 import '../../services/vehicle_service.dart';
 import '../../widgets/global_sync_refresh.dart';
+import '../../widgets/merchant/merchant_staff_live_map.dart';
 
 class MerchantOrderDetailPage extends StatefulWidget {
   const MerchantOrderDetailPage({super.key});
@@ -36,6 +37,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   bool _isSaving = false;
   TabController? _tabController;
   bool _serviceStartedLocally = false;
+  bool _serviceStartingOverlay = false;
+  double? _staffLat;
+  double? _staffLng;
 
   // Inspection State
   String? _frontPhoto;
@@ -87,6 +91,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   void initState() {
     super.initState();
     _socketService.on('receiveMessage', _handleIncomingChatForBadge);
+    _socketService.on('liveLocation', _handleLiveLocation);
+    _socketService.on('bookingUpdated', _handleBookingUpdated);
   }
 
   @override
@@ -94,6 +100,8 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     if (_booking != null) {
       _socketService.leaveRoom('booking_${_booking!.id}');
     }
+    _socketService.off('liveLocation', _handleLiveLocation);
+    _socketService.off('bookingUpdated', _handleBookingUpdated);
     _tabController?.dispose();
     _extraCostReasonController.dispose();
     _extraCostAmountController.dispose();
@@ -116,6 +124,31 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final bookingId = data['bookingId']?.toString();
     if (bookingId != _booking!.id) return;
     setState(() => _unreadChatCount += 1);
+  }
+
+  void _handleLiveLocation(dynamic data) {
+    if (!mounted || data is! Map) return;
+    final lat = data['lat'];
+    final lng = data['lng'];
+    if (lat == null || lng == null) return;
+    final latVal = lat is num
+        ? lat.toDouble()
+        : double.tryParse(lat.toString());
+    final lngVal = lng is num
+        ? lng.toDouble()
+        : double.tryParse(lng.toString());
+    if (latVal == null || lngVal == null) return;
+    setState(() {
+      _staffLat = latVal;
+      _staffLng = lngVal;
+    });
+  }
+
+  void _handleBookingUpdated(dynamic data) {
+    if (!mounted || _booking == null || data is! Map) return;
+    final updatedId = (data['_id'] ?? data['id'])?.toString();
+    if (updatedId != _booking!.id) return;
+    _load(_booking!.id);
   }
 
   @override
@@ -482,7 +515,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
       }
     }
 
-    setState(() => _isSaving = true);
+    final showStartingOverlay = newStatus == 'SERVICE_STARTED';
+    if (showStartingOverlay) {
+      setState(() => _serviceStartingOverlay = true);
+    } else {
+      setState(() => _isSaving = true);
+    }
     try {
       await _service.updateBookingStatus(_booking!.id, newStatus);
 
@@ -549,7 +587,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
         }
       }
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _serviceStartingOverlay = false;
+        });
+      }
     }
   }
 
@@ -593,8 +636,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     final String orderNum =
         _booking!.orderNumber?.toString() ??
         _booking!.id.substring(_booking!.id.length - 6).toUpperCase();
+    final paymentStatus = (_booking!.paymentStatus ?? 'pending').toLowerCase();
+    final isPaid = paymentStatus == 'paid';
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       appBar: AppBar(
         elevation: 0,
@@ -646,6 +693,18 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                     color: isDark
                         ? AppColors.primaryPurple
                         : const Color(0xFF7C3AED),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isPaid ? '● Paid' : '○ ${paymentStatus.toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: isPaid
+                        ? AppColors.success
+                        : const Color(0xFFD97706),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -794,6 +853,48 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               ],
             ),
       floatingActionButton: _buildChatButton(),
+        ),
+        if (_serviceStartingOverlay)
+          Positioned.fill(
+            child: ColoredBox(
+              color: Colors.black.withValues(alpha: 0.45),
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.backgroundSecondary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Starting service…',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Please wait while we update this order.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1343,6 +1444,57 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
             ),
           ),
           const SizedBox(height: 24),
+
+          if (_booking!.status == 'SERVICE_COMPLETED' &&
+              (_booking!.paymentStatus ?? '').toLowerCase() != 'paid')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF78350F).withValues(alpha: 0.25)
+                    : const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                      : const Color(0xFFFDE68A),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: isDark
+                        ? const Color(0xFFFCD34D)
+                        : const Color(0xFFB45309),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Waiting for customer payment (₹${(_booking!.totalAmount ?? 0).toStringAsFixed(0)}). Cannot move to Out For Delivery.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFFFDE68A)
+                            : const Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          _buildInfoCard(
+            title: 'Live Staff Location',
+            icon: Icons.my_location,
+            children: [
+              MerchantStaffLiveMap(lat: _staffLat, lng: _staffLng),
+            ],
+          ),
+          const SizedBox(height: 16),
 
           if (_booking!.revisit?.isRevisit == true)
             Container(

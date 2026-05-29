@@ -42,6 +42,7 @@ class ApiEndpoints {
   static const String authProfile = '/users/profile';
   static const String usersMe = '/users/me';
   static const String usersOnlineStatus = '/users/online-status';
+  static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';
   static const String trackingUser = '/tracking/user';
   static String bookingById(String id) => '/bookings/$id';

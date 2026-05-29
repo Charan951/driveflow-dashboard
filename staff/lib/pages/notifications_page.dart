@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../services/notification_service.dart';
+import '../utils/merchant_notification_redirect.dart';
 
 class NotificationsPage extends StatefulWidget {
   final bool isMerchant;
@@ -30,6 +32,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final items = await _notificationService.listMyNotifications();
       if (!mounted) return;
       setState(() => _items = items);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 403 &&
+          e.message.toLowerCase().contains('pending')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your account is pending approval. Please wait for admin approval.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,15 +91,76 @@ class _NotificationsPageState extends State<NotificationsPage> {
     try {
       if (!item.isRead) {
         await _notificationService.markAsRead(item.id);
+        setState(() {
+          final index = _items.indexWhere((n) => n.id == item.id);
+          if (index >= 0) {
+            _items[index] = NotificationItem(
+              id: item.id,
+              title: item.title,
+              message: item.message,
+              type: item.type,
+              isRead: true,
+              createdAt: item.createdAt,
+              bookingId: item.bookingId,
+              orderId: item.orderId,
+            );
+          }
+        });
       }
     } catch (_) {}
 
     if (!mounted) return;
+
+    if (widget.isMerchant) {
+      final route = MerchantNotificationRedirect.routeFor(
+        type: item.type,
+        bookingId: item.bookingId,
+        orderId: item.orderId,
+      );
+      if (route == null) return;
+
+      if (route == '/merchant-orders') {
+        Navigator.pushNamed(context, route);
+        return;
+      }
+
+      final bookingId = MerchantNotificationRedirect.detailBookingId(
+        type: item.type,
+        bookingId: item.bookingId,
+        orderId: item.orderId,
+      );
+      if (bookingId != null) {
+        Navigator.pushNamed(
+          context,
+          '/merchant-order-detail',
+          arguments: bookingId,
+        );
+      }
+      return;
+    }
+
     final orderId = item.orderId ?? item.bookingId;
     if (orderId == null || orderId.isEmpty) return;
+    Navigator.pushNamed(context, '/order', arguments: orderId);
+  }
 
-    final targetRoute = widget.isMerchant ? '/merchant-order-detail' : '/order';
-    Navigator.pushNamed(context, targetRoute, arguments: orderId);
+  Future<void> _markAllAsRead() async {
+    final unread = _items.where((n) => !n.isRead).length;
+    if (unread == 0) return;
+    try {
+      await _notificationService.markAllAsRead(_items);
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All notifications marked as read')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to mark all as read')),
+      );
+    }
   }
 
   Future<void> _clearAllNotifications() async {
@@ -125,10 +204,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasUnread = _items.any((n) => !n.isRead);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
+          TextButton(
+            onPressed: hasUnread ? _markAllAsRead : null,
+            child: const Text('Mark all read'),
+          ),
           TextButton(
             onPressed: _items.isEmpty ? null : _clearAllNotifications,
             child: const Text('Clear All'),
@@ -155,8 +240,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 separatorBuilder: (_, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final item = _items[index];
-                  final hasOrder =
-                      (item.orderId ?? item.bookingId)?.isNotEmpty == true;
+                  final clickable = widget.isMerchant
+                      ? MerchantNotificationRedirect.isClickable(
+                          type: item.type,
+                          bookingId: item.bookingId,
+                          orderId: item.orderId,
+                        )
+                      : (item.orderId ?? item.bookingId)?.isNotEmpty == true;
                   return Dismissible(
                     key: Key('notif_${item.id}'),
                     direction: DismissDirection.horizontal,
@@ -187,7 +277,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     onDismissed: (direction) => _handleDelete(item),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                      onTap: hasOrder ? () => _openNotification(item) : null,
+                      onTap: clickable ? () => _openNotification(item) : null,
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -263,7 +353,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 ],
                               ),
                             ),
-                            if (hasOrder)
+                            if (clickable)
                               Icon(
                                 Icons.chevron_right_rounded,
                                 color: isDark
