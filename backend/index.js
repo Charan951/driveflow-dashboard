@@ -231,4 +231,5 @@ process.on('uncaughtException', (err) => {
 
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
+  // Server started successfully
 });

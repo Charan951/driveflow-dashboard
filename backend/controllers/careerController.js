@@ -143,12 +143,36 @@ export const applyForCareer = async (req, res) => {
 
     const name = String(req.body.name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
-    const mobileNumber = String(req.body.mobileNumber || '').trim();
+    const mobileNumber = String(req.body.mobileNumber || '').replace(/\D/g, ''); // Remove non-numeric
     const resumeUrl = String(req.body.resumeUrl || '').trim();
     const additionalMessage = String(req.body.additionalMessage || '').trim();
 
     if (!name || !email || !mobileNumber || !resumeUrl) {
       return res.status(400).json({ message: 'name, email, mobileNumber and resumeUrl are required' });
+    }
+
+    // Validate name
+    if (name.length > 10) {
+      return res.status(400).json({ message: 'Name cannot exceed 10 characters' });
+    }
+
+    // Validate email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Please enter a valid email address' });
+    }
+    if (email.length > 30) {
+      return res.status(400).json({ message: 'Email cannot exceed 30 characters' });
+    }
+
+    // Validate mobile number
+    if (!/^\d{10}$/.test(mobileNumber)) {
+      return res.status(400).json({ message: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    // Validate additional message
+    if (additionalMessage.length > 1000) {
+      return res.status(400).json({ message: 'Additional message cannot exceed 1000 characters' });
     }
 
     const application = await CareerApplication.create({

@@ -260,7 +260,18 @@ const LoginPage: React.FC = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  const newEmail = e.target.value;
+                  if (newEmail.length > MAX_EMAIL_LENGTH) {
+                    toast.error('Too long data not accept');
+                    return;
+                  }
+                  if (newEmail.length > 0 && !isValidEmail(newEmail)) {
+                    toast.error('invalid email id');
+                    return;
+                  }
+                  setEmail(newEmail);
+                }}
                 placeholder="Email address"
                 required
                 maxLength={MAX_EMAIL_LENGTH}
@@ -284,7 +295,7 @@ const LoginPage: React.FC = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
 

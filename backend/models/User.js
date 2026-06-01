@@ -1,37 +1,71 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const MAX_CONSECUTIVE_CHARS = 10;
+
+const hasExcessiveRepeatedChars = (str) => {
+  if (!str) return false;
+  const regex = new RegExp(`(.)\\1{${MAX_CONSECUTIVE_CHARS},}`, 'g');
+  return regex.test(str);
+};
+
+const nameValidator = {
+  validator: function(value) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return false;
+    if (trimmed.length > 50) return false;
+    if (hasExcessiveRepeatedChars(trimmed)) return false;
+    return /^[a-zA-Z][a-zA-Z0-9\s'-]*$/.test(trimmed);
+  },
+  message: 'Name is invalid. Must be 1-50 characters, no excessive repeated characters'
+};
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, 'Name is required'],
+    trim: true,
+    validate: nameValidator,
+    maxlength: [50, 'Name cannot exceed 50 characters'],
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
-    maxlength: 35,
+    trim: true,
+    lowercase: true,
+    maxlength: [35, 'Email cannot exceed 35 characters'],
+    match: [/^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/, 'Please enter a valid email'],
   },
   password: {
     type: String,
-    required: true,
-    maxlength: 100,
+    required: [true, 'Password is required'],
+    maxlength: [100, 'Password cannot exceed 100 characters'],
   },
   role: {
     type: String,
-    enum: ['customer', 'admin', 'merchant', 'staff'],
+    enum: {
+      values: ['customer', 'admin', 'merchant', 'staff'],
+      message: 'Invalid role'
+    },
     default: 'customer',
     index: true,
   },
   subRole: {
     type: String,
-    enum: ['Driver', 'Support', 'Manager', null],
+    enum: {
+      values: ['Driver', 'Support', 'Manager', null],
+      message: 'Invalid sub-role'
+    },
     default: null,
     index: true,
   },
   status: {
     type: String,
-    enum: ['Active', 'Inactive', 'On Leave'],
+    enum: {
+      values: ['Active', 'Inactive', 'On Leave'],
+      message: 'Invalid status'
+    },
     default: 'Active',
     index: true,
   },
@@ -56,30 +90,60 @@ const userSchema = new mongoose.Schema({
   rejectionReason: {
     type: String,
     default: null,
+    trim: true,
+    maxlength: [500, 'Rejection reason cannot exceed 500 characters'],
   },
   phone: {
     type: String,
+    trim: true,
+    match: [/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number'],
   },
   category: {
     type: [String],
-    enum: ['general', 'battery', 'tires'],
+    enum: {
+      values: ['general', 'battery', 'tires'],
+      message: 'Invalid category'
+    },
     default: ['general'],
     index: true,
   },
   addresses: [
     {
-      label: { type: String, default: 'Home' },
-      address: { type: String, required: true },
-      lat: { type: Number, required: true },
-      lng: { type: Number, required: true },
+      label: { 
+        type: String, 
+        default: 'Home', 
+        trim: true,
+        maxlength: [50, 'Address label cannot exceed 50 characters'],
+      },
+      address: { 
+        type: String, 
+        required: [true, 'Address is required'], 
+        trim: true,
+        maxlength: [500, 'Address cannot exceed 500 characters'],
+      },
+      lat: { type: Number, required: [true, 'Latitude is required'] },
+      lng: { type: Number, required: [true, 'Longitude is required'] },
       isDefault: { type: Boolean, default: false }
     }
   ],
   paymentMethods: [
     {
-      type: { type: String, enum: ['card', 'upi', 'wallet'], required: true },
-      label: { type: String, required: true }, // e.g., "HDFC Card", "GPay UPI"
-      details: { type: String }, // e.g., "**** 1234"
+      type: { 
+        type: String, 
+        enum: ['card', 'upi', 'wallet'], 
+        required: [true, 'Payment type is required'] 
+      },
+      label: { 
+        type: String, 
+        required: [true, 'Payment label is required'],
+        trim: true,
+        maxlength: [50, 'Payment label cannot exceed 50 characters'],
+      },
+      details: { 
+        type: String,
+        trim: true,
+        maxlength: [100, 'Payment details cannot exceed 100 characters'],
+      },
       isDefault: { type: Boolean, default: false }
     }
   ],
@@ -92,7 +156,11 @@ const userSchema = new mongoose.Schema({
   location: {
     lat: { type: Number },
     lng: { type: Number },
-    address: { type: String },
+    address: { 
+      type: String,
+      trim: true,
+      maxlength: [500, 'Location address cannot exceed 500 characters'],
+    },
     updatedAt: { type: Date }
   },
   geo: {
@@ -103,12 +171,12 @@ const userSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number],
-      default: [0, 0] // Provide a default to avoid index errors on empty arrays
+      default: [0, 0]
     }
   },
   fcmTokens: [
     {
-      token: { type: String, required: false },
+      token: { type: String, required: false, trim: true },
       deviceType: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
       lastUpdated: { type: Date, default: Date.now }
     }

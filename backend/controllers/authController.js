@@ -13,7 +13,7 @@ import {
 } from '../utils/msg91Service.js';
 import { isTestingEnv } from '../utils/appEnvironment.js';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 const MAX_NAME_LENGTH = 50;
 const MAX_PASSWORD_LENGTH = 15;
 

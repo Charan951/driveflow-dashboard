@@ -5,7 +5,7 @@ import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
-import { isValidEmail, isValidPhone10 } from '@/lib/formValidation';
+import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH } from '@/lib/formValidation';
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -88,11 +88,33 @@ const CareerDetail: React.FC = () => {
       toast.error('Please upload your resume');
       return;
     }
+
+    if (!form.name.trim()) {
+      toast.error('Please enter your name');
+      return;
+    }
+    if (isNameTooLong(form.name)) {
+      toast.error('Too long data: Please enter a maximum of 10 characters');
+      return;
+    }
+    if (!isValidName(form.name)) {
+      toast.error('Please enter valid data');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(form.name)) {
+      toast.error('Too many repeated characters');
+      return;
+    }
     
     if (!isValidEmail(form.email)) {
       toast.error('Please enter a valid email address');
       return;
     }
+    if (isEmailTooLong(form.email)) {
+      toast.error('Too long data not accept');
+      return;
+    }
+
     if (!isValidPhone10(form.mobileNumber)) {
       toast.error('Please enter a valid 10-digit mobile number');
       return;
@@ -178,12 +200,61 @@ const CareerDetail: React.FC = () => {
             className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4"
           >
             <h2 className="text-2xl font-bold">Apply for this role</h2>
-            <input required maxLength={100} value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Name" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
-            <input required maxLength={100} type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email address" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
-            <input required maxLength={10} type="tel" value={form.mobileNumber} onChange={(e) => {
-              const numericValue = e.target.value.replace(/\D/g, '');
-              setForm((prev) => ({ ...prev, mobileNumber: numericValue }));
-            }} placeholder="Mobile number" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input 
+              required 
+              maxLength={MAX_NAME_LENGTH} 
+              value={form.name} 
+              onChange={(e) => {
+                const newName = e.target.value;
+                if (isNameTooLong(newName)) {
+                  toast.error('Too long data: Please enter a maximum of 10 characters');
+                  return;
+                }
+                if (newName.length > 0 && !isValidName(newName)) {
+                  toast.error('Please enter valid data');
+                  return;
+                }
+                if (hasExcessiveRepeatedChars(newName)) {
+                  toast.error('Too many repeated characters');
+                  return;
+                }
+                setForm((prev) => ({ ...prev, name: newName }));
+              }} 
+              placeholder="Name" 
+              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" 
+            />
+            <input 
+              required 
+              maxLength={MAX_EMAIL_LENGTH} 
+              type="email" 
+              value={form.email} 
+              onChange={(e) => {
+                const newEmail = e.target.value;
+                if (isEmailTooLong(newEmail)) {
+                  toast.error('Too long data not accept');
+                  return;
+                }
+                if (newEmail.length > 0 && !isValidEmail(newEmail)) {
+                  toast.error('Please enter a valid email address');
+                  return;
+                }
+                setForm((prev) => ({ ...prev, email: newEmail }));
+              }} 
+              placeholder="Email address" 
+              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" 
+            />
+            <input 
+              required 
+              maxLength={10} 
+              type="tel" 
+              value={form.mobileNumber} 
+              onChange={(e) => {
+                const numericValue = e.target.value.replace(/\D/g, '');
+                setForm((prev) => ({ ...prev, mobileNumber: numericValue }));
+              }} 
+              placeholder="Mobile number" 
+              className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" 
+            />
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF, max 5MB)</label>

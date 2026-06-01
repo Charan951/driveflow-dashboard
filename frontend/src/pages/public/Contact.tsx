@@ -138,6 +138,10 @@ const Contact = () => {
         toast.error('Too long data: Please enter a maximum of 30 characters');
         return;
       }
+      if (value.length > 0 && !isValidEmail(value)) {
+        toast.error('Please enter valid email id');
+        return;
+      }
     }
 
     if (name === 'name') {
@@ -148,7 +152,7 @@ const Contact = () => {
         return;
       }
       if (value.length > MAX_NAME_LENGTH) {
-        toast.error('Too long data: Please enter a maximum of 50 characters');
+        toast.error(`Too long data: Please enter a maximum of ${MAX_NAME_LENGTH} characters`);
         return;
       }
     }

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowRight } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
-import { isValidEmail } from '@/lib/formValidation';
+import { isValidEmail, MAX_EMAIL_LENGTH } from '@/lib/formValidation';
 
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +53,18 @@ const ForgotPasswordPage: React.FC = () => {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const newEmail = e.target.value;
+                if (newEmail.length > MAX_EMAIL_LENGTH) {
+                  toast.error('Too long data not accept');
+                  return;
+                }
+                if (newEmail.length > 0 && !isValidEmail(newEmail)) {
+                  toast.error('Please enter a valid email address');
+                  return;
+                }
+                setEmail(newEmail);
+              }}
               placeholder="Email address"
               required
               className="w-full pl-11 pr-4 py-2.5 md:py-3 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"

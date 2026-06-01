@@ -22,7 +22,10 @@ import {
   isImageUrlTooLong, 
   isValidFeature, 
   isFeatureTooLong,
-  isValidDate 
+  isValidDate,
+  hasExcessiveRepeatedChars,
+  isValidDescription,
+  isValidEstimationTime
 } from '@/lib/formValidation';
 
 const AdminServicesPage: React.FC = () => {
@@ -556,52 +559,76 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    
+    let isValid = true;
+    let errorMessage = '';
+
     if (name === 'name') {
-      // Validate name on change
-      const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
-      if (!allowedRegex.test(value)) {
-        toast.error('Please enter valid data');
-        return;
-      }
-      if (value.length > 50) {
-        toast.error('Too long data: Please enter a maximum of 50 characters');
-        return;
+      if (value.length > 0) {
+        if (hasExcessiveRepeatedChars(value)) {
+          isValid = false;
+          errorMessage = 'Too many repeated characters';
+        } else if (!isValidName(value)) {
+          isValid = false;
+          errorMessage = 'Please enter valid data';
+        } else if (isNameTooLong(value)) {
+          isValid = false;
+          errorMessage = 'Too long data: Please enter a maximum of 10 characters';
+        }
       }
     }
+    
     if (name === 'description') {
-      if (value.length > 500) {
-        toast.error('Too long data: Please enter a maximum of 500 characters');
-        return;
+      if (value.length > 0) {
+        if (hasExcessiveRepeatedChars(value)) {
+          isValid = false;
+          errorMessage = 'Too many repeated characters';
+        } else if (isDescriptionTooLong(value)) {
+          isValid = false;
+          errorMessage = 'Too long data: Please enter a maximum of 500 characters';
+        }
       }
     }
+    
     if (name === 'price') {
-      if (value.length > 10) {
-        toast.error('Too long data: Please enter a maximum of 10 characters');
-        return;
+      if (isPriceTooLong(value)) {
+        isValid = false;
+        errorMessage = 'Too long data: Please enter a maximum of 10 characters';
       }
     }
+    
     if (name === 'duration') {
-      if (value.length > 3) {
-        toast.error('Too long data: Please enter a maximum of 3 characters');
-        return;
+      if (isDurationTooLong(value)) {
+        isValid = false;
+        errorMessage = 'Too long data: Please enter a maximum of 3 characters';
       }
     }
+    
     if (name === 'estimationTime') {
-      if (value.length > 50) {
-        toast.error('Too long data: Please enter a maximum of 50 characters');
-        return;
+      if (value.length > 0 && hasExcessiveRepeatedChars(value)) {
+        isValid = false;
+        errorMessage = 'Too many repeated characters';
+      } else if (isEstimationTimeTooLong(value)) {
+        isValid = false;
+        errorMessage = 'Too long data: Please enter a maximum of 3 characters';
       }
     }
+    
     if (name === 'image') {
-      if (value.length > 500) {
-        toast.error('Too long data: Please enter a maximum of 500 characters');
-        return;
-      }
-      if (value.trim() && !isValidImageUrl(value)) {
-        toast.error('Please enter valid data');
-        return;
+      if (isImageUrlTooLong(value)) {
+        isValid = false;
+        errorMessage = 'Too long data: Please enter a maximum of 500 characters';
+      } else if (value.trim() && !isValidImageUrl(value)) {
+        isValid = false;
+        errorMessage = 'Please enter valid data';
       }
     }
+
+    if (!isValid) {
+      toast.error(errorMessage);
+      return; // Don't update state if validation fails
+    }
+
     setFormData((prev) => ({ 
       ...prev, 
       [name]: type === 'number' ? (value === '' ? 0 : Number(value)) : value 
@@ -626,8 +653,12 @@ const ServiceModal = ({ service, onClose, onSave }) => {
   };
 
   const handleFeatureChange = (index, value) => {
-    if (value.length > 100) {
+    if (isFeatureTooLong(value)) {
       toast.error('Too long data: Please enter a maximum of 100 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(value)) {
+      toast.error('Too many repeated characters');
       return;
     }
     if (value.trim() && !isValidFeature(value)) {
@@ -659,17 +690,29 @@ const ServiceModal = ({ service, onClose, onSave }) => {
       return;
     }
 
-    // Now check custom validations (length, format)
-    if (isNameTooLong(formData.name)) {
-      toast.error('Too long data: Please enter a maximum of 50 characters');
-      return;
-    }
+    // Now check custom validations
     if (!isValidName(formData.name)) {
       toast.error('Please enter valid data');
       return;
     }
+    if (isNameTooLong(formData.name)) {
+      toast.error('Too long data: Please enter a maximum of 10 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(formData.name)) {
+      toast.error('Too many repeated characters in name');
+      return;
+    }
+    if (!isValidDescription(formData.description)) {
+      toast.error('Please enter valid description');
+      return;
+    }
     if (isDescriptionTooLong(formData.description)) {
       toast.error('Too long data: Please enter a maximum of 500 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(formData.description)) {
+      toast.error('Too many repeated characters in description');
       return;
     }
     if (Number(formData.price) <= 0) {
@@ -688,12 +731,16 @@ const ServiceModal = ({ service, onClose, onSave }) => {
       toast.error('Too long data: Please enter a maximum of 3 characters');
       return;
     }
+    if (!isValidEstimationTime(formData.estimationTime)) {
+      toast.error('Please enter valid estimation time');
+      return;
+    }
     if (isEstimationTimeTooLong(formData.estimationTime)) {
-      toast.error('Too long data: Please enter a maximum of 50 characters');
+      toast.error('Too long data: Please enter a maximum of 3 characters');
       return;
     }
     if (!isValidImageUrl(formData.image)) {
-      toast.error('Please enter valid data');
+      toast.error('Please enter valid data for image');
       return;
     }
     if (isImageUrlTooLong(formData.image)) {
@@ -703,11 +750,15 @@ const ServiceModal = ({ service, onClose, onSave }) => {
     // Validate features
     for (const feature of formData.features) {
       if (feature.trim() && !isValidFeature(feature)) {
-        toast.error('Please enter valid data');
+        toast.error('Please enter valid data for features');
         return;
       }
       if (isFeatureTooLong(feature)) {
-        toast.error('Too long data: Please enter a maximum of 100 characters');
+        toast.error('Too long data: Please enter a maximum of 100 characters per feature');
+        return;
+      }
+      if (hasExcessiveRepeatedChars(feature)) {
+        toast.error('Too many repeated characters in feature');
         return;
       }
     }
@@ -743,17 +794,17 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           <form id="service-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Name (max 50 characters)</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  maxLength={50}
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                  required
-                />
-              </div>
+              <label className="block text-sm font-semibold mb-2">Name (max 10 characters)</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                maxLength={10}
+                className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                required
+              />
+            </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold mb-2">Description (max 500 characters)</label>
@@ -796,17 +847,17 @@ const ServiceModal = ({ service, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Estimation Time (max 50 characters)</label>
-                <input
-                  type="text"
-                  name="estimationTime"
-                  value={formData.estimationTime}
-                  onChange={handleChange}
-                  placeholder="e.g. 2-3 hours"
-                  maxLength={50}
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
+              <label className="block text-sm font-semibold mb-2">Estimation Time (max 3 characters)</label>
+              <input
+                type="text"
+                name="estimationTime"
+                value={formData.estimationTime}
+                onChange={handleChange}
+                placeholder="e.g. 2h"
+                maxLength={3}
+                className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              />
+            </div>
 
               <div>
                 <label className="block text-sm font-semibold mb-2">Category</label>
