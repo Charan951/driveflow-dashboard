@@ -38,6 +38,27 @@ const CareerDetail: React.FC = () => {
 
   const onUploadResume = async (file?: File, event?: React.ChangeEvent<HTMLInputElement>) => {
     if (!file) return;
+    
+    // Validate file type
+    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error('Please upload a PDF file only');
+      if (event?.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    const maxSizeMB = 5;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      toast.error(`File size should not exceed ${maxSizeMB}MB`);
+      if (event?.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+    
     try {
       setUploadingResume(true);
       const uploaded = await uploadService.uploadPublicFile(file);
@@ -53,13 +74,21 @@ const CareerDetail: React.FC = () => {
     }
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!id) return;
-    if (!form.name.trim() || !form.email.trim() || !form.mobileNumber.trim() || !form.resumeUrl) {
-      toast.error('Please complete all required fields');
+    
+    const formElement = e.currentTarget;
+    if (!formElement.checkValidity()) {
+      formElement.reportValidity();
       return;
     }
+    
+    if (!form.resumeUrl) {
+      toast.error('Please upload your resume');
+      return;
+    }
+    
     if (!isValidEmail(form.email)) {
       toast.error('Please enter a valid email address');
       return;
@@ -149,12 +178,15 @@ const CareerDetail: React.FC = () => {
             className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4"
           >
             <h2 className="text-2xl font-bold">Apply for this role</h2>
-            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Name" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
-            <input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email address" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
-            <input value={form.mobileNumber} onChange={(e) => setForm((prev) => ({ ...prev, mobileNumber: e.target.value }))} placeholder="Mobile number" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input required maxLength={100} value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Name" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input required maxLength={100} type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email address" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+            <input required maxLength={10} type="tel" value={form.mobileNumber} onChange={(e) => {
+              const numericValue = e.target.value.replace(/\D/g, '');
+              setForm((prev) => ({ ...prev, mobileNumber: numericValue }));
+            }} placeholder="Mobile number" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" />
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF)</label>
+              <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF, max 5MB)</label>
               <div className="flex items-center gap-3">
                 <label className="px-4 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer inline-flex items-center gap-2">
                   <Upload className="w-4 h-4" />

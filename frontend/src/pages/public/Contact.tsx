@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
-import { isValidEmail } from "@/lib/formValidation";
+import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH } from "@/lib/formValidation";
 
 const Contact = () => {
   const [hero, setHero] = useState({
@@ -24,16 +24,11 @@ const Contact = () => {
     email: "info@carzzi.com"
   });
 
-  const MAX_NAME_LENGTH = 50;
-  const MAX_EMAIL_LENGTH = 30;
+  const MAX_NAME_LENGTH = SHARED_MAX_NAME_LENGTH;
   const MAX_SUBJECT_LENGTH = 100;
   const MAX_MESSAGE_LENGTH = 1000;
 
-  const isValidName = (name: string) => {
-    // Allow letters, spaces, hyphens, and apostrophes
-    const nameRegex = /^[a-zA-Z\s'-]+$/;
-    return nameRegex.test(name);
-  };
+  const isValidName = sharedIsValidName;
 
   const isValidSubject = (subject: string) => {
     // Allow letters, numbers, spaces, and common punctuation
@@ -79,7 +74,7 @@ const Contact = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const name = formData.name.trim();
-    const email = formData.email.trim();
+    const email = formData.email;
     const subject = formData.subject.trim();
     const message = formData.message.trim();
 
@@ -95,12 +90,8 @@ const Contact = () => {
       toast.error("Please enter valid data");
       return;
     }
-    if (email.length > MAX_EMAIL_LENGTH) {
-      toast.error("Too long data not accepted");
-      return;
-    }
     if (!isValidEmail(email)) {
-      toast.error("Wrong email id");
+      toast.error("Please enter valid email id");
       return;
     }
     if (subject.length > MAX_SUBJECT_LENGTH) {
@@ -139,10 +130,52 @@ const Contact = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     let value = e.target.value;
-    if (e.target.name === 'email') {
+    const name = e.target.name;
+
+    if (name === 'email') {
       value = value.toLowerCase();
+      if (value.length > MAX_EMAIL_LENGTH) {
+        toast.error('Too long data: Please enter a maximum of 30 characters');
+        return;
+      }
     }
-    setFormData(prev => ({ ...prev, [e.target.name]: value }));
+
+    if (name === 'name') {
+      // Validate name characters and length
+      const allowedRegex = /^[a-zA-Z\s'-]*$/;
+      if (!allowedRegex.test(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+      if (value.length > MAX_NAME_LENGTH) {
+        toast.error('Too long data: Please enter a maximum of 50 characters');
+        return;
+      }
+    }
+
+    if (name === 'subject') {
+      if (!isValidSubject(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+      if (value.length > MAX_SUBJECT_LENGTH) {
+        toast.error('Too long data: Please enter a maximum of 100 characters');
+        return;
+      }
+    }
+
+    if (name === 'message') {
+      if (!isValidMessage(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+      if (value.length > MAX_MESSAGE_LENGTH) {
+        toast.error('Too long data: Please enter a maximum of 1000 characters');
+        return;
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   return (

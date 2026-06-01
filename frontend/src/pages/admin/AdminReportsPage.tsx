@@ -17,6 +17,7 @@ import { reportService } from '../../services/reportService';
 import { socketService } from '../../services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
+import { isValidDate } from '../../lib/formValidation';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -117,15 +118,18 @@ const AdminReportsPage = () => {
   };
 
   const handleCustomDateChange = (field: 'startDate' | 'endDate', value: string) => {
+    if (value) {
+      if (!isValidDate(value)) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+    }
     const newRange = { ...dateRange, [field]: value };
     setDateRange(newRange);
     setQuickDate('custom');
   };
 
-  const isValidDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return !isNaN(date.getTime());
-  };
+
 
   const applyCustomDateRange = () => {
     if (dateRange.startDate && !isValidDate(dateRange.startDate)) {

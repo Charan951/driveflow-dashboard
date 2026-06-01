@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, Search, User, Calendar, BadgeCheck, Copy } from 'lucide-react';
 import { auditService, AuditLog } from '../../services/auditService';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
+import { isValidDate } from '../../lib/formValidation';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE_CASHFREE_ORDER: 'Payment order created',
@@ -77,11 +78,11 @@ const CopyButton = ({ text, label }: { text: string; label: string }) => (
   <button
     type="button"
     onClick={() => copyToClipboard(text, label)}
-    className="shrink-0 p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
+    className="shrink-0 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer border border-gray-200 hover:border-blue-300"
     aria-label={`Copy ${label}`}
     title={`Copy ${label}`}
   >
-    <Copy size={14} />
+    <Copy size={18} />
   </button>
 );
 
@@ -163,11 +164,45 @@ const AdminAuditPage = () => {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    // Validate Action Type
+    if (name === 'action') {
+      if (value.length > 50) {
+        toast.error('Too long data: Please enter a maximum of 50 characters');
+        return;
+      }
+      // Allow only letters, numbers, underscores, spaces, hyphens
+      const allowedRegex = /^[a-zA-Z0-9\s_-]*$/;
+      if (!allowedRegex.test(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+    }
+
+    // Validate date fields
+    if (name === 'startDate' || name === 'endDate') {
+      if (value && !isValidDate(value)) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+    }
+
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if any date fields are invalid
+    if (filters.startDate && !isValidDate(filters.startDate)) {
+      toast.error('Invalid start date');
+      return;
+    }
+    if (filters.endDate && !isValidDate(filters.endDate)) {
+      toast.error('Invalid end date');
+      return;
+    }
+
     fetchLogs();
   };
 

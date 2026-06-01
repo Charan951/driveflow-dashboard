@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User as UserIcon, 
   Mail, 
@@ -14,7 +14,9 @@ import {
   ArrowLeft,
   MoreVertical,
   CheckCircle,
-  XCircle
+  XCircle,
+  X,
+  Save
 } from 'lucide-react';
 import { userService, User } from '@/services/userService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
@@ -23,6 +25,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
 import VehicleCard from '@/components/VehicleCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { isValidEmail, isValidPhone10 } from '@/lib/formValidation';
 
 const AdminUserDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +35,12 @@ const AdminUserDetailPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('vehicles');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,6 +54,11 @@ const AdminUserDetailPage: React.FC = () => {
         ]);
 
         setUser(userData);
+        setEditFormData({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || ''
+        });
         setVehicles(vehiclesData);
         setBookings(bookingsData);
       } catch (error) {
@@ -60,6 +74,36 @@ const AdminUserDetailPage: React.FC = () => {
       fetchData();
     }
   }, [id, navigate]);
+
+  const handleSaveProfile = async () => {
+    if (!editFormData.name.trim()) {
+      toast.error('Please enter a name');
+      return;
+    }
+    if (!isValidEmail(editFormData.email)) {
+      toast.error('Please enter a valid email');
+      return;
+    }
+    if (editFormData.phone && !isValidPhone10(editFormData.phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    try {
+      if (!id) return;
+      const updatedUser = await userService.updateUser(id, {
+        name: editFormData.name.trim(),
+        email: editFormData.email,
+        phone: editFormData.phone
+      });
+      setUser(updatedUser);
+      setIsEditModalOpen(false);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update profile');
+    }
+  };
 
   if (isLoading || !user) {
     return <div className="p-8 text-center">Loading user details...</div>;
@@ -85,7 +129,7 @@ const AdminUserDetailPage: React.FC = () => {
       <div className="flex items-center gap-4">
         <button 
           onClick={() => navigate('/admin/customers')}
-          className="p-2 hover:bg-muted rounded-full transition-colors"
+          className="p-2 hover:bg-muted rounded-full transition-colors border border-border"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -137,8 +181,8 @@ const AdminUserDetailPage: React.FC = () => {
 
             <div className="mt-6 pt-6 border-t border-border flex gap-2">
               <button 
-                onClick={() => toast.info('Edit profile feature coming soon')}
-                className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors border border-primary"
               >
                 Edit Profile
               </button>
@@ -306,6 +350,79 @@ const AdminUserDetailPage: React.FC = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-border flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Edit Profile</h2>
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="p-2 hover:bg-muted rounded-full border border-border"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Full Name</label>
+                  <input
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter full name"
+                    className="w-full px-4 py-2 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Email</label>
+                  <input
+                    type="email"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter email"
+                    className="w-full px-4 py-2 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Phone Number</label>
+                  <input
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '') }))}
+                    placeholder="Enter 10-digit phone number"
+                    maxLength={10}
+                    className="w-full px-4 py-2 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 bg-muted/30 border-t border-border flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 bg-background border border-border hover:bg-muted rounded-xl text-sm font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveProfile}
+                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors border border-primary"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

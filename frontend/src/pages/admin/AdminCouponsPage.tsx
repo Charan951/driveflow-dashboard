@@ -294,8 +294,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   const addUser = () => {
     const email = newUser.email.trim();
     const mobile = newUser.mobile.trim();
-    if (!email || !mobile) {
-      toast.error('Please enter both email and mobile number');
+    if (!email) {
+      toast.error('Please fill out this field');
+      return;
+    }
+    if (!mobile) {
+      toast.error('Please fill out this field');
       return;
     }
     if (email.length > 100) {
@@ -343,10 +347,22 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked, maxLength } = e.target;
+    
+    let finalValue = value;
+    if (type === 'number') {
+      if (name === 'discountPercentage' && value.length > 3) {
+        finalValue = value.slice(0, 3);
+      } else if (['maxDiscountAmount', 'minOrderAmount', 'usageLimit'].includes(name) && value.length > 6) {
+        finalValue = value.slice(0, 6);
+      }
+    } else if (type === 'date' && value.length > 10) {
+      finalValue = value.slice(0, 10);
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : type === 'number' ? (value === '' ? '' : Number(value)) : value
+      [name]: type === 'checkbox' ? checked : type === 'number' ? (finalValue === '' ? '' : Number(finalValue)) : finalValue
     }));
   };
 
@@ -354,8 +370,19 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
     e.preventDefault();
     const validFrom = new Date(formData.validFrom);
     const validUntil = new Date(formData.validUntil);
+    const maxDate = new Date('2999-12-31');
+
+    if (formData.validFrom.length > 10 || (validFrom && validFrom > maxDate)) {
+      toast.error('Valid From date cannot exceed 2999-12-31');
+      return;
+    }
+    if (formData.validUntil.length > 10 || (validUntil && validUntil > maxDate)) {
+      toast.error('Valid Until date cannot exceed 2999-12-31');
+      return;
+    }
+
     if (!formData.code.trim()) {
-      toast.error('Coupon code is required');
+      toast.error('Please fill out this field');
       return;
     }
     // Validate coupon code: only alphanumeric, underscores, and hyphens
@@ -369,8 +396,16 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       toast.error('Coupon code cannot exceed 20 characters');
       return;
     }
+    if (formData.discountPercentage === '') {
+      toast.error('Please fill out this field');
+      return;
+    }
     if (Number(formData.discountPercentage) < 1 || Number(formData.discountPercentage) > 100) {
       toast.error('Discount percentage must be between 1 and 100');
+      return;
+    }
+    if (formData.minOrderAmount === '') {
+      toast.error('Please fill out this field');
       return;
     }
     if (Number(formData.minOrderAmount) < 0) {
@@ -381,12 +416,20 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       toast.error('Min order amount cannot exceed 999999');
       return;
     }
+    if (formData.maxDiscountAmount === '') {
+      toast.error('Please fill out this field');
+      return;
+    }
     if (Number(formData.maxDiscountAmount) < 0) {
       toast.error('Max discount cannot be negative');
       return;
     }
     if (Number(formData.maxDiscountAmount) > 999999) {
       toast.error('Max discount cannot exceed 999999');
+      return;
+    }
+    if (formData.usageLimit === '') {
+      toast.error('Please fill out this field');
       return;
     }
     if (Number(formData.usageLimit) < 1 || Number(formData.usageLimit) > 999999) {
@@ -403,7 +446,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
     }
     const descriptionRegex = /^[\w\s.,!?'"()-]*$/;
     if (!descriptionRegex.test(formData.description)) {
-      toast.error('Please enter valid data');
+      toast.error('Please enter valid data in Description field');
       return;
     }
     
@@ -436,7 +479,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           <form id="coupon-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Coupon Code (Max 20 characters)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Coupon Code</label>
+                  <span className="text-xs text-muted-foreground">{formData.code.length}/20 characters</span>
+                </div>
                 <input
                   type="text"
                   name="code"
@@ -464,7 +510,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Max Discount Amount (₹) (Max 999999)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Max Discount Amount (₹)</label>
+                  <span className="text-xs text-muted-foreground">{formData.maxDiscountAmount.toString().length}/6 digits</span>
+                </div>
                 <input
                   type="number"
                   name="maxDiscountAmount"
@@ -479,7 +528,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Min Order Amount (₹) (Max 999999)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Min Order Amount (₹)</label>
+                  <span className="text-xs text-muted-foreground">{formData.minOrderAmount.toString().length}/6 digits</span>
+                </div>
                 <input
                   type="number"
                   name="minOrderAmount"
@@ -494,7 +546,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Usage Limit (Max 999999)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Usage Limit</label>
+                  <span className="text-xs text-muted-foreground">{formData.usageLimit.toString().length}/6 digits</span>
+                </div>
                 <input
                   type="number"
                   name="usageLimit"
@@ -509,7 +564,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Valid From (YYYY-MM-DD, Max: 2999-12-31)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Valid From</label>
+                  <span className="text-xs text-muted-foreground">{formData.validFrom.toString().length}/10 characters</span>
+                </div>
                 <input
                   type="date"
                   name="validFrom"
@@ -517,13 +575,17 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
                   max="2999-12-31"
+                  maxLength={10}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Valid Until (YYYY-MM-DD, Max: 2999-12-31)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">Valid Until</label>
+                  <span className="text-xs text-muted-foreground">{formData.validUntil.toString().length}/10 characters</span>
+                </div>
                 <input
                   type="date"
                   name="validUntil"
@@ -531,6 +593,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
                   max="2999-12-31"
+                  maxLength={10}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
@@ -589,9 +652,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                     className="flex gap-2"
                   >
                     <div className="flex-1">
-                      <Label className="block text-xs font-medium text-muted-foreground mb-1">
-                        Email address (Max 100 characters)
-                      </Label>
+                      <div className="flex justify-between items-center mb-1">
+                        <Label className="block text-xs font-medium text-muted-foreground">
+                          Email address
+                        </Label>
+                        <span className="text-[10px] text-muted-foreground">{newUser.email.length}/100 characters</span>
+                      </div>
                       <Input
                         type="email"
                         placeholder="Email address"
@@ -603,16 +669,22 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                       />
                     </div>
                     <div className="flex-1">
-                      <Label className="block text-xs font-medium text-muted-foreground mb-1">
-                        Mobile number (10 digits)
-                      </Label>
+                      <div className="flex justify-between items-center mb-1">
+                        <Label className="block text-xs font-medium text-muted-foreground">
+                          Mobile number
+                        </Label>
+                        <span className="text-[10px] text-muted-foreground">{newUser.mobile.length}/10 digits</span>
+                      </div>
                       <Input
                         type="tel"
                         placeholder="Mobile number"
                         value={newUser.mobile}
-                        onChange={(e) => setNewUser(prev => ({ ...prev, mobile: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setNewUser(prev => ({ ...prev, mobile: val }));
+                        }}
                         className="h-9 text-sm"
-                        maxLength={15}
+                        maxLength={10}
                         required
                       />
                     </div>
@@ -697,7 +769,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
             form="coupon-form"
             className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-medium shadow-sm active:scale-[0.98]"
           >
-            Save Coupon
+            {coupon ? 'Save changes' : 'Save Coupon'}
           </button>
         </div>
       </motion.div>

@@ -11,6 +11,19 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatLocalYmd } from '@/lib/utils';
+import { 
+  isValidName, 
+  isNameTooLong, 
+  isDescriptionTooLong, 
+  isPriceTooLong, 
+  isDurationTooLong, 
+  isEstimationTimeTooLong, 
+  isValidImageUrl, 
+  isImageUrlTooLong, 
+  isValidFeature, 
+  isFeatureTooLong,
+  isValidDate 
+} from '@/lib/formValidation';
 
 const AdminServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -171,6 +184,25 @@ const AdminServicesPage: React.FC = () => {
   };
 
   const handleSaveAvailableServicePincodes = async () => {
+    // First, check if there are any pending invalid pincodes in the input before saving
+    const parsed = parsePincodes(availableServicePincodeInput);
+    const rawInput = availableServicePincodeInput.trim();
+    if (rawInput.length > 0) {
+      const parts = rawInput.split(/[,\s]+/g).map(p => p.trim()).filter(Boolean);
+      const invalidParts = parts.filter(p => {
+        const digits = p.replace(/\D/g, '');
+        return digits.length !== 6;
+      });
+      if (invalidParts.length > 0) {
+        toast.error('Please enter valid 6-digit pincodes only');
+        return;
+      }
+    }
+    // If there are valid pending pincodes, add them first
+    if (parsed.length > 0) {
+      setAvailableServicePincodes((prev) => Array.from(new Set([...prev, ...parsed])));
+      setAvailableServicePincodeInput('');
+    }
     try {
       setAvailableServiceSaving(true);
       await bookingService.updateAvailableServicePincodes(availableServicePincodes);
@@ -184,6 +216,19 @@ const AdminServicesPage: React.FC = () => {
 
   const addPincodesFromInput = () => {
     const parsed = parsePincodes(availableServicePincodeInput);
+    const rawInput = availableServicePincodeInput.trim();
+    if (rawInput.length > 0) {
+      // Check if there are any invalid parts in the input
+      const parts = rawInput.split(/[,\s]+/g).map(p => p.trim()).filter(Boolean);
+      const invalidParts = parts.filter(p => {
+        const digits = p.replace(/\D/g, '');
+        return digits.length !== 6;
+      });
+      if (invalidParts.length > 0) {
+        toast.error('Please enter valid 6-digit pincodes only');
+        return;
+      }
+    }
     if (parsed.length === 0) return;
     setAvailableServicePincodes((prev) => Array.from(new Set([...prev, ...parsed])));
     setAvailableServicePincodeInput('');
@@ -315,7 +360,14 @@ const AdminServicesPage: React.FC = () => {
                   type="date"
                   value={selectedSlotDate}
                   min={formatLocalYmd(new Date())}
-                  onChange={(e) => setSelectedSlotDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    if (newDate && !isValidDate(newDate)) {
+                      toast.error('Please enter a valid date');
+                      return;
+                    }
+                    setSelectedSlotDate(newDate);
+                  }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
                 <div className="flex items-center gap-1 border-l border-border pl-2 mr-1">
@@ -399,11 +451,20 @@ const AdminServicesPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Add available pincode</Label>
+              <Label className="text-xs text-muted-foreground">Add available pincode (max 100 characters)</Label>
               <input
                 type="text"
                 value={availableServicePincodeInput}
-                onChange={(e) => setAvailableServicePincodeInput(e.target.value)}
+                onChange={(e) => {
+                  // Only allow digits, spaces, and commas
+                  const value = e.target.value.replace(/[^0-9,\s]/g, '');
+                  // Check for total length (max reasonable length)
+                  if (value.length > 100) {
+                    toast.error('Too long data: Please enter pincodes within 100 characters');
+                    return;
+                  }
+                  setAvailableServicePincodeInput(value);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
@@ -412,6 +473,7 @@ const AdminServicesPage: React.FC = () => {
                 }}
                 onBlur={addPincodesFromInput}
                 placeholder="e.g. 500032, 500008"
+                maxLength={100}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               />
               {availableServicePincodes.length > 0 && (
@@ -494,6 +556,52 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    if (name === 'name') {
+      // Validate name on change
+      const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
+      if (!allowedRegex.test(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+      if (value.length > 50) {
+        toast.error('Too long data: Please enter a maximum of 50 characters');
+        return;
+      }
+    }
+    if (name === 'description') {
+      if (value.length > 500) {
+        toast.error('Too long data: Please enter a maximum of 500 characters');
+        return;
+      }
+    }
+    if (name === 'price') {
+      if (value.length > 10) {
+        toast.error('Too long data: Please enter a maximum of 10 characters');
+        return;
+      }
+    }
+    if (name === 'duration') {
+      if (value.length > 3) {
+        toast.error('Too long data: Please enter a maximum of 3 characters');
+        return;
+      }
+    }
+    if (name === 'estimationTime') {
+      if (value.length > 50) {
+        toast.error('Too long data: Please enter a maximum of 50 characters');
+        return;
+      }
+    }
+    if (name === 'image') {
+      if (value.length > 500) {
+        toast.error('Too long data: Please enter a maximum of 500 characters');
+        return;
+      }
+      if (value.trim() && !isValidImageUrl(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+    }
     setFormData((prev) => ({ 
       ...prev, 
       [name]: type === 'number' ? (value === '' ? 0 : Number(value)) : value 
@@ -518,6 +626,14 @@ const ServiceModal = ({ service, onClose, onSave }) => {
   };
 
   const handleFeatureChange = (index, value) => {
+    if (value.length > 100) {
+      toast.error('Too long data: Please enter a maximum of 100 characters');
+      return;
+    }
+    if (value.trim() && !isValidFeature(value)) {
+      toast.error('Please enter valid data');
+      return;
+    }
     const newFeatures = [...formData.features];
     newFeatures[index] = value;
     setFormData((prev) => ({ ...prev, features: newFeatures }));
@@ -535,25 +651,65 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error('Service name is required');
+
+    // First, check native browser validation for required fields
+    const form = e.target as HTMLFormElement;
+    if (!form.checkValidity()) {
+      form.reportValidity();
       return;
     }
-    if (!formData.description.trim()) {
-      toast.error('Service description is required');
+
+    // Now check custom validations (length, format)
+    if (isNameTooLong(formData.name)) {
+      toast.error('Too long data: Please enter a maximum of 50 characters');
+      return;
+    }
+    if (!isValidName(formData.name)) {
+      toast.error('Please enter valid data');
+      return;
+    }
+    if (isDescriptionTooLong(formData.description)) {
+      toast.error('Too long data: Please enter a maximum of 500 characters');
       return;
     }
     if (Number(formData.price) <= 0) {
       toast.error('Price must be greater than 0');
       return;
     }
+    if (isPriceTooLong(formData.price)) {
+      toast.error('Too long data: Please enter a maximum of 10 characters');
+      return;
+    }
     if (Number(formData.duration) <= 0) {
       toast.error('Duration must be greater than 0');
       return;
     }
-    if (!formData.image.trim()) {
-      toast.error('Service image is required');
+    if (isDurationTooLong(formData.duration)) {
+      toast.error('Too long data: Please enter a maximum of 3 characters');
       return;
+    }
+    if (isEstimationTimeTooLong(formData.estimationTime)) {
+      toast.error('Too long data: Please enter a maximum of 50 characters');
+      return;
+    }
+    if (!isValidImageUrl(formData.image)) {
+      toast.error('Please enter valid data');
+      return;
+    }
+    if (isImageUrlTooLong(formData.image)) {
+      toast.error('Too long data: Please enter a maximum of 500 characters');
+      return;
+    }
+    // Validate features
+    for (const feature of formData.features) {
+      if (feature.trim() && !isValidFeature(feature)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+      if (isFeatureTooLong(feature)) {
+        toast.error('Too long data: Please enter a maximum of 100 characters');
+        return;
+      }
     }
     // Clean up features: remove empty ones
     const cleanedData = {
@@ -587,62 +743,67 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           <form id="service-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Name</label>
+                <label className="block text-sm font-semibold mb-2">Name (max 50 characters)</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
+                  maxLength={50}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Description</label>
+                <label className="block text-sm font-semibold mb-2">Description (max 500 characters)</label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
+                  maxLength={500}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all min-h-[100px]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Price</label>
+                <label className="block text-sm font-semibold mb-2">Price (max 10 characters)</label>
                 <input
                   type="number"
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
                   min="1"
+                  maxLength={10}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Duration (minutes)</label>
+                <label className="block text-sm font-semibold mb-2">Duration (minutes, max 3 characters)</label>
                 <input
                   type="number"
                   name="duration"
                   value={formData.duration}
                   onChange={handleChange}
                   min="1"
+                  maxLength={3}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Estimation Time</label>
+                <label className="block text-sm font-semibold mb-2">Estimation Time (max 50 characters)</label>
                 <input
                   type="text"
                   name="estimationTime"
                   value={formData.estimationTime}
                   onChange={handleChange}
                   placeholder="e.g. 2-3 hours"
+                  maxLength={50}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                 />
               </div>
@@ -684,7 +845,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">Service Image</label>
+                <label className="block text-sm font-semibold mb-2">Service Image (max 500 characters)</label>
                 <div className="flex flex-col gap-4">
                   {formData.image && (
                     <div className="relative w-full h-40 rounded-lg overflow-hidden border border-border">
@@ -706,7 +867,9 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                       value={formData.image}
                       onChange={handleChange}
                       placeholder="Paste image URL here"
+                      maxLength={500}
                       className="flex-1 p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      required
                     />
                     <button
                       type="button"
@@ -730,7 +893,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
               <div className="md:col-span-2">
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-semibold">Features</label>
+                  <label className="text-sm font-semibold">Features (max 100 characters each)</label>
                   <button
                     type="button"
                     onClick={addFeature}
@@ -747,6 +910,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                         value={feature}
                         onChange={(e) => handleFeatureChange(index, e.target.value)}
                         placeholder={`Feature ${index + 1}`}
+                        maxLength={100}
                         className="flex-1 p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                       />
                       <button

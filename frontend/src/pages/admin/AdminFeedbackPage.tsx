@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, Star, ThumbsUp, MessageSquare, Trash2, User, CheckCircle, XCircle } from 'lucide-react';
 import { reviewService, Review } from '../../services/reviewService';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const AdminFeedbackPage = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -143,10 +143,18 @@ const AdminFeedbackPage = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search reviewer, target, or comment..."
+            placeholder="Search reviewer, target, or comment... (max 50 characters)"
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            maxLength={50}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.length > 50) {
+                toast.error('Too long data: Please enter a maximum of 50 characters');
+                return;
+              }
+              setSearchTerm(val);
+            }}
           />
         </div>
         <div className="flex items-center space-x-2 w-full md:w-auto">

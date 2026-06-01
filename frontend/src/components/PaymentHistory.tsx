@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { paymentService, PaymentData, PaymentHistory as PaymentHistoryType } from '@/services/paymentService';
 import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
+import { isValidDate } from '@/lib/formValidation';
 
 interface PaymentHistoryProps {
   userId?: string;
@@ -119,6 +120,12 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
   };
 
   const handleFilterChange = (key: string, value: string) => {
+    if (key === 'startDate' || key === 'endDate') {
+      if (value && !isValidDate(value)) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+    }
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
@@ -175,6 +182,7 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="Start Date"
+              max="2999-12-31"
             />
 
             <input
@@ -183,6 +191,7 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="End Date"
+              max="2999-12-31"
             />
 
             <button
@@ -269,9 +278,8 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
 
           <div className="flex items-center gap-2 order-1 sm:order-2 w-full sm:w-auto justify-between sm:justify-end">
             <button
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page === 1}
-              className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+              onClick={() => { if (pagination.page > 1) handlePageChange(pagination.page - 1); }}
+              className={`flex items-center gap-1 px-3 py-2 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 bg-white ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <ChevronLeft className="w-4 h-4" />
               Previous

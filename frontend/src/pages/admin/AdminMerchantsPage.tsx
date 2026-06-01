@@ -335,7 +335,7 @@ const AdminMerchantsPage: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 border border-blue-500"
         >
           <Plus className="w-4 h-4" />
           Add Merchant
@@ -349,7 +349,21 @@ const AdminMerchantsPage: React.FC = () => {
             type="text"
             placeholder="Search merchants (max 15 characters)..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              // Check length first
+              if (val.length > 15) {
+                toast.error('Too long data: Please enter a maximum of 15 characters');
+                return;
+              }
+              // Allow letters, digits, spaces, apostrophes, hyphens only
+              const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
+              if (!allowedRegex.test(val)) {
+                toast.error('Invalid data: Please enter valid characters');
+                return;
+              }
+              setSearchQuery(val);
+            }}
             maxLength={15}
             className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -443,14 +457,14 @@ const AdminMerchantsPage: React.FC = () => {
                 <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => handleEditClick(merchant, e)}
-                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg border border-gray-300 hover:border-blue-400"
                     title="Edit"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button
                     onClick={(e) => handleDeleteMerchant(merchant._id, e)}
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg border border-gray-300 hover:border-red-400"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -492,14 +506,14 @@ const AdminMerchantsPage: React.FC = () => {
                 <div className="flex items-center justify-end gap-1 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                   <button
                     onClick={(e) => handleApprove(merchant._id, e)}
-                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors border border-green-300 hover:border-green-500"
                     title="Approve"
                   >
                     <CheckCircle className="w-5 h-5" />
                   </button>
                   <button
                     onClick={(e) => handleRejectClick(merchant, e)}
-                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-300 hover:border-red-500"
                     title="Reject"
                   >
                     <XCircle className="w-5 h-5" />

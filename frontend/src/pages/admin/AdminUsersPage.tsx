@@ -161,13 +161,26 @@ const AdminUsersPage: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
-                type="text"
-                placeholder="Search by name or email (max 20 characters)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                maxLength={20}
-                className="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+            type="text"
+            placeholder="Search by name or email (max 20 characters)..."
+            value={searchQuery}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.length > 20) {
+                toast.error('Too long data: Please enter a maximum of 20 characters');
+                return;
+              }
+              // Allow letters, digits, spaces, apostrophes, hyphens, dots, @, %+, underscores (for emails)
+              const allowedRegex = /^[a-zA-Z0-9\s'-.@%+_]*$/;
+              if (!allowedRegex.test(val)) {
+                toast.error('Invalid data: Please enter valid characters');
+                return;
+              }
+              setSearchQuery(val);
+            }}
+            maxLength={20}
+            className="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
             </div>
           </div>
         </div>
@@ -223,24 +236,24 @@ const AdminUsersPage: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); handleViewDetails(user); }}
-                              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                              className="px-3 py-1.5 border border-border text-sm font-medium hover:bg-muted hover:text-foreground rounded-lg flex items-center gap-2 transition-all"
                               title="View Details"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-4 h-4" /> View Details
                             </button>
                             
                             {!user.isApproved && !user.rejectionReason && (
                               <>
                                 <button
                                   onClick={(e) => handleApprove(user._id, e)}
-                                  className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                  className="p-1.5 border border-green-300 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 hover:border-green-500 rounded-lg transition-all"
                                   title="Approve"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={(e) => handleRejectClick(user, e)}
-                                  className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                  className="p-1.5 border border-red-300 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 hover:border-red-500 rounded-lg transition-all"
                                   title="Reject"
                                 >
                                   <X className="w-4 h-4" />
@@ -251,7 +264,7 @@ const AdminUsersPage: React.FC = () => {
                             {user.rejectionReason && (
                                <button
                                onClick={(e) => handleApprove(user._id, e)}
-                               className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                               className="p-1.5 border border-green-300 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 hover:border-green-500 rounded-lg transition-all"
                                title="Re-Approve"
                              >
                                <Check className="w-4 h-4" />
@@ -301,7 +314,7 @@ const AdminUsersPage: React.FC = () => {
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleViewDetails(user); }}
-                        className="text-xs font-medium text-primary flex items-center gap-1"
+                        className="text-xs font-medium text-primary border border-primary/20 hover:bg-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
                       >
                         View Profile <Eye className="w-3 h-3" />
                       </button>
@@ -311,13 +324,13 @@ const AdminUsersPage: React.FC = () => {
                           <>
                             <button
                               onClick={(e) => handleApprove(user._id, e)}
-                              className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                              className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-300 hover:border-green-500 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
                             >
                               <Check className="w-3 h-3" /> Approve
                             </button>
                             <button
                               onClick={(e) => handleRejectClick(user, e)}
-                              className="px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                              className="px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-300 hover:border-red-500 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
                             >
                               <X className="w-3 h-3" /> Reject
                             </button>
@@ -327,7 +340,7 @@ const AdminUsersPage: React.FC = () => {
                         {user.rejectionReason && (
                           <button
                             onClick={(e) => handleApprove(user._id, e)}
-                            className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-medium flex items-center gap-1"
+                            className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-300 hover:border-green-500 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
                           >
                             <Check className="w-3 h-3" /> Re-Approve
                           </button>

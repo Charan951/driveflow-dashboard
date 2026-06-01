@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
-import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isValidName, isEmailTooLong, isNameTooLong, isPasswordTooLong } from '@/lib/formValidation';
 
 const AdminStaffPage: React.FC = () => {
   const navigate = useNavigate();
@@ -109,12 +109,28 @@ const AdminStaffPage: React.FC = () => {
       toast.error('Full name is required');
       return;
     }
+    if (isNameTooLong(newStaff.name)) {
+      toast.error('Too long data: Please enter a maximum of 50 characters');
+      return;
+    }
+    if (!isValidName(newStaff.name)) {
+      toast.error('Please enter valid data');
+      return;
+    }
+    if (isEmailTooLong(newStaff.email)) {
+      toast.error('Too long data: Please enter a maximum of 30 characters');
+      return;
+    }
     if (!isValidEmail(newStaff.email)) {
       toast.error('Enter a valid email address');
       return;
     }
     if (!isValidPhone10(newStaff.phone)) {
       toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if (isPasswordTooLong(newStaff.password)) {
+      toast.error('Too long data: Please enter a maximum of 15 characters');
       return;
     }
     if (!isStrongPassword(newStaff.password)) {
@@ -302,43 +318,82 @@ const AdminStaffPage: React.FC = () => {
             <h2 className="text-xl font-bold mb-4">Add New Staff Member</h2>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <label className="block text-sm font-medium mb-1">Full Name (max 50 characters)</label>
                 <input
                   type="text"
                   required
                   value={newStaff.name}
-                  onChange={e => setNewStaff({...newStaff, name: e.target.value})}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val.length > 50) {
+                      toast.error('Too long data: Please enter a maximum of 50 characters');
+                      return;
+                    }
+                    // Validate only letters, spaces, apostrophes, hyphens only
+                    const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
+                    if (!allowedRegex.test(val)) {
+                      toast.error('Please enter valid data');
+                      return;
+                    }
+                    setNewStaff({...newStaff, name: val});
+                  }}
+                  maxLength={50}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email Address</label>
+                <label className="block text-sm font-medium mb-1">Email Address (max 30 characters)</label>
                 <input
                   type="email"
                   required
                   value={newStaff.email}
-                  onChange={e => setNewStaff({...newStaff, email: e.target.value})}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val.length > 30) {
+                      toast.error('Too long data: Please enter a maximum of 30 characters');
+                      return;
+                    }
+                    // Check email format as user types removed to allow typing
+                    setNewStaff({...newStaff, email: val});
+                  }}
+                  maxLength={30}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Phone Number</label>
+                <label className="block text-sm font-medium mb-1">Phone Number (max 10 digits)</label>
                 <input
                   type="tel"
                   required
                   value={newStaff.phone}
-                  onChange={e => setNewStaff({...newStaff, phone: e.target.value})}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, ''); // Remove non-digit characters
+                    if (val.length > 10) {
+                      toast.error('Too long data: Please enter a maximum of 10 digits');
+                      return;
+                    }
+                    setNewStaff({...newStaff, phone: val});
+                  }}
+                  maxLength={10}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Password</label>
+                <label className="block text-sm font-medium mb-1">Password (max 15 characters)</label>
                 <div className="relative">
                   <input
                     type={showStaffPassword ? 'password' : 'text'}
                     required
                     value={newStaff.password}
-                    onChange={e => setNewStaff({...newStaff, password: e.target.value})}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val.length > 15) {
+                        toast.error('Too long data: Please enter a maximum of 15 characters');
+                        return;
+                      }
+                      setNewStaff({...newStaff, password: val});
+                    }}
+                    maxLength={15}
                     className="w-full p-2 pr-10 rounded-lg border border-border bg-background"
                     placeholder="Create a temporary password"
                   />
