@@ -119,6 +119,10 @@ const AdminReportsPage = () => {
 
   const handleCustomDateChange = (field: 'startDate' | 'endDate', value: string) => {
     if (value) {
+      if (value.length > 10) {
+        toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
+        return;
+      }
       if (!isValidDate(value)) {
         toast.error('Please enter a valid date');
         return;
@@ -294,6 +298,9 @@ const AdminReportsPage = () => {
                 type="date"
                 value={dateRange.startDate || ''}
                 onChange={(e) => handleCustomDateChange('startDate', e.target.value)}
+                maxLength={10}
+                min="1900-01-01"
+                max="2100-12-31"
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <span className="text-gray-400">to</span>
@@ -301,6 +308,9 @@ const AdminReportsPage = () => {
                 type="date"
                 value={dateRange.endDate || ''}
                 onChange={(e) => handleCustomDateChange('endDate', e.target.value)}
+                maxLength={10}
+                min="1900-01-01"
+                max="2100-12-31"
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button

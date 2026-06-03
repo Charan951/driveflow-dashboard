@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn, formatLocalYmd, startOfLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { isValidDate } from '@/lib/formValidation';
+import { toast } from 'sonner';
 
 interface SlotPickerProps {
   selectedDate: Date | null;
@@ -59,10 +61,20 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
             <input
               type="date"
               min={formatLocalYmd(startOfLocalDay())}
+              max="2100-12-31"
+              maxLength={10}
               value={selectedDateValue}
               onChange={(e) => {
                 const v = e.target.value;
                 if (!v) return;
+                if (v.length > 10) {
+                  toast.error('Too long data: Please enter a valid date');
+                  return;
+                }
+                if (!isValidDate(v)) {
+                  toast.error('Please enter a valid date');
+                  return;
+                }
                 const [y, mo, d] = v.split('-').map(Number);
                 if (!y || !mo || !d) return;
                 const date = new Date(y, mo - 1, d);

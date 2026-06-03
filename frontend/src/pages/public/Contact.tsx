@@ -134,48 +134,37 @@ const Contact = () => {
 
     if (name === 'email') {
       value = value.toLowerCase();
+      // Only check max length while typing
       if (value.length > MAX_EMAIL_LENGTH) {
-        toast.error('Too long data: Please enter a maximum of 30 characters');
-        return;
-      }
-      if (value.length > 0 && !isValidEmail(value)) {
-        toast.error('Please enter valid email id');
-        return;
+        value = value.slice(0, MAX_EMAIL_LENGTH);
       }
     }
 
     if (name === 'name') {
-      // Validate name characters and length
       const allowedRegex = /^[a-zA-Z\s'-]*$/;
       if (!allowedRegex.test(value)) {
-        toast.error('Please enter valid data');
-        return;
+        value = value.slice(0, -1);
       }
       if (value.length > MAX_NAME_LENGTH) {
-        toast.error(`Too long data: Please enter a maximum of ${MAX_NAME_LENGTH} characters`);
-        return;
+        value = value.slice(0, MAX_NAME_LENGTH);
       }
     }
 
     if (name === 'subject') {
       if (!isValidSubject(value)) {
-        toast.error('Please enter valid data');
-        return;
+        value = value.slice(0, -1);
       }
       if (value.length > MAX_SUBJECT_LENGTH) {
-        toast.error('Too long data: Please enter a maximum of 100 characters');
-        return;
+        value = value.slice(0, MAX_SUBJECT_LENGTH);
       }
     }
 
     if (name === 'message') {
       if (!isValidMessage(value)) {
-        toast.error('Please enter valid data');
-        return;
+        value = value.slice(0, -1);
       }
       if (value.length > MAX_MESSAGE_LENGTH) {
-        toast.error('Too long data: Please enter a maximum of 1000 characters');
-        return;
+        value = value.slice(0, MAX_MESSAGE_LENGTH);
       }
     }
 

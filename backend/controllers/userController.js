@@ -108,7 +108,15 @@ export const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      user.name = req.body.name || user.name;
+      // Validate name if provided
+      if (req.body.name !== undefined) {
+        const trimmedName = req.body.name.trim();
+        if (!trimmedName) {
+          return res.status(400).json({ message: 'Name is required' });
+        }
+        user.name = trimmedName;
+      }
+      
       user.email = req.body.email || user.email;
       if (req.body.password) {
         user.password = req.body.password;

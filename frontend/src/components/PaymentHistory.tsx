@@ -121,6 +121,10 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
 
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'startDate' || key === 'endDate') {
+      if (value && value.length > 10) {
+        toast.error('Too long data: Please enter a valid date');
+        return;
+      }
       if (value && !isValidDate(value)) {
         toast.error('Please enter a valid date');
         return;
@@ -182,7 +186,9 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="Start Date"
-              max="2999-12-31"
+              maxLength={10}
+              min="1900-01-01"
+              max="2100-12-31"
             />
 
             <input
@@ -191,7 +197,9 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="End Date"
-              max="2999-12-31"
+              maxLength={10}
+              min="1900-01-01"
+              max="2100-12-31"
             />
 
             <button

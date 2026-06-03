@@ -268,6 +268,16 @@ const AdminAuditPage = () => {
     fetchLogs();
   };
 
+  const handleClearFilters = () => {
+    setFilters({
+      action: '',
+      user: '',
+      startDate: '',
+      endDate: '',
+    });
+    fetchLogs();
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -351,12 +361,19 @@ const AdminAuditPage = () => {
           </div>
 
           <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Search size={18} />
-            Filter Logs
-          </button>
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Search size={18} />
+                Filter Logs
+              </button>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
+              >
+                Clear Filters
+              </button>
         </form>
       </motion.div>
 

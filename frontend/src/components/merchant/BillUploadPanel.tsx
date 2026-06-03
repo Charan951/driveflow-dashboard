@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { isValidDate } from '@/lib/formValidation';
+import { toast } from 'sonner';
 import { Upload, X, FileText, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { uploadService } from '../../services/uploadService';
 import { searchVehicleReference } from '../../services/vehicleReferenceService';
@@ -180,6 +181,16 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    if (name === 'invoiceDate') {
+      if (value && value.length > 10) {
+        toast.error('Too long data: Please enter a valid date');
+        return;
+      }
+      if (value && !isValidDate(value)) {
+        toast.error('Please enter a valid date');
+        return;
+      }
+    }
     setFormData(prev => {
         const newData = { ...prev, [name]: value };
         if (['partsCost', 'labourCost', 'gst'].includes(name)) {
@@ -335,6 +346,9 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
               value={formData.invoiceDate}
               onChange={handleInputChange}
               required
+              maxLength={10}
+              min="1900-01-01"
+              max="2100-12-31"
               className="w-full p-2 border border-input rounded-lg bg-background"
             />
           </div>

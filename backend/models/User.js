@@ -141,6 +141,7 @@ const userSchema = new mongoose.Schema({
       },
       details: { 
         type: String,
+        required: [true, 'Payment details are required'],
         trim: true,
         maxlength: [100, 'Payment details cannot exceed 100 characters'],
       },

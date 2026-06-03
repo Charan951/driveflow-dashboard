@@ -205,18 +205,10 @@ const CareerDetail: React.FC = () => {
               maxLength={MAX_NAME_LENGTH} 
               value={form.name} 
               onChange={(e) => {
-                const newName = e.target.value;
-                if (isNameTooLong(newName)) {
-                  toast.error('Too long data: Please enter a maximum of 10 characters');
-                  return;
-                }
-                if (newName.length > 0 && !isValidName(newName)) {
-                  toast.error('Please enter valid data');
-                  return;
-                }
-                if (hasExcessiveRepeatedChars(newName)) {
-                  toast.error('Too many repeated characters');
-                  return;
+                let newName = e.target.value;
+                // Truncate if too long
+                if (newName.length > MAX_NAME_LENGTH) {
+                  newName = newName.slice(0, MAX_NAME_LENGTH);
                 }
                 setForm((prev) => ({ ...prev, name: newName }));
               }} 
@@ -229,14 +221,10 @@ const CareerDetail: React.FC = () => {
               type="email" 
               value={form.email} 
               onChange={(e) => {
-                const newEmail = e.target.value;
-                if (isEmailTooLong(newEmail)) {
-                  toast.error('Too long data not accept');
-                  return;
-                }
-                if (newEmail.length > 0 && !isValidEmail(newEmail)) {
-                  toast.error('Please enter a valid email address');
-                  return;
+                let newEmail = e.target.value;
+                // Truncate if too long
+                if (newEmail.length > MAX_EMAIL_LENGTH) {
+                  newEmail = newEmail.slice(0, MAX_EMAIL_LENGTH);
                 }
                 setForm((prev) => ({ ...prev, email: newEmail }));
               }} 

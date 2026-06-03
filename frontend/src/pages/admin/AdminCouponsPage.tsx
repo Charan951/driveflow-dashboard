@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { isValidEmail, isValidPhone10 } from '@/lib/formValidation';
+import { isValidEmail, isValidPhone10, isValidDate } from '@/lib/formValidation';
 
 const AdminCouponsPage: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -257,18 +257,18 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
         }
 
         const newUsers = data.map((row: any) => {
-      const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
-      const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
-      if (!email || !mobile) {
-        toast.error('Please provide both email and mobile for all entries');
-        return null;
-      }
-      if (email.length > 100) {
-        toast.error('Email cannot exceed 100 characters');
-        return null;
-      }
-      return { email: email || undefined, mobile: mobile || undefined };
-    }).filter(user => user && user.email && user.mobile);
+          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
+          const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
+          if (!email || !mobile) {
+            toast.error('Please provide both email and mobile for all entries');
+            return null;
+          }
+          if (email.length > 100) {
+            toast.error('Email cannot exceed 100 characters');
+            return null;
+          }
+          return { email: email || undefined, mobile: mobile || undefined };
+        }).filter(user => user && user.email && user.mobile);
 
         if (newUsers.length === 0) {
           toast.error('No valid Email or Phone numbers found in the sheet');
@@ -347,7 +347,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked, maxLength } = e.target;
+    const { name, value, type, checked } = e.target;
     
     let finalValue = value;
     if (type === 'number') {
@@ -356,8 +356,14 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       } else if (['maxDiscountAmount', 'minOrderAmount', 'usageLimit'].includes(name) && value.length > 6) {
         finalValue = value.slice(0, 6);
       }
-    } else if (type === 'date' && value.length > 10) {
-      finalValue = value.slice(0, 10);
+    } else if (type === 'date') {
+      if (value.length > 10) {
+        finalValue = value.slice(0, 10);
+      }
+      if (value && !isValidDate(value)) {
+        toast.error('Please enter a valid date');
+        return;
+      }
     }
 
     setFormData((prev) => ({
@@ -370,14 +376,13 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
     e.preventDefault();
     const validFrom = new Date(formData.validFrom);
     const validUntil = new Date(formData.validUntil);
-    const maxDate = new Date('2999-12-31');
 
-    if (formData.validFrom.length > 10 || (validFrom && validFrom > maxDate)) {
-      toast.error('Valid From date cannot exceed 2999-12-31');
+    if (!isValidDate(formData.validFrom)) {
+      toast.error('Please enter a valid date for Valid From');
       return;
     }
-    if (formData.validUntil.length > 10 || (validUntil && validUntil > maxDate)) {
-      toast.error('Valid Until date cannot exceed 2999-12-31');
+    if (!isValidDate(formData.validUntil)) {
+      toast.error('Please enter a valid date for Valid Until');
       return;
     }
 
@@ -392,8 +397,8 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       return;
     }
     // Validate coupon code length
-    if (formData.code.trim().length > 20) {
-      toast.error('Coupon code cannot exceed 20 characters');
+    if (formData.code.trim().length > 10) {
+      toast.error('Coupon code cannot exceed 10 characters');
       return;
     }
     if (formData.discountPercentage === '') {
@@ -440,8 +445,8 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       toast.error('Valid until date must be after valid from date');
       return;
     }
-    if (formData.description.length > 500) {
-      toast.error('Description cannot exceed 500 characters');
+    if (formData.description.length > 30) {
+      toast.error('Description cannot exceed 30 characters');
       return;
     }
     const descriptionRegex = /^[\w\s.,!?'"()-]*$/;
@@ -481,7 +486,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               <div className="md:col-span-2">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-semibold">Coupon Code</label>
-                  <span className="text-xs text-muted-foreground">{formData.code.length}/20 characters</span>
+                  <span className="text-xs text-muted-foreground">{formData.code.length}/10 characters</span>
                 </div>
                 <input
                   type="text"
@@ -490,7 +495,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   onChange={handleChange}
                   placeholder="e.g. SAVE10"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all uppercase"
-                  maxLength={20}
+                  maxLength={10}
                   required
                 />
               </div>
@@ -574,7 +579,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   value={formData.validFrom}
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
-                  max="2999-12-31"
+                  max="2100-12-31"
                   maxLength={10}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
@@ -592,7 +597,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   value={formData.validUntil}
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
-                  max="2999-12-31"
+                  max="2100-12-31"
                   maxLength={10}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
@@ -644,13 +649,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                 </div>
 
                 <div className="space-y-3">
-                  <form 
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      addUser();
-                    }}
-                    className="flex gap-2"
-                  >
+                  <div className="flex gap-2">
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
                         <Label className="block text-xs font-medium text-muted-foreground">
@@ -663,8 +662,8 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                         placeholder="Email address"
                         value={newUser.email}
                         onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUser(); } }}
                         className="h-9 text-sm"
-                        required
                         maxLength={100}
                       />
                     </div>
@@ -683,19 +682,20 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                           const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                           setNewUser(prev => ({ ...prev, mobile: val }));
                         }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUser(); } }}
                         className="h-9 text-sm"
                         maxLength={10}
-                        required
                       />
                     </div>
                     <Button 
-                      type="submit" 
+                      type="button" 
                       size="sm"
                       className="h-9"
+                      onClick={addUser}
                     >
                       Add
                     </Button>
-                  </form>
+                  </div>
 
                   <div className="border border-border rounded-lg overflow-hidden bg-background">
                     <div className="max-h-[200px] overflow-y-auto">
@@ -739,9 +739,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">
-                  Description (Max 500 characters)
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold">
+                    Description (Max 30 characters)
+                  </label>
+                  <span className="text-xs text-muted-foreground">{formData.description.length}/30 characters</span>
+                </div>
                 <textarea
                   name="description"
                   value={formData.description}
@@ -749,7 +752,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   placeholder="Enter coupon description"
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all min-h-[80px]"
                   required
-                  maxLength={500}
+                  maxLength={30}
                 />
               </div>
             </div>

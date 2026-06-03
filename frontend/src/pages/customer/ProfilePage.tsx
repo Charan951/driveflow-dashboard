@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { isValidPhone10, isValidName, hasExcessiveRepeatedChars } from '@/lib/formValidation';
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,11 +59,35 @@ const ProfilePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate name
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      toast.error('Full name is required');
+      return;
+    }
+    if (trimmedName.length > 50) {
+      toast.error('Name cannot exceed 50 characters');
+      return;
+    }
+    // Basic name format check
+    if (!/^[a-zA-Z][a-zA-Z0-9\s'-]*$/.test(trimmedName)) {
+      toast.error('Invalid name format');
+      return;
+    }
+
+    // Validate phone
+    const trimmedPhone = formData.phone.trim();
+    if (trimmedPhone && !isValidPhone10(trimmedPhone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    
     try {
       const updated = await userService.updateProfile({ 
-        name: formData.name, 
+        name: trimmedName, 
         email: formData.email, 
-        phone: formData.phone 
+        phone: trimmedPhone ? trimmedPhone.replace(/\D/g, '') : ''
       });
       updateUser(updated);
       toast.success('Profile updated successfully!');
@@ -72,10 +97,43 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.address) return;
+    const trimmedLabel = newAddress.label.trim();
+    const trimmedAddress = newAddress.address.trim();
+
+    if (!trimmedLabel) {
+      toast.error('Address label is required');
+      return;
+    }
+    if (trimmedLabel.length > 50) {
+      toast.error('Address label cannot exceed 50 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(trimmedLabel)) {
+      toast.error('Address label contains invalid characters');
+      return;
+    }
+
+    if (!trimmedAddress) {
+      toast.error('Full address is required');
+      return;
+    }
+    if (trimmedAddress.length > 500) {
+      toast.error('Address cannot exceed 500 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(trimmedAddress)) {
+      toast.error('Address contains invalid characters');
+      return;
+    }
+
     try {
       const currentAddresses = user?.addresses || [];
-      const updatedAddresses = [...currentAddresses, { ...newAddress, isDefault: currentAddresses.length === 0 }];
+      const updatedAddresses = [...currentAddresses, { 
+        ...newAddress, 
+        label: trimmedLabel, 
+        address: trimmedAddress,
+        isDefault: currentAddresses.length === 0 
+      }];
       const updatedUser = await userService.updateProfile({ addresses: updatedAddresses });
       updateUser(updatedUser);
       setIsAddressModalOpen(false);
@@ -99,10 +157,42 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleAddPayment = async () => {
-    if (!newPayment.label) return;
+    const trimmedLabel = newPayment.label.trim();
+    const trimmedDetails = newPayment.details.trim();
+
+    if (!trimmedLabel) {
+      toast.error('Payment method label is required');
+      return;
+    }
+    if (trimmedLabel.length > 50) {
+      toast.error('Payment label cannot exceed 50 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(trimmedLabel)) {
+      toast.error('Payment label contains invalid characters');
+      return;
+    }
+    if (!trimmedDetails) {
+      toast.error('Payment details are required');
+      return;
+    }
+    if (trimmedDetails.length > 100) {
+      toast.error('Payment details cannot exceed 100 characters');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(trimmedDetails)) {
+      toast.error('Payment details contain invalid characters');
+      return;
+    }
+
     try {
       const currentPayments = user?.paymentMethods || [];
-      const updatedPayments = [...currentPayments, { ...newPayment, isDefault: currentPayments.length === 0 }];
+      const updatedPayments = [...currentPayments, { 
+        ...newPayment, 
+        label: trimmedLabel,
+        details: trimmedDetails,
+        isDefault: currentPayments.length === 0 
+      }];
       const updatedUser = await userService.updateProfile({ paymentMethods: updatedPayments });
       updateUser(updatedUser);
       setIsPaymentModalOpen(false);

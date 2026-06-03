@@ -363,11 +363,19 @@ const AdminServicesPage: React.FC = () => {
                   type="date"
                   value={selectedSlotDate}
                   min={formatLocalYmd(new Date())}
+                  max="2100-12-31"
+                  maxLength={10}
                   onChange={(e) => {
                     const newDate = e.target.value;
-                    if (newDate && !isValidDate(newDate)) {
-                      toast.error('Please enter a valid date');
-                      return;
+                    if (newDate) {
+                      if (newDate.length > 10) {
+                        toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
+                        return;
+                      }
+                      if (!isValidDate(newDate)) {
+                        toast.error('Please enter a valid date');
+                        return;
+                      }
                     }
                     setSelectedSlotDate(newDate);
                   }}
