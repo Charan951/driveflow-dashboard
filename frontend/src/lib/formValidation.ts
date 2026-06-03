@@ -147,6 +147,12 @@ export const isValidDate = (dateStr: string): boolean => {
   
   // Make sure the parsed date components match the input (to avoid dates like 2023-02-30 being accepted)
   const year = date.getFullYear();
+  
+  // Check that year is between 1900-2100
+  if (year < 1900 || year > 2100) {
+    return false;
+  }
+  
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const formattedDate = `${year}-${month}-${day}`;

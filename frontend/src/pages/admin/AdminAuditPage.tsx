@@ -155,8 +155,13 @@ const AdminAuditPage = () => {
       );
       const data = await auditService.getAuditLogs(activeFilters);
       setLogs(data);
-    } catch (error) {
-      toast.error('Failed to load audit logs');
+    } catch (error: any) {
+      // Handle specific error messages from backend
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to load audit logs');
+      }
     } finally {
       setLoading(false);
     }
@@ -171,8 +176,22 @@ const AdminAuditPage = () => {
         toast.error('Too long data: Please enter a maximum of 50 characters');
         return;
       }
-      // Allow only letters, numbers, underscores, spaces, hyphens
-      const allowedRegex = /^[a-zA-Z0-9\s_-]*$/;
+      // Allow letters, numbers, underscores, spaces, hyphens, periods, @ for email
+      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      if (!allowedRegex.test(value)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+    }
+
+    // Validate User
+    if (name === 'user') {
+      if (value.length > 100) {
+        toast.error('Too long data: Please enter a maximum of 100 characters');
+        return;
+      }
+      // Allow letters, numbers, spaces, periods, @, hyphens, underscores
+      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
       if (!allowedRegex.test(value)) {
         toast.error('Please enter valid data');
         return;
@@ -181,6 +200,11 @@ const AdminAuditPage = () => {
 
     // Validate date fields
     if (name === 'startDate' || name === 'endDate') {
+      // Check for too long data first
+      if (value.length > 10) {
+        toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
+        return;
+      }
       if (value && !isValidDate(value)) {
         toast.error('Please enter a valid date');
         return;
@@ -193,14 +217,52 @@ const AdminAuditPage = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check if any date fields are invalid
-    if (filters.startDate && !isValidDate(filters.startDate)) {
-      toast.error('Invalid start date');
-      return;
+    // Validate action type field
+    if (filters.action) {
+      if (filters.action.length > 50) {
+        toast.error('Too long data: Please enter a maximum of 50 characters');
+        return;
+      }
+      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      if (!allowedRegex.test(filters.action)) {
+        toast.error('Please enter valid data');
+        return;
+      }
     }
-    if (filters.endDate && !isValidDate(filters.endDate)) {
-      toast.error('Invalid end date');
-      return;
+
+    // Validate user field
+    if (filters.user) {
+      if (filters.user.length > 100) {
+        toast.error('Too long data: Please enter a maximum of 100 characters');
+        return;
+      }
+      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      if (!allowedRegex.test(filters.user)) {
+        toast.error('Please enter valid data');
+        return;
+      }
+    }
+
+    // Check if any date fields are invalid
+    if (filters.startDate) {
+      if (filters.startDate.length > 10) {
+        toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
+        return;
+      }
+      if (!isValidDate(filters.startDate)) {
+        toast.error('Invalid start date');
+        return;
+      }
+    }
+    if (filters.endDate) {
+      if (filters.endDate.length > 10) {
+        toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
+        return;
+      }
+      if (!isValidDate(filters.endDate)) {
+        toast.error('Invalid end date');
+        return;
+      }
     }
 
     fetchLogs();
@@ -231,8 +293,24 @@ const AdminAuditPage = () => {
                 name="action"
                 value={filters.action}
                 onChange={handleFilterChange}
-                placeholder="e.g. Create, Update "
+                placeholder="e.g. Create, Update, Payment verified"
                 maxLength={50}
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">User</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input
+                type="text"
+                name="user"
+                value={filters.user}
+                onChange={handleFilterChange}
+                placeholder="e.g. John, john@example.com"
+                maxLength={100}
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
               />
             </div>
@@ -247,6 +325,9 @@ const AdminAuditPage = () => {
                 name="startDate"
                 value={filters.startDate}
                 onChange={handleFilterChange}
+                maxLength={10}
+                min="1900-01-01"
+                max="2100-12-31"
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -261,6 +342,9 @@ const AdminAuditPage = () => {
                 name="endDate"
                 value={filters.endDate}
                 onChange={handleFilterChange}
+                maxLength={10}
+                min="1900-01-01"
+                max="2100-12-31"
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
