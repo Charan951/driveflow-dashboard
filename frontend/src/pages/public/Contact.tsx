@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
-import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH } from "@/lib/formValidation";
+import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
 
 const Contact = () => {
   const [hero, setHero] = useState({
@@ -88,6 +88,10 @@ const Contact = () => {
     }
     if (!isValidName(name)) {
       toast.error("Please enter valid data");
+      return;
+    }
+    if (isDisposableEmail(email)) {
+      toast.error("Disposable email addresses are not allowed. Please use a valid email.");
       return;
     }
     if (!isValidEmail(email)) {

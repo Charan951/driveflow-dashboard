@@ -5,7 +5,7 @@ import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
-import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH } from '@/lib/formValidation';
+import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, isDisposableEmail } from "@/lib/formValidation";
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -103,6 +103,11 @@ const CareerDetail: React.FC = () => {
     }
     if (hasExcessiveRepeatedChars(form.name)) {
       toast.error('Too many repeated characters');
+      return;
+    }
+    
+    if (isDisposableEmail(form.email)) {
+      toast.error('Disposable email addresses are not allowed. Please use a valid email.');
       return;
     }
     

@@ -5,6 +5,7 @@ import asyncHandler from 'express-async-handler';
 import { getVehicleDataFromS3, saveVehicleDataToS3 } from '../utils/s3Storage.js';
 import crypto from 'crypto';
 import { protect, admin } from '../middleware/authMiddleware.js';
+import { emitEntitySync } from '../utils/syncService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -172,6 +173,8 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
     const updatedData = Array.from(dataMap.values());
     await saveVehicleDataToS3(updatedData);
 
+    emitEntitySync('vehicle_reference', 'updated', updatedData);
+
     res.status(200).json({
       message: 'Data imported successfully and saved to S3',
       count: vehicleData.length,
@@ -330,6 +333,7 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
 
   allData.push(newVehicle);
   await saveVehicleDataToS3(allData);
+  emitEntitySync('vehicle_reference', 'created', newVehicle);
 
   res.status(201).json(newVehicle);
 }));
@@ -369,6 +373,7 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
 
     allData[index] = updatedVehicle;
     await saveVehicleDataToS3(allData);
+    emitEntitySync('vehicle_reference', 'updated', updatedVehicle);
     res.json(updatedVehicle);
   } else {
     res.status(404).json({ message: 'Vehicle reference not found' });
@@ -380,6 +385,7 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
 // @access  Private/Admin
 router.delete('/all', protect, admin, asyncHandler(async (req, res) => {
   await saveVehicleDataToS3([]);
+  emitEntitySync('vehicle_reference', 'deleted', {all: true});
   res.json({ message: 'All vehicle references removed' });
 }));
 
@@ -392,6 +398,7 @@ router.delete('/:id', protect, admin, asyncHandler(async (req, res) => {
 
   if (filteredData.length < allData.length) {
     await saveVehicleDataToS3(filteredData);
+    emitEntitySync('vehicle_reference', 'deleted', {_id: req.params.id});
     res.json({ message: 'Vehicle reference removed' });
   } else {
     res.status(404).json({ message: 'Vehicle reference not found' });

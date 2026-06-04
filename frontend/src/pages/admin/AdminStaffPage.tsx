@@ -402,7 +402,7 @@ const AdminStaffPage: React.FC = () => {
                     onClick={() => setShowStaffPassword(!showStaffPassword)}
                     className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
                   >
-                    {showStaffPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>

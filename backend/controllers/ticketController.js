@@ -2,6 +2,7 @@ import Ticket from '../models/Ticket.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { sendPushToRole, sendPushToUser } from '../utils/pushService.js';
+import { hasExcessiveRepeatedChars } from '../utils/validation.js';
 
 // @desc    Get all tickets (Admin/Support)
 // @route   GET /api/tickets/all
@@ -24,6 +25,29 @@ export const getAllTickets = async (req, res) => {
 // @access  Private
 export const createTicket = async (req, res) => {
   const { subject, category, message, priority } = req.body;
+  
+  const MAX_SUBJECT_LENGTH = 100;
+  const MAX_MESSAGE_LENGTH = 1000;
+
+  if (!subject || subject.trim().length < 3) {
+    return res.status(400).json({ message: 'Subject must be at least 3 characters' });
+  }
+  if (subject.length > MAX_SUBJECT_LENGTH) {
+    return res.status(400).json({ message: `Subject must be at most ${MAX_SUBJECT_LENGTH} characters` });
+  }
+  if (hasExcessiveRepeatedChars(subject)) {
+    return res.status(400).json({ message: 'Subject contains excessive repeated characters' });
+  }
+
+  if (!message || message.trim().length < 10) {
+    return res.status(400).json({ message: 'Message must be at least 10 characters' });
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return res.status(400).json({ message: `Message must be at most ${MAX_MESSAGE_LENGTH} characters` });
+  }
+  if (hasExcessiveRepeatedChars(message)) {
+    return res.status(400).json({ message: 'Message contains excessive repeated characters' });
+  }
 
   try {
     const ticket = new Ticket({
@@ -136,6 +160,18 @@ export const updateTicket = async (req, res) => {
 // @access  Private
 export const addMessage = async (req, res) => {
   const { message } = req.body;
+  
+  const MAX_MESSAGE_LENGTH = 1000;
+  
+  if (!message || message.trim().length < 1) {
+    return res.status(400).json({ message: 'Message cannot be empty' });
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return res.status(400).json({ message: `Message must be at most ${MAX_MESSAGE_LENGTH} characters` });
+  }
+  if (hasExcessiveRepeatedChars(message)) {
+    return res.status(400).json({ message: 'Message contains excessive repeated characters' });
+  }
 
   try {
     const ticket = await Ticket.findById(req.params.id);

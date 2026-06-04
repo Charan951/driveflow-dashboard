@@ -1,5 +1,6 @@
 import Coupon from '../models/Coupon.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { isValidEmail, isValidPhone10 } from '../utils/validation.js';
 
 export const getCoupons = async (req, res) => {
   try {
@@ -168,8 +169,18 @@ export const createCoupon = async (req, res) => {
     // Validate target users
     if (targetUsers && Array.isArray(targetUsers)) {
       for (const user of targetUsers) {
-        if (user.email && user.email.length > 100) {
-          return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+        if (user.email) {
+          if (user.email.length > 100) {
+            return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+          }
+          if (!isValidEmail(user.email)) {
+            return res.status(400).json({ message: 'Please enter valid email address' });
+          }
+        }
+        if (user.mobile) {
+          if (!isValidPhone10(user.mobile)) {
+            return res.status(400).json({ message: 'Please enter valid 10-digit mobile number' });
+          }
         }
       }
     }
@@ -281,8 +292,18 @@ export const updateCoupon = async (req, res) => {
     // Validate target users
     if (targetUsers !== undefined && Array.isArray(targetUsers)) {
       for (const user of targetUsers) {
-        if (user.email && user.email.length > 100) {
-          return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+        if (user.email) {
+          if (user.email.length > 100) {
+            return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
+          }
+          if (!isValidEmail(user.email)) {
+            return res.status(400).json({ message: 'Please enter valid email address' });
+          }
+        }
+        if (user.mobile) {
+          if (!isValidPhone10(user.mobile)) {
+            return res.status(400).json({ message: 'Please enter valid 10-digit mobile number' });
+          }
         }
       }
     }

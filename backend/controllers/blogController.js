@@ -1,6 +1,7 @@
 import BlogPost from '../models/BlogPost.js';
 import BlogCategory from '../models/BlogCategory.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { validateBlogPost, validateBlogCategory } from '../utils/validation.js';
 
 const toTrimmedString = (value = '') => String(value).trim();
 
@@ -93,6 +94,10 @@ export const getAdminBlogCategories = async (req, res) => {
 // @access  Private/Admin
 export const createBlogCategory = async (req, res) => {
   try {
+    const validation = validateBlogCategory(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
+    }
     const name = toTrimmedString(req.body.name);
     const description = toTrimmedString(req.body.description);
 
@@ -121,6 +126,13 @@ export const updateBlogCategory = async (req, res) => {
     const category = await BlogCategory.findById(req.params.id);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (req.body.name !== undefined || req.body.description !== undefined) {
+      const validation = validateBlogCategory(req.body);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
+      }
     }
 
     if (req.body.name !== undefined) {
@@ -179,11 +191,11 @@ export const deleteBlogCategory = async (req, res) => {
 // @access  Private/Admin
 export const createBlog = async (req, res) => {
   try {
-    const { title, excerpt, content, image, category, author, isPublished, tags, readTime } = req.body;
-
-    if (!title || !excerpt || !content || !category) {
-      return res.status(400).json({ message: 'title, excerpt, content and category are required' });
+    const validation = validateBlogPost(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
     }
+    const { title, excerpt, content, image, category, author, isPublished, tags, readTime } = req.body;
 
     const categoryDoc = await BlogCategory.findById(category);
     if (!categoryDoc) {
@@ -219,6 +231,24 @@ export const updateBlog = async (req, res) => {
     const blog = await BlogPost.findById(req.params.id);
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
+    }
+
+    // If any of the main fields are being updated, validate all
+    if (
+      req.body.title !== undefined ||
+      req.body.excerpt !== undefined ||
+      req.body.content !== undefined ||
+      req.body.image !== undefined ||
+      req.body.author !== undefined ||
+      req.body.readTime !== undefined
+    ) {
+      const validation = validateBlogPost({
+        ...blog.toObject(),
+        ...req.body,
+      });
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
+      }
     }
 
     const { title, excerpt, content, image, category, author, isPublished, tags, readTime } = req.body;

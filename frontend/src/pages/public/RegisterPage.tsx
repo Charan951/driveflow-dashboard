@@ -6,7 +6,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
-import { isStrongPassword, isValidEmail, isValidPhone10, isEmailTooLong, hasLeadingTrailingSpaces, isPasswordTooLong, isValidName, isNameTooLong, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isEmailTooLong, hasLeadingTrailingSpaces, isPasswordTooLong, isValidName, isNameTooLong, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH, isDisposableEmail } from '@/lib/formValidation';
 
 type RegisterStep = 'form' | 'otp';
 
@@ -75,6 +75,11 @@ const RegisterPage: React.FC = () => {
 
     if (isEmailTooLong(formData.email)) {
       toast.error('Too long data not accept');
+      return false;
+    }
+
+    if (isDisposableEmail(formData.email)) {
+      toast.error('Disposable email addresses are not allowed. Please use a valid email.');
       return false;
     }
 

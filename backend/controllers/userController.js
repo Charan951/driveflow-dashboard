@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { isValidName, isValidPhone10, hasExcessiveRepeatedChars } from '../utils/validation.js';
 
 // @desc    Get all users (with optional filtering)
 // @route   GET /api/users
@@ -114,6 +115,15 @@ export const updateUserProfile = async (req, res) => {
         if (!trimmedName) {
           return res.status(400).json({ message: 'Name is required' });
         }
+        if (trimmedName.length > 50) {
+          return res.status(400).json({ message: 'Name cannot exceed 50 characters' });
+        }
+        if (!isValidName(trimmedName)) {
+          return res.status(400).json({ message: 'Invalid name format' });
+        }
+        if (hasExcessiveRepeatedChars(trimmedName)) {
+          return res.status(400).json({ message: 'Name contains excessive repeated characters' });
+        }
         user.name = trimmedName;
       }
       
@@ -121,8 +131,16 @@ export const updateUserProfile = async (req, res) => {
       if (req.body.password) {
         user.password = req.body.password;
       }
-      if (req.body.phone) {
-        user.phone = req.body.phone;
+      if (req.body.phone !== undefined) {
+        const trimmedPhone = req.body.phone.trim();
+        if (trimmedPhone) {
+          if (!isValidPhone10(trimmedPhone)) {
+            return res.status(400).json({ message: 'Enter a valid 10-digit phone number' });
+          }
+          user.phone = trimmedPhone;
+        } else {
+          user.phone = '';
+        }
       }
       if (req.body.addresses) {
         user.addresses = req.body.addresses;

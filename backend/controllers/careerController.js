@@ -1,6 +1,7 @@
 import Career from '../models/Career.js';
 import CareerApplication from '../models/CareerApplication.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { validateCareer } from '../utils/validation.js';
 
 const sanitizeCareerInput = (body = {}) => ({
   title: String(body.title || '').trim(),
@@ -72,6 +73,10 @@ export const getAdminCareerById = async (req, res) => {
 // @access  Private/Admin
 export const createCareer = async (req, res) => {
   try {
+    const validation = validateCareer(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
+    }
     const payload = sanitizeCareerInput(req.body);
     if (!payload.title || !payload.department || !payload.location || !payload.type) {
       return res.status(400).json({ message: 'title, department, location and type are required' });
@@ -93,6 +98,15 @@ export const updateCareer = async (req, res) => {
     const career = await Career.findById(req.params.id);
     if (!career) {
       return res.status(404).json({ message: 'Career not found' });
+    }
+
+    // If any of the main fields are being updated, validate all
+    const validation = validateCareer({
+      ...career.toObject(),
+      ...req.body,
+    });
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
     }
 
     const payload = sanitizeCareerInput(req.body);

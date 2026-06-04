@@ -30,6 +30,50 @@ import { blogService, BlogPost, BlogCategory } from '@/services/blogService';
 import { careerService, Career } from '@/services/careerService';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import {
+  isValidEmail,
+  isEmailTooLong,
+  isValidPhone10,
+  isValidHeroTitle,
+  isHeroTitleTooLong,
+  isValidHeroSubtitle,
+  isHeroSubtitleTooLong,
+  isValidAddress,
+  isAddressTooLong,
+  isValidBlogTitle,
+  isBlogTitleTooLong,
+  isValidBlogExcerpt,
+  isBlogExcerptTooLong,
+  isValidBlogContent,
+  isBlogContentTooLong,
+  isValidBlogAuthor,
+  isBlogAuthorTooLong,
+  isValidBlogTags,
+  isBlogTagsTooLong,
+  isValidBlogReadTime,
+  isBlogReadTimeTooLong,
+  isValidImageUrl,
+  isImageUrlTooLong,
+  isValidCategoryName,
+  isCategoryNameTooLong,
+  isValidCategoryDescription,
+  isCategoryDescriptionTooLong,
+  isValidCareerTitle,
+  isCareerTitleTooLong,
+  isValidCareerDepartment,
+  isCareerDepartmentTooLong,
+  isValidCareerLocation,
+  isCareerLocationTooLong,
+  isValidCareerType,
+  isCareerTypeTooLong,
+  isValidCareerSalary,
+  isCareerSalaryTooLong,
+  isValidCareerShortDescription,
+  isCareerShortDescriptionTooLong,
+  isValidCareerApplyUrl,
+  isCareerApplyUrlTooLong,
+  hasExcessiveRepeatedChars
+} from '@/lib/formValidation';
 
 const PAGES = [
   { id: 'about', label: 'About Us' },
@@ -173,10 +217,51 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleUpdateSlide = (id: string | number, field: keyof HeroSlide, value: string) => {
+    // Validate inputs as user types
+    if (field === 'titleWhite' || field === 'titleBlue') {
+      if (isHeroTitleTooLong(value)) {
+        toast.error(`Title is too long. Max 100 characters.`);
+        return;
+      }
+      if (hasExcessiveRepeatedChars(value)) {
+        toast.error('Title contains excessive repeated characters');
+        return;
+      }
+    }
+    if (field === 'subtitle') {
+      if (isHeroSubtitleTooLong(value)) {
+        toast.error(`Subtitle is too long. Max 300 characters.`);
+        return;
+      }
+      if (hasExcessiveRepeatedChars(value)) {
+        toast.error('Subtitle contains excessive repeated characters');
+        return;
+      }
+    }
     setHomeSlides(homeSlides.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
   const handleUpdatePageHero = (pageId: string, field: keyof PageHero, value: string) => {
+    if (field === 'title') {
+      if (isHeroTitleTooLong(value)) {
+        toast.error(`Title is too long. Max 100 characters.`);
+        return;
+      }
+      if (hasExcessiveRepeatedChars(value)) {
+        toast.error('Title contains excessive repeated characters');
+        return;
+      }
+    }
+    if (field === 'subtitle') {
+      if (isHeroSubtitleTooLong(value)) {
+        toast.error(`Subtitle is too long. Max 300 characters.`);
+        return;
+      }
+      if (hasExcessiveRepeatedChars(value)) {
+        toast.error('Subtitle contains excessive repeated characters');
+        return;
+      }
+    }
     setPageHeroes({
       ...pageHeroes,
       [pageId]: {
@@ -218,6 +303,91 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSave = async () => {
+    // Validate home slides
+    for (const slide of homeSlides) {
+      if (!isValidHeroTitle(slide.titleWhite)) {
+        toast.error('Slide white title contains invalid characters');
+        return;
+      }
+      if (isHeroTitleTooLong(slide.titleWhite)) {
+        toast.error('Slide white title is too long');
+        return;
+      }
+      if (!isValidHeroTitle(slide.titleBlue)) {
+        toast.error('Slide blue title contains invalid characters');
+        return;
+      }
+      if (isHeroTitleTooLong(slide.titleBlue)) {
+        toast.error('Slide blue title is too long');
+        return;
+      }
+      if (!isValidHeroSubtitle(slide.subtitle)) {
+        toast.error('Slide subtitle contains invalid characters');
+        return;
+      }
+      if (isHeroSubtitleTooLong(slide.subtitle)) {
+        toast.error('Slide subtitle is too long');
+        return;
+      }
+      if (slide.image && !isValidImageUrl(slide.image)) {
+        toast.error('Slide image URL is invalid');
+        return;
+      }
+      if (isImageUrlTooLong(slide.image)) {
+        toast.error('Slide image URL is too long');
+        return;
+      }
+    }
+    // Validate page heroes
+    for (const pageId in pageHeroes) {
+      const pageHero = pageHeroes[pageId];
+      if (!isValidHeroTitle(pageHero.title)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
+        return;
+      }
+      if (isHeroTitleTooLong(pageHero.title)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
+        return;
+      }
+      if (!isValidHeroSubtitle(pageHero.subtitle)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle contains invalid characters`);
+        return;
+      }
+      if (isHeroSubtitleTooLong(pageHero.subtitle)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is too long`);
+        return;
+      }
+      if (pageHero.image && !isValidImageUrl(pageHero.image)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is invalid`);
+        return;
+      }
+      if (isImageUrlTooLong(pageHero.image)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is too long`);
+        return;
+      }
+    }
+    // Validate contact details
+    if (!isValidAddress(contactDetails.address)) {
+      toast.error('Address contains invalid characters');
+      return;
+    }
+    if (isAddressTooLong(contactDetails.address)) {
+      toast.error('Address is too long');
+      return;
+    }
+    if (contactDetails.mobileNumber && !isValidPhone10(contactDetails.mobileNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    if (contactDetails.email && !isValidEmail(contactDetails.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (isEmailTooLong(contactDetails.email)) {
+      toast.error('Email is too long');
+      return;
+    }
+
     setSaving(true);
     try {
       await heroService.updateHeroSettings({
@@ -275,8 +445,64 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSaveBlog = async () => {
-    if (!blogForm.title || !blogForm.excerpt || !blogForm.content || !blogForm.category) {
-      toast.error('Title, excerpt, content and category are required');
+    if (!isValidBlogTitle(blogForm.title)) {
+      toast.error('Blog title is required and contains invalid characters');
+      return;
+    }
+    if (isBlogTitleTooLong(blogForm.title)) {
+      toast.error('Blog title is too long');
+      return;
+    }
+    if (!isValidBlogExcerpt(blogForm.excerpt)) {
+      toast.error('Blog excerpt is required and contains invalid characters');
+      return;
+    }
+    if (isBlogExcerptTooLong(blogForm.excerpt)) {
+      toast.error('Blog excerpt is too long');
+      return;
+    }
+    if (!isValidBlogContent(blogForm.content)) {
+      toast.error('Blog content is required and contains invalid characters');
+      return;
+    }
+    if (isBlogContentTooLong(blogForm.content)) {
+      toast.error('Blog content is too long');
+      return;
+    }
+    if (!isValidBlogAuthor(blogForm.author)) {
+      toast.error('Blog author contains invalid characters');
+      return;
+    }
+    if (isBlogAuthorTooLong(blogForm.author)) {
+      toast.error('Blog author is too long');
+      return;
+    }
+    if (!isValidBlogReadTime(blogForm.readTime)) {
+      toast.error('Blog read time contains invalid characters');
+      return;
+    }
+    if (isBlogReadTimeTooLong(blogForm.readTime)) {
+      toast.error('Blog read time is too long');
+      return;
+    }
+    if (!isValidBlogTags(blogForm.tags)) {
+      toast.error('Blog tags contain invalid characters');
+      return;
+    }
+    if (isBlogTagsTooLong(blogForm.tags)) {
+      toast.error('Blog tags are too long');
+      return;
+    }
+    if (blogForm.image && !isValidImageUrl(blogForm.image)) {
+      toast.error('Blog image URL is invalid');
+      return;
+    }
+    if (isImageUrlTooLong(blogForm.image)) {
+      toast.error('Blog image URL is too long');
+      return;
+    }
+    if (!blogForm.category) {
+      toast.error('Category is required');
       return;
     }
 
@@ -325,8 +551,20 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleCreateCategory = async () => {
-    if (!categoryForm.name.trim()) {
-      toast.error('Category name is required');
+    if (!isValidCategoryName(categoryForm.name)) {
+      toast.error('Category name is required and contains invalid characters');
+      return;
+    }
+    if (isCategoryNameTooLong(categoryForm.name)) {
+      toast.error('Category name is too long');
+      return;
+    }
+    if (!isValidCategoryDescription(categoryForm.description)) {
+      toast.error('Category description contains invalid characters');
+      return;
+    }
+    if (isCategoryDescriptionTooLong(categoryForm.description)) {
+      toast.error('Category description is too long');
       return;
     }
     try {
@@ -341,8 +579,20 @@ const AdminHeroImagesPage = () => {
 
   const handleSaveCategoryEdit = async () => {
     if (!editingCategoryId) return;
-    if (!categoryForm.name.trim()) {
-      toast.error('Category name is required');
+    if (!isValidCategoryName(categoryForm.name)) {
+      toast.error('Category name is required and contains invalid characters');
+      return;
+    }
+    if (isCategoryNameTooLong(categoryForm.name)) {
+      toast.error('Category name is too long');
+      return;
+    }
+    if (!isValidCategoryDescription(categoryForm.description)) {
+      toast.error('Category description contains invalid characters');
+      return;
+    }
+    if (isCategoryDescriptionTooLong(categoryForm.description)) {
+      toast.error('Category description is too long');
       return;
     }
     try {
@@ -401,8 +651,60 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSaveCareer = async () => {
-    if (!careerForm.title || !careerForm.department || !careerForm.location || !careerForm.type) {
-      toast.error('Title, department, location and type are required');
+    if (!isValidCareerTitle(careerForm.title)) {
+      toast.error('Career title is required and contains invalid characters');
+      return;
+    }
+    if (isCareerTitleTooLong(careerForm.title)) {
+      toast.error('Career title is too long');
+      return;
+    }
+    if (!isValidCareerDepartment(careerForm.department)) {
+      toast.error('Career department is required and contains invalid characters');
+      return;
+    }
+    if (isCareerDepartmentTooLong(careerForm.department)) {
+      toast.error('Career department is too long');
+      return;
+    }
+    if (!isValidCareerLocation(careerForm.location)) {
+      toast.error('Career location is required and contains invalid characters');
+      return;
+    }
+    if (isCareerLocationTooLong(careerForm.location)) {
+      toast.error('Career location is too long');
+      return;
+    }
+    if (!isValidCareerType(careerForm.type)) {
+      toast.error('Career type is required and contains invalid characters');
+      return;
+    }
+    if (isCareerTypeTooLong(careerForm.type)) {
+      toast.error('Career type is too long');
+      return;
+    }
+    if (!isValidCareerSalary(careerForm.salary)) {
+      toast.error('Career salary contains invalid characters');
+      return;
+    }
+    if (isCareerSalaryTooLong(careerForm.salary)) {
+      toast.error('Career salary is too long');
+      return;
+    }
+    if (!isValidCareerShortDescription(careerForm.shortDescription)) {
+      toast.error('Career short description contains invalid characters');
+      return;
+    }
+    if (isCareerShortDescriptionTooLong(careerForm.shortDescription)) {
+      toast.error('Career short description is too long');
+      return;
+    }
+    if (careerForm.applyUrl && !isValidCareerApplyUrl(careerForm.applyUrl)) {
+      toast.error('Career apply URL is invalid');
+      return;
+    }
+    if (isCareerApplyUrlTooLong(careerForm.applyUrl)) {
+      toast.error('Career apply URL is too long');
       return;
     }
     try {
@@ -571,6 +873,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleWhite', e.target.value)}
                                   className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
                                   placeholder="White text..."
+                                  maxLength={100}
                                 />
                               </div>
                             </div>
@@ -584,6 +887,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleBlue', e.target.value)}
                                   className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all text-blue-600"
                                   placeholder="Blue text..."
+                                  maxLength={100}
                                 />
                               </div>
                             </div>
@@ -597,6 +901,7 @@ const AdminHeroImagesPage = () => {
                                 onChange={(e) => handleUpdateSlide(slide.id, 'subtitle', e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none"
                                 placeholder="Enter description..."
+                                maxLength={300}
                               />
                             </div>
                           </div>
@@ -695,6 +1000,7 @@ const AdminHeroImagesPage = () => {
                           onChange={(e) => handleUpdatePageHero(page.id, 'title', e.target.value)}
                           className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
                           placeholder="Default Page Title"
+                          maxLength={100}
                         />
                       </div>
                       <div>
@@ -704,6 +1010,7 @@ const AdminHeroImagesPage = () => {
                           onChange={(e) => handleUpdatePageHero(page.id, 'subtitle', e.target.value)}
                           className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[60px] resize-none"
                           placeholder="Enter banner description..."
+                          maxLength={300}
                         />
                       </div>
                       {page.id === 'contact' && (
@@ -715,6 +1022,7 @@ const AdminHeroImagesPage = () => {
                               onChange={(e) => setContactDetails((prev) => ({ ...prev, address: e.target.value }))}
                               className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none"
                               placeholder="Enter address"
+                              maxLength={500}
                             />
                           </div>
                           <div>
@@ -735,6 +1043,7 @@ const AdminHeroImagesPage = () => {
                               onChange={(e) => setContactDetails((prev) => ({ ...prev, email: e.target.value }))}
                               className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
                               placeholder="support@carzzi.com"
+                              maxLength={50}
                             />
                           </div>
                         </>

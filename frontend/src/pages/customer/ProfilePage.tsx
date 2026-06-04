@@ -70,9 +70,12 @@ const ProfilePage: React.FC = () => {
       toast.error('Name cannot exceed 50 characters');
       return;
     }
-    // Basic name format check
-    if (!/^[a-zA-Z][a-zA-Z0-9\s'-]*$/.test(trimmedName)) {
+    if (!isValidName(trimmedName)) {
       toast.error('Invalid name format');
+      return;
+    }
+    if (hasExcessiveRepeatedChars(trimmedName)) {
+      toast.error('Name contains excessive repeated characters');
       return;
     }
 
@@ -244,7 +247,7 @@ const ProfilePage: React.FC = () => {
               <Label htmlFor="name">Full Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="name" name="name" value={formData.name} onChange={handleChange} className="pl-10" placeholder="John Doe" />
+                <Input id="name" name="name" value={formData.name} onChange={handleChange} className="pl-10" placeholder="John Doe" maxLength={50} />
               </div>
             </div>
             <div className="space-y-2">
@@ -258,7 +261,7 @@ const ProfilePage: React.FC = () => {
               <Label htmlFor="phone">Phone</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} className="pl-10" placeholder="+91 9876543210" />
+                <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} className="pl-10" placeholder="+91 9876543210" maxLength={15} />
               </div>
             </div>
           </div>

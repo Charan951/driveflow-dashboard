@@ -144,14 +144,14 @@ const AdminAuditPage = () => {
   useEffect(() => {
     fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Initial load only!
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (currentFilters = filters) => { // Accept currentFilters as parameter!
     setLoading(true);
     try {
       // Remove empty filters
       const activeFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, v]) => v !== '')
+        Object.entries(currentFilters).filter(([_, v]) => v !== '')
       );
       const data = await auditService.getAuditLogs(activeFilters);
       setLogs(data);
@@ -264,18 +264,28 @@ const AdminAuditPage = () => {
         return;
       }
     }
+    // Check that end date is not before start date
+    if (filters.startDate && filters.endDate) {
+      const start = new Date(filters.startDate);
+      const end = new Date(filters.endDate);
+      if (end < start) {
+        toast.error('End date cannot be before start date');
+        return;
+      }
+    }
 
-    fetchLogs();
+    fetchLogs(filters);
   };
 
   const handleClearFilters = () => {
-    setFilters({
+    const clearedFilters = { // Create the new filters first!
       action: '',
       user: '',
       startDate: '',
       endDate: '',
-    });
-    fetchLogs();
+    };
+    setFilters(clearedFilters); // Update state
+    fetchLogs(clearedFilters); // Pass clearedFilters directly to fetchLogs!
   };
 
   return (

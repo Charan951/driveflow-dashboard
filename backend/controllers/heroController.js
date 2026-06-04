@@ -1,5 +1,6 @@
 import { getDataFromS3, saveDataToS3 } from '../utils/s3Storage.js';
 import { emitEntitySync } from '../utils/syncService.js';
+import { validateHeroSettings } from '../utils/validation.js';
 
 const HERO_CONFIG_KEY = 'hero_config.json';
 
@@ -43,6 +44,10 @@ export const getHeroSettings = async (req, res) => {
 // @access  Private/Admin
 export const updateHeroSettings = async (req, res) => {
   try {
+    const validation = validateHeroSettings(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
+    }
     const { homeSlides, pageHeroes, contactDetails, showGetStarted, showLearnMore } = req.body;
     const config = {
       homeSlides,

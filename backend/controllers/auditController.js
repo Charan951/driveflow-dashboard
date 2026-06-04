@@ -1,5 +1,6 @@
 import AuditLog from '../models/AuditLog.js';
 import Payment from '../models/Payment.js';
+import { isValidDate } from '../utils/validation.js';
 
 const ACTION_LABELS = {
   CREATE_CASHFREE_ORDER: 'Payment order created',
@@ -61,30 +62,6 @@ export const logAudit = async ({ user, action, targetModel, targetId, details, i
 // @desc    Get all audit logs
 // @route   GET /api/audit
 // @access  Private/Admin
-const isValidDate = (dateStr) => {
-  // Check if the string is in YYYY-MM-DD format first
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(dateStr)) {
-    return false;
-  }
-  
-  const date = new Date(dateStr);
-  
-  // Make sure the parsed date components match the input (to avoid dates like 2023-02-30 being accepted)
-  const year = date.getFullYear();
-
-  // Check that year is between 1900-2100
-  if (year < 1900 || year > 2100) {
-    return false;
-  }
-
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const formattedDate = `${year}-${month}-${day}`;
-  
-  return !isNaN(date.getTime()) && formattedDate === dateStr;
-};
-
 export const getAuditLogs = async (req, res) => {
   try {
     const { user, action, startDate, endDate } = req.query;
@@ -95,6 +72,14 @@ export const getAuditLogs = async (req, res) => {
     }
     if (endDate && !isValidDate(endDate)) {
       return res.status(400).json({ message: 'Invalid end date' });
+    }
+    // Check that end date is not before start date
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (end < start) {
+        return res.status(400).json({ message: 'End date cannot be before start date' });
+      }
     }
 
     // Validate action field if provided

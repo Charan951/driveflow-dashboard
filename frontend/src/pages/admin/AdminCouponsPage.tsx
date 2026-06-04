@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { isValidEmail, isValidPhone10, isValidDate } from '@/lib/formValidation';
+import { isValidEmail, isValidPhone10, isValidDate, isDisposableEmail } from '@/lib/formValidation';
 
 const AdminCouponsPage: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -256,19 +256,37 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           return;
         }
 
-        const newUsers = data.map((row: any) => {
-          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim();
+        const newUsers = [];
+        let invalidEntries = 0;
+
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim().toLowerCase();
           const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
+          
           if (!email || !mobile) {
-            toast.error('Please provide both email and mobile for all entries');
-            return null;
+            invalidEntries++;
+            continue;
           }
           if (email.length > 100) {
-            toast.error('Email cannot exceed 100 characters');
-            return null;
+            invalidEntries++;
+            continue;
           }
-          return { email: email || undefined, mobile: mobile || undefined };
-        }).filter(user => user && user.email && user.mobile);
+          if (isDisposableEmail(email)) {
+            invalidEntries++;
+            continue;
+          }
+          if (!isValidEmail(email)) {
+            invalidEntries++;
+            continue;
+          }
+          if (!isValidPhone10(mobile)) {
+            invalidEntries++;
+            continue;
+          }
+          const cleanedMobile = mobile.replace(/\D/g, '');
+          newUsers.push({ email, mobile: cleanedMobile });
+        }
 
         if (newUsers.length === 0) {
           toast.error('No valid Email or Phone numbers found in the sheet');
@@ -280,7 +298,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           targetUsers: [...prev.targetUsers, ...newUsers]
         }));
         
-        toast.success(`Imported ${newUsers.length} users from Excel`);
+        toast.success(`Imported ${newUsers.length} users from Excel${invalidEntries > 0 ? ` (${invalidEntries} invalid entries skipped)` : ''}`);
       } catch (err) {
         toast.error('Failed to parse Excel file');
         console.error(err);

@@ -462,7 +462,7 @@ const DashboardPage: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Quick Services</h2>
-          <Link to="/services" className="text-sm text-primary font-medium flex items-center gap-1 flex-shrink-0">
+          <Link to="/book-service" className="text-sm text-primary font-medium flex items-center gap-1 flex-shrink-0">
             View all <ChevronRight className="w-4 h-4" />
           </Link>
         </div>

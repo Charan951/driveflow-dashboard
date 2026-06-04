@@ -6,6 +6,7 @@ import Timeline from '@/components/Timeline';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
+import { isValidName, hasExcessiveRepeatedChars, isValidDescription, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from '@/lib/formValidation';
 
 interface Ticket {
   _id: string;
@@ -33,6 +34,9 @@ const SupportPage: React.FC = () => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+
+  const MAX_SUBJECT_LENGTH = 100;
+  const MAX_DESCRIPTION_LENGTH = 1000;
 
   useEffect(() => {
     fetchTickets();
@@ -68,12 +72,30 @@ const SupportPage: React.FC = () => {
     e.preventDefault();
     const cleanSubject = subject.trim();
     const cleanDescription = description.trim();
+    
     if (cleanSubject.length < 3) {
       toast.error('Subject should be at least 3 characters');
       return;
     }
+    if (cleanSubject.length > MAX_SUBJECT_LENGTH) {
+      toast.error(`Subject should be at most ${MAX_SUBJECT_LENGTH} characters`);
+      return;
+    }
+    if (hasExcessiveRepeatedChars(cleanSubject)) {
+      toast.error('Subject contains excessive repeated characters');
+      return;
+    }
+    
     if (cleanDescription.length < 10) {
       toast.error('Description should be at least 10 characters');
+      return;
+    }
+    if (cleanDescription.length > MAX_DESCRIPTION_LENGTH) {
+      toast.error(`Description should be at most ${MAX_DESCRIPTION_LENGTH} characters`);
+      return;
+    }
+    if (hasExcessiveRepeatedChars(cleanDescription)) {
+      toast.error('Description contains excessive repeated characters');
       return;
     }
 
@@ -153,6 +175,7 @@ const SupportPage: React.FC = () => {
             onChange={(e) => setSubject(e.target.value)} 
             placeholder="Subject" 
             required 
+            maxLength={MAX_SUBJECT_LENGTH}
             className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base" 
           />
           <textarea 
@@ -161,6 +184,7 @@ const SupportPage: React.FC = () => {
             placeholder="Describe your issue..." 
             rows={4} 
             required 
+            maxLength={MAX_DESCRIPTION_LENGTH}
             className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none text-sm sm:text-base" 
           />
           <button 
