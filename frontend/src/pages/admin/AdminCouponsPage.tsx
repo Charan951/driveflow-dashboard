@@ -260,7 +260,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
         let invalidEntries = 0;
 
         for (let i = 0; i < data.length; i++) {
-          const row = data[i];
+          const row = data[i] as Record<string, any>;
           const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim().toLowerCase();
           const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
           
