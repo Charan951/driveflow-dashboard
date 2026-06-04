@@ -436,7 +436,7 @@ const validateCareer = (data) => {
   return { valid: true };
 };
 
-module.exports = {
+export {
   validateHeroSettings,
   validateBlogPost,
   validateBlogCategory,

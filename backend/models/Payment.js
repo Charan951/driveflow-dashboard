@@ -29,8 +29,7 @@ const paymentSchema = new mongoose.Schema({
     type: String
   },
   cashfreePaymentId: {
-    type: String,
-    sparse: true
+    type: String
   },
   cfPaymentSessionId: {
     type: String
