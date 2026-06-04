@@ -30,12 +30,43 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: [true, 'Email is required.'],
     unique: true,
     trim: true,
     lowercase: true,
-    maxlength: [35, 'Email cannot exceed 35 characters'],
-    match: [/^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/, 'Please enter a valid email'],
+    maxlength: [254, 'Email cannot be longer than 254 characters.'],
+    validate: {
+      validator: function (email) {
+        if (!email) return false;
+        // Check starts with a letter
+        if (!/^[a-zA-Z]/.test(email)) return false;
+        // Check no spaces
+        if (/\s/.test(email)) return false;
+        // Check no consecutive dots
+        if (/\.\./.test(email)) return false;
+        // Check no leading/trailing dots, or dot before/after @
+        if (/^\./.test(email) || /\.$/.test(email) || /@\./.test(email) || /\.@/.test(email)) return false;
+        // Check exactly one @
+        if ((email.match(/@/g) || []).length !== 1) return false;
+        // Check has domain and valid extension
+        const domainPart = email.split('@')[1];
+        if (!domainPart || !domainPart.includes('.')) return false;
+        const domainParts = domainPart.split('.');
+        if (domainParts.some(part => part === '')) return false;
+        const validExtensions = new Set(['com', 'in', 'org', 'net', 'co', 'io', 'tech', 'app', 'dev', 'edu', 'gov', 'mil']);
+        const extension = domainParts[domainParts.length - 1].toLowerCase();
+        if (!validExtensions.has(extension)) {
+          if (domainParts.length >= 2) {
+            const lastPart = domainParts[domainParts.length - 1];
+            if (!validExtensions.has(lastPart)) return false;
+          } else {
+            return false;
+          }
+        }
+        return true;
+      },
+      message: 'Please enter a valid email address.'
+    }
   },
   password: {
     type: String,

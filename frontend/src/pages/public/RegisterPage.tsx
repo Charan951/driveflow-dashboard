@@ -68,23 +68,9 @@ const RegisterPage: React.FC = () => {
       return false;
     }
 
-    if (hasLeadingTrailingSpaces(formData.email)) {
-      toast.error('invalid email id');
-      return false;
-    }
-
-    if (isEmailTooLong(formData.email)) {
-      toast.error('Too long data not accept');
-      return false;
-    }
-
-    if (isDisposableEmail(formData.email)) {
-      toast.error('Disposable email addresses are not allowed. Please use a valid email.');
-      return false;
-    }
-
-    if (!isValidEmail(formData.email)) {
-      toast.error('invalid email id');
+    const emailValidation = isValidEmail(formData.email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'invalid email id');
       return false;
     }
 

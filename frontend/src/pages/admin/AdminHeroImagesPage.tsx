@@ -92,7 +92,10 @@ const AdminHeroImagesPage = () => {
   const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
   const [showLearnMore, setShowLearnMore] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [savingHomeSlides, setSavingHomeSlides] = useState(false);
+  const [savingPageHeroes, setSavingPageHeroes] = useState(false);
+  const [savingPageId, setSavingPageId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUploadTarget, setActiveUploadTarget] = useState<{ type: 'home' | 'page' | 'blog', id?: string | number }>({ type: 'home' });
@@ -131,6 +134,45 @@ const AdminHeroImagesPage = () => {
     applyUrl: '',
     isActive: true,
   });
+  // Track validation errors for slides
+  const [slideErrors, setSlideErrors] = useState<Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }>>({});
+
+  // Validate a single slide field and return error message
+  const validateSlideField = (slideId: string | number, field: keyof HeroSlide, value: string): string | null => {
+    const trimmed = value.trim();
+    
+    if (field === 'titleWhite' || field === 'titleBlue') {
+      if (!trimmed) return 'This field is required';
+      if (isHeroTitleTooLong(value)) return 'Title is too long (max 100 characters)';
+      if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
+      if (!isValidHeroTitle(value)) return 'Invalid title';
+    }
+    
+    if (field === 'subtitle') {
+      if (!trimmed) return 'This field is required';
+      if (isHeroSubtitleTooLong(value)) return 'Subtitle is too long (max 300 characters)';
+      if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
+      if (!isValidHeroSubtitle(value)) return 'Invalid subtitle';
+    }
+    
+    return null;
+  };
+
+  // Validate entire slide
+  const validateSlide = (slide: HeroSlide): { titleWhite?: string; titleBlue?: string; subtitle?: string } => {
+    const errors: { titleWhite?: string; titleBlue?: string; subtitle?: string } = {};
+    
+    const titleWhiteError = validateSlideField(slide.id, 'titleWhite', slide.titleWhite);
+    if (titleWhiteError) errors.titleWhite = titleWhiteError;
+    
+    const titleBlueError = validateSlideField(slide.id, 'titleBlue', slide.titleBlue);
+    if (titleBlueError) errors.titleBlue = titleBlueError;
+    
+    const subtitleError = validateSlideField(slide.id, 'subtitle', slide.subtitle);
+    if (subtitleError) errors.subtitle = subtitleError;
+    
+    return errors;
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -170,6 +212,13 @@ const AdminHeroImagesPage = () => {
           };
         });
         setHomeSlides(processedSlides);
+        
+        // Initialize errors state for existing slides
+        const initialErrors: Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }> = {};
+        processedSlides.forEach(slide => {
+          initialErrors[slide.id] = {};
+        });
+        setSlideErrors(initialErrors);
       }
 
       // Page heroes
@@ -210,34 +259,39 @@ const AdminHeroImagesPage = () => {
       subtitle: 'Experience premium vehicle services at your doorstep.'
     };
     setHomeSlides([...homeSlides, newSlide]);
+    // Initialize errors for new slide
+    setSlideErrors(prev => ({
+      ...prev,
+      [newSlide.id]: {}
+    }));
+    toast.success('New slide added successfully');
   };
 
   const handleRemoveSlide = (id: string | number) => {
     setHomeSlides(homeSlides.filter(s => s.id !== id));
+    // Remove errors for deleted slide
+    setSlideErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[id];
+      return newErrors;
+    });
+    toast.success('Slide removed successfully');
   };
 
   const handleUpdateSlide = (id: string | number, field: keyof HeroSlide, value: string) => {
-    // Validate inputs as user types
-    if (field === 'titleWhite' || field === 'titleBlue') {
-      if (isHeroTitleTooLong(value)) {
-        toast.error(`Title is too long. Max 100 characters.`);
-        return;
+    // Validate the field
+    const error = validateSlideField(id, field, value);
+    
+    // Update errors state
+    setSlideErrors(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: error
       }
-      if (hasExcessiveRepeatedChars(value)) {
-        toast.error('Title contains excessive repeated characters');
-        return;
-      }
-    }
-    if (field === 'subtitle') {
-      if (isHeroSubtitleTooLong(value)) {
-        toast.error(`Subtitle is too long. Max 300 characters.`);
-        return;
-      }
-      if (hasExcessiveRepeatedChars(value)) {
-        toast.error('Subtitle contains excessive repeated characters');
-        return;
-      }
-    }
+    }));
+    
+    // Update the slide
     setHomeSlides(homeSlides.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
@@ -302,42 +356,235 @@ const AdminHeroImagesPage = () => {
     }
   };
 
-  const handleSave = async () => {
-    // Validate home slides
-    for (const slide of homeSlides) {
-      if (!isValidHeroTitle(slide.titleWhite)) {
-        toast.error('Slide white title contains invalid characters');
+  const handleSaveHomeSlides = async () => {
+    console.log('handleSaveHomeSlides called');
+    console.log('Current home slides:', homeSlides);
+    
+    // Validate all slides
+    let hasErrors = false;
+    const allErrors: Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }> = {};
+    
+    for (let i = 0; i < homeSlides.length; i++) {
+      const slide = homeSlides[i];
+      const errors = validateSlide(slide);
+      
+      if (Object.keys(errors).length > 0) {
+        hasErrors = true;
+        allErrors[slide.id] = errors;
+      }
+    }
+    
+    // Update error state
+    setSlideErrors(allErrors);
+    
+    if (hasErrors) {
+      toast.error('Please fix the errors in the slides before saving');
+      return;
+    }
+
+    setSavingHomeSlides(true);
+    try {
+      console.log('Sending home slides data:', {
+        homeSlides,
+        pageHeroes,
+        contactDetails,
+        showGetStarted,
+        showLearnMore,
+      });
+      await heroService.updateHeroSettings({
+        homeSlides,
+        pageHeroes,
+        contactDetails,
+        showGetStarted,
+        showLearnMore,
+      });
+      toast.success('Home slides saved successfully');
+    } catch (error: any) {
+      console.error('Error saving home slides:', error);
+      const errorMessage = error?.response?.data?.message || 'Failed to save home slides';
+      toast.error(errorMessage);
+    } finally {
+      setSavingHomeSlides(false);
+    }
+  };
+
+  const handleSavePageHeroes = async () => {
+    for (const pageId in pageHeroes) {
+      const pageHero = pageHeroes[pageId];
+      if (!isValidHeroTitle(pageHero.title)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
         return;
       }
-      if (isHeroTitleTooLong(slide.titleWhite)) {
-        toast.error('Slide white title is too long');
+      if (isHeroTitleTooLong(pageHero.title)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
         return;
       }
-      if (!isValidHeroTitle(slide.titleBlue)) {
-        toast.error('Slide blue title contains invalid characters');
+      if (!isValidHeroSubtitle(pageHero.subtitle)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle contains invalid characters`);
         return;
       }
-      if (isHeroTitleTooLong(slide.titleBlue)) {
-        toast.error('Slide blue title is too long');
+      if (isHeroSubtitleTooLong(pageHero.subtitle)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is too long`);
         return;
       }
-      if (!isValidHeroSubtitle(slide.subtitle)) {
-        toast.error('Slide subtitle contains invalid characters');
+      if (pageHero.image && !isValidImageUrl(pageHero.image)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is invalid`);
         return;
       }
-      if (isHeroSubtitleTooLong(slide.subtitle)) {
-        toast.error('Slide subtitle is too long');
-        return;
-      }
-      if (slide.image && !isValidImageUrl(slide.image)) {
-        toast.error('Slide image URL is invalid');
-        return;
-      }
-      if (isImageUrlTooLong(slide.image)) {
-        toast.error('Slide image URL is too long');
+      if (isImageUrlTooLong(pageHero.image)) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is too long`);
         return;
       }
     }
+    if (!isValidAddress(contactDetails.address)) {
+      toast.error('Address contains invalid characters');
+      return;
+    }
+    if (isAddressTooLong(contactDetails.address)) {
+      toast.error('Address is too long');
+      return;
+    }
+    if (contactDetails.mobileNumber && !isValidPhone10(contactDetails.mobileNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    if (contactDetails.email && !isValidEmail(contactDetails.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (isEmailTooLong(contactDetails.email)) {
+      toast.error('Email is too long');
+      return;
+    }
+
+    setSavingPageHeroes(true);
+    try {
+      await heroService.updateHeroSettings({
+        homeSlides,
+        pageHeroes,
+        contactDetails,
+        showGetStarted,
+        showLearnMore,
+      });
+      toast.success('Page heroes saved successfully');
+    } catch (error: any) {
+      console.error('Error saving page heroes:', error);
+      const errorMessage = error?.response?.data?.message || 'Failed to save page heroes';
+      toast.error(errorMessage);
+    } finally {
+      setSavingPageHeroes(false);
+    }
+  };
+
+  const handleSaveSinglePageHero = async (pageId: string) => {
+    console.log('handleSaveSinglePageHero called with pageId:', pageId);
+    const pageHero = pageHeroes[pageId] || { page: pageId, image: '', title: '', subtitle: '' };
+    const pageLabel = PAGES.find(p => p.id === pageId)?.label || pageId;
+
+    console.log('Current page hero data:', pageHero);
+
+    if (!isValidHeroTitle(pageHero.title)) {
+      toast.error(`${pageLabel} hero title contains invalid characters`);
+      return;
+    }
+    if (isHeroTitleTooLong(pageHero.title)) {
+      toast.error(`${pageLabel} hero title is too long`);
+      return;
+    }
+    if (!isValidHeroSubtitle(pageHero.subtitle)) {
+      toast.error(`${pageLabel} hero subtitle contains invalid characters`);
+      return;
+    }
+    if (isHeroSubtitleTooLong(pageHero.subtitle)) {
+      toast.error(`${pageLabel} hero subtitle is too long`);
+      return;
+    }
+    if (pageHero.image && !isValidImageUrl(pageHero.image)) {
+      toast.error(`${pageLabel} hero image URL is invalid`);
+      return;
+    }
+    if (isImageUrlTooLong(pageHero.image)) {
+      toast.error(`${pageLabel} hero image URL is too long`);
+      return;
+    }
+
+    if (pageId === 'contact') {
+      console.log('Validating contact details:', contactDetails);
+      if (!isValidAddress(contactDetails.address)) {
+        toast.error('Address contains invalid characters');
+        return;
+      }
+      if (isAddressTooLong(contactDetails.address)) {
+        toast.error('Address is too long');
+        return;
+      }
+      if (contactDetails.mobileNumber && !isValidPhone10(contactDetails.mobileNumber)) {
+        toast.error('Please enter a valid 10-digit mobile number');
+        return;
+      }
+      if (contactDetails.email) {
+        const emailValidation = isValidEmail(contactDetails.email);
+        console.log('Email validation result:', emailValidation);
+        if (!emailValidation.valid) {
+          toast.error(emailValidation.error || 'Please enter a valid email address');
+          return;
+        }
+      }
+      if (isEmailTooLong(contactDetails.email)) {
+        toast.error('Email is too long');
+        return;
+      }
+    }
+
+    setSavingPageId(pageId);
+    try {
+      console.log('Calling updateHeroSettings with data:', {
+        homeSlides,
+        pageHeroes,
+        contactDetails,
+        showGetStarted,
+        showLearnMore,
+      });
+      await heroService.updateHeroSettings({
+        homeSlides,
+        pageHeroes,
+        contactDetails,
+        showGetStarted,
+        showLearnMore,
+      });
+      toast.success(`${pageLabel} hero saved successfully`);
+    } catch (error: any) {
+      console.error('Error saving page hero:', error);
+      const errorMessage = error?.response?.data?.message || `Failed to save ${pageLabel} hero`;
+      toast.error(errorMessage);
+    } finally {
+      setSavingPageId(null);
+    }
+  };
+
+  const handleSave = async () => {
+    // Validate all home slides
+    let hasErrors = false;
+    const allErrors: Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }> = {};
+    
+    for (let i = 0; i < homeSlides.length; i++) {
+      const slide = homeSlides[i];
+      const errors = validateSlide(slide);
+      
+      if (Object.keys(errors).length > 0) {
+        hasErrors = true;
+        allErrors[slide.id] = errors;
+      }
+    }
+    
+    // Update error state
+    setSlideErrors(allErrors);
+    
+    if (hasErrors) {
+      toast.error('Please fix the errors in the slides before saving');
+      return;
+    }
+
     // Validate page heroes
     for (const pageId in pageHeroes) {
       const pageHero = pageHeroes[pageId];
@@ -379,16 +626,19 @@ const AdminHeroImagesPage = () => {
       toast.error('Please enter a valid 10-digit mobile number');
       return;
     }
-    if (contactDetails.email && !isValidEmail(contactDetails.email)) {
-      toast.error('Please enter a valid email address');
-      return;
+    if (contactDetails.email) {
+      const emailValidation = isValidEmail(contactDetails.email);
+      if (!emailValidation.valid) {
+        toast.error(emailValidation.error || 'Please enter a valid email address');
+        return;
+      }
     }
     if (isEmailTooLong(contactDetails.email)) {
       toast.error('Email is too long');
       return;
     }
 
-    setSaving(true);
+    setSavingAll(true);
     try {
       await heroService.updateHeroSettings({
         homeSlides,
@@ -398,10 +648,12 @@ const AdminHeroImagesPage = () => {
         showLearnMore,
       });
       toast.success('Hero settings saved to S3 successfully');
-    } catch (error) {
-      toast.error('Failed to save hero settings to S3');
+    } catch (error: any) {
+      console.error('Error saving hero settings:', error);
+      const errorMessage = error?.response?.data?.message || 'Failed to save hero settings to S3';
+      toast.error(errorMessage);
     } finally {
-      setSaving(false);
+      setSavingAll(false);
     }
   };
 
@@ -445,30 +697,46 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSaveBlog = async () => {
+    // Check required fields first with clear messages
+    if (!blogForm.title.trim()) {
+      toast.error('Blog title is required');
+      return;
+    }
     if (!isValidBlogTitle(blogForm.title)) {
-      toast.error('Blog title is required and contains invalid characters');
+      toast.error('Blog title contains invalid characters');
       return;
     }
     if (isBlogTitleTooLong(blogForm.title)) {
       toast.error('Blog title is too long');
       return;
     }
+    
+    if (!blogForm.excerpt.trim()) {
+      toast.error('Blog excerpt is required');
+      return;
+    }
     if (!isValidBlogExcerpt(blogForm.excerpt)) {
-      toast.error('Blog excerpt is required and contains invalid characters');
+      toast.error('Blog excerpt contains invalid characters');
       return;
     }
     if (isBlogExcerptTooLong(blogForm.excerpt)) {
       toast.error('Blog excerpt is too long');
       return;
     }
+    
+    if (!blogForm.content.trim()) {
+      toast.error('Blog content is required');
+      return;
+    }
     if (!isValidBlogContent(blogForm.content)) {
-      toast.error('Blog content is required and contains invalid characters');
+      toast.error('Blog content contains invalid characters');
       return;
     }
     if (isBlogContentTooLong(blogForm.content)) {
       toast.error('Blog content is too long');
       return;
     }
+    
     if (!isValidBlogAuthor(blogForm.author)) {
       toast.error('Blog author contains invalid characters');
       return;
@@ -477,6 +745,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Blog author is too long');
       return;
     }
+    
     if (!isValidBlogReadTime(blogForm.readTime)) {
       toast.error('Blog read time contains invalid characters');
       return;
@@ -485,6 +754,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Blog read time is too long');
       return;
     }
+    
     if (!isValidBlogTags(blogForm.tags)) {
       toast.error('Blog tags contain invalid characters');
       return;
@@ -493,6 +763,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Blog tags are too long');
       return;
     }
+    
     if (blogForm.image && !isValidImageUrl(blogForm.image)) {
       toast.error('Blog image URL is invalid');
       return;
@@ -501,6 +772,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Blog image URL is too long');
       return;
     }
+    
     if (!blogForm.category) {
       toast.error('Category is required');
       return;
@@ -551,8 +823,12 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleCreateCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
     if (!isValidCategoryName(categoryForm.name)) {
-      toast.error('Category name is required and contains invalid characters');
+      toast.error('Category name contains invalid characters');
       return;
     }
     if (isCategoryNameTooLong(categoryForm.name)) {
@@ -579,8 +855,12 @@ const AdminHeroImagesPage = () => {
 
   const handleSaveCategoryEdit = async () => {
     if (!editingCategoryId) return;
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
     if (!isValidCategoryName(categoryForm.name)) {
-      toast.error('Category name is required and contains invalid characters');
+      toast.error('Category name contains invalid characters');
       return;
     }
     if (isCategoryNameTooLong(categoryForm.name)) {
@@ -651,38 +931,58 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSaveCareer = async () => {
+    if (!careerForm.title.trim()) {
+      toast.error('Career title is required');
+      return;
+    }
     if (!isValidCareerTitle(careerForm.title)) {
-      toast.error('Career title is required and contains invalid characters');
+      toast.error('Career title contains invalid characters');
       return;
     }
     if (isCareerTitleTooLong(careerForm.title)) {
       toast.error('Career title is too long');
       return;
     }
+    
+    if (!careerForm.department.trim()) {
+      toast.error('Career department is required');
+      return;
+    }
     if (!isValidCareerDepartment(careerForm.department)) {
-      toast.error('Career department is required and contains invalid characters');
+      toast.error('Career department contains invalid characters');
       return;
     }
     if (isCareerDepartmentTooLong(careerForm.department)) {
       toast.error('Career department is too long');
       return;
     }
+    
+    if (!careerForm.location.trim()) {
+      toast.error('Career location is required');
+      return;
+    }
     if (!isValidCareerLocation(careerForm.location)) {
-      toast.error('Career location is required and contains invalid characters');
+      toast.error('Career location contains invalid characters');
       return;
     }
     if (isCareerLocationTooLong(careerForm.location)) {
       toast.error('Career location is too long');
       return;
     }
+    
+    if (!careerForm.type.trim()) {
+      toast.error('Career type is required');
+      return;
+    }
     if (!isValidCareerType(careerForm.type)) {
-      toast.error('Career type is required and contains invalid characters');
+      toast.error('Career type contains invalid characters');
       return;
     }
     if (isCareerTypeTooLong(careerForm.type)) {
       toast.error('Career type is too long');
       return;
     }
+    
     if (!isValidCareerSalary(careerForm.salary)) {
       toast.error('Career salary contains invalid characters');
       return;
@@ -691,6 +991,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Career salary is too long');
       return;
     }
+    
     if (!isValidCareerShortDescription(careerForm.shortDescription)) {
       toast.error('Career short description contains invalid characters');
       return;
@@ -699,6 +1000,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Career short description is too long');
       return;
     }
+    
     if (careerForm.applyUrl && !isValidCareerApplyUrl(careerForm.applyUrl)) {
       toast.error('Career apply URL is invalid');
       return;
@@ -772,19 +1074,11 @@ const AdminHeroImagesPage = () => {
     </div>
     ) : (
     <div className="max-w-6xl mx-auto p-4 lg:p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit website</h1>
           <p className="text-muted-foreground mt-1">Manage slides and hero banners across your application</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-70"
-        >
-          {saving ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-          {saving ? 'Saving...' : 'Save All Changes'}
-        </button>
       </div>
 
       <div className="space-y-12">
@@ -797,13 +1091,23 @@ const AdminHeroImagesPage = () => {
               </div>
               <h2 className="text-xl font-bold">Home Page Carousel</h2>
             </div>
-            <button
-              onClick={handleAddSlide}
-              className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Slide
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleAddSlide}
+                className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Slide
+              </button>
+              <button
+                onClick={handleSaveHomeSlides}
+                disabled={savingHomeSlides}
+                className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-70"
+              >
+                {savingHomeSlides ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingHomeSlides ? 'Saving...' : 'Save Slides'}
+              </button>
+            </div>
           </div>
 
           {/* CTA Button Toggles */}
@@ -866,44 +1170,53 @@ const AdminHeroImagesPage = () => {
                             <div>
                               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Title (White Text)</label>
                               <div className="relative">
-                                <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Type className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${slideErrors[slide.id]?.titleWhite ? 'text-red-500' : 'text-muted-foreground'}`} />
                                 <input 
                                   type="text"
                                   value={slide.titleWhite}
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleWhite', e.target.value)}
-                                  className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                                  className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all ${slideErrors[slide.id]?.titleWhite ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="White text..."
                                   maxLength={100}
                                 />
                               </div>
+                              {slideErrors[slide.id]?.titleWhite && (
+                                <p className="text-xs text-red-500 mt-1">{slideErrors[slide.id].titleWhite}</p>
+                              )}
                             </div>
                             <div>
                               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Title (Blue Text)</label>
                               <div className="relative">
-                                <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                <Type className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${slideErrors[slide.id]?.titleBlue ? 'text-red-500' : 'text-blue-500'}`} />
                                 <input 
                                   type="text"
                                   value={slide.titleBlue}
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleBlue', e.target.value)}
-                                  className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all text-blue-600"
+                                  className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all text-blue-600 ${slideErrors[slide.id]?.titleBlue ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="Blue text..."
                                   maxLength={100}
                                 />
                               </div>
+                              {slideErrors[slide.id]?.titleBlue && (
+                                <p className="text-xs text-red-500 mt-1">{slideErrors[slide.id].titleBlue}</p>
+                              )}
                             </div>
                           </div>
                           <div>
                             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Subtitle / Description</label>
                             <div className="relative">
-                              <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                              <AlignLeft className={`absolute left-3 top-3 w-4 h-4 ${slideErrors[slide.id]?.subtitle ? 'text-red-500' : 'text-muted-foreground'}`} />
                               <textarea 
                                 value={slide.subtitle}
                                 onChange={(e) => handleUpdateSlide(slide.id, 'subtitle', e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none"
+                                className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none ${slideErrors[slide.id]?.subtitle ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                 placeholder="Enter description..."
                                 maxLength={300}
                               />
                             </div>
+                            {slideErrors[slide.id]?.subtitle && (
+                              <p className="text-xs text-red-500 mt-1">{slideErrors[slide.id].subtitle}</p>
+                            )}
                           </div>
                         </div>
 
@@ -962,8 +1275,18 @@ const AdminHeroImagesPage = () => {
                 <div key={page.id} className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-lg">{page.label} Page</h3>
-                    <div className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground font-mono uppercase">
-                      /{page.id}
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground font-mono uppercase">
+                        /{page.id}
+                      </div>
+                      <button
+                        onClick={() => handleSaveSinglePageHero(page.id)}
+                        disabled={savingPageId === page.id}
+                        className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 hover:bg-primary/90 transition-all disabled:opacity-70"
+                      >
+                        {savingPageId === page.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {savingPageId === page.id ? 'Saving' : 'Save'}
+                      </button>
                     </div>
                   </div>
 

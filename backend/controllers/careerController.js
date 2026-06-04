@@ -1,7 +1,7 @@
 import Career from '../models/Career.js';
 import CareerApplication from '../models/CareerApplication.js';
 import { emitEntitySync } from '../utils/syncService.js';
-import { validateCareer } from '../utils/validation.js';
+import { validateCareer, isValidEmail } from '../utils/validation.js';
 
 const sanitizeCareerInput = (body = {}) => ({
   title: String(body.title || '').trim(),
@@ -171,12 +171,9 @@ export const applyForCareer = async (req, res) => {
     }
 
     // Validate email
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Please enter a valid email address' });
-    }
-    if (email.length > 30) {
-      return res.status(400).json({ message: 'Email cannot exceed 30 characters' });
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Please enter a valid email address' });
     }
 
     // Validate mobile number

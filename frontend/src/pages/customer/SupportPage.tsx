@@ -6,7 +6,7 @@ import Timeline from '@/components/Timeline';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
-import { isValidName, hasExcessiveRepeatedChars, isValidDescription, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from '@/lib/formValidation';
+import { isValidName, hasExcessiveRepeatedChars, isValidDescription, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, isOnlySpecialCharacters } from '@/lib/formValidation';
 
 interface Ticket {
   _id: string;
@@ -83,6 +83,10 @@ const SupportPage: React.FC = () => {
     }
     if (hasExcessiveRepeatedChars(cleanSubject)) {
       toast.error('Subject contains excessive repeated characters');
+      return;
+    }
+    if (isOnlySpecialCharacters(cleanSubject)) {
+      toast.error('Subject cannot contain only special characters');
       return;
     }
     

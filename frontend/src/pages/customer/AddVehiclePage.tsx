@@ -177,19 +177,6 @@ const AddVehiclePage: React.FC = () => {
     }
   };
 
-  const handleDeleteVehicle = async (id: string) => {
-    if (!window.confirm('Are you sure you want to remove this vehicle?')) return;
-    
-    try {
-      await vehicleService.deleteVehicle(id);
-      toast.success('Vehicle removed successfully');
-      fetchVehicles();
-    } catch (error) {
-      console.error('Failed to delete vehicle:', error);
-      toast.error('Failed to remove vehicle');
-    }
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -378,7 +365,6 @@ const AddVehiclePage: React.FC = () => {
                 image={vehicle.image}
                 nextService={vehicle.nextService}
                 status={vehicle.status}
-                onDelete={() => handleDeleteVehicle(vehicle._id)}
                 onClick={() => navigate(`/vehicles/${vehicle._id}`)}
               />
             </motion.div>

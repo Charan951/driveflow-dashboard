@@ -9,13 +9,10 @@ import {
   Car, 
   User as UserIcon, 
   Calendar, 
-  MapPin, 
-  FileText, 
   Shield, 
   ArrowLeft,
   AlertCircle,
   MoreVertical,
-  Navigation,
   Clock
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -161,17 +158,7 @@ const VehicleDetailPage: React.FC = () => {
              </div>
           </div>
           
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-3">
-             <button className="p-3 bg-card border border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-muted transition-colors">
-                <Navigation className="w-5 h-5 text-blue-500" />
-                <span className="text-xs font-medium">Track Live</span>
-             </button>
-             <button className="p-3 bg-card border border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-muted transition-colors">
-                <FileText className="w-5 h-5 text-orange-500" />
-                <span className="text-xs font-medium">Service Record</span>
-             </button>
-          </div>
+
         </div>
 
         {/* Main Content - Tabs */}
@@ -185,24 +172,6 @@ const VehicleDetailPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   Service History
-                </div>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="documents"
-                className="px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-              >
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Documents
-                </div>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="tracking"
-                className="px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Live Tracking
                 </div>
               </TabsTrigger>
               <TabsTrigger 
@@ -237,7 +206,11 @@ const VehicleDetailPage: React.FC = () => {
               ) : (
                 <div className="space-y-4">
                    {bookings.map(booking => (
-                      <div key={booking._id} className="bg-card p-4 rounded-xl border border-border flex items-center justify-between">
+                      <div 
+                        key={booking._id} 
+                        className="bg-card p-4 rounded-xl border border-border flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => navigate(`/admin/bookings/${booking._id}`)}
+                      >
                          <div>
                             <div className="font-medium mb-1">
                                {Array.isArray(booking.services) 
@@ -267,44 +240,6 @@ const VehicleDetailPage: React.FC = () => {
                    ))}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="documents" className="space-y-4">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-card p-4 rounded-xl border border-border flex items-start gap-3">
-                     <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                        <Shield className="w-6 h-6" />
-                     </div>
-                     <div className="flex-1">
-                        <h3 className="font-medium mb-1">Essentials</h3>
-                        <p className="text-xs text-muted-foreground mb-3">Key documents and essentials for this vehicle.</p>
-                        <button className="text-sm text-primary hover:underline font-medium">View Details</button>
-                     </div>
-                  </div>
-                  <div className="bg-card p-4 rounded-xl border border-border flex items-start gap-3">
-                     <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                        <FileText className="w-6 h-6" />
-                     </div>
-                     <div className="flex-1">
-                        <h3 className="font-medium mb-1">Registration Certificate</h3>
-                        <p className="text-xs text-muted-foreground mb-3">RC No: {vehicle.licensePlate}</p>
-                        <button className="text-sm text-primary hover:underline font-medium">View Document</button>
-                     </div>
-                  </div>
-               </div>
-            </TabsContent>
-
-            <TabsContent value="tracking">
-              <div className="bg-muted/30 rounded-2xl border border-dashed border-border h-[400px] flex items-center justify-center flex-col">
-                <MapPin className="w-12 h-12 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium">Live Tracking</h3>
-                <p className="text-muted-foreground mb-4">Live location data is not available for this vehicle.</p>
-                {vehicle.status === 'On Route' && (
-                   <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium animate-pulse">
-                      Vehicle is currently On Route
-                   </div>
-                )}
-              </div>
             </TabsContent>
 
           </Tabs>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '../../services/bookingService';
 import { reviewService } from '../../services/reviewService';
-import { getMyApprovals, updateApprovalStatus, ApprovalRequest } from '../../services/approvalService';
 import { socketService } from '../../services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { toast } from 'sonner';
@@ -28,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Star, MessageSquarePlus, AlertCircle, CheckCircle, XCircle, Wrench, Shield, FileText } from 'lucide-react';
+import { Loader2, Star, Wrench, Shield, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +62,6 @@ const BookingsSkeleton = () => (
 const MyBookingsPage = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Review Dialog State
@@ -83,40 +81,21 @@ const MyBookingsPage = () => {
     const bookingUpdatedHandler = (data: any) => {
       fetchData();
     };
-    const newApprovalHandler = (data: any) => {
-      fetchData();
-    };
     socketService.on('bookingUpdated', bookingUpdatedHandler);
-    socketService.on('newApproval', newApprovalHandler);
 
     return () => {
       socketService.off('bookingUpdated', bookingUpdatedHandler);
-      socketService.off('newApproval', newApprovalHandler);
     };
   }, []);
 
   const fetchData = async () => {
     try {
-      const [bookingsData, approvalsData] = await Promise.all([
-        bookingService.getMyBookings(),
-        getMyApprovals()
-      ]);
+      const bookingsData = await bookingService.getMyBookings();
       setBookings(bookingsData);
-      setApprovals(approvalsData.filter((a: ApprovalRequest) => a.status === 'Pending'));
     } catch (error) {
       toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleApprovalAction = async (id: string, status: 'Approved' | 'Rejected') => {
-    try {
-        await updateApprovalStatus(id, status);
-        toast.success(`Request ${status}`);
-        fetchData(); // Refresh list
-    } catch (error) {
-        toast.error('Action failed');
     }
   };
 
@@ -416,75 +395,13 @@ const MyBookingsPage = () => {
   };
 
   return (
-    <GlobalSyncRefresh entities={['booking', 'approval']} onSync={fetchData}>
+    <GlobalSyncRefresh entities={['booking']} onSync={fetchData}>
     {loading ? (
     <BookingsSkeleton />
     ) : (
     <div className="w-full h-full py-6 sm:py-8 overflow-hidden">
       
-      {/* Pending Approvals Section */}
-      {approvals.length > 0 && (
-        <div className="mb-6 sm:mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 sm:p-6">
-          <h2 className="text-lg sm:text-xl font-bold text-amber-800 dark:text-amber-400 mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="min-w-0">Action Required</span>
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {approvals.map(approval => (
-              <div key={approval._id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-amber-100 dark:border-gray-700">
-                <div className="flex justify-between items-start mb-2 gap-2">
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 flex-shrink-0">
-                    {approval.type === 'PartReplacement' ? 'Part Replacement' : 
-                     approval.type === 'ExtraCost' ? 'Extra Cost' : approval.type}
-                  </Badge>
-                  <span className="text-xs text-gray-500 flex-shrink-0">
-                    {format(new Date(approval.createdAt), 'MMM d, yyyy')}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  {approval.data?.image && (
-                      <div className="mb-2">
-                          <img 
-                            src={approval.data.image as string} 
-                            alt="Part" 
-                            className="w-full h-32 object-cover rounded-md"
-                          />
-                      </div>
-                  )}
-                  {Object.entries(approval.data || {}).map(([key, value]) => {
-                      if (key === 'image') return null;
-                      return (
-                        <div key={key} className="flex justify-between text-sm gap-2">
-                          <span className="text-gray-500 capitalize flex-shrink-0">{key}:</span>
-                          <span className="font-medium text-right min-w-0 break-words">{String(value)}</span>
-                        </div>
-                      );
-                  })}
-                </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button 
-                    size="sm" 
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => handleApprovalAction(approval._id, 'Approved')}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-1" /> Approve
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="destructive" 
-                    className="flex-1"
-                    onClick={() => handleApprovalAction(approval._id, 'Rejected')}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" /> Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Bookings</h1>

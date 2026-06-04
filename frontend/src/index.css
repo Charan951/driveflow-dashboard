@@ -127,6 +127,31 @@
     overflow-x: hidden; /* Prevent horizontal scrolling */
   }
   
+  /* Hide browser's default password reveal button */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+  
+  input[type="password"]::-webkit-textfield-decoration-container,
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none !important;
+  }
+  
+  /* Hide password reveal button in Chrome/Edge */
+  input::-webkit-contacts-auto-fill-button,
+  input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+  }
+  
+  /* Hide password reveal button in Firefox */
+  input[type="password"]::-moz-suggested-password {
+    display: none;
+  }
+  
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;

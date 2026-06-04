@@ -106,17 +106,9 @@ const CareerDetail: React.FC = () => {
       return;
     }
     
-    if (isDisposableEmail(form.email)) {
-      toast.error('Disposable email addresses are not allowed. Please use a valid email.');
-      return;
-    }
-    
-    if (!isValidEmail(form.email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-    if (isEmailTooLong(form.email)) {
-      toast.error('Too long data not accept');
+    const emailValidation = isValidEmail(form.email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'Please enter a valid email address');
       return;
     }
 

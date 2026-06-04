@@ -2,7 +2,7 @@ import User from '../models/User.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
-import { isValidName, isValidPhone10, hasExcessiveRepeatedChars } from '../utils/validation.js';
+import { isValidName, isValidPhone10, hasExcessiveRepeatedChars, isValidEmail } from '../utils/validation.js';
 
 // @desc    Get all users (with optional filtering)
 // @route   GET /api/users
@@ -109,25 +109,32 @@ export const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      // Validate name if provided
-      if (req.body.name !== undefined) {
-        const trimmedName = req.body.name.trim();
-        if (!trimmedName) {
-          return res.status(400).json({ message: 'Name is required' });
-        }
-        if (trimmedName.length > 50) {
-          return res.status(400).json({ message: 'Name cannot exceed 50 characters' });
-        }
-        if (!isValidName(trimmedName)) {
-          return res.status(400).json({ message: 'Invalid name format' });
-        }
-        if (hasExcessiveRepeatedChars(trimmedName)) {
-          return res.status(400).json({ message: 'Name contains excessive repeated characters' });
-        }
-        user.name = trimmedName;
+    // Validate name if provided
+    if (req.body.name !== undefined) {
+      const trimmedName = req.body.name.trim();
+      if (!trimmedName) {
+        return res.status(400).json({ message: 'Name is required' });
       }
-      
-      user.email = req.body.email || user.email;
+      if (trimmedName.length > 50) {
+        return res.status(400).json({ message: 'Name cannot exceed 50 characters' });
+      }
+      if (!isValidName(trimmedName)) {
+        return res.status(400).json({ message: 'Invalid name format' });
+      }
+      if (hasExcessiveRepeatedChars(trimmedName)) {
+        return res.status(400).json({ message: 'Name contains excessive repeated characters' });
+      }
+      user.name = trimmedName;
+    }
+    
+    if (req.body.email !== undefined) {
+      const normalizedEmail = req.body.email.toLowerCase().trim();
+      const emailValidation = isValidEmail(normalizedEmail);
+      if (!emailValidation.valid) {
+        return res.status(400).json({ message: emailValidation.error || 'Invalid email' });
+      }
+      user.email = normalizedEmail;
+    }
       if (req.body.password) {
         user.password = req.body.password;
       }
@@ -250,7 +257,14 @@ export const updateUser = async (req, res) => {
 
     if (user) {
       user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
+      if (req.body.email !== undefined) {
+        const normalizedEmail = req.body.email.toLowerCase().trim();
+        const emailValidation = isValidEmail(normalizedEmail);
+        if (!emailValidation.valid) {
+          return res.status(400).json({ message: emailValidation.error || 'Invalid email' });
+        }
+        user.email = normalizedEmail;
+      }
       user.phone = req.body.phone || user.phone;
       user.category = req.body.category || user.category;
       
@@ -402,14 +416,20 @@ export const createUser = async (req, res) => {
   const { name, email, password, role, subRole, phone, location, category } = req.body;
   
   try {
-    const userExists = await User.exists({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailValidation = isValidEmail(normalizedEmail);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email' });
+    }
+    
+    const userExists = await User.exists({ email: normalizedEmail });
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'Email already exists.' });
     }
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       role,
       subRole,

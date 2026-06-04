@@ -40,17 +40,9 @@ const LoginPage: React.FC = () => {
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (hasLeadingTrailingSpaces(email)) {
-      toast.error('invalid email id');
-      return;
-    }
-
-    if (isEmailTooLong(email)) {
-      toast.error('Too long data not accept');
-      return;
-    }
-    if (!isValidEmail(email)) {
-      toast.error('invalid email id');
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'invalid email id');
       return;
     }
     if (!password) {
@@ -260,18 +252,7 @@ const LoginPage: React.FC = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  const newEmail = e.target.value;
-                  if (newEmail.length > MAX_EMAIL_LENGTH) {
-                    toast.error('Too long data not accept');
-                    return;
-                  }
-                  if (newEmail.length > 0 && !isValidEmail(newEmail)) {
-                    toast.error('invalid email id');
-                    return;
-                  }
-                  setEmail(newEmail);
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
                 maxLength={MAX_EMAIL_LENGTH}

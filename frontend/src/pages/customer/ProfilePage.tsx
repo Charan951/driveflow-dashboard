@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Camera, Save, Plus, Trash2, CreditCard, Home, Car } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Camera, Save, Plus, Trash2, Home, Car } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { userService } from '@/services/userService';
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isValidPhone10, isValidName, hasExcessiveRepeatedChars } from '@/lib/formValidation';
+import { isValidPhone10, isValidName, hasExcessiveRepeatedChars, isValidEmail } from '@/lib/formValidation';
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,15 +25,11 @@ const ProfilePage: React.FC = () => {
   });
   const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   // Address Form State
   const [newAddress, setNewAddress] = useState({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
-  
-  // Payment Form State
-  const [newPayment, setNewPayment] = useState({ type: 'card', label: '', details: '' });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,9 +75,25 @@ const ProfilePage: React.FC = () => {
       return;
     }
 
+    // Validate email
+    const trimmedEmail = formData.email.trim();
+    if (!trimmedEmail) {
+      toast.error('Email is required');
+      return;
+    }
+    const emailValidation = isValidEmail(trimmedEmail);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'Please enter a valid email address');
+      return;
+    }
+
     // Validate phone
     const trimmedPhone = formData.phone.trim();
-    if (trimmedPhone && !isValidPhone10(trimmedPhone)) {
+    if (!trimmedPhone) {
+      toast.error('Phone number is required');
+      return;
+    }
+    if (!isValidPhone10(trimmedPhone)) {
       toast.error('Enter a valid 10-digit phone number');
       return;
     }
@@ -89,8 +101,8 @@ const ProfilePage: React.FC = () => {
     try {
       const updated = await userService.updateProfile({ 
         name: trimmedName, 
-        email: formData.email, 
-        phone: trimmedPhone ? trimmedPhone.replace(/\D/g, '') : ''
+        email: trimmedEmail, 
+        phone: trimmedPhone.replace(/\D/g, '')
       });
       updateUser(updated);
       toast.success('Profile updated successfully!');
@@ -159,65 +171,6 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleAddPayment = async () => {
-    const trimmedLabel = newPayment.label.trim();
-    const trimmedDetails = newPayment.details.trim();
-
-    if (!trimmedLabel) {
-      toast.error('Payment method label is required');
-      return;
-    }
-    if (trimmedLabel.length > 50) {
-      toast.error('Payment label cannot exceed 50 characters');
-      return;
-    }
-    if (hasExcessiveRepeatedChars(trimmedLabel)) {
-      toast.error('Payment label contains invalid characters');
-      return;
-    }
-    if (!trimmedDetails) {
-      toast.error('Payment details are required');
-      return;
-    }
-    if (trimmedDetails.length > 100) {
-      toast.error('Payment details cannot exceed 100 characters');
-      return;
-    }
-    if (hasExcessiveRepeatedChars(trimmedDetails)) {
-      toast.error('Payment details contain invalid characters');
-      return;
-    }
-
-    try {
-      const currentPayments = user?.paymentMethods || [];
-      const updatedPayments = [...currentPayments, { 
-        ...newPayment, 
-        label: trimmedLabel,
-        details: trimmedDetails,
-        isDefault: currentPayments.length === 0 
-      }];
-      const updatedUser = await userService.updateProfile({ paymentMethods: updatedPayments });
-      updateUser(updatedUser);
-      setIsPaymentModalOpen(false);
-      setNewPayment({ type: 'card', label: '', details: '' });
-      toast.success('Payment method added');
-    } catch (error) {
-      toast.error('Failed to add payment method');
-    }
-  };
-
-  const handleDeletePayment = async (index: number) => {
-    try {
-      const currentPayments = user?.paymentMethods || [];
-      const updatedPayments = currentPayments.filter((_, i) => i !== index);
-      const updatedUser = await userService.updateProfile({ paymentMethods: updatedPayments });
-      updateUser(updatedUser);
-      toast.success('Payment method removed');
-    } catch (error) {
-      toast.error('Failed to remove payment method');
-    }
-  };
-
   return (
     <div className="w-full h-full py-4 lg:py-6 space-y-6 sm:space-y-8">
       <h1 className="text-xl sm:text-2xl font-bold text-foreground">Profile</h1>
@@ -254,7 +207,7 @@ const ProfilePage: React.FC = () => {
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" disabled />
+                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" />
               </div>
             </div>
             <div className="space-y-2">
@@ -350,84 +303,6 @@ const ProfilePage: React.FC = () => {
           ) : (
             <div className="col-span-full text-center py-8 text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
               No saved addresses yet.
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Payment Methods */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-primary" /> Payment Methods
-          </h3>
-          <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Plus className="w-4 h-4" /> Add Method
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Payment Method</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <select 
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={newPayment.type}
-                    onChange={(e) => setNewPayment({ ...newPayment, type: e.target.value })}
-                  >
-                    <option value="card">Card</option>
-                    <option value="upi">UPI</option>
-                    <option value="wallet">Wallet</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Label (e.g. HDFC Credit Card)</Label>
-                  <Input 
-                    value={newPayment.label} 
-                    onChange={(e) => setNewPayment({ ...newPayment, label: e.target.value })} 
-                    placeholder="My Card"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Details (e.g. Last 4 digits)</Label>
-                  <Input 
-                    value={newPayment.details} 
-                    onChange={(e) => setNewPayment({ ...newPayment, details: e.target.value })} 
-                    placeholder="**** 1234"
-                  />
-                </div>
-                <Button onClick={handleAddPayment} className="w-full">Save Payment Method</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {user?.paymentMethods && user.paymentMethods.length > 0 ? (
-            user.paymentMethods.map((pm, index) => (
-              <div key={index} className="bg-card border border-border rounded-xl p-4 flex justify-between items-start group hover:border-primary/50 transition-colors">
-                <div className="flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center shrink-0">
-                    <CreditCard className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold">{pm.label}</p>
-                    <p className="text-xs font-medium uppercase text-muted-foreground">{pm.type}</p>
-                    {pm.details && <p className="text-sm text-muted-foreground">{pm.details}</p>}
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeletePayment(index)}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-8 text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
-              No payment methods saved yet.
             </div>
           )}
         </div>

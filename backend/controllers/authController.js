@@ -12,6 +12,7 @@ import {
   verifySignupOtp as msg91VerifySignupOtp,
 } from '../utils/msg91Service.js';
 import { isTestingEnv } from '../utils/appEnvironment.js';
+import { isValidEmail } from '../utils/validation.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 const MAX_NAME_LENGTH = 50;
@@ -96,18 +97,11 @@ export const prepareSignup = async (req, res) => {
       return res.status(400).json({ message: 'Too long data not accept' });
     }
 
-    if (email.length !== email.trim().length) {
-      return res.status(400).json({ message: 'invalid email id' });
-    }
-
     const normalizedEmail = email.toLowerCase().trim();
+    const emailValidation = isValidEmail(normalizedEmail);
     
-    if (normalizedEmail.length > 35) {
-      return res.status(400).json({ message: 'Too long data not accept' });
-    }
-    
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ message: 'invalid email id' });
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email id' });
     }
     const mobile = normalizeIndianMobile(phone);
 
@@ -303,22 +297,11 @@ export const prepareLogin = async (req, res) => {
       return res.status(400).json({ message: 'Too long data not accept' });
     }
 
-    if (password.length > MAX_PASSWORD_LENGTH) {
-      return res.status(400).json({ message: 'Too long data not accept' });
-    }
-
-    if (email.length !== email.trim().length) {
-      return res.status(400).json({ message: 'invalid email id' });
-    }
-
     const normalizedEmail = email.toLowerCase().trim();
+    const emailValidation = isValidEmail(normalizedEmail);
     
-    if (normalizedEmail.length > 35) {
-      return res.status(400).json({ message: 'Too long data not accept' });
-    }
-    
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ message: 'invalid email id' });
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email id' });
     }
     const user = await User.findOne({ email: normalizedEmail });
 

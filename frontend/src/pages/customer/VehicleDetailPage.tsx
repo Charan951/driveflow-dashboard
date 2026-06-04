@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
@@ -10,15 +10,46 @@ import {
   FileText, 
   ArrowLeft,
   Clock,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleHealthIndicators from '@/components/VehicleHealthIndicators';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const CustomerVehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteVehicle = async () => {
+    if (!id) return;
+    setIsDeleting(true);
+    try {
+      await vehicleService.deleteVehicle(id);
+      toast.success('Vehicle deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['vehicle'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      navigate('/add-vehicle');
+    } catch (error) {
+      console.error('Failed to delete vehicle:', error);
+      toast.error('Failed to delete vehicle');
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
 
   const { data: vehicle, isLoading: vehicleLoading, error: vehicleError } = useQuery({
     queryKey: ['vehicle', id],
@@ -72,7 +103,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold flex flex-wrap items-center gap-2 sm:gap-3">
             {vehicle.make} {vehicle.model}
             {vehicle.variant && (
@@ -86,6 +117,15 @@ const CustomerVehicleDetailPage: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-mono uppercase tracking-wider">{vehicle.licensePlate}</p>
         </div>
+        <Button 
+          variant="destructive"
+          size="sm"
+          onClick={() => setDeleteDialogOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -201,7 +241,11 @@ const CustomerVehicleDetailPage: React.FC = () => {
               ) : (
                 <div className="grid gap-4">
                    {bookings.map(booking => (
-                      <div key={booking._id} className="bg-card p-5 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-all">
+                      <div 
+                        key={booking._id} 
+                        className="bg-card p-5 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all cursor-pointer"
+                        onClick={() => navigate(`/track-service/${booking._id}`)}
+                      >
                          <div className="space-y-2">
                             <div className="font-bold text-base sm:text-lg">
                                {Array.isArray(booking.services) 
@@ -236,6 +280,36 @@ const CustomerVehicleDetailPage: React.FC = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Delete Vehicle</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this vehicle? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeleting}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteVehicle}
+              disabled={isDeleting}
+              className="rounded-xl min-w-[100px]"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

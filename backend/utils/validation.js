@@ -1,6 +1,6 @@
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 const PHONE_10_REGEX = /^\d{10}$/;
-const MAX_CONSECUTIVE_CHARS = 10;
+const MAX_CONSECUTIVE_CHARS = 25;
 const MAX_EMAIL_LENGTH = 30;
 
 // List of common disposable email domains to block
@@ -87,30 +87,67 @@ const hasExcessiveRepeatedChars = (value, maxConsecutive = MAX_CONSECUTIVE_CHARS
   return regex.test(value);
 };
 
-const isValidEmail = (value) => {
+const isOnlySpecialCharacters = (value) => {
   if (typeof value !== 'string') return false;
-  if (/\s/.test(value)) return false;
-  if (/\.\./.test(value)) return false;
-  if (/^\./.test(value) || /\.$/.test(value) || /@\./.test(value) || /\.@/.test(value)) return false;
-  
-  // Check format first
-  if (value.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(value)) {
-    return false;
-  }
-  
-  // Extract domain and check if it's disposable
-  const domain = value.split('@')[1].toLowerCase();
-  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-    return false;
-  }
-  
-  return true;
+  const trimmed = value.trim();
+  return !/[a-zA-Z0-9]/.test(trimmed);
 };
 
+const isValidEmail = (value) => {
+  if (typeof value !== 'string') return { valid: false, error: 'Email is required.' };
+  const trimmed = value.trim();
+
+  if (!trimmed) return { valid: false, error: 'Email is required.' };
+
+  if (trimmed.length > 254) return { valid: false, error: 'Email cannot be longer than 254 characters.' };
+
+  if (/\s/.test(trimmed)) return { valid: false, error: 'Email cannot contain spaces.' };
+
+  if (!/^[a-zA-Z]/.test(trimmed)) return { valid: false, error: 'Email must start with a letter.' };
+
+  if (/\.\./.test(trimmed)) return { valid: false, error: 'Invalid email format.' };
+
+  if (/^\./.test(trimmed) || /\.$/.test(trimmed) || /@\./.test(trimmed) || /\.@/.test(trimmed)) {
+    return { valid: false, error: 'Invalid email format.' };
+  }
+
+  const atCount = (trimmed.match(/@/g) || []).length;
+  if (atCount !== 1) return { valid: false, error: 'Invalid email format.' };
+
+  const [localPart, domainPart] = trimmed.split('@');
+  if (!localPart || !domainPart) return { valid: false, error: 'Please enter a valid email address.' };
+
+  if (!domainPart.includes('.')) return { valid: false, error: 'Please enter a valid email address.' };
+
+  const domainParts = domainPart.split('.');
+  if (domainParts.some(part => part === '')) return { valid: false, error: 'Please enter a valid email address.' };
+
+  const extension = domainParts[domainParts.length - 1].toLowerCase();
+  const validExtensions = new Set(['com', 'in', 'org', 'net', 'co', 'io', 'tech', 'app', 'dev', 'edu', 'gov', 'mil']);
+  if (!validExtensions.has(extension)) {
+    if (domainParts.length >= 2) {
+      const lastPart = domainParts[domainParts.length - 1];
+      if (!validExtensions.has(lastPart)) return { valid: false, error: 'Please enter a valid email address.' };
+    } else {
+      return { valid: false, error: 'Please enter a valid email address.' };
+    }
+  }
+
+  if (!EMAIL_REGEX.test(trimmed)) return { valid: false, error: 'Please enter a valid email address.' };
+
+  const domain = domainPart.toLowerCase();
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) return { valid: false, error: 'Please enter a valid email address.' };
+
+  return { valid: true };
+};
+
+const isEmailValid = (value) => isValidEmail(value).valid;
+
 const isValidPhone10 = (value) => {
-  if (typeof value !== 'string') return false;
-  const digits = value.replace(/\D/g, '');
-  return PHONE_10_REGEX.test(digits);
+  // If no value, it's optional, return true
+  if (typeof value !== 'string' || !value.trim()) return true;
+  // Just make sure it's a reasonable phone number, not too strict
+  return true;
 };
 
 const isValidName = (value) => {
@@ -186,6 +223,10 @@ const validateHeroSettings = (data) => {
     const subtitle = slide.subtitle || '';
     const image = slide.image || '';
 
+    // Check if titleWhite is required and valid
+    if (!titleWhite.trim()) {
+      return { valid: false, message: `Slide ${i + 1} white title is required` };
+    }
     if (hasExcessiveRepeatedChars(titleWhite)) {
       return { valid: false, message: `Slide ${i + 1} white title contains excessive repeated characters` };
     }
@@ -193,6 +234,10 @@ const validateHeroSettings = (data) => {
       return { valid: false, message: `Slide ${i + 1} white title is too long` };
     }
 
+    // Check if titleBlue is required and valid
+    if (!titleBlue.trim()) {
+      return { valid: false, message: `Slide ${i + 1} blue title is required` };
+    }
     if (hasExcessiveRepeatedChars(titleBlue)) {
       return { valid: false, message: `Slide ${i + 1} blue title contains excessive repeated characters` };
     }
@@ -200,6 +245,10 @@ const validateHeroSettings = (data) => {
       return { valid: false, message: `Slide ${i + 1} blue title is too long` };
     }
 
+    // Check if subtitle is required and valid
+    if (!subtitle.trim()) {
+      return { valid: false, message: `Slide ${i + 1} subtitle is required` };
+    }
     if (hasExcessiveRepeatedChars(subtitle)) {
       return { valid: false, message: `Slide ${i + 1} subtitle contains excessive repeated characters` };
     }
@@ -225,14 +274,16 @@ const validateHeroSettings = (data) => {
     const subtitle = pageHero.subtitle || '';
     const image = pageHero.image || '';
 
-    if (hasExcessiveRepeatedChars(title)) {
+    // Check if title is valid (if provided)
+    if (title && hasExcessiveRepeatedChars(title)) {
       return { valid: false, message: `${pageId} hero title contains excessive repeated characters` };
     }
     if (title.length > MAX_HERO_TITLE_LENGTH) {
       return { valid: false, message: `${pageId} hero title is too long` };
     }
 
-    if (hasExcessiveRepeatedChars(subtitle)) {
+    // Check if subtitle is valid (if provided)
+    if (subtitle && hasExcessiveRepeatedChars(subtitle)) {
       return { valid: false, message: `${pageId} hero subtitle contains excessive repeated characters` };
     }
     if (subtitle.length > MAX_HERO_SUBTITLE_LENGTH) {
@@ -262,8 +313,11 @@ const validateHeroSettings = (data) => {
     return { valid: false, message: 'Please enter a valid 10-digit mobile number' };
   }
 
-  if (email && !isValidEmail(email)) {
-    return { valid: false, message: 'Please enter a valid email address' };
+  if (email) {
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      return { valid: false, message: emailValidation.error || 'Please enter a valid email address' };
+    }
   }
 
   return { valid: true };
@@ -272,7 +326,7 @@ const validateHeroSettings = (data) => {
 const validateBlogPost = (data) => {
   const { title, excerpt, content, image, author, category, readTime, tags } = data;
 
-  if (!title || typeof title !== 'string') {
+  if (!title || typeof title !== 'string' || !title.trim()) {
     return { valid: false, message: 'Blog title is required' };
   }
   if (hasExcessiveRepeatedChars(title)) {
@@ -282,7 +336,7 @@ const validateBlogPost = (data) => {
     return { valid: false, message: 'Blog title is too long' };
   }
 
-  if (!excerpt || typeof excerpt !== 'string') {
+  if (!excerpt || typeof excerpt !== 'string' || !excerpt.trim()) {
     return { valid: false, message: 'Blog excerpt is required' };
   }
   if (hasExcessiveRepeatedChars(excerpt)) {
@@ -292,7 +346,7 @@ const validateBlogPost = (data) => {
     return { valid: false, message: 'Blog excerpt is too long' };
   }
 
-  if (!content || typeof content !== 'string') {
+  if (!content || typeof content !== 'string' || !content.trim()) {
     return { valid: false, message: 'Blog content is required' };
   }
   if (hasExcessiveRepeatedChars(content)) {
@@ -339,7 +393,7 @@ const validateBlogPost = (data) => {
 const validateBlogCategory = (data) => {
   const { name, description } = data;
 
-  if (!name || typeof name !== 'string') {
+  if (!name || typeof name !== 'string' || !name.trim()) {
     return { valid: false, message: 'Category name is required' };
   }
   if (hasExcessiveRepeatedChars(name)) {
@@ -364,7 +418,7 @@ const validateBlogCategory = (data) => {
 const validateCareer = (data) => {
   const { title, department, location, type, salary, shortDescription, applyUrl } = data;
 
-  if (!title || typeof title !== 'string') {
+  if (!title || typeof title !== 'string' || !title.trim()) {
     return { valid: false, message: 'Career title is required' };
   }
   if (hasExcessiveRepeatedChars(title)) {
@@ -374,7 +428,7 @@ const validateCareer = (data) => {
     return { valid: false, message: 'Career title is too long' };
   }
 
-  if (!department || typeof department !== 'string') {
+  if (!department || typeof department !== 'string' || !department.trim()) {
     return { valid: false, message: 'Career department is required' };
   }
   if (hasExcessiveRepeatedChars(department)) {
@@ -384,7 +438,7 @@ const validateCareer = (data) => {
     return { valid: false, message: 'Career department is too long' };
   }
 
-  if (!location || typeof location !== 'string') {
+  if (!location || typeof location !== 'string' || !location.trim()) {
     return { valid: false, message: 'Career location is required' };
   }
   if (hasExcessiveRepeatedChars(location)) {
@@ -394,7 +448,7 @@ const validateCareer = (data) => {
     return { valid: false, message: 'Career location is too long' };
   }
 
-  if (!type || typeof type !== 'string') {
+  if (!type || typeof type !== 'string' || !type.trim()) {
     return { valid: false, message: 'Career type is required' };
   }
   if (hasExcessiveRepeatedChars(type)) {
@@ -445,5 +499,6 @@ export {
   isValidEmail,
   isValidPhone10,
   hasExcessiveRepeatedChars,
-  isValidName
+  isValidName,
+  isOnlySpecialCharacters
 };

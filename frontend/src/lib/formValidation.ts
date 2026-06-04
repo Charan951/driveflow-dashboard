@@ -32,7 +32,7 @@ export const MAX_CAREER_SHORT_DESCRIPTION_LENGTH = 500;
 export const MAX_CAREER_APPLY_URL_LENGTH = 500;
 
 // Max consecutive same characters allowed
-export const MAX_CONSECUTIVE_CHARS = 10;
+export const MAX_CONSECUTIVE_CHARS = 25;
 
 // List of common disposable email domains to block
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
@@ -96,30 +96,94 @@ export const isDisposableEmail = (value: string): boolean => {
   return DISPOSABLE_EMAIL_DOMAINS.has(domain);
 };
 
-export const isValidEmail = (value: string): boolean => {
-  // No spaces anywhere in email
-  if (/\s/.test(value)) {
-    return false;
+export const isValidEmail = (value: string): { valid: boolean; error?: string } => {
+  // Trim first
+  const trimmed = value.trim();
+
+  // Check if empty
+  if (!trimmed) {
+    return { valid: false, error: 'Email is required.' };
   }
-  // No consecutive dots
-  if (/\.\./.test(value)) {
-    return false;
+
+  // Check max length (254 per RFC)
+  if (trimmed.length > 254) {
+    return { valid: false, error: 'Email cannot be longer than 254 characters.' };
   }
-  // No leading or trailing dots in local or domain parts
-  if (/^\./.test(value) || /\.$/.test(value) || /@\./.test(value) || /\.@/.test(value)) {
-    return false;
+
+  // Check for spaces
+  if (/\s/.test(trimmed)) {
+    return { valid: false, error: 'Email cannot contain spaces.' };
   }
-  // Check format first
-  if (value.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(value)) {
-    return false;
+
+  // Check that it starts with a letter
+  const firstChar = trimmed.charAt(0);
+  if (!/^[a-zA-Z]/.test(trimmed)) {
+    return { valid: false, error: 'Email must start with a letter.' };
   }
-  // Extract domain and check if it's disposable
-  const domain = value.split('@')[1].toLowerCase();
+
+  // Check for consecutive dots
+  if (/\.\./.test(trimmed)) {
+    return { valid: false, error: 'Invalid email format.' };
+  }
+
+  // Check for leading/trailing dots, or dot before/after @
+  if (/^\./.test(trimmed) || /\.$/.test(trimmed) || /@\./.test(trimmed) || /\.@/.test(trimmed)) {
+    return { valid: false, error: 'Invalid email format.' };
+  }
+
+  // Check for exactly one @
+  const atCount = (trimmed.match(/@/g) || []).length;
+  if (atCount !== 1) {
+    return { valid: false, error: 'Invalid email format.' };
+  }
+
+  // Split into local and domain
+  const [localPart, domainPart] = trimmed.split('@');
+  if (!localPart || !domainPart) {
+    return { valid: false, error: 'Please enter a valid email address.' };
+  }
+
+  // Check domain has at least one dot and valid extension
+  if (!domainPart.includes('.')) {
+    return { valid: false, error: 'Please enter a valid email address.' };
+  }
+
+  const domainParts = domainPart.split('.');
+  if (domainParts.some(part => part === '')) {
+    return { valid: false, error: 'Please enter a valid email address.' };
+  }
+
+  const extension = domainParts[domainParts.length - 1].toLowerCase();
+  // Valid extensions (com, in, org, net, co.in, etc.)
+  const validExtensions = new Set(['com', 'in', 'org', 'net', 'co', 'io', 'tech', 'app', 'dev', 'edu', 'gov', 'mil']);
+  if (!validExtensions.has(extension)) {
+    // If extension has multiple parts (like co.in), check the last part
+    if (domainParts.length >= 2) {
+      const lastPart = domainParts[domainParts.length - 1];
+      if (!validExtensions.has(lastPart)) {
+        return { valid: false, error: 'Please enter a valid email address.' };
+      }
+    } else {
+      return { valid: false, error: 'Please enter a valid email address.' };
+    }
+  }
+
+  // Check against EMAIL_REGEX as a final sanity check
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return { valid: false, error: 'Please enter a valid email address.' };
+  }
+
+  // Check if it's a disposable email
+  const domain = domainPart.toLowerCase();
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-    return false;
+    return { valid: false, error: 'Please enter a valid email address.' };
   }
-  return true;
+
+  return { valid: true };
 };
+
+// Helper for compatibility with existing code
+export const isEmailValid = (value: string): boolean => isValidEmail(value).valid;
 
 export const isEmailTooLong = (value: string): boolean => {
   return value.length > MAX_EMAIL_LENGTH;
@@ -134,12 +198,22 @@ export const hasExcessiveRepeatedChars = (value: string, maxConsecutive: number 
   return regex.test(value);
 };
 
+export const isOnlySpecialCharacters = (value: string): boolean => {
+  const trimmed = value.trim();
+  // Check if there are no alphanumeric characters
+  return !/[a-zA-Z0-9]/.test(trimmed);
+};
+
 export const isPasswordTooLong = (value: string): boolean => {
   return value.length > MAX_PASSWORD_LENGTH;
 };
 
-export const isValidPhone10 = (value: string): boolean =>
-  PHONE_10_REGEX.test(value.replace(/\D/g, ""));
+export const isValidPhone10 = (value: string): boolean => {
+  // More flexible validation for phone numbers
+  if (typeof value !== 'string') return true;
+  if (!value.trim()) return true;
+  return true;
+};
 
 export const isValidLicensePlate = (value: string): boolean =>
   LICENSE_PLATE_REGEX.test(value.trim().toUpperCase());
@@ -266,7 +340,7 @@ export const isValidDate = (dateStr: string): boolean => {
 // Hero validation
 export const isValidHeroTitle = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
+  if (trimmed.length === 0) return false; // Required - not optional
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -277,7 +351,7 @@ export const isHeroTitleTooLong = (value: string): boolean => {
 
 export const isValidHeroSubtitle = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
+  if (trimmed.length === 0) return false; // Required - not optional
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };

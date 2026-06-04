@@ -90,12 +90,9 @@ const Contact = () => {
       toast.error("Please enter valid data");
       return;
     }
-    if (isDisposableEmail(email)) {
-      toast.error("Disposable email addresses are not allowed. Please use a valid email.");
-      return;
-    }
-    if (!isValidEmail(email)) {
-      toast.error("Please enter valid email id");
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || "Please enter valid email id");
       return;
     }
     if (subject.length > MAX_SUBJECT_LENGTH) {

@@ -2,7 +2,7 @@ import Ticket from '../models/Ticket.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { sendPushToRole, sendPushToUser } from '../utils/pushService.js';
-import { hasExcessiveRepeatedChars } from '../utils/validation.js';
+import { hasExcessiveRepeatedChars, isOnlySpecialCharacters } from '../utils/validation.js';
 
 // @desc    Get all tickets (Admin/Support)
 // @route   GET /api/tickets/all
@@ -37,6 +37,9 @@ export const createTicket = async (req, res) => {
   }
   if (hasExcessiveRepeatedChars(subject)) {
     return res.status(400).json({ message: 'Subject contains excessive repeated characters' });
+  }
+  if (isOnlySpecialCharacters(subject)) {
+    return res.status(400).json({ message: 'Subject cannot contain only special characters' });
   }
 
   if (!message || message.trim().length < 10) {

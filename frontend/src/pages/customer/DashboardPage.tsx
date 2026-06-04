@@ -86,12 +86,31 @@ const DashboardPage: React.FC = () => {
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isNoVehicleDialogOpen, setIsNoVehicleDialogOpen] = useState(false);
+  const [isDeletingVehicle, setIsDeletingVehicle] = useState<string | null>(null);
   
   // Review Modal State
   const [selectedBookingForReview, setSelectedBookingForReview] = useState<Booking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) {
+      return;
+    }
+
+    setIsDeletingVehicle(vehicleId);
+    try {
+      await vehicleService.deleteVehicle(vehicleId);
+      setVehicles(prev => prev.filter(v => v._id !== vehicleId));
+      toast.success('Vehicle deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete vehicle', error);
+      toast.error('Failed to delete vehicle');
+    } finally {
+      setIsDeletingVehicle(null);
+    }
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -509,6 +528,7 @@ const DashboardPage: React.FC = () => {
                   id={vehicle._id}
                   {...vehicle}
                   onClick={() => navigate(`/vehicles/${vehicle._id}`)}
+                  onDelete={() => handleDeleteVehicle(vehicle._id)}
                 />
               </motion.div>
             ))}
