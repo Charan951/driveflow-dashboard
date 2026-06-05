@@ -20,6 +20,7 @@ import {
   Package
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
+import { useQuery } from '@tanstack/react-query';
 import { serviceService, Service } from '@/services/serviceService';
 import { heroService } from '@/services/heroService';
 
@@ -97,7 +98,19 @@ const HomePage: React.FC = () => {
   // Initialize with staticServices to ensure content is always visible (Optimistic UI / Fallback)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [services, setServices] = useState<any[]>(staticServices);
-  const [loading, setLoading] = useState(true);
+  const { data: servicesData, isLoading: isServicesLoading } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => serviceService.getServices(),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: heroData, isLoading: isHeroLoading } = useQuery({
+    queryKey: ['heroSettings'],
+    queryFn: heroService.getHeroSettings,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const loading = isServicesLoading || isHeroLoading;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -109,36 +122,15 @@ const HomePage: React.FC = () => {
   }, [heroSlides.length]);
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchServices(),
-        fetchHeroSlides()
-      ]);
-    } catch (error) {
-      console.error('Failed to fetch data', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
     if (heroSlides.length > 0 && currentSlide >= heroSlides.length) {
       setCurrentSlide(0);
     }
   }, [heroSlides.length, currentSlide]);
 
-  const fetchHeroSlides = async () => {
-    try {
-      const data = await heroService.getHeroSettings();
-      if (data.homeSlides && data.homeSlides.length > 0) {
-        // Migrate or ensure fields exist
-        const processedSlides = data.homeSlides.map(s => {
+  useEffect(() => {
+    if (heroData) {
+      if (heroData.homeSlides && heroData.homeSlides.length > 0) {
+        const processedSlides = heroData.homeSlides.map((s: any) => {
           if (s.title && !s.titleWhite && !s.titleBlue) {
             const parts = s.title.split(' ');
             const titleBlue = parts.pop() || '';
@@ -153,46 +145,31 @@ const HomePage: React.FC = () => {
         });
         setHeroSlides(processedSlides);
       }
-      // Update toggle settings
-      if (data.showGetStarted !== undefined) {
-        setShowGetStarted(data.showGetStarted);
+      if (heroData.showGetStarted !== undefined) {
+        setShowGetStarted(heroData.showGetStarted);
       }
-      if (data.showLearnMore !== undefined) {
-        setShowLearnMore(data.showLearnMore);
+      if (heroData.showLearnMore !== undefined) {
+        setShowLearnMore(heroData.showLearnMore);
       }
-    } catch (error) {
-      console.error('Failed to fetch hero settings from S3', error);
     }
-  };
+  }, [heroData]);
 
-  const fetchServices = async () => {
-    try {
-      const data = await serviceService.getServices();
-      // Transform data to display format
-      if (data && Array.isArray(data) && data.length > 0) {
-        // We want to show a mix of services, maybe top 4 or random 4
-        // For now, let's take the first 4
-        const mappedServices = data.slice(0, 4).map((service: Service) => {
-          const config = getServiceConfig(service.category);
-          return {
-            icon: config.icon,
-            title: service.name,
-            description: service.description,
-            color: config.color,
-            image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600',
-            link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`
-          };
-        });
-        setServices(mappedServices);
-      }
-      // If data is empty or fetch fails, we keep the initial staticServices
-    } catch (error) {
-      console.error('Failed to fetch services', error);
-      // Keep static services on error
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (servicesData && Array.isArray(servicesData) && servicesData.length > 0) {
+      const mappedServices = servicesData.slice(0, 4).map((service: Service) => {
+        const config = getServiceConfig(service.category);
+        return {
+          icon: config.icon,
+          title: service.name,
+          description: service.description,
+          color: config.color,
+          image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600',
+          link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`
+        };
+      });
+      setServices(mappedServices);
     }
-  };
+  }, [servicesData]);
 
   const getServiceConfig = (category: string) => {
     switch (category) {
@@ -226,9 +203,11 @@ const HomePage: React.FC = () => {
             <img 
               src={heroSlides[currentSlide]?.image || ''}
               srcSet={
-                heroSlides[currentSlide]?.image?.includes('unsplash.com') 
-                  ? `${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1920 1920w`
-                  : undefined
+                heroSlides[currentSlide]?.image?.includes('amazonaws.com')
+                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200 1200w, ${heroSlides[currentSlide].image} 1920w`
+                  : heroSlides[currentSlide]?.image?.includes('unsplash.com') 
+                    ? `${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1920 1920w`
+                    : undefined
               }
               sizes="100vw"
               alt={heroSlides[currentSlide]?.title || ''}
@@ -346,6 +325,12 @@ const HomePage: React.FC = () => {
                   <div className="aspect-[4/3] overflow-hidden">
                     <img 
                       src={service.image} 
+                      srcSet={
+                        service.image?.includes('unsplash.com')
+                          ? `${service.image.split('&w=')[0]}&w=400 400w, ${service.image.split('&w=')[0]}&w=800 800w`
+                          : undefined
+                      }
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       alt={service.title}
                       loading="lazy"
                       className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
   import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { serviceService, Service } from '@/services/serviceService';
 import {
   NavigationMenu,
@@ -15,10 +16,16 @@ import {
 const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const location = useLocation();
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => serviceService.getServices(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  const services = Array.isArray(servicesData) ? servicesData : [];
 
   const closeSidebar = () => {
     setIsOpen(false);
@@ -32,25 +39,7 @@ const PublicNavbar: React.FC = () => {
     );
   };
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const data = await serviceService.getServices();
-        // Ensure data is an array before setting it
-        if (Array.isArray(data)) {
-          setServices(data);
-        } else {
-          // Handle cases where data is not an array (e.g., API error returns an object)
-          console.error('Received non-array data for services:', data);
-          setServices([]); // Set to empty array to prevent crash
-        }
-      } catch (error) {
-        console.error('Failed to fetch services for navbar:', error);
-        setServices([]); // Also set to empty array on fetch failure
-      }
-    };
-    fetchServices();
-  }, []);
+
 
   const serviceCategories = useMemo(() => {
     const categories = [
@@ -137,6 +126,7 @@ const PublicNavbar: React.FC = () => {
             <div className="w-40 h-16 flex items-center justify-center mt-4 md:mt-3">
               <img
                 src="/carzzilogo.png"
+                srcSet="/carzzilogo-small.png 1x, /carzzilogo.png 2x"
                 alt="Carzzi"
                 width={160}
                 height={64}
@@ -288,6 +278,7 @@ const PublicNavbar: React.FC = () => {
                   className="flex items-center gap-2">
                   <img
                       src="/carzzilogo.png"
+                      srcSet="/carzzilogo-small.png 1x, /carzzilogo.png 2x"
                       alt="Carzzi"
                       width={40}
                       height={40}

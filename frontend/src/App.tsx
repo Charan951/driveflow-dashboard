@@ -27,12 +27,12 @@ const lazyRetry = (componentImport: () => Promise<any>) => {
 };
 
 // Layouts
-import AuthLayout from "./layouts/AuthLayout";
-import CustomerLayout from "./layouts/CustomerLayout";
-import StaffLayout from "./layouts/StaffLayout";
-import MerchantLayout from "./layouts/MerchantLayout";
-import PublicLayout from "./layouts/PublicLayout";
-import AdminLayout from "./layouts/AdminLayout";
+const AuthLayout = lazyRetry(() => import("./layouts/AuthLayout"));
+const CustomerLayout = lazyRetry(() => import("./layouts/CustomerLayout"));
+const StaffLayout = lazyRetry(() => import("./layouts/StaffLayout"));
+const MerchantLayout = lazyRetry(() => import("./layouts/MerchantLayout"));
+const PublicLayout = lazyRetry(() => import("./layouts/PublicLayout"));
+const AdminLayout = lazyRetry(() => import("./layouts/AdminLayout"));
 
 // Components
 import PrivateRoute from "./components/PrivateRoute";

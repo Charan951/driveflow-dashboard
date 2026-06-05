@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, MapPin, Phone, Mail } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { heroService } from '@/services/heroService';
 
 const Footer: React.FC = () => {
@@ -10,23 +11,21 @@ const Footer: React.FC = () => {
     email: 'info@carzzi.com',
   });
 
+  const { data: heroData } = useQuery({
+    queryKey: ['heroSettings'],
+    queryFn: heroService.getHeroSettings,
+    staleTime: 1000 * 60 * 5,
+  });
+
   useEffect(() => {
-    const fetchContactDetails = async () => {
-      try {
-        const data = await heroService.getHeroSettings();
-        if (data.contactDetails) {
-          setContactDetails({
-            address: data.contactDetails.address || contactDetails.address,
-            mobileNumber: data.contactDetails.mobileNumber || contactDetails.mobileNumber,
-            email: data.contactDetails.email || contactDetails.email,
-          });
-        }
-      } catch (error) {
-        // keep default fallback values
-      }
-    };
-    fetchContactDetails();
-  }, []);
+    if (heroData?.contactDetails) {
+      setContactDetails(prev => ({
+        address: heroData.contactDetails.address || prev.address,
+        mobileNumber: heroData.contactDetails.mobileNumber || prev.mobileNumber,
+        email: heroData.contactDetails.email || prev.email,
+      }));
+    }
+  }, [heroData]);
 
   return (
     <footer className="py-12 bg-card border-t border-border">
@@ -34,7 +33,7 @@ const Footer: React.FC = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex flex-row items-center gap-3 mb-4">
-              <img src="/footer.png" alt="Carzzi Logo" width={96} height={40} loading="lazy" className="w-24 h-auto object-contain" />
+              <img src="/footer.png" srcSet="/footer-small.png 1x, /footer.png 2x" alt="Carzzi Logo" width={96} height={40} loading="lazy" className="w-24 h-auto object-contain" />
               <p className="text-sm text-muted-foreground">
                 Premium vehicle services at your doorstep. Your car deserves the best care.
               </p>

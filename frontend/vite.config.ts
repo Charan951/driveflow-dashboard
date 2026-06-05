@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      sourcemap: false,
+      sourcemap: true,
       cssCodeSplit: true,
       minify: 'esbuild',
       chunkSizeWarningLimit: 1000,
