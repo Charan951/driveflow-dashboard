@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +41,21 @@ const CashfreePayment: React.FC<CashfreePaymentProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isScriptLoading, setIsScriptLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
+
+  useEffect(() => {
+    const preconnectLink = document.createElement('link');
+    preconnectLink.rel = 'preconnect';
+    preconnectLink.href = 'https://sdk.cashfree.com';
+    document.head.appendChild(preconnectLink);
+    return () => {
+      try {
+        document.head.removeChild(preconnectLink);
+      } catch (e) {
+        // Safe check if already removed
+      }
+    };
+  }, []);
+
   const safeBookingId =
     bookingId && /^[a-fA-F0-9]{24}$/.test(bookingId) ? bookingId : undefined;
 
