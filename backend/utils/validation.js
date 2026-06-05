@@ -58,6 +58,8 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 const MAX_HERO_TITLE_LENGTH = 100;
 const MAX_HERO_SUBTITLE_LENGTH = 300;
+const MAX_SLIDE_TITLE_LENGTH = 10;
+const MAX_SLIDE_SUBTITLE_LENGTH = 150;
 const MAX_ADDRESS_LENGTH = 500;
 const MAX_IMAGE_URL_LENGTH = 500;
 const MAX_BLOG_TITLE_LENGTH = 200;
@@ -229,8 +231,8 @@ const validateHeroSettings = (data) => {
     if (hasExcessiveRepeatedChars(titleWhite)) {
       return { valid: false, message: `Slide ${i + 1} white title contains excessive repeated characters` };
     }
-    if (titleWhite.length > MAX_HERO_TITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} white title is too long` };
+    if (titleWhite.length > MAX_SLIDE_TITLE_LENGTH) {
+      return { valid: false, message: `Slide ${i + 1} white title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
     }
 
     // Check if titleBlue is required and valid
@@ -240,8 +242,8 @@ const validateHeroSettings = (data) => {
     if (hasExcessiveRepeatedChars(titleBlue)) {
       return { valid: false, message: `Slide ${i + 1} blue title contains excessive repeated characters` };
     }
-    if (titleBlue.length > MAX_HERO_TITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} blue title is too long` };
+    if (titleBlue.length > MAX_SLIDE_TITLE_LENGTH) {
+      return { valid: false, message: `Slide ${i + 1} blue title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
     }
 
     // Check if subtitle is required and valid
@@ -251,8 +253,8 @@ const validateHeroSettings = (data) => {
     if (hasExcessiveRepeatedChars(subtitle)) {
       return { valid: false, message: `Slide ${i + 1} subtitle contains excessive repeated characters` };
     }
-    if (subtitle.length > MAX_HERO_SUBTITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} subtitle is too long` };
+    if (subtitle.length > MAX_SLIDE_SUBTITLE_LENGTH) {
+      return { valid: false, message: `Slide ${i + 1} subtitle is too long (max ${MAX_SLIDE_SUBTITLE_LENGTH})` };
     }
 
     if (image && !isValidImageUrl(image)) {

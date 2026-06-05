@@ -138,6 +138,8 @@ const PublicNavbar: React.FC = () => {
               <img
                 src="/carzzilogo.png"
                 alt="Carzzi"
+                width={160}
+                height={64}
                 className="w-full h-full object-contain"
                 fetchPriority="high"
                 loading="eager"
@@ -287,6 +289,8 @@ const PublicNavbar: React.FC = () => {
                   <img
                       src="/carzzilogo.png"
                       alt="Carzzi"
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-lg object-cover mt-1"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

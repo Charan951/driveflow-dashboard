@@ -21,8 +21,8 @@ const sanitizeAndValidateServiceData = (data, isUpdate = false) => {
     if (!isUpdate || data.name !== undefined) {
       if (!name) {
         errors.push('Name is required');
-      } else if (name.length > 20) {
-        errors.push('Name cannot exceed 20 characters');
+      } else if (name.length > 30) {
+        errors.push('Name cannot exceed 30 characters');
       } else if (hasExcessiveRepeatedChars(name)) {
         errors.push('Name has too many repeated characters');
       } else if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(name)) {

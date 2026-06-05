@@ -38,6 +38,8 @@ import {
   isHeroTitleTooLong,
   isValidHeroSubtitle,
   isHeroSubtitleTooLong,
+  isSlideTitleTooLong,
+  isSlideSubtitleTooLong,
   isValidAddress,
   isAddressTooLong,
   isValidBlogTitle,
@@ -143,14 +145,14 @@ const AdminHeroImagesPage = () => {
     
     if (field === 'titleWhite' || field === 'titleBlue') {
       if (!trimmed) return 'This field is required';
-      if (isHeroTitleTooLong(value)) return 'Title is too long (max 100 characters)';
+      if (isSlideTitleTooLong(value)) return 'Title is too long (max 10 characters)';
       if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
       if (!isValidHeroTitle(value)) return 'Invalid title';
     }
     
     if (field === 'subtitle') {
       if (!trimmed) return 'This field is required';
-      if (isHeroSubtitleTooLong(value)) return 'Subtitle is too long (max 300 characters)';
+      if (isSlideSubtitleTooLong(value)) return 'Subtitle is too long (max 150 characters)';
       if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
       if (!isValidHeroSubtitle(value)) return 'Invalid subtitle';
     }
@@ -1177,7 +1179,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleWhite', e.target.value)}
                                   className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all ${slideErrors[slide.id]?.titleWhite ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="White text..."
-                                  maxLength={100}
+                                  maxLength={10}
                                 />
                               </div>
                               {slideErrors[slide.id]?.titleWhite && (
@@ -1194,7 +1196,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleBlue', e.target.value)}
                                   className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all text-blue-600 ${slideErrors[slide.id]?.titleBlue ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="Blue text..."
-                                  maxLength={100}
+                                  maxLength={10}
                                 />
                               </div>
                               {slideErrors[slide.id]?.titleBlue && (
@@ -1211,7 +1213,7 @@ const AdminHeroImagesPage = () => {
                                 onChange={(e) => handleUpdateSlide(slide.id, 'subtitle', e.target.value)}
                                 className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none ${slideErrors[slide.id]?.subtitle ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                 placeholder="Enter description..."
-                                maxLength={300}
+                                maxLength={150}
                               />
                             </div>
                             {slideErrors[slide.id]?.subtitle && (

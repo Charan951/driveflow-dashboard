@@ -14,12 +14,12 @@ const nameValidator = {
   validator: function(value) {
     const trimmed = value.trim();
     if (trimmed.length === 0) return false;
-    if (trimmed.length > 20) return false;
+    if (trimmed.length > 30) return false;
     if (hasExcessiveRepeatedChars(trimmed)) return false;
     // Allow letters, numbers, spaces, apostrophes, hyphens, and ampersands
     return /^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(trimmed);
   },
-  message: 'Name is invalid. Must be 1-20 characters, no excessive repeated characters, and only alphanumeric with spaces, apostrophes, hyphens, or ampersands.'
+  message: 'Name is invalid. Must be 1-30 characters, no excessive repeated characters, and only alphanumeric with spaces, apostrophes, hyphens, or ampersands.'
 };
 
 const descriptionValidator = {
@@ -77,7 +77,7 @@ const serviceSchema = mongoose.Schema(
     required: [true, 'Service name is required'],
     trim: true,
     validate: nameValidator,
-    maxlength: [20, 'Name cannot exceed 20 characters'],
+    maxlength: [30, 'Name cannot exceed 30 characters'],
   },
     description: {
       type: String,

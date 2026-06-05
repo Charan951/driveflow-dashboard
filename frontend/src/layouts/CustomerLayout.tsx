@@ -143,7 +143,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               >
                 <Menu className="w-6 h-6" />
               </button>
-              <img src="/footer.png" alt="Carzzi Logo" className="h-10 w-auto object-contain" />
+              <img src="/footer.png" alt="Carzzi Logo" width={144} height={40} loading="lazy" className="h-10 w-auto object-contain" />
             </div>
             <div className="flex items-center gap-3">
               <Link

@@ -578,10 +578,10 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           errorMessage = 'Too many repeated characters';
         } else if (!isValidName(value)) {
           isValid = false;
-          errorMessage = 'Please enter valid data';
+          errorMessage = 'Name contains invalid characters. Only letters, numbers, spaces, \', &, and - are allowed.';
         } else if (isNameTooLong(value)) {
           isValid = false;
-          errorMessage = 'Too long data: Please enter a maximum of 20 characters';
+          errorMessage = 'Too long data: Please enter a maximum of 30 characters';
         }
       }
     }
@@ -700,11 +700,11 @@ const ServiceModal = ({ service, onClose, onSave }) => {
 
     // Now check custom validations
     if (!isValidName(formData.name)) {
-      toast.error('Please enter valid data');
+      toast.error('Name contains invalid characters. Only letters, numbers, spaces, \', &, and - are allowed.');
       return;
     }
     if (isNameTooLong(formData.name)) {
-      toast.error('Too long data: Please enter a maximum of 20 characters');
+      toast.error('Too long data: Please enter a maximum of 30 characters');
       return;
     }
     if (hasExcessiveRepeatedChars(formData.name)) {
@@ -802,13 +802,13 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           <form id="service-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-              <label className="block text-sm font-semibold mb-2">Name (max 20 characters)</label>
+              <label className="block text-sm font-semibold mb-2">Name (max 30 characters)</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                maxLength={20}
+                maxLength={30}
                 className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                 required
               />

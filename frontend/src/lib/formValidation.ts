@@ -1,7 +1,7 @@
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 export const MAX_EMAIL_LENGTH = 30;
 export const MAX_PASSWORD_LENGTH = 15;
-export const MAX_NAME_LENGTH = 20;
+export const MAX_NAME_LENGTH = 30;
 export const MAX_DESCRIPTION_LENGTH = 500;
 export const MAX_PRICE_LENGTH = 10;
 export const MAX_DURATION_LENGTH = 3;
@@ -14,6 +14,8 @@ export const LICENSE_PLATE_REGEX = /^[A-Z]{2}\s?\d{1,2}\s?[A-Z]{1,2}\s?\d{4}$/;
 // Hero/Content specific max lengths
 export const MAX_HERO_TITLE_LENGTH = 100;
 export const MAX_HERO_SUBTITLE_LENGTH = 300;
+export const MAX_SLIDE_TITLE_LENGTH = 10;
+export const MAX_SLIDE_SUBTITLE_LENGTH = 150;
 export const MAX_ADDRESS_LENGTH = 500;
 export const MAX_BLOG_TITLE_LENGTH = 200;
 export const MAX_BLOG_EXCERPT_LENGTH = 500;
@@ -230,8 +232,8 @@ export const isStrongPassword = (value: string): boolean => {
 export const isValidName = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  // Allow letters and spaces only
-  if (!/^[a-zA-Z\s]+$/.test(trimmed)) return false;
+  // Allow letters, numbers, spaces, apostrophes, ampersands, and hyphens, must start with alphanumeric
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(trimmed)) return false;
   // Check for excessive repeated characters
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;

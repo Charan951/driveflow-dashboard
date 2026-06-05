@@ -32,7 +32,7 @@ const staggerContainer = {
 
 const AboutUs = () => {
   const [hero, setHero] = useState({
-    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=2400",
+    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1200",
     title: "About Us – Carzzi",
     subtitle: "Redefining how vehicle owners experience car care"
   });
@@ -61,7 +61,7 @@ const AboutUs = () => {
     {
       icon: Wrench,
       title: "End-to-End Car Servicing",
-      image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=1200",
+      image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600",
       features: [
         "Book your service directly through the app",
         "Doorstep vehicle pickup and drop",
@@ -76,7 +76,7 @@ const AboutUs = () => {
     {
       icon: Zap,
       title: "Battery & Tyre Services",
-      image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&q=80&w=1200",
+      image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&q=80&w=600",
       features: [
         "Battery replacement",
         "Tyre replacement",
@@ -87,7 +87,7 @@ const AboutUs = () => {
     {
       icon: Sparkles,
       title: "Premium Car Washing",
-      image: "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&q=80&w=1200",
+      image: "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&q=80&w=600",
       features: [
         "Interior & exterior cleaning",
         "Professional-grade products",
@@ -97,7 +97,7 @@ const AboutUs = () => {
     {
       icon: AlertTriangle,
       title: "Breakdown Assistance",
-      image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=1200",
+      image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600",
       features: [
         "Quick response during breakdowns",
         "Reliable support when you need it the most",
@@ -207,7 +207,7 @@ const AboutUs = () => {
             >
               <div className="relative z-10">
                 <img 
-                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" 
+                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" 
                   alt="Car care service" 
                   className="rounded-3xl shadow-2xl w-full h-[500px] object-cover"
                 />
@@ -274,6 +274,7 @@ const AboutUs = () => {
                   <img 
                     src={service.image} 
                     alt={service.title}
+                    loading="lazy"
                     className="w-full h-64 lg:h-full object-cover"
                   />
                 </div>

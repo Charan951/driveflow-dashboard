@@ -29,7 +29,7 @@ const staticServices = [
     title: 'Maintenance', 
     description: 'Complete vehicle servicing and repairs by certified professionals.', 
     color: 'bg-blue-500', 
-    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600",
     link: '/services?category=Cars&service=Periodic%20Maintenance'
   },
   { 
@@ -37,7 +37,7 @@ const staticServices = [
     title: 'Essentials', 
     description: 'Essential add-ons and safety checks to keep you protected on the road.', 
     color: 'bg-purple-500', 
-    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=600",
     link: '/services?service=Essentials'
   },
   { 
@@ -45,7 +45,7 @@ const staticServices = [
     title: 'Car Wash', 
     description: 'Premium washing and detailing packages for that showroom shine.', 
     color: 'bg-cyan-500', 
-    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?auto=format&fit=crop&q=80&w=600",
     link: '/services?category=Cars&service=Car%20Wash'
   },
   { 
@@ -68,7 +68,7 @@ const howItWorks = [
 const defaultHeroSlides = [
   {
     id: 1,
-    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1920",
+    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1200",
     titleWhite: "",
     titleBlue: "",
     subtitle: ""
@@ -179,7 +179,7 @@ const HomePage: React.FC = () => {
             title: service.name,
             description: service.description,
             color: config.color,
-            image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=800',
+            image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600',
             link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`
           };
         });
@@ -347,6 +347,7 @@ const HomePage: React.FC = () => {
                     <img 
                       src={service.image} 
                       alt={service.title}
+                      loading="lazy"
                       className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
@@ -417,7 +418,7 @@ const HomePage: React.FC = () => {
             >
               <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-3xl blur-3xl" />
               <img 
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1000" 
+                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" 
                 alt="App Dashboard Preview" 
                 width={1000}
                 height={667}
@@ -433,8 +434,9 @@ const HomePage: React.FC = () => {
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-primary z-0">
           <img 
-            src="https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&q=80&w=2000" 
+            src="https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&q=80&w=1200" 
             alt="Road texture" 
+            loading="lazy"
             className="w-full h-full object-cover opacity-10 mix-blend-overlay"
           />
         </div>
