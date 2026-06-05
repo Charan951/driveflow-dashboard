@@ -87,16 +87,18 @@ export default defineConfig(({ mode }) => {
           assetFileNames: 'assets/[name]-[hash].[ext]',
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              if (id.includes('lucide-react')) {
+              const normalizedId = id.replace(/\\/g, '/');
+              if (normalizedId.includes('node_modules/lucide-react')) {
                 return 'vendor-lucide';
               }
               if (
-                id.includes('react') ||
-                id.includes('react-dom') ||
-                id.includes('react-router-dom') ||
-                id.includes('@tanstack/react-query') ||
-                id.includes('axios') ||
-                id.includes('zustand')
+                normalizedId.includes('node_modules/react/') ||
+                normalizedId.includes('node_modules/react-dom/') ||
+                normalizedId.includes('node_modules/react-router/') ||
+                normalizedId.includes('node_modules/react-router-dom/') ||
+                normalizedId.includes('node_modules/@tanstack/react-query/') ||
+                normalizedId.includes('node_modules/axios/') ||
+                normalizedId.includes('node_modules/zustand/')
               ) {
                 return 'vendor-core';
               }
