@@ -421,7 +421,7 @@ const DashboardPage: React.FC = () => {
         >
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-primary-foreground/70 mb-1">Ongoing Service</p>
+              <p className="text-sm text-primary-foreground mb-1">Ongoing Service</p>
               <h3 className="text-base sm:text-lg font-semibold break-words">
                 {Array.isArray(upcomingBooking.services) 
                   ? (upcomingBooking.services[0] as Service)?.name || 'Service' 
@@ -448,7 +448,7 @@ const DashboardPage: React.FC = () => {
 
           {upcomingBooking.deliveryOtp?.code && canCustomerSeeDeliveryOtp(upcomingBooking) && (
             <div className="mb-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-white/40 bg-white/10 px-4 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-white/80">
+              <p className="text-[10px] uppercase tracking-wide text-white">
                   Delivery OTP
                 </p>
               <p className="text-xl font-mono font-bold text-white">

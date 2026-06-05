@@ -425,7 +425,7 @@ const HomePage: React.FC = () => {
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
               Built For Modern Car Owners?
             </h2>
-            <p className="text-white/80 text-xl mb-10">
+            <p className="text-white text-xl mb-10">
 Manage, Maintain, and Elevate your vehicle experience with Carzzi.            </p>
             <Link
               to="/register"
