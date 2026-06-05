@@ -203,17 +203,17 @@ const HomePage: React.FC = () => {
             <img 
               src={
                 heroSlides[currentSlide]?.image?.includes('unsplash.com')
-                  ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1200`
+                  ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200`
                   : heroSlides[currentSlide]?.image?.includes('amazonaws.com')
-                    ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=50`
+                    ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=35`
                     : heroSlides[currentSlide]?.image || ''
               }
               crossOrigin="anonymous"
               srcSet={
                 heroSlides[currentSlide]?.image?.includes('amazonaws.com')
-                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600&output=webp&q=50 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=50 1200w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1920&output=webp&q=50 1920w`
+                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600&output=webp&q=35 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=35 1200w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1920&output=webp&q=35 1920w`
                   : heroSlides[currentSlide]?.image?.includes('unsplash.com') 
-                    ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=600 600w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1200 1200w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1920 1920w`
+                    ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=600 600w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200 1200w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1920 1920w`
                     : undefined
               }
               sizes="100vw"
