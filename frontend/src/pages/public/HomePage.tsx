@@ -202,6 +202,7 @@ const HomePage: React.FC = () => {
           >
             <img 
               src={heroSlides[currentSlide]?.image || ''}
+              crossOrigin="anonymous"
               srcSet={
                 heroSlides[currentSlide]?.image?.includes('amazonaws.com')
                   ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200 1200w, ${heroSlides[currentSlide].image} 1920w`
