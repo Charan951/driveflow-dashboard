@@ -42,6 +42,18 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      isProduction && {
+        name: 'defer-css',
+        enforce: 'post' as const,
+        transformIndexHtml(html: string) {
+          return html.replace(/<link\s+([^>]*?rel="stylesheet"[^>]*?)>/g, (match) => {
+            const preloaded = match
+              .replace(/rel="stylesheet"/, 'rel="preload" as="style"')
+              .replace(/>$/, ' onload="this.onload=null;this.rel=\'stylesheet\'">');
+            return `${preloaded}\n    <noscript>${match}</noscript>`;
+          });
+        }
+      },
       isProduction && compression({
         algorithm: 'gzip',
         ext: '.gz',
@@ -72,7 +84,24 @@ export default defineConfig(({ mode }) => {
         output: {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]'
+          assetFileNames: 'assets/[name]-[hash].[ext]',
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('lucide-react')) {
+                return 'vendor-lucide';
+              }
+              if (
+                id.includes('react') ||
+                id.includes('react-dom') ||
+                id.includes('react-router-dom') ||
+                id.includes('@tanstack/react-query') ||
+                id.includes('axios') ||
+                id.includes('zustand')
+              ) {
+                return 'vendor-core';
+              }
+            }
+          }
         },
       },
     },
