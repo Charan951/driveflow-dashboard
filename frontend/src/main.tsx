@@ -4,12 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.tsx";
 import "./index.css";
 import { TrackingProvider } from "./context/TrackingProvider";
-import { serviceService } from "./services/serviceService";
-import { heroService } from "./services/heroService";
-
 // Pre-fetch critical API data to eliminate the network waterfall delay
-serviceService.getServices().catch(() => {});
-heroService.getHeroSettings().catch(() => {});
+import("./services/serviceService").then((m) => m.serviceService.getServices().catch(() => {}));
+import("./services/heroService").then((m) => m.heroService.getHeroSettings().catch(() => {}));
 
 const queryClient = new QueryClient({
   defaultOptions: {
