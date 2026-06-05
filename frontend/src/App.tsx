@@ -1,5 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -37,9 +35,12 @@ const AdminLayout = lazyRetry(() => import("./layouts/AdminLayout"));
 // Components
 import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
-import SocketNotificationListener from "./components/SocketNotificationListener";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorBoundary from "./components/ErrorBoundary";
+
+const SocketNotificationListener = lazyRetry(() => import("./components/SocketNotificationListener"));
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 
 // Loading Fallback Component
 const PageLoader = () => (
@@ -137,16 +138,18 @@ const NotFound = lazyRetry(() => import("./pages/public/NotFound"));
 
 const App = () => (
   <TooltipProvider>
-    <Toaster />
-    <Sonner />
+    <Suspense fallback={null}>
+      <Toaster />
+      <Sonner />
+    </Suspense>
     <BrowserRouter
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,
       }}
     >
-      <SocketNotificationListener />
       <Suspense fallback={<PageLoader />}>
+        <SocketNotificationListener />
         <Routes>
           {/* Public Routes with Layout */}
           <Route element={<ErrorBoundary><PublicLayout /></ErrorBoundary>}>
