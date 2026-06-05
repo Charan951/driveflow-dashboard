@@ -73,29 +73,6 @@ export default defineConfig(({ mode }) => {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router')) {
-                return 'vendor-react';
-              }
-              if (id.includes('@radix-ui') || id.includes('lucide-react') || id.includes('framer-motion')) {
-                return 'vendor-ui';
-              }
-              if (id.includes('@tanstack') || id.includes('axios') || id.includes('zustand')) {
-                return 'vendor-utils';
-              }
-              if (id.includes('recharts') || id.includes('d3')) {
-                return 'vendor-charts';
-              }
-              if (id.includes('leaflet') || id.includes('react-leaflet')) {
-                return 'vendor-maps';
-              }
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
-              return 'vendor'; // Fallback for other node_modules
-            }
-          }
         },
       },
     },
