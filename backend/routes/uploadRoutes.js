@@ -1,8 +1,12 @@
 import express from 'express';
-import { upload, uploadFile, uploadFiles } from '../controllers/uploadController.js';
+import { upload, uploadFile, uploadFiles, generatePresignedUrl } from '../controllers/uploadController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// Generate presigned URL for direct client S3 upload
+router.get('/presigned-url', protect, generatePresignedUrl);
+router.get('/presigned-url/public', generatePresignedUrl);
 
 // Upload single file
 router.post('/', protect, (req, res, next) => {

@@ -34,14 +34,14 @@ const Footer: React.FC = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex flex-row items-center gap-3 mb-4">
-              <img src="/footer.png" alt="Carzzi Logo" className="w-12 h-12" />
+              <img src="/footer.png" alt="Carzzi Logo" className="w-24 h-auto object-contain" />
               <p className="text-sm text-muted-foreground">
                 Premium vehicle services at your doorstep. Your car deserves the best care.
               </p>
             </div>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Services</h4>
+            <h3 className="text-lg font-semibold mb-4">Services</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/services" className="hover:text-primary transition-colors">All Services</Link></li>
               <li><Link to="/car-wash" className="hover:text-primary transition-colors">Car Wash</Link></li>
@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Company</h4>
+            <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/about-us" className="hover:text-primary transition-colors">About Us</Link></li>
               <li><Link to="/careers" className="hover:text-primary transition-colors">Careers</Link></li>
@@ -61,7 +61,7 @@ const Footer: React.FC = () => {
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Contact</h4>
+            <h3 className="text-lg font-semibold mb-4">Contact</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />

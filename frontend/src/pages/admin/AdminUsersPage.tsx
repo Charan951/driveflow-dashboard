@@ -139,13 +139,15 @@ const AdminUsersPage: React.FC = () => {
     );
   };
 
-  const filteredUsers = users.filter(user => {
-    const isCustomer = user.role === 'customer';
-    const matchesSearch = (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-                          (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-    
-    return isCustomer && matchesSearch;
-  });
+  const filteredUsers = React.useMemo(() => {
+    return users.filter(user => {
+      const isCustomer = user.role === 'customer';
+      const matchesSearch = (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                            (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+      
+      return isCustomer && matchesSearch;
+    });
+  }, [users, searchQuery]);
 
   return (
     <GlobalSyncRefresh entities={['user']} onSync={fetchUsers}>

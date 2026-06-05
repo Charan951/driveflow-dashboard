@@ -39,6 +39,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import SocketNotificationListener from "./components/SocketNotificationListener";
 import { Skeleton } from "@/components/ui/skeleton";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Loading Fallback Component
 const PageLoader = () => (
@@ -148,7 +149,7 @@ const App = () => (
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Routes with Layout */}
-          <Route element={<PublicLayout />}>
+          <Route element={<ErrorBoundary><PublicLayout /></ErrorBoundary>}>
             <Route path="/" element={<HomePage />} />
             <Route path="/about-us" element={<AboutUs />} />
             <Route path="/careers" element={<Careers />} />
@@ -167,7 +168,7 @@ const App = () => (
           
           {/* Auth Routes - Wrapped in PublicRoute to redirect logged-in users */}
           <Route element={<PublicRoute />}>
-            <Route element={<AuthLayout />}>
+            <Route element={<ErrorBoundary><AuthLayout /></ErrorBoundary>}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -182,7 +183,7 @@ const App = () => (
 
           {/* Customer Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['customer']} />}>
-            <Route element={<CustomerLayout />}>
+            <Route element={<ErrorBoundary><CustomerLayout /></ErrorBoundary>}>
               <Route path="/notifications" element={<MyNotificationsPage />} />
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
@@ -202,7 +203,7 @@ const App = () => (
 
           {/* Staff Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['staff']} />}>
-            <Route element={<StaffLayout />}>
+            <Route element={<ErrorBoundary><StaffLayout /></ErrorBoundary>}>
               <Route path="/staff/notifications" element={<MyNotificationsPage />} />
               <Route path="/staff/order/:id" element={<StaffOrderPage />} />
               <Route path="/staff/orders" element={<StaffOrdersPage />} />
@@ -213,7 +214,7 @@ const App = () => (
 
           {/* Admin Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['admin']} />}>
-            <Route element={<AdminLayout />}>
+            <Route element={<ErrorBoundary><AdminLayout /></ErrorBoundary>}>
               <Route path="/admin/my-notifications" element={<MyNotificationsPage />} />
               <Route path="/admin/customers" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
@@ -245,7 +246,7 @@ const App = () => (
 
           {/* Merchant Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['merchant', 'admin']} />}>
-            <Route element={<MerchantLayout />}>
+            <Route element={<ErrorBoundary><MerchantLayout /></ErrorBoundary>}>
               <Route path="/merchant/notifications" element={<MyNotificationsPage />} />
               <Route path="/merchant/orders" element={<MerchantOrders />} />
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />

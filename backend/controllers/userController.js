@@ -66,7 +66,7 @@ export const updateFCMToken = async (req, res) => {
 // @access  Private
 export const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findById(req.user._id).select('-password').lean();
 
     if (user) {
       res.json(user);
@@ -240,7 +240,7 @@ export const updateUserProfile = async (req, res) => {
 // @access  Private/Admin
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select('-password').lean();
     if (user) {
       res.json(user);
     } else {

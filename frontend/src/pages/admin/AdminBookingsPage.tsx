@@ -26,7 +26,6 @@ const AdminBookingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -73,7 +72,7 @@ const AdminBookingsPage: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
+  const filteredBookings = React.useMemo(() => {
     let result = bookings;
 
     // Status Filter
@@ -123,7 +122,7 @@ const AdminBookingsPage: React.FC = () => {
       });
     }
 
-    setFilteredBookings(result);
+    return result;
   }, [bookings, searchQuery, statusFilter]);
 
   const fetchBookings = async () => {

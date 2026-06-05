@@ -1,7 +1,9 @@
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
 import dotenv from 'dotenv';
+import { asyncHandler } from '../middleware/errorHandler.js';
 
 dotenv.config();
 
@@ -79,35 +81,56 @@ const processAndUpload = async (file) => {
 };
 
 // Single file upload handler
-export const uploadFile = async (req, res) => {
+export const uploadFile = asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
   
-  try {
-    const result = await processAndUpload(req.file);
-    res.json(result);
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ message: 'Error processing/uploading file' });
-  }
-};
+  const result = await processAndUpload(req.file);
+  res.json(result);
+});
 
 // Multiple file upload handler
-export const uploadFiles = async (req, res) => {
+export const uploadFiles = asyncHandler(async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ message: 'No files uploaded' });
   }
 
-  try {
-    const uploadPromises = req.files.map(file => processAndUpload(file));
-    const files = await Promise.all(uploadPromises);
-    res.json({ files });
-  } catch (error) {
-    console.error('Multiple upload error:', error);
-    res.status(500).json({ message: 'Error processing/uploading files' });
+  const uploadPromises = req.files.map(file => processAndUpload(file));
+  const files = await Promise.all(uploadPromises);
+  res.json({ files });
+});
+
+// Generate presigned URL for direct browser-to-S3 upload
+export const generatePresignedUrl = asyncHandler(async (req, res) => {
+  const { filename, fileType } = req.query;
+
+  if (!filename || !fileType) {
+    return res.status(400).json({ message: 'Filename and fileType are required' });
   }
-};
+
+  const folder = 'carzzi_uploads/';
+  const uniqueFileName = `${Date.now().toString()}-${filename.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+  const key = folder + uniqueFileName;
+
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET_NAME,
+    Key: key,
+    ContentType: fileType,
+  });
+
+  // URL expires in 15 minutes
+  const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+
+  const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+  res.json({
+    presignedUrl,
+    fileUrl,
+    filename: key,
+    originalName: filename,
+  });
+});
 
 export { upload };
 

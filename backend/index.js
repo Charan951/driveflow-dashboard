@@ -5,6 +5,7 @@ import cors from 'cors';
 import http from 'http';
 import compression from 'compression';
 import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 import { initSocket } from './socket.js';
 
 import path from 'path';
@@ -131,6 +132,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for API
   crossOriginEmbedderPolicy: false
 }));
+app.use(mongoSanitize());
 app.use(compression());
 app.use(cors(corsOptions));
 // Handle preflight for all routes
@@ -199,7 +201,15 @@ app.use('/api', (req, res) => {
 
 // Serve frontend static files - ONLY if dist exists
 const distPath = path.join(__dirname, '..', 'frontend', 'dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // Handles any requests that don't match the ones above
 // Ensure this ONLY catches non-API routes

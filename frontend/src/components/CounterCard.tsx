@@ -12,7 +12,7 @@ interface CounterCardProps {
   onClick?: () => void;
 }
 
-export const CounterCard: React.FC<CounterCardProps> = ({
+export const CounterCard: React.FC<CounterCardProps> = React.memo(({
   label,
   value,
   icon,
@@ -66,6 +66,8 @@ export const CounterCard: React.FC<CounterCardProps> = ({
       )}
     </motion.div>
   );
-};
+});
+
+CounterCard.displayName = 'CounterCard';
 
 export default CounterCard;

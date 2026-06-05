@@ -53,7 +53,7 @@ const staticServices = [
     title: 'Tires & Battery', 
     description: 'Quality parts replacement and installation you can trust.', 
     color: 'bg-orange-500', 
-    image: "https://images.unsplash.com/photo-1579454320454-3d69559b3173?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600",
     link: '/services?category=Cars&service=Tyres%20%26%20Battery'
   },
 ];
@@ -412,6 +412,9 @@ const HomePage: React.FC = () => {
               <img 
                 src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1000" 
                 alt="App Dashboard Preview" 
+                width={1000}
+                height={667}
+                loading="lazy"
                 className="relative rounded-3xl shadow-2xl border border-white/10"
               />
             </motion.div>

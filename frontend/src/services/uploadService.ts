@@ -20,11 +20,22 @@ export const uploadService = {
       }
     }
 
-    const formData = new FormData();
-    formData.append('file', fileToUpload);
+    // 1. Get Presigned URL
+    const response = await api.get('/upload/presigned-url', {
+      params: { filename: fileToUpload.name, fileType: fileToUpload.type }
+    });
+    const { presignedUrl, fileUrl, filename, originalName } = response.data;
 
-    const response = await api.post('/upload', formData);
-    return response.data; // { url, filename, ... }
+    // 2. Upload directly to S3
+    await fetch(presignedUrl, {
+      method: 'PUT',
+      body: fileToUpload,
+      headers: {
+        'Content-Type': fileToUpload.type,
+      },
+    });
+
+    return { url: fileUrl, filename, originalName, mimetype: fileToUpload.type, size: fileToUpload.size };
   },
 
   uploadPublicFile: async (file: File) => {
@@ -37,34 +48,52 @@ export const uploadService = {
       }
     }
 
-    const formData = new FormData();
-    formData.append('file', fileToUpload);
+    // 1. Get Presigned URL
+    const response = await api.get('/upload/presigned-url/public', {
+      params: { filename: fileToUpload.name, fileType: fileToUpload.type }
+    });
+    const { presignedUrl, fileUrl, filename, originalName } = response.data;
 
-    const response = await api.post('/upload/public', formData);
-    return response.data;
+    // 2. Upload directly to S3
+    await fetch(presignedUrl, {
+      method: 'PUT',
+      body: fileToUpload,
+      headers: {
+        'Content-Type': fileToUpload.type,
+      },
+    });
+
+    return { url: fileUrl, filename, originalName, mimetype: fileToUpload.type, size: fileToUpload.size };
   },
 
   uploadFiles: async (files: File[]) => {
-    const compressedFiles = await Promise.all(
-      files.map(async (file) => {
-        if (file.type.startsWith('image/')) {
-          try {
-            return await imageCompression(file, compressionOptions);
-          } catch (error) {
-            console.error('Image compression failed:', error);
-            return file;
-          }
+    const uploadPromises = files.map(async (file) => {
+      let fileToUpload = file;
+      if (file.type.startsWith('image/')) {
+        try {
+          fileToUpload = await imageCompression(file, compressionOptions);
+        } catch (error) {
+          console.error('Image compression failed:', error);
         }
-        return file;
-      })
-    );
+      }
 
-    const formData = new FormData();
-    compressedFiles.forEach(file => {
-      formData.append('files', file);
+      const response = await api.get('/upload/presigned-url', {
+        params: { filename: fileToUpload.name, fileType: fileToUpload.type }
+      });
+      const { presignedUrl, fileUrl, filename, originalName } = response.data;
+
+      await fetch(presignedUrl, {
+        method: 'PUT',
+        body: fileToUpload,
+        headers: {
+          'Content-Type': fileToUpload.type,
+        },
+      });
+
+      return { url: fileUrl, filename, originalName, mimetype: fileToUpload.type, size: fileToUpload.size };
     });
 
-    const response = await api.post('/upload/multiple', formData);
-    return response.data; // { files: [{ url, ... }] }
+    const uploadedFiles = await Promise.all(uploadPromises);
+    return { files: uploadedFiles };
   }
 };

@@ -281,6 +281,8 @@ bookingSchema.index({ user: 1, createdAt: -1 });
 bookingSchema.index({ merchant: 1, createdAt: -1 });
 bookingSchema.index({ pickupDriver: 1, createdAt: -1 });
 bookingSchema.index({ technician: 1, createdAt: -1 });
+bookingSchema.index({ vehicle: 1, createdAt: -1 });
+bookingSchema.index({ status: 1 });
 bookingSchema.index({ 'carWash.staffAssigned': 1, createdAt: -1 });
 bookingSchema.index({ 'carWash.isCarWashService': 1, status: 1 });
 
