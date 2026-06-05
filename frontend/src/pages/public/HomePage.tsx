@@ -227,7 +227,7 @@ const HomePage: React.FC = () => {
               src={heroSlides[currentSlide]?.image || ''}
               srcSet={
                 heroSlides[currentSlide]?.image?.includes('unsplash.com') 
-                  ? `${heroSlides[currentSlide].image.split('&w=')[0]}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0]}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0]}&w=1920 1920w`
+                  ? `${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1920 1920w`
                   : undefined
               }
               sizes="100vw"
@@ -248,9 +248,9 @@ const HomePage: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 50 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="max-w-4xl"
+              className="max-w-4xl min-h-[250px] flex flex-col justify-center"
             >
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1]">
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] min-h-[90px] md:min-h-[140px]">
                 {heroSlides[currentSlide]?.titleWhite || ''} <br />
                 <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
                   {heroSlides[currentSlide]?.titleBlue || ''}
@@ -274,6 +274,7 @@ const HomePage: React.FC = () => {
                     {showLearnMore && (
                       <Link
                         to="/about-us"
+                        aria-label="Learn more about Carzzi's automotive services"
                         className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
                       >
                         Learn More
