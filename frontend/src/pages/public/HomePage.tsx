@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Wrench, 
   Shield, 
@@ -19,7 +18,6 @@ import {
   Thermometer,
   Package
 } from 'lucide-react';
-import { staggerContainer, staggerItem } from '@/animations/variants';
 import { useQuery } from '@tanstack/react-query';
 import { serviceService, Service } from '@/services/serviceService';
 import { heroService } from '@/services/heroService';
@@ -191,86 +189,92 @@ const HomePage: React.FC = () => {
       {/* Hero Section */}
       <section className="relative w-full h-[100dvh] min-h-[600px] flex items-center overflow-hidden">
         {/* Carousel Background */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5 }}
-            className="absolute inset-0 z-0"
-          >
-            <img 
-              src={
-                heroSlides[currentSlide]?.image?.includes('unsplash.com')
-                  ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200`
-                  : heroSlides[currentSlide]?.image?.includes('amazonaws.com')
-                    ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=35`
-                    : heroSlides[currentSlide]?.image || ''
-              }
-              crossOrigin="anonymous"
-              srcSet={
-                heroSlides[currentSlide]?.image?.includes('amazonaws.com')
-                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600&output=webp&q=35 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=35 1200w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1920&output=webp&q=35 1920w`
-                  : heroSlides[currentSlide]?.image?.includes('unsplash.com') 
-                    ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=600 600w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200 1200w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1920 1920w`
-                    : undefined
-              }
-              sizes="100vw"
-              alt={heroSlides[currentSlide]?.title || ''}
-              className="w-full h-full object-cover object-center transition-opacity duration-1000"
-              loading="eager"
-              fetchPriority="high"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
-          </motion.div>
-        </AnimatePresence>
+        {heroSlides.map((slide, index) => {
+          const isActive = index === currentSlide;
+          return (
+            <div
+              key={slide.id || index}
+              className={`absolute inset-0 z-0 transition-all duration-[1500ms] ease-in-out transform ${
+                isActive ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-105 pointer-events-none z-0'
+              }`}
+            >
+              <img 
+                src={
+                  slide?.image?.includes('unsplash.com')
+                    ? `${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200`
+                    : slide?.image?.includes('amazonaws.com')
+                      ? `https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1200&output=webp&q=35`
+                      : slide?.image || ''
+                }
+                crossOrigin="anonymous"
+                srcSet={
+                  slide?.image?.includes('amazonaws.com')
+                    ? `https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=600&output=webp&q=35 600w, https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1200&output=webp&q=35 1200w, https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1920&output=webp&q=35 1920w`
+                    : slide?.image?.includes('unsplash.com') 
+                      ? `${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=600 600w, ${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200 1200w, ${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1920 1920w`
+                      : undefined
+                }
+                sizes="100vw"
+                alt={slide?.title || ''}
+                className="w-full h-full object-cover object-center"
+                loading={index === 0 ? 'eager' : 'lazy'}
+                fetchPriority={index === 0 ? 'high' : 'low'}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
+            </div>
+          );
+        })}
         
         <div className="container relative z-10 mx-auto px-4">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 50 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="max-w-4xl min-h-[250px] flex flex-col justify-center"
-            >
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] min-h-[90px] md:min-h-[140px]">
-                {heroSlides[currentSlide]?.titleWhite || ''} <br />
-                <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
-                  {heroSlides[currentSlide]?.titleBlue || ''}
-                </span>
-              </h1>
-              <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
-                {heroSlides[currentSlide]?.subtitle || ''}
-              </p>
-              {
-                heroSlides !== defaultHeroSlides && (
-                  <div className="flex flex-row items-center gap-3 sm:gap-5">
-                    {showGetStarted && (
-                      <Link
-                        to="/register"
-                        className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
-                      >
-                        Get Started
-                        <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
-                      </Link>
-                    )}
-                    {showLearnMore && (
-                      <Link
-                        to="/about-us"
-                        aria-label="Learn more about Carzzi's automotive services"
-                        className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
-                      >
-                        Learn More <span className="sr-only">about our services</span>
-                      </Link>
-                    )}
-                  </div>
-                )
-              }
-            </motion.div>
-          </AnimatePresence>
+          <div className="relative min-h-[250px] flex flex-col justify-center w-full">
+            {heroSlides.map((slide, index) => {
+              const isActive = index === currentSlide;
+              return (
+                <div
+                  key={slide.id || index}
+                  className={`max-w-4xl flex flex-col justify-center transition-all duration-500 ease-in-out transform ${
+                    isActive 
+                      ? 'relative opacity-100 translate-x-0 z-10' 
+                      : 'absolute inset-0 opacity-0 -translate-x-12 pointer-events-none z-0'
+                  }`}
+                >
+                  <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] min-h-[90px] md:min-h-[140px]">
+                    {slide?.titleWhite || ''} <br />
+                    <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
+                      {slide?.titleBlue || ''}
+                    </span>
+                  </h1>
+                  <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
+                    {slide?.subtitle || ''}
+                  </p>
+                  {
+                    heroSlides !== defaultHeroSlides && (
+                      <div className="flex flex-row items-center gap-3 sm:gap-5">
+                        {showGetStarted && (
+                          <Link
+                            to="/register"
+                            className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
+                          >
+                            Get Started
+                            <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
+                          </Link>
+                        )}
+                        {showLearnMore && (
+                          <Link
+                            to="/about-us"
+                            aria-label="Learn more about Carzzi's automotive services"
+                            className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
+                          >
+                            Learn More <span className="sr-only">about our services</span>
+                          </Link>
+                        )}
+                      </div>
+                    )
+                  }
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Bottom Bar: Indicators & Stats */}
@@ -298,33 +302,18 @@ const HomePage: React.FC = () => {
       {/* Services Section */}
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Premium Services
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
               Everything your car needs, delivered with excellence.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true }}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8"
-          >
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {services.map((service, index) => (
-              <motion.div
-                key={index}
-                variants={staggerItem}
-                className="h-full"
-              >
+              <div key={index} className="h-full">
                 <Link
                   to={service.link}
                   className="group block relative overflow-hidden rounded-2xl bg-card border border-border shadow-sm hover:shadow-xl transition-all duration-300 h-full"
@@ -367,9 +356,9 @@ const HomePage: React.FC = () => {
                     </span>
                   </div>
                 </Link>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -377,11 +366,7 @@ const HomePage: React.FC = () => {
       <section className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
+            <div>
               <h2 className="text-3xl sm:text-4xl font-bold mb-6">
                 Why Drivers Choose <span className="text-primary">Carzzi</span>
               </h2>
@@ -408,14 +393,9 @@ const HomePage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </div>
             
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
+            <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-3xl blur-3xl" />
               <img 
                 src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" 
@@ -425,7 +405,7 @@ const HomePage: React.FC = () => {
                 loading="lazy"
                 className="relative rounded-3xl shadow-2xl border border-white/10"
               />
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -441,12 +421,7 @@ const HomePage: React.FC = () => {
           />
         </div>
         <div className="container relative z-10 mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="max-w-2xl mx-auto"
-          >
+          <div className="max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
               Built For Modern Car Owners?
             </h2>
@@ -459,7 +434,7 @@ Manage, Maintain, and Elevate your vehicle experience with Carzzi.            </
               Create Free Account
               <ArrowRight className="w-5 h-5" />
             </Link>
-          </motion.div>
+          </div>
         </div>
       </section>
     </div>
