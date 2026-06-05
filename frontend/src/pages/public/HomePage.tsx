@@ -225,6 +225,12 @@ const HomePage: React.FC = () => {
           >
             <img 
               src={heroSlides[currentSlide]?.image || ''}
+              srcSet={
+                heroSlides[currentSlide]?.image?.includes('unsplash.com') 
+                  ? `${heroSlides[currentSlide].image.split('&w=')[0]}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0]}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0]}&w=1920 1920w`
+                  : undefined
+              }
+              sizes="100vw"
               alt={heroSlides[currentSlide]?.title || ''}
               className="w-full h-full object-cover object-center transition-opacity duration-1000"
               loading="eager"
