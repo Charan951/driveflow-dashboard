@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { socketService } from '@/services/socket';
 import { updateMyLocation, updateOnlineStatus } from '@/services/trackingService';
 import { useAuthStore } from '@/store/authStore';
-import { toast } from 'sonner';
 import { bookingService, Booking } from '@/services/bookingService';
 import { TrackingContext, TrackingContextType } from './TrackingContext';
+
+const getSocket = () => import('@/services/socket').then(m => m.socketService);
+const showToastError = (msg: string) => import('sonner').then(m => m.toast.error(msg));
+const showToastSuccess = (msg: string) => import('sonner').then(m => m.toast.success(msg));
 
 interface LocationPayload {
   userId?: string;
@@ -67,7 +69,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           payload.bookingId = activeBookingIdRef.current;
         }
 
-        socketService.emit('location', payload);
+        getSocket().then(s => s.emit('location', payload));
         lastSocketUpdate.current = now;
       }
 
@@ -130,7 +132,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               timestamp: new Date().toISOString()
             };
             if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
-            socketService.emit('location', payload);
+            getSocket().then(s => s.emit('location', payload));
             
             const token = sessionStorage.getItem('token');
             if (token) {
@@ -206,7 +208,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 timestamp: new Date().toISOString()
               };
               if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
-              socketService.emit('location', payload);
+              getSocket().then(s => s.emit('location', payload));
               
               const token = sessionStorage.getItem('token');
               if (token) {
@@ -277,7 +279,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setError(null);
-    socketService.connect();
+    getSocket().then(s => s.connect());
     
     const token = sessionStorage.getItem('token');
     if (token) {
@@ -285,7 +287,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     
     if (user?._id) {
-        socketService.joinRoom(`user-${user._id}`);
+        getSocket().then(s => s.joinRoom(`user-${user._id}`));
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -319,7 +321,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
              if (err.code === 1) { 
                 setError('Location permission denied');
                 setIsTracking(false);
-                toast.error('Location permission denied. Please enable location services.');
+                showToastError('Location permission denied. Please enable location services.');
              }
           }
         },
@@ -354,7 +356,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     activeBookingIdRef.current = activeBookingId;
     if (activeBookingId) {
       localStorage.setItem('activeBookingId', activeBookingId);
-      socketService.connect();
+      getSocket().then(s => s.connect());
       if (!isTracking) {
         setIsTracking(true);
       }
@@ -365,19 +367,28 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (!activeBookingId) return;
-    socketService.connect();
+    let boundSocket: any = null;
+    
     const handler = (updatedBooking: Booking) => {
       if (!updatedBooking || String(updatedBooking._id) !== String(activeBookingId)) return;
       const status = updatedBooking.status;
       if (status === 'REACHED_MERCHANT' || status === 'DELIVERED' || status === 'CANCELLED') {
         _setActiveBookingId(null);
         localStorage.removeItem('activeBookingId');
-        toast.success('Reached milestone; live sharing unbound from booking');
+        showToastSuccess('Reached milestone; live sharing unbound from booking');
       }
     };
-    socketService.on('bookingUpdated', handler);
+
+    getSocket().then(s => {
+      boundSocket = s;
+      boundSocket.connect();
+      boundSocket.on('bookingUpdated', handler);
+    });
+
     return () => {
-      socketService.off('bookingUpdated', handler);
+      if (boundSocket) {
+        boundSocket.off('bookingUpdated', handler);
+      }
     };
   }, [activeBookingId]);
 
@@ -418,7 +429,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (watchId.current !== null) {
         navigator.geolocation.clearWatch(watchId.current);
       }
-      socketService.disconnect();
+      getSocket().then(s => s.disconnect());
     };
   }, []);
 
