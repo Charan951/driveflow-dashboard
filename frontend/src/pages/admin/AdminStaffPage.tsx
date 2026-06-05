@@ -110,7 +110,7 @@ const AdminStaffPage: React.FC = () => {
       return;
     }
     if (isNameTooLong(newStaff.name)) {
-      toast.error('Too long data: Please enter a maximum of 50 characters');
+      toast.error('Too long data: Please enter a maximum of 20 characters');
       return;
     }
     if (!isValidName(newStaff.name)) {
@@ -318,26 +318,13 @@ const AdminStaffPage: React.FC = () => {
             <h2 className="text-xl font-bold mb-4">Add New Staff Member</h2>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Full Name (max 50 characters)</label>
+                <label className="block text-sm font-medium mb-1">Full Name (max 20 characters)</label>
                 <input
                   type="text"
                   required
                   value={newStaff.name}
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val.length > 50) {
-                      toast.error('Too long data: Please enter a maximum of 50 characters');
-                      return;
-                    }
-                    // Validate only letters, spaces, apostrophes, hyphens only
-                    const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
-                    if (!allowedRegex.test(val)) {
-                      toast.error('Please enter valid data');
-                      return;
-                    }
-                    setNewStaff({...newStaff, name: val});
-                  }}
-                  maxLength={50}
+                  onChange={e => setNewStaff({...newStaff, name: e.target.value})}
+                  maxLength={20}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>
@@ -347,15 +334,7 @@ const AdminStaffPage: React.FC = () => {
                   type="email"
                   required
                   value={newStaff.email}
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val.length > 30) {
-                      toast.error('Too long data: Please enter a maximum of 30 characters');
-                      return;
-                    }
-                    // Check email format as user types removed to allow typing
-                    setNewStaff({...newStaff, email: val});
-                  }}
+                  onChange={e => setNewStaff({...newStaff, email: e.target.value})}
                   maxLength={30}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
@@ -366,14 +345,7 @@ const AdminStaffPage: React.FC = () => {
                   type="tel"
                   required
                   value={newStaff.phone}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, ''); // Remove non-digit characters
-                    if (val.length > 10) {
-                      toast.error('Too long data: Please enter a maximum of 10 digits');
-                      return;
-                    }
-                    setNewStaff({...newStaff, phone: val});
-                  }}
+                  onChange={e => setNewStaff({...newStaff, phone: e.target.value.replace(/\D/g, '')})}
                   maxLength={10}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
@@ -385,14 +357,7 @@ const AdminStaffPage: React.FC = () => {
                     type={showStaffPassword ? 'password' : 'text'}
                     required
                     value={newStaff.password}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val.length > 15) {
-                        toast.error('Too long data: Please enter a maximum of 15 characters');
-                        return;
-                      }
-                      setNewStaff({...newStaff, password: val});
-                    }}
+                    onChange={e => setNewStaff({...newStaff, password: e.target.value})}
                     maxLength={15}
                     className="w-full p-2 pr-10 rounded-lg border border-border bg-background"
                     placeholder="Create a temporary password"

@@ -253,10 +253,10 @@ const AdminHeroImagesPage = () => {
   const handleAddSlide = () => {
     const newSlide: HeroSlide = {
       id: Date.now(),
-      image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1920',
-      titleWhite: 'New Hero',
-      titleBlue: 'Slide',
-      subtitle: 'Experience premium vehicle services at your doorstep.'
+      image: '',
+      titleWhite: '',
+      titleBlue: '',
+      subtitle: ''
     };
     setHomeSlides([...homeSlides, newSlide]);
     // Initialize errors for new slide

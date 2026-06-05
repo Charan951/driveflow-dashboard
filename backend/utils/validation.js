@@ -144,18 +144,17 @@ const isValidEmail = (value) => {
 const isEmailValid = (value) => isValidEmail(value).valid;
 
 const isValidPhone10 = (value) => {
-  // If no value, it's optional, return true
-  if (typeof value !== 'string' || !value.trim()) return true;
-  // Just make sure it's a reasonable phone number, not too strict
-  return true;
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return /^\d{10}$/.test(trimmed);
 };
 
 const isValidName = (value) => {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  // Allow letters, spaces, apostrophes, hyphens, and ampersands
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(trimmed)) return false;
+  // Allow letters and spaces only
+  if (!/^[a-zA-Z\s]+$/.test(trimmed)) return false;
   // Check for excessive repeated characters
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;

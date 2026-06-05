@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
 import api from '@/services/api';
 import { toast } from 'sonner';
-import { isValidPhone10 } from '@/lib/formValidation';
+import { isValidPhone10, isValidName, isNameTooLong } from '@/lib/formValidation';
 
 const MerchantProfilePage: React.FC = () => {
   const { user, updateUser } = useAuthStore();
@@ -122,11 +122,34 @@ const MerchantProfilePage: React.FC = () => {
     const lng = formData.lng === '' ? undefined : Number(formData.lng);
 
     if (!name) {
-      toast.error('Shop name is required');
+      toast.error('Shop / Owner Name is required');
       return;
     }
-    if (phone && !isValidPhone10(phone)) {
-      toast.error('Enter a valid 10-digit phone number');
+    if (isNameTooLong(name)) {
+      toast.error('Too long data: Please enter a maximum of 20 characters');
+      return;
+    }
+    if (!isValidName(name)) {
+      toast.error('Only characters are allowed, no special characters or numbers');
+      return;
+    }
+
+    if (!phone) {
+      toast.error('Phone Number is required');
+      return;
+    }
+    if (!isValidPhone10(phone)) {
+      toast.error('Phone number must be exactly 10 digits with no other characters');
+      return;
+    }
+
+    if (!address) {
+      toast.error('Shop Address is required');
+      return;
+    }
+
+    if (lat === undefined || lng === undefined) {
+      toast.error('Latitude and Longitude are required');
       return;
     }
     if ((lat !== undefined && Number.isNaN(lat)) || (lng !== undefined && Number.isNaN(lng))) {
@@ -156,9 +179,10 @@ const MerchantProfilePage: React.FC = () => {
       // Update local auth store
       updateUser(updatedUser);
       toast.success('Profile updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update failed:', error);
-      toast.error('Failed to update profile');
+      const msg = error.response?.data?.message || 'Failed to update profile';
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

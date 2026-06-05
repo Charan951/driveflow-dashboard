@@ -1,7 +1,7 @@
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 export const MAX_EMAIL_LENGTH = 30;
 export const MAX_PASSWORD_LENGTH = 15;
-export const MAX_NAME_LENGTH = 10;
+export const MAX_NAME_LENGTH = 20;
 export const MAX_DESCRIPTION_LENGTH = 500;
 export const MAX_PRICE_LENGTH = 10;
 export const MAX_DURATION_LENGTH = 3;
@@ -209,10 +209,9 @@ export const isPasswordTooLong = (value: string): boolean => {
 };
 
 export const isValidPhone10 = (value: string): boolean => {
-  // More flexible validation for phone numbers
-  if (typeof value !== 'string') return true;
-  if (!value.trim()) return true;
-  return true;
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return /^\d{10}$/.test(trimmed);
 };
 
 export const isValidLicensePlate = (value: string): boolean =>
@@ -231,8 +230,8 @@ export const isStrongPassword = (value: string): boolean => {
 export const isValidName = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  // Allow letters, spaces, apostrophes, hyphens only (and numbers now for service names)
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(trimmed)) return false;
+  // Allow letters and spaces only
+  if (!/^[a-zA-Z\s]+$/.test(trimmed)) return false;
   // Check for excessive repeated characters
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;

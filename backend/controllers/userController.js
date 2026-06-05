@@ -129,6 +129,9 @@ export const updateUserProfile = async (req, res) => {
     
     if (req.body.email !== undefined) {
       const normalizedEmail = req.body.email.toLowerCase().trim();
+      if (user.role === 'staff' && normalizedEmail !== user.email) {
+        return res.status(403).json({ message: 'Staff cannot change email address' });
+      }
       const emailValidation = isValidEmail(normalizedEmail);
       if (!emailValidation.valid) {
         return res.status(400).json({ message: emailValidation.error || 'Invalid email' });
@@ -146,7 +149,7 @@ export const updateUserProfile = async (req, res) => {
           }
           user.phone = trimmedPhone;
         } else {
-          user.phone = '';
+          return res.status(400).json({ message: 'Phone number is required' });
         }
       }
       if (req.body.addresses) {

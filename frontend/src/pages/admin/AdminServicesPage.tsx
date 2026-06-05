@@ -581,7 +581,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           errorMessage = 'Please enter valid data';
         } else if (isNameTooLong(value)) {
           isValid = false;
-          errorMessage = 'Too long data: Please enter a maximum of 10 characters';
+          errorMessage = 'Too long data: Please enter a maximum of 20 characters';
         }
       }
     }
@@ -704,7 +704,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
       return;
     }
     if (isNameTooLong(formData.name)) {
-      toast.error('Too long data: Please enter a maximum of 10 characters');
+      toast.error('Too long data: Please enter a maximum of 20 characters');
       return;
     }
     if (hasExcessiveRepeatedChars(formData.name)) {
@@ -802,13 +802,13 @@ const ServiceModal = ({ service, onClose, onSave }) => {
           <form id="service-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-              <label className="block text-sm font-semibold mb-2">Name (max 10 characters)</label>
+              <label className="block text-sm font-semibold mb-2">Name (max 20 characters)</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                maxLength={10}
+                maxLength={20}
                 className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                 required
               />

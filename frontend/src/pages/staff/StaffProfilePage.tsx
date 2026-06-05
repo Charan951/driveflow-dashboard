@@ -5,25 +5,49 @@ import { useAuthStore } from '@/store/authStore';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { userService } from '@/services/userService';
+import { isNameTooLong, isValidName, isValidPhone10 } from '@/lib/formValidation';
 
 const StaffProfilePage: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || '',
-    address: user?.address || ''
+    phone: user?.phone || ''
   });
 
   const handleSave = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Full Name is required');
+      return;
+    }
+    if (isNameTooLong(formData.name)) {
+      toast.error('Too long data: Please enter a maximum of 20 characters');
+      return;
+    }
+    if (!isValidName(formData.name)) {
+      toast.error('Please enter valid data');
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      toast.error('Phone Number is required');
+      return;
+    }
+    if (!isValidPhone10(formData.phone)) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+
     try {
-      // Here you would typically call an API to update the user profile
-      // await userService.updateProfile(formData);
+      const updatedUser = await userService.updateProfile(formData);
+      updateUser(updatedUser);
       toast.success('Profile updated successfully');
       setIsEditing(false);
-    } catch (error) {
-      toast.error('Failed to update profile');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Failed to update profile';
+      toast.error(msg);
     }
   };
 
@@ -31,8 +55,7 @@ const StaffProfilePage: React.FC = () => {
     setFormData({
       name: user?.name || '',
       email: user?.email || '',
-      phone: user?.phone || '',
-      address: user?.address || ''
+      phone: user?.phone || ''
     });
     setIsEditing(false);
   };
@@ -144,8 +167,8 @@ const StaffProfilePage: React.FC = () => {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled
+                    className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-muted text-muted-foreground cursor-not-allowed focus:outline-none"
                   />
                 ) : (
                   <p className="text-foreground">{user?.email || 'Not provided'}</p>
@@ -169,26 +192,6 @@ const StaffProfilePage: React.FC = () => {
                   />
                 ) : (
                   <p className="text-foreground">{user?.phone || 'Not provided'}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Address */}
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <label className="text-sm font-medium text-muted-foreground">Address</label>
-                {isEditing ? (
-                  <textarea
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    rows={2}
-                    className="w-full mt-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  />
-                ) : (
-                  <p className="text-foreground">{user?.address || 'Not provided'}</p>
                 )}
               </div>
             </div>

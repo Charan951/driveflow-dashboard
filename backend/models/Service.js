@@ -14,12 +14,12 @@ const nameValidator = {
   validator: function(value) {
     const trimmed = value.trim();
     if (trimmed.length === 0) return false;
-    if (trimmed.length > 10) return false;
+    if (trimmed.length > 20) return false;
     if (hasExcessiveRepeatedChars(trimmed)) return false;
     // Allow letters, numbers, spaces, apostrophes, hyphens, and ampersands
     return /^[a-zA-Z0-9][a-zA-Z0-9\s'&-]*$/.test(trimmed);
   },
-  message: 'Name is invalid. Must be 1-10 characters, no excessive repeated characters, and only alphanumeric with spaces, apostrophes, hyphens, or ampersands.'
+  message: 'Name is invalid. Must be 1-20 characters, no excessive repeated characters, and only alphanumeric with spaces, apostrophes, hyphens, or ampersands.'
 };
 
 const descriptionValidator = {
@@ -77,7 +77,7 @@ const serviceSchema = mongoose.Schema(
     required: [true, 'Service name is required'],
     trim: true,
     validate: nameValidator,
-    maxlength: [10, 'Name cannot exceed 10 characters'],
+    maxlength: [20, 'Name cannot exceed 20 characters'],
   },
     description: {
       type: String,
@@ -145,23 +145,19 @@ const serviceSchema = mongoose.Schema(
 );
 
 // Add feature array validation in pre-save hook
-serviceSchema.pre('save', function(next) {
+serviceSchema.pre('save', function() {
   // Validate features array
   if (!featureValidator.validator(this.features)) {
-    const error = new Error(featureValidator.message);
-    return next(error);
+    throw new Error(featureValidator.message);
   }
-  next();
 });
 
 // Also validate on update
-serviceSchema.pre('findOneAndUpdate', function(next) {
+serviceSchema.pre('findOneAndUpdate', function() {
   const update = this.getUpdate();
   if (update.features && !featureValidator.validator(update.features)) {
-    const error = new Error(featureValidator.message);
-    return next(error);
+    throw new Error(featureValidator.message);
   }
-  next();
 });
 
 serviceSchema.index({ vehicleType: 1, category: 1, name: 1 });

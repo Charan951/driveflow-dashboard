@@ -13,11 +13,11 @@ const nameValidator = {
   validator: function(value) {
     const trimmed = value.trim();
     if (trimmed.length === 0) return false;
-    if (trimmed.length > 50) return false;
+    if (trimmed.length > 20) return false;
     if (hasExcessiveRepeatedChars(trimmed)) return false;
-    return /^[a-zA-Z][a-zA-Z0-9\s'-]*$/.test(trimmed);
+    return /^[a-zA-Z\s]+$/.test(trimmed);
   },
-  message: 'Name is invalid. Must be 1-50 characters, no excessive repeated characters'
+  message: 'Name is invalid. Must be 1-20 characters, only letters and spaces allowed'
 };
 
 const userSchema = new mongoose.Schema({
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Name is required'],
     trim: true,
     validate: nameValidator,
-    maxlength: [50, 'Name cannot exceed 50 characters'],
+    maxlength: [20, 'Name cannot exceed 20 characters'],
   },
   email: {
     type: String,
@@ -127,7 +127,7 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true,
-    match: [/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number'],
+    match: [/^\d{10}$/, 'Please enter a valid 10-digit phone number'],
   },
   category: {
     type: [String],
