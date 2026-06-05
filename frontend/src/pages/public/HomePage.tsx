@@ -327,8 +327,10 @@ const HomePage: React.FC = () => {
                       src={service.image} 
                       srcSet={
                         service.image?.includes('unsplash.com')
-                          ? `${service.image.split('&w=')[0]}&w=400 400w, ${service.image.split('&w=')[0]}&w=800 800w`
-                          : undefined
+                          ? `${service.image.split('?')[0]}?auto=format&fit=crop&q=60&w=400 400w, ${service.image.split('?')[0]}?auto=format&fit=crop&q=60&w=800 800w`
+                          : service.image?.includes('amazonaws.com') || service.image?.includes('/uploads/')
+                            ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400 400w, https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=800 800w`
+                            : undefined
                       }
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       alt={service.title}
