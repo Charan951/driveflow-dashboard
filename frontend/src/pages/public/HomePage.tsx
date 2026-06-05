@@ -201,13 +201,19 @@ const HomePage: React.FC = () => {
             className="absolute inset-0 z-0"
           >
             <img 
-              src={heroSlides[currentSlide]?.image || ''}
+              src={
+                heroSlides[currentSlide]?.image?.includes('unsplash.com')
+                  ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1200`
+                  : heroSlides[currentSlide]?.image?.includes('amazonaws.com')
+                    ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=50`
+                    : heroSlides[currentSlide]?.image || ''
+              }
               crossOrigin="anonymous"
               srcSet={
                 heroSlides[currentSlide]?.image?.includes('amazonaws.com')
-                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200 1200w, ${heroSlides[currentSlide].image} 1920w`
+                  ? `https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=600&output=webp&q=50 600w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1200&output=webp&q=50 1200w, https://wsrv.nl/?url=${encodeURIComponent(heroSlides[currentSlide].image)}&w=1920&output=webp&q=50 1920w`
                   : heroSlides[currentSlide]?.image?.includes('unsplash.com') 
-                    ? `${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=600 600w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1200 1200w, ${heroSlides[currentSlide].image.split('&w=')[0].replace('q=80', 'q=60')}&w=1920 1920w`
+                    ? `${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=600 600w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1200 1200w, ${heroSlides[currentSlide].image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=1920 1920w`
                     : undefined
               }
               sizes="100vw"
@@ -325,12 +331,18 @@ const HomePage: React.FC = () => {
                 >
                   <div className="aspect-[4/3] overflow-hidden">
                     <img 
-                      src={service.image} 
+                      src={
+                        service.image?.includes('unsplash.com')
+                          ? `${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=400`
+                          : service.image?.includes('amazonaws.com') || service.image?.includes('/uploads/')
+                            ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400&output=webp&q=50`
+                            : service.image
+                      } 
                       srcSet={
                         service.image?.includes('unsplash.com')
-                          ? `${service.image.split('?')[0]}?auto=format&fit=crop&q=60&w=400 400w, ${service.image.split('?')[0]}?auto=format&fit=crop&q=60&w=800 800w`
+                          ? `${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=400 400w, ${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=800 800w`
                           : service.image?.includes('amazonaws.com') || service.image?.includes('/uploads/')
-                            ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400 400w, https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=800 800w`
+                            ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400&output=webp&q=50 400w, https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=800&output=webp&q=50 800w`
                             : undefined
                       }
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
