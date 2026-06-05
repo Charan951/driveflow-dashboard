@@ -14,7 +14,7 @@ export const LICENSE_PLATE_REGEX = /^[A-Z]{2}\s?\d{1,2}\s?[A-Z]{1,2}\s?\d{4}$/;
 // Hero/Content specific max lengths
 export const MAX_HERO_TITLE_LENGTH = 100;
 export const MAX_HERO_SUBTITLE_LENGTH = 300;
-export const MAX_SLIDE_TITLE_LENGTH = 10;
+export const MAX_SLIDE_TITLE_LENGTH = 20;
 export const MAX_SLIDE_SUBTITLE_LENGTH = 150;
 export const MAX_ADDRESS_LENGTH = 500;
 export const MAX_BLOG_TITLE_LENGTH = 200;
@@ -353,6 +353,17 @@ export const isHeroTitleTooLong = (value: string): boolean => {
 export const isValidHeroSubtitle = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false; // Required - not optional
+  if (hasExcessiveRepeatedChars(trimmed)) return false;
+  return true;
+};
+
+export const isValidSlideTitle = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return false;
+  // Letters, numbers, and spaces only
+  if (!/^[a-zA-Z0-9\s]+$/.test(trimmed)) return false;
+  // Cannot be only digits (must have at least one letter)
+  if (/^\d+$/.test(trimmed.replace(/\s/g, ''))) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };

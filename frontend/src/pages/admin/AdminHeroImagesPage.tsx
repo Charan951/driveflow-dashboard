@@ -39,6 +39,7 @@ import {
   isValidHeroSubtitle,
   isHeroSubtitleTooLong,
   isSlideTitleTooLong,
+  isValidSlideTitle,
   isSlideSubtitleTooLong,
   isValidAddress,
   isAddressTooLong,
@@ -145,9 +146,8 @@ const AdminHeroImagesPage = () => {
     
     if (field === 'titleWhite' || field === 'titleBlue') {
       if (!trimmed) return 'This field is required';
-      if (isSlideTitleTooLong(value)) return 'Title is too long (max 10 characters)';
-      if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
-      if (!isValidHeroTitle(value)) return 'Invalid title';
+      if (isSlideTitleTooLong(value)) return 'Title is too long (max 20 characters)';
+      if (!isValidSlideTitle(value)) return 'Letters and numbers only. Special characters and purely digit entries are not allowed.';
     }
     
     if (field === 'subtitle') {
@@ -1179,7 +1179,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleWhite', e.target.value)}
                                   className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all ${slideErrors[slide.id]?.titleWhite ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="White text..."
-                                  maxLength={10}
+                                  maxLength={20}
                                 />
                               </div>
                               {slideErrors[slide.id]?.titleWhite && (
@@ -1196,7 +1196,7 @@ const AdminHeroImagesPage = () => {
                                   onChange={(e) => handleUpdateSlide(slide.id, 'titleBlue', e.target.value)}
                                   className={`w-full pl-10 pr-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all text-blue-600 ${slideErrors[slide.id]?.titleBlue ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                                   placeholder="Blue text..."
-                                  maxLength={10}
+                                  maxLength={20}
                                 />
                               </div>
                               {slideErrors[slide.id]?.titleBlue && (
@@ -1305,7 +1305,7 @@ const AdminHeroImagesPage = () => {
                           <ImageIcon className="w-8 h-8 text-muted-foreground opacity-20" />
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                         <button 
                           onClick={() => triggerUpload('page', page.id)}
                           className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-all flex items-center gap-2"
@@ -1313,6 +1313,15 @@ const AdminHeroImagesPage = () => {
                           {uploading === page.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                           Change Banner
                         </button>
+                        {hero.image && (
+                          <button
+                            onClick={() => handleUpdatePageHero(page.id, 'image', '')}
+                            className="bg-red-500/80 backdrop-blur-md text-white p-2 rounded-lg hover:bg-red-600 transition-all flex items-center justify-center"
+                            title="Remove Banner"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
 

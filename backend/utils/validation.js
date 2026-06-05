@@ -58,7 +58,7 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 const MAX_HERO_TITLE_LENGTH = 100;
 const MAX_HERO_SUBTITLE_LENGTH = 300;
-const MAX_SLIDE_TITLE_LENGTH = 10;
+const MAX_SLIDE_TITLE_LENGTH = 20;
 const MAX_SLIDE_SUBTITLE_LENGTH = 150;
 const MAX_ADDRESS_LENGTH = 500;
 const MAX_IMAGE_URL_LENGTH = 500;
@@ -228,6 +228,12 @@ const validateHeroSettings = (data) => {
     if (!titleWhite.trim()) {
       return { valid: false, message: `Slide ${i + 1} white title is required` };
     }
+    if (!/^[a-zA-Z0-9\s]+$/.test(titleWhite.trim())) {
+      return { valid: false, message: `Slide ${i + 1} white title must contain only letters and numbers` };
+    }
+    if (/^\d+$/.test(titleWhite.trim().replace(/\s/g, ''))) {
+      return { valid: false, message: `Slide ${i + 1} white title cannot contain only numbers` };
+    }
     if (hasExcessiveRepeatedChars(titleWhite)) {
       return { valid: false, message: `Slide ${i + 1} white title contains excessive repeated characters` };
     }
@@ -238,6 +244,12 @@ const validateHeroSettings = (data) => {
     // Check if titleBlue is required and valid
     if (!titleBlue.trim()) {
       return { valid: false, message: `Slide ${i + 1} blue title is required` };
+    }
+    if (!/^[a-zA-Z0-9\s]+$/.test(titleBlue.trim())) {
+      return { valid: false, message: `Slide ${i + 1} blue title must contain only letters and numbers` };
+    }
+    if (/^\d+$/.test(titleBlue.trim().replace(/\s/g, ''))) {
+      return { valid: false, message: `Slide ${i + 1} blue title cannot contain only numbers` };
     }
     if (hasExcessiveRepeatedChars(titleBlue)) {
       return { valid: false, message: `Slide ${i + 1} blue title contains excessive repeated characters` };

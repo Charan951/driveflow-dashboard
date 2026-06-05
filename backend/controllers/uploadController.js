@@ -64,6 +64,7 @@ const processAndUpload = async (file) => {
     Key: key,
     Body: buffer,
     ContentType: mimetype,
+    CacheControl: 'max-age=31536000, public',
   };
 
   await s3.send(new PutObjectCommand(uploadParams));
@@ -117,6 +118,7 @@ export const generatePresignedUrl = asyncHandler(async (req, res) => {
     Bucket: process.env.AWS_S3_BUCKET_NAME,
     Key: key,
     ContentType: fileType,
+    CacheControl: 'max-age=31536000, public',
   });
 
   // URL expires in 15 minutes

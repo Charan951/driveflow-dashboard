@@ -277,7 +277,7 @@ const HomePage: React.FC = () => {
                         aria-label="Learn more about Carzzi's automotive services"
                         className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
                       >
-                        Learn More
+                        Learn More <span className="sr-only">about our services</span>
                       </Link>
                     )}
                   </div>
