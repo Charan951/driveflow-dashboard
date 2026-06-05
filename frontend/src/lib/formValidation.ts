@@ -361,6 +361,14 @@ export const isHeroSubtitleTooLong = (value: string): boolean => {
   return value.trim().length > MAX_HERO_SUBTITLE_LENGTH;
 };
 
+export const isSlideTitleTooLong = (value: string): boolean => {
+  return value.trim().length > MAX_SLIDE_TITLE_LENGTH;
+};
+
+export const isSlideSubtitleTooLong = (value: string): boolean => {
+  return value.trim().length > MAX_SLIDE_SUBTITLE_LENGTH;
+};
+
 export const isValidAddress = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return true; // optional
