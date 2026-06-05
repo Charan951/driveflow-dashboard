@@ -5,7 +5,6 @@ import cors from 'cors';
 import http from 'http';
 import compression from 'compression';
 import helmet from 'helmet';
-import mongoSanitize from 'express-mongo-sanitize';
 import { initSocket } from './socket.js';
 
 import path from 'path';
@@ -132,7 +131,6 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for API
   crossOriginEmbedderPolicy: false
 }));
-app.use(mongoSanitize());
 app.use(compression());
 app.use(cors(corsOptions));
 // Handle preflight for all routes
