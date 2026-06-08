@@ -68,9 +68,9 @@ const defaultHeroSlides = [
   {
     id: 1,
     image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1200",
-    titleWhite: "",
-    titleBlue: "",
-    subtitle: ""
+    titleWhite: "Expert Maintenance &",
+    titleBlue: "Repair",
+    subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your vehicle like our own."
   },
   // {
   //   id: 2,
@@ -90,9 +90,30 @@ const defaultHeroSlides = [
 
 const HomePage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
-  const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
-  const [showLearnMore, setShowLearnMore] = useState<boolean>(true);
+  const [heroSlides, setHeroSlides] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('hero_slides');
+      return cached ? JSON.parse(cached) : defaultHeroSlides;
+    } catch {
+      return defaultHeroSlides;
+    }
+  });
+  const [showGetStarted, setShowGetStarted] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem('hero_show_get_started');
+      return cached !== null ? JSON.parse(cached) : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showLearnMore, setShowLearnMore] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem('hero_show_learn_more');
+      return cached !== null ? JSON.parse(cached) : true;
+    } catch {
+      return true;
+    }
+  });
   // Initialize with staticServices to ensure content is always visible (Optimistic UI / Fallback)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [services, setServices] = useState<any[]>(staticServices);
@@ -142,12 +163,23 @@ const HomePage: React.FC = () => {
           };
         });
         setHeroSlides(processedSlides);
+        try {
+          localStorage.setItem('hero_slides', JSON.stringify(processedSlides));
+        } catch (e) {
+          console.error('Failed to cache hero slides', e);
+        }
       }
       if (heroData.showGetStarted !== undefined) {
         setShowGetStarted(heroData.showGetStarted);
+        try {
+          localStorage.setItem('hero_show_get_started', JSON.stringify(heroData.showGetStarted));
+        } catch (e) {}
       }
       if (heroData.showLearnMore !== undefined) {
         setShowLearnMore(heroData.showLearnMore);
+        try {
+          localStorage.setItem('hero_show_learn_more', JSON.stringify(heroData.showLearnMore));
+        } catch (e) {}
       }
     }
   }, [heroData]);
@@ -248,7 +280,7 @@ const HomePage: React.FC = () => {
                     {slide?.subtitle || ''}
                   </p>
                   {
-                    heroSlides !== defaultHeroSlides && (
+                    (showGetStarted || showLearnMore) && (
                       <div className="flex flex-row items-center gap-3 sm:gap-5">
                         {showGetStarted && (
                           <Link

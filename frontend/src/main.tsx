@@ -7,11 +7,6 @@ import { TrackingProvider } from "./context/TrackingProvider";
 import { serviceService } from "./services/serviceService";
 import { heroService } from "./services/heroService";
 
-// Pre-fetch critical API data to eliminate the network waterfall delay
-serviceService.getServices().catch(() => {});
-heroService.getHeroSettings().catch(() => {});
-
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -20,6 +15,17 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Pre-fetch critical API data to eliminate the network waterfall delay and store in cache
+queryClient.prefetchQuery({
+  queryKey: ['services'],
+  queryFn: () => serviceService.getServices(),
+}).catch(() => {});
+
+queryClient.prefetchQuery({
+  queryKey: ['heroSettings'],
+  queryFn: heroService.getHeroSettings,
+}).catch(() => {});
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>

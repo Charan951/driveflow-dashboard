@@ -4,12 +4,21 @@ import { validateHeroSettings } from '../utils/validation.js';
 
 const HERO_CONFIG_KEY = 'hero_config.json';
 
-// @desc    Get hero settings from S3
+// In-memory cache for S3 hero settings to avoid S3 latency on every request
+let cachedHeroConfig = null;
+
+// @desc    Get hero settings from S3 (cached in memory)
 // @route   GET /api/hero
 // @access  Public
 export const getHeroSettings = async (req, res) => {
   try {
-    const data = await getDataFromS3(HERO_CONFIG_KEY);
+    let data = cachedHeroConfig;
+    if (!data) {
+      data = await getDataFromS3(HERO_CONFIG_KEY);
+      if (data) {
+        cachedHeroConfig = data;
+      }
+    }
     if (!data) {
       // Return defaults if not in S3 yet
       return res.json({
@@ -63,6 +72,7 @@ export const updateHeroSettings = async (req, res) => {
     };
     
     await saveDataToS3(HERO_CONFIG_KEY, config);
+    cachedHeroConfig = config; // Update in-memory cache
 
     // Global Real-time Sync
     emitEntitySync('hero', 'updated', config);
