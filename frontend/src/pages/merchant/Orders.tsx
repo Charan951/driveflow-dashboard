@@ -11,7 +11,7 @@ import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 
-type FilterType = 'all' | 'active' | 'completed' | 'pending-bills';
+type FilterType = 'all' | 'active' | 'completed' | 'delivered' | 'pending-bills';
 
 const ACTIVE_STATUSES: Booking['status'][] = [
   'CREATED',
@@ -33,7 +33,8 @@ const ACTIVE_STATUSES: Booking['status'][] = [
   'DELIVERY',
 ];
 
-const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED', 'COMPLETED'];
+const COMPLETED_STATUSES: Booking['status'][] = ['COMPLETED'];
+const DELIVERED_STATUSES: Booking['status'][] = ['DELIVERED'];
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -112,6 +113,9 @@ const Orders: React.FC = () => {
     if (filter === 'completed') {
       return COMPLETED_STATUSES.includes(booking.status);
     }
+    if (filter === 'delivered') {
+      return DELIVERED_STATUSES.includes(booking.status);
+    }
     if (filter === 'pending-bills') {
       return booking.paymentStatus === 'pending' && booking.status !== 'CANCELLED';
     }
@@ -162,7 +166,7 @@ const Orders: React.FC = () => {
           />
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
-          {(['active', 'completed', 'pending-bills', 'all'] as FilterType[]).map((f) => (
+          {(['active', 'completed', 'delivered', 'pending-bills', 'all'] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => handleFilterChange(f)}
