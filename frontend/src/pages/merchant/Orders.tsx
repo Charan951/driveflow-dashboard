@@ -23,6 +23,14 @@ const ACTIVE_STATUSES: Booking['status'][] = [
   'SERVICE_STARTED',
   'SERVICE_COMPLETED',
   'OUT_FOR_DELIVERY',
+  'MERCHANT_INSPECTION',
+  'PENDING_APPROVAL',
+  'CAR_WASH_STARTED',
+  'CAR_WASH_COMPLETED',
+  'STAFF_REACHED_MERCHANT',
+  'PICKUP_BATTERY_TIRE',
+  'INSTALLATION',
+  'DELIVERY',
 ];
 
 const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED', 'COMPLETED'];
@@ -157,7 +165,6 @@ const Orders: React.FC = () => {
           {(['active', 'completed', 'pending-bills', 'all'] as FilterType[]).map((f) => (
             <button
               key={f}
-              id={`filter-btn-${f}`}
               onClick={() => handleFilterChange(f)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 filter === f 
@@ -198,10 +205,9 @@ const Orders: React.FC = () => {
                     </h3>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    (booking.status === 'DELIVERED' || booking.status === 'COMPLETED') ? 'bg-green-100 text-green-800' :
+                    booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                     booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                    ACTIVE_STATUSES.includes(booking.status) ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
+                    'bg-blue-100 text-blue-800'
                   }`}>
                     {booking.status}
                   </span>
