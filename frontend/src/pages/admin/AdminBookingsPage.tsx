@@ -93,7 +93,9 @@ const AdminBookingsPage: React.FC = () => {
           'CAR_WASH_COMPLETED'
         ].includes(b.status));
       } else if (statusFilter === 'completed') {
-        result = result.filter(b => ['DELIVERED', 'COMPLETED'].includes(b.status));
+        result = result.filter(b => b.status === 'COMPLETED');
+      } else if (statusFilter === 'delivered') {
+        result = result.filter(b => b.status === 'DELIVERED');
       } else if (statusFilter === 'cancelled') {
         result = result.filter(b => b.status === 'CANCELLED');
       }
@@ -178,6 +180,7 @@ const AdminBookingsPage: React.FC = () => {
             { id: 'new', label: 'New' },
             { id: 'active', label: 'In Progress' },
             { id: 'completed', label: 'Completed' },
+            { id: 'delivered', label: 'Delivered' },
             { id: 'cancelled', label: 'Cancelled' },
           ].map((tab) => (
             <button

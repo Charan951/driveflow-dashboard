@@ -112,6 +112,8 @@ const StaffOrdersPage: React.FC = () => {
         result = result.filter(b => ACTIVE_STATUSES.includes(b.status));
       } else if (statusFilter === 'completed') {
         result = result.filter(b => ['Completed', 'COMPLETED'].includes(b.status));
+      } else if (statusFilter === 'delivered') {
+        result = result.filter(b => ['Delivered', 'DELIVERED'].includes(b.status));
       } else {
         result = result.filter(b => b.status === statusFilter);
       }
@@ -263,6 +265,7 @@ const StaffOrdersPage: React.FC = () => {
               <SelectItem value="all">All Orders</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="delivered">Delivered</SelectItem>
             </SelectContent>
           </Select>
         </div>
