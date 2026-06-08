@@ -177,7 +177,7 @@ const AdminAuditPage = () => {
         return;
       }
       // Allow letters, numbers, underscores, spaces, hyphens, periods, @ for email
-      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      const allowedRegex = /^[a-zA-Z0-9\s_@.-]*$/;
       if (!allowedRegex.test(value)) {
         toast.error('Please enter valid data');
         return;
@@ -191,7 +191,7 @@ const AdminAuditPage = () => {
         return;
       }
       // Allow letters, numbers, spaces, periods, @, hyphens, underscores
-      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      const allowedRegex = /^[a-zA-Z0-9\s_@.-]*$/;
       if (!allowedRegex.test(value)) {
         toast.error('Please enter valid data');
         return;
@@ -223,7 +223,7 @@ const AdminAuditPage = () => {
         toast.error('Too long data: Please enter a maximum of 50 characters');
         return;
       }
-      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      const allowedRegex = /^[a-zA-Z0-9\s_@.-]*$/;
       if (!allowedRegex.test(filters.action)) {
         toast.error('Please enter valid data');
         return;
@@ -236,7 +236,7 @@ const AdminAuditPage = () => {
         toast.error('Too long data: Please enter a maximum of 100 characters');
         return;
       }
-      const allowedRegex = /^[a-zA-Z0-9\s_@.\-]*$/;
+      const allowedRegex = /^[a-zA-Z0-9\s_@.-]*$/;
       if (!allowedRegex.test(filters.user)) {
         toast.error('Please enter valid data');
         return;

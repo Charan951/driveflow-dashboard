@@ -413,12 +413,20 @@ const AdminHeroImagesPage = () => {
   const handleSavePageHeroes = async () => {
     for (const pageId in pageHeroes) {
       const pageHero = pageHeroes[pageId];
+      if (!pageHero.title || !pageHero.title.trim()) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is required`);
+        return;
+      }
       if (!isValidHeroTitle(pageHero.title)) {
         toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
         return;
       }
       if (isHeroTitleTooLong(pageHero.title)) {
         toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
+        return;
+      }
+      if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is required`);
         return;
       }
       if (!isValidHeroSubtitle(pageHero.subtitle)) {
@@ -485,12 +493,20 @@ const AdminHeroImagesPage = () => {
 
     console.log('Current page hero data:', pageHero);
 
+    if (!pageHero.title || !pageHero.title.trim()) {
+      toast.error(`${pageLabel} hero title is required`);
+      return;
+    }
     if (!isValidHeroTitle(pageHero.title)) {
       toast.error(`${pageLabel} hero title contains invalid characters`);
       return;
     }
     if (isHeroTitleTooLong(pageHero.title)) {
       toast.error(`${pageLabel} hero title is too long`);
+      return;
+    }
+    if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
+      toast.error(`${pageLabel} hero subtitle is required`);
       return;
     }
     if (!isValidHeroSubtitle(pageHero.subtitle)) {
@@ -590,12 +606,20 @@ const AdminHeroImagesPage = () => {
     // Validate page heroes
     for (const pageId in pageHeroes) {
       const pageHero = pageHeroes[pageId];
+      if (!pageHero.title || !pageHero.title.trim()) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is required`);
+        return;
+      }
       if (!isValidHeroTitle(pageHero.title)) {
         toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
         return;
       }
       if (isHeroTitleTooLong(pageHero.title)) {
         toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
+        return;
+      }
+      if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
+        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is required`);
         return;
       }
       if (!isValidHeroSubtitle(pageHero.subtitle)) {
@@ -739,6 +763,10 @@ const AdminHeroImagesPage = () => {
       return;
     }
     
+    if (!blogForm.author.trim()) {
+      toast.error('Blog author is required');
+      return;
+    }
     if (!isValidBlogAuthor(blogForm.author)) {
       toast.error('Blog author contains invalid characters');
       return;
@@ -748,6 +776,10 @@ const AdminHeroImagesPage = () => {
       return;
     }
     
+    if (!blogForm.readTime.trim()) {
+      toast.error('Blog read time is required');
+      return;
+    }
     if (!isValidBlogReadTime(blogForm.readTime)) {
       toast.error('Blog read time contains invalid characters');
       return;
@@ -757,6 +789,10 @@ const AdminHeroImagesPage = () => {
       return;
     }
     
+    if (!blogForm.tags.trim()) {
+      toast.error('Blog tags are required');
+      return;
+    }
     if (!isValidBlogTags(blogForm.tags)) {
       toast.error('Blog tags contain invalid characters');
       return;
@@ -766,7 +802,11 @@ const AdminHeroImagesPage = () => {
       return;
     }
     
-    if (blogForm.image && !isValidImageUrl(blogForm.image)) {
+    if (!blogForm.image.trim()) {
+      toast.error('Blog image URL is required');
+      return;
+    }
+    if (!isValidImageUrl(blogForm.image)) {
       toast.error('Blog image URL is invalid');
       return;
     }
@@ -1475,21 +1515,21 @@ const AdminHeroImagesPage = () => {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-3">
-                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Blog title" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={blogForm.author} onChange={(e) => setBlogForm((prev) => ({ ...prev, author: e.target.value }))} placeholder="Author" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Blog title *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={blogForm.author} onChange={(e) => setBlogForm((prev) => ({ ...prev, author: e.target.value }))} placeholder="Author *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
                   <select value={blogForm.category} onChange={(e) => setBlogForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all">
-                    <option value="">Select category</option>
+                    <option value="">Select category *</option>
                     {blogCategories.map((category) => (<option key={category._id} value={category._id}>{category.name}</option>))}
                   </select>
-                  <input type="text" value={blogForm.readTime} onChange={(e) => setBlogForm((prev) => ({ ...prev, readTime: e.target.value }))} placeholder="Read time (e.g. 5 min read)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={blogForm.readTime} onChange={(e) => setBlogForm((prev) => ({ ...prev, readTime: e.target.value }))} placeholder="Read time (e.g. 5 min read) *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
                 </div>
 
-                <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none" />
-                <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[150px] resize-y" />
-                <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none" />
+                <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[150px] resize-y" />
+                <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated) *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL" className="flex-1 min-w-[220px] px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL *" className="flex-1 min-w-[220px] px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
                   <button onClick={() => triggerUpload('blog')} className="px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors">Upload Image</button>
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
                     <input type="checkbox" checked={blogForm.isPublished} onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} />

@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
-import { isStrongPassword, isValidEmail, isValidPhone10 } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isPasswordTooLong, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -87,7 +87,7 @@ const AdminMerchantsPage: React.FC = () => {
   useEffect(() => {
     filterMerchants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users, searchQuery, statusFilter]);
+  }, [users, searchQuery, statusFilter, categoryFilter]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -160,12 +160,21 @@ const AdminMerchantsPage: React.FC = () => {
       toast.error('Merchant name is required');
       return;
     }
-    if (!isValidEmail(email)) {
-      toast.error('Enter a valid email address');
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'invalid email id');
       return;
     }
     if (!isValidPhone10(phone)) {
       toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    if (!password) {
+      toast.error('Please enter your password');
+      return;
+    }
+    if (isPasswordTooLong(password)) {
+      toast.error('Too long data not accept');
       return;
     }
     if (!isStrongPassword(password)) {
@@ -247,8 +256,9 @@ const AdminMerchantsPage: React.FC = () => {
       toast.error('Merchant name is required');
       return;
     }
-    if (!isValidEmail(email)) {
-      toast.error('Enter a valid email address');
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error || 'invalid email id');
       return;
     }
     if (!isValidPhone10(phone)) {
@@ -370,16 +380,6 @@ const AdminMerchantsPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Filter className="text-gray-400 w-5 h-5" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Status</option>
-            <option value="approved">Approved</option>
-            <option value="pending">Pending</option>
-            <option value="rejected">Rejected</option>
-          </select>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -562,6 +562,7 @@ const AdminMerchantsPage: React.FC = () => {
                     required
                     value={newMerchant.email}
                     onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
+                    maxLength={MAX_EMAIL_LENGTH}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
@@ -629,6 +630,7 @@ const AdminMerchantsPage: React.FC = () => {
                       required
                       value={newMerchant.password}
                       onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
+                      maxLength={MAX_PASSWORD_LENGTH}
                       className="w-full px-3 pr-10 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                     <button
@@ -702,6 +704,7 @@ const AdminMerchantsPage: React.FC = () => {
                     required
                     value={editingMerchant.email}
                     onChange={(e) => setEditingMerchant({ ...editingMerchant, email: e.target.value })}
+                    maxLength={MAX_EMAIL_LENGTH}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>

@@ -87,6 +87,10 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
         return <XCircle className="w-4 h-4 text-red-500" />;
       case 'refunded':
         return <RefreshCw className="w-4 h-4 text-orange-500" />;
+      case 'expired':
+        return <XCircle className="w-4 h-4 text-gray-500" />;
+      case 'pending':
+        return <Clock className="w-4 h-4 text-yellow-500" />;
       default:
         return <Clock className="w-4 h-4 text-yellow-500" />;
     }
@@ -100,6 +104,10 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
         return 'text-red-600 bg-red-50';
       case 'refunded':
         return 'text-orange-600 bg-orange-50';
+      case 'expired':
+        return 'text-gray-600 bg-gray-50';
+      case 'pending':
+        return 'text-yellow-600 bg-yellow-50';
       default:
         return 'text-yellow-600 bg-yellow-50';
     }
@@ -178,6 +186,8 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               <option value="paid">Paid</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
+              <option value="pending">Pending</option>
+              <option value="expired">Expired</option>
             </select>
 
             <input

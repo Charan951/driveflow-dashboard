@@ -41,6 +41,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 const SocketNotificationListener = lazyRetry(() => import("./components/SocketNotificationListener"));
 const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
 const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
+const HotToaster = lazy(() => import("react-hot-toast").then(m => ({ default: m.Toaster })));
 
 // Loading Fallback Component
 const PageLoader = () => (
@@ -141,6 +142,7 @@ const App = () => (
     <Suspense fallback={null}>
       <Toaster />
       <Sonner />
+      <HotToaster />
     </Suspense>
     <BrowserRouter
       future={{

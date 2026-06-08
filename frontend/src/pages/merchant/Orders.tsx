@@ -25,7 +25,7 @@ const ACTIVE_STATUSES: Booking['status'][] = [
   'OUT_FOR_DELIVERY',
 ];
 
-const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED'];
+const COMPLETED_STATUSES: Booking['status'][] = ['DELIVERED', 'COMPLETED'];
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -134,9 +134,22 @@ const Orders: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
-            placeholder="Search vehicle or customer..." 
+            placeholder="Search vehicle or customer... (max 30 characters)" 
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.length > 30) {
+                toast.error('Too long data: Please enter a maximum of 30 characters');
+                return;
+              }
+              const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
+              if (!allowedRegex.test(val)) {
+                toast.error('Invalid data: Please enter valid characters');
+                return;
+              }
+              setSearchQuery(val);
+            }}
+            maxLength={30}
             className="w-full pl-9 pr-4 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>

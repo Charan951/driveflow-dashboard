@@ -96,18 +96,20 @@ const AdminReportsPage = () => {
         startDate = new Date(now.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
         endDate = new Date().toISOString().split('T')[0];
         break;
-      case 'week':
+      case 'week': {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         startDate = weekAgo.toISOString().split('T')[0];
         endDate = new Date().toISOString().split('T')[0];
         break;
-      case 'month':
+      }
+      case 'month': {
         const monthAgo = new Date();
         monthAgo.setMonth(monthAgo.getMonth() - 1);
         startDate = monthAgo.toISOString().split('T')[0];
         endDate = new Date().toISOString().split('T')[0];
         break;
+      }
       default:
         startDate = undefined;
         endDate = undefined;

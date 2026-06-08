@@ -111,7 +111,7 @@ const StaffOrdersPage: React.FC = () => {
       if (statusFilter === 'active') {
         result = result.filter(b => ACTIVE_STATUSES.includes(b.status));
       } else if (statusFilter === 'completed') {
-        result = result.filter(b => ['Ready', 'Delivered', 'Completed', 'DELIVERED', 'COMPLETED'].includes(b.status));
+        result = result.filter(b => ['Completed', 'COMPLETED'].includes(b.status));
       } else {
         result = result.filter(b => b.status === statusFilter);
       }
@@ -236,10 +236,23 @@ const StaffOrdersPage: React.FC = () => {
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Search orders..." 
+              placeholder="Search orders... (max 30 characters)" 
               className="pl-9 w-full sm:w-[200px]"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.length > 30) {
+                  toast.error('Too long data: Please enter a maximum of 30 characters');
+                  return;
+                }
+                const allowedRegex = /^[a-zA-Z0-9\s'-]*$/;
+                if (!allowedRegex.test(val)) {
+                  toast.error('Invalid data: Please enter valid characters');
+                  return;
+                }
+                setSearchQuery(val);
+              }}
+              maxLength={30}
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>

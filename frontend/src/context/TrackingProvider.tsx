@@ -352,18 +352,22 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [isTracking, user?._id, handlePositionUpdate, tryStartNativeBackground, user]);
 
+  const prevActiveBookingId = useRef<string | null>(localStorage.getItem('activeBookingId') || null);
+
   useEffect(() => {
     activeBookingIdRef.current = activeBookingId;
     if (activeBookingId) {
       localStorage.setItem('activeBookingId', activeBookingId);
       getSocket().then(s => s.connect());
-      if (!isTracking) {
+      if (activeBookingId !== prevActiveBookingId.current) {
         setIsTracking(true);
+        localStorage.setItem('isTracking', 'true');
       }
     } else {
       localStorage.removeItem('activeBookingId');
     }
-  }, [activeBookingId, isTracking]);
+    prevActiveBookingId.current = activeBookingId;
+  }, [activeBookingId]);
 
   useEffect(() => {
     if (!activeBookingId) return;

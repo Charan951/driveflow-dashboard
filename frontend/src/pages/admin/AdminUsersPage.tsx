@@ -59,6 +59,16 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const filteredUsers = React.useMemo(() => {
+    return users.filter(user => {
+      const isCustomer = user.role === 'customer';
+      const matchesSearch = (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                            (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+      
+      return isCustomer && matchesSearch;
+    });
+  }, [users, searchQuery]);
+
   if (currentUser?.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -138,16 +148,6 @@ const AdminUsersPage: React.FC = () => {
       </span>
     );
   };
-
-  const filteredUsers = React.useMemo(() => {
-    return users.filter(user => {
-      const isCustomer = user.role === 'customer';
-      const matchesSearch = (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-                            (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-      
-      return isCustomer && matchesSearch;
-    });
-  }, [users, searchQuery]);
 
   return (
     <GlobalSyncRefresh entities={['user']} onSync={fetchUsers}>

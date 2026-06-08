@@ -369,35 +369,66 @@ const validateBlogPost = (data) => {
     return { valid: false, message: 'Blog content is too long' };
   }
 
-  if (author && typeof author === 'string') {
-    if (hasExcessiveRepeatedChars(author)) {
-      return { valid: false, message: 'Blog author contains excessive repeated characters' };
-    }
-    if (author.length > MAX_BLOG_AUTHOR_LENGTH) {
-      return { valid: false, message: 'Blog author is too long' };
-    }
+  if (!author || typeof author !== 'string' || !author.trim()) {
+    return { valid: false, message: 'Blog author is required' };
+  }
+  if (hasExcessiveRepeatedChars(author)) {
+    return { valid: false, message: 'Blog author contains excessive repeated characters' };
+  }
+  if (author.length > MAX_BLOG_AUTHOR_LENGTH) {
+    return { valid: false, message: 'Blog author is too long' };
   }
 
-  if (readTime && typeof readTime === 'string') {
-    if (hasExcessiveRepeatedChars(readTime)) {
-      return { valid: false, message: 'Blog read time contains excessive repeated characters' };
-    }
-    if (readTime.length > MAX_BLOG_READ_TIME_LENGTH) {
-      return { valid: false, message: 'Blog read time is too long' };
-    }
+  if (!readTime || typeof readTime !== 'string' || !readTime.trim()) {
+    return { valid: false, message: 'Blog read time is required' };
+  }
+  if (hasExcessiveRepeatedChars(readTime)) {
+    return { valid: false, message: 'Blog read time contains excessive repeated characters' };
+  }
+  if (readTime.length > MAX_BLOG_READ_TIME_LENGTH) {
+    return { valid: false, message: 'Blog read time is too long' };
   }
 
-  if (image && typeof image === 'string') {
-    if (!isValidImageUrl(image)) {
-      return { valid: false, message: 'Blog image URL is invalid' };
-    }
-    if (image.length > MAX_IMAGE_URL_LENGTH) {
-      return { valid: false, message: 'Blog image URL is too long' };
-    }
+  if (!image || typeof image !== 'string' || !image.trim()) {
+    return { valid: false, message: 'Blog image URL is required' };
+  }
+  if (!isValidImageUrl(image)) {
+    return { valid: false, message: 'Blog image URL is invalid' };
+  }
+  if (image.length > MAX_IMAGE_URL_LENGTH) {
+    return { valid: false, message: 'Blog image URL is too long' };
   }
 
   if (!category) {
     return { valid: false, message: 'Category is required' };
+  }
+
+  if (!tags) {
+    return { valid: false, message: 'Blog tags are required' };
+  }
+  if (Array.isArray(tags)) {
+    if (tags.filter(Boolean).length === 0) {
+      return { valid: false, message: 'Blog tags are required' };
+    }
+    const tagsStr = tags.join(', ');
+    if (hasExcessiveRepeatedChars(tagsStr)) {
+      return { valid: false, message: 'Blog tags contain excessive repeated characters' };
+    }
+    if (tagsStr.length > MAX_BLOG_TAGS_LENGTH) {
+      return { valid: false, message: 'Blog tags are too long' };
+    }
+  } else if (typeof tags === 'string') {
+    if (!tags.trim()) {
+      return { valid: false, message: 'Blog tags are required' };
+    }
+    if (hasExcessiveRepeatedChars(tags)) {
+      return { valid: false, message: 'Blog tags contain excessive repeated characters' };
+    }
+    if (tags.length > MAX_BLOG_TAGS_LENGTH) {
+      return { valid: false, message: 'Blog tags are too long' };
+    }
+  } else {
+    return { valid: false, message: 'Blog tags are invalid' };
   }
 
   return { valid: true };

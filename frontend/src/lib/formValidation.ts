@@ -395,6 +395,7 @@ export const isAddressTooLong = (value: string): boolean => {
 export const isValidBlogTitle = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'&-.,!?"():;+#%]*$/.test(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -406,6 +407,7 @@ export const isBlogTitleTooLong = (value: string): boolean => {
 export const isValidBlogExcerpt = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
+  if (isOnlySpecialCharacters(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -417,6 +419,7 @@ export const isBlogExcerptTooLong = (value: string): boolean => {
 export const isValidBlogContent = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
+  if (isOnlySpecialCharacters(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -427,7 +430,8 @@ export const isBlogContentTooLong = (value: string): boolean => {
 
 export const isValidBlogAuthor = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
+  if (trimmed.length === 0) return false;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9\s'.-]*$/.test(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -438,7 +442,8 @@ export const isBlogAuthorTooLong = (value: string): boolean => {
 
 export const isValidBlogTags = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
+  if (trimmed.length === 0) return false;
+  if (!/^[a-zA-Z0-9\s]+(?:,\s*[a-zA-Z0-9\s]+)*$/.test(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -449,7 +454,8 @@ export const isBlogTagsTooLong = (value: string): boolean => {
 
 export const isValidBlogReadTime = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
+  if (trimmed.length === 0) return false;
+  if (!/^\d+\s*[a-zA-Z\s]*$/.test(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
