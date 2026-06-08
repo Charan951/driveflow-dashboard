@@ -7,7 +7,7 @@ export const AuthLayout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-gradient-hero relative overflow-hidden">
       <PublicNavbar />
-      {/* Background Pattern */}
+      {/* Background Patternssss*/}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-accent/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-primary/5 rounded-full blur-3xl" />
