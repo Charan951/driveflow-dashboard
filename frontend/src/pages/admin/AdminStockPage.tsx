@@ -73,7 +73,7 @@ const AdminVehicleDataPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchVehicleData();
+    fetchVehicleData(true);
 
     // Socket Setup
     socketService.connect();
@@ -84,9 +84,12 @@ const AdminVehicleDataPage = () => {
     };
   }, []);
 
-  const fetchVehicleData = async () => {
+  const fetchVehicleData = async (forceLoading?: any) => {
     try {
-      setLoading(true);
+      // Only set loading to true on initial fetch (when no data exists) or when explicitly forced (e.g. mount or deleting)
+      if (vehicleData.length === 0 || forceLoading === true) {
+        setLoading(true);
+      }
       const data = await getVehicleReference();
       console.log('Vehicle data received:', data);
       if (Array.isArray(data)) {
@@ -277,7 +280,7 @@ const AdminVehicleDataPage = () => {
           </button>
           <button
             onClick={handleDeleteAll}
-            disabled={loading || vehicleData.length === 0}
+            disabled={loading || uploading || vehicleData.length === 0}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Trash2 size={18} />
