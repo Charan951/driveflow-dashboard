@@ -14,7 +14,7 @@ const ForgotPasswordPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(email).valid) {
       toast.error('Please enter a valid email address');
       return;
     }
@@ -59,7 +59,7 @@ const ForgotPasswordPage: React.FC = () => {
                   toast.error('Too long data not accept');
                   return;
                 }
-                if (newEmail.length > 0 && !isValidEmail(newEmail)) {
+                if (newEmail.length > 0 && !isValidEmail(newEmail).valid) {
                   toast.error('Please enter a valid email address');
                   return;
                 }

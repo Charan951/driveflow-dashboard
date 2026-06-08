@@ -458,7 +458,7 @@ const AdminHeroImagesPage = () => {
       toast.error('Please enter a valid 10-digit mobile number');
       return;
     }
-    if (contactDetails.email && !isValidEmail(contactDetails.email)) {
+    if (contactDetails.email && !isValidEmail(contactDetails.email).valid) {
       toast.error('Please enter a valid email address');
       return;
     }

@@ -121,7 +121,7 @@ const AdminStaffPage: React.FC = () => {
       toast.error('Too long data: Please enter a maximum of 30 characters');
       return;
     }
-    if (!isValidEmail(newStaff.email)) {
+    if (!isValidEmail(newStaff.email).valid) {
       toast.error('Enter a valid email address');
       return;
     }

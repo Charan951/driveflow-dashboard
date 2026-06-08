@@ -173,7 +173,7 @@ export const createCoupon = async (req, res) => {
           if (user.email.length > 100) {
             return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
           }
-          if (!isValidEmail(user.email)) {
+          if (!isValidEmail(user.email).valid) {
             return res.status(400).json({ message: 'Please enter valid email address' });
           }
         }
@@ -296,7 +296,7 @@ export const updateCoupon = async (req, res) => {
           if (user.email.length > 100) {
             return res.status(400).json({ message: 'Email cannot exceed 100 characters' });
           }
-          if (!isValidEmail(user.email)) {
+          if (!isValidEmail(user.email).valid) {
             return res.status(400).json({ message: 'Please enter valid email address' });
           }
         }

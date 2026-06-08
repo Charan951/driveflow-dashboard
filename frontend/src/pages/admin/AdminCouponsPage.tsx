@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash, Calendar, Percent, Tag, CheckCircle, XCircle, FileUp } from 'lucide-react';
+import { Plus, Edit, Trash, Calendar, Percent, Tag, CheckCircle, XCircle, FileUp, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { motion } from 'framer-motion';
 import { couponService, Coupon } from '@/services/couponService';
@@ -235,8 +235,29 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   });
 
   const [newUser, setNewUser] = useState({ email: '', mobile: '' });
+  const [importSummary, setImportSummary] = useState<{ show: boolean; newUsers: any[]; invalidCount: number } | null>(null);
 
   const services = ['All', 'General Service', 'Car Wash', 'Essentials', 'Tyres and Battery'];
+
+  const downloadSampleExcel = () => {
+    try {
+      const sampleData = [
+        { Email: 'customer1@example.com', Mobile: '9876543210' },
+        { Email: 'customer2@example.com', Mobile: '9123456789' },
+        { Email: 'customer3@example.com', Mobile: '8888888888' },
+        { Email: 'customer4@example.com', Mobile: '' },
+        { Email: '', Mobile: '9999900000' }
+      ];
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Target Users');
+      XLSX.writeFile(workbook, 'sample_target_users.xlsx');
+      toast.success('Sample Excel downloaded successfully');
+    } catch (error) {
+      toast.error('Failed to generate sample Excel');
+      console.error(error);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -245,8 +266,13 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
+        const targetResult = evt.target?.result;
+        if (!targetResult) {
+          toast.error('Failed to read file contents');
+          return;
+        }
+        const dataArray = new Uint8Array(targetResult as ArrayBuffer);
+        const wb = XLSX.read(dataArray, { type: 'array' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
@@ -261,31 +287,61 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
 
         for (let i = 0; i < data.length; i++) {
           const row = data[i] as Record<string, any>;
-          const email = (row.Email || row.email || row.EMAIL || row['E-mail'] || '').toString().trim().toLowerCase();
-          const mobile = (row.Phone || row.phone || row.Mobile || row.mobile || row.MOBILE || row.PHONE || row.Contact || '').toString().trim();
+          // Normalize row keys to lowercase and trim spaces
+          const normalizedRow: Record<string, any> = {};
+          for (const key of Object.keys(row)) {
+            normalizedRow[key.trim().toLowerCase()] = row[key];
+          }
+
+          let email = (
+            normalizedRow.email || 
+            normalizedRow['e-mail'] || 
+            normalizedRow.mail ||
+            ''
+          ).toString().trim().toLowerCase();
+
+          let mobile = (
+            normalizedRow.phone || 
+            normalizedRow.mobile || 
+            normalizedRow.contact || 
+            normalizedRow.phone10 ||
+            ''
+          ).toString().trim();
           
-          if (!email || !mobile) {
+          if (!email && !mobile) {
             invalidEntries++;
             continue;
           }
-          if (email.length > 100) {
+
+          let isEmailOk = true;
+          let isMobileOk = true;
+
+          if (email) {
+            if (email.length > 100 || isDisposableEmail(email) || !isValidEmail(email).valid) {
+              isEmailOk = false;
+            }
+          }
+
+          if (mobile) {
+            let cleaned = mobile.replace(/\D/g, '');
+            if (cleaned.length === 12 && cleaned.startsWith('91')) {
+              cleaned = cleaned.slice(2);
+            } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+              cleaned = cleaned.slice(1);
+            }
+            if (!/^\d{10}$/.test(cleaned)) {
+              isMobileOk = false;
+            } else {
+              mobile = cleaned;
+            }
+          }
+
+          if ((email && !isEmailOk) || (mobile && !isMobileOk)) {
             invalidEntries++;
             continue;
           }
-          if (isDisposableEmail(email)) {
-            invalidEntries++;
-            continue;
-          }
-          if (!isValidEmail(email)) {
-            invalidEntries++;
-            continue;
-          }
-          if (!isValidPhone10(mobile)) {
-            invalidEntries++;
-            continue;
-          }
-          const cleanedMobile = mobile.replace(/\D/g, '');
-          newUsers.push({ email, mobile: cleanedMobile });
+
+          newUsers.push({ email: email || '', mobile: mobile || '' });
         }
 
         if (newUsers.length === 0) {
@@ -293,44 +349,53 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           return;
         }
 
-        setFormData(prev => ({
-          ...prev,
-          targetUsers: [...prev.targetUsers, ...newUsers]
-        }));
-        
-        toast.success(`Imported ${newUsers.length} users from Excel${invalidEntries > 0 ? ` (${invalidEntries} invalid entries skipped)` : ''}`);
+        setImportSummary({
+          show: true,
+          newUsers: newUsers,
+          invalidCount: invalidEntries
+        });
       } catch (err) {
         toast.error('Failed to parse Excel file');
         console.error(err);
       }
     };
     reader.onerror = () => toast.error('Failed to read file');
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
+  };
+
+  const confirmImport = () => {
+    if (!importSummary) return;
+    setFormData(prev => ({
+      ...prev,
+      targetUsers: [...prev.targetUsers, ...importSummary.newUsers]
+    }));
+    toast.success(`Imported ${importSummary.newUsers.length} users successfully`);
+    setImportSummary(null);
   };
 
   const addUser = () => {
     const email = newUser.email.trim();
     const mobile = newUser.mobile.trim();
-    if (!email) {
-      toast.error('Please fill out this field');
+    if (!email && !mobile) {
+      toast.error('Please enter at least an Email address or a Mobile number');
       return;
     }
-    if (!mobile) {
-      toast.error('Please fill out this field');
-      return;
+    if (email) {
+      if (email.length > 100) {
+        toast.error('Email cannot exceed 100 characters');
+        return;
+      }
+      if (!isValidEmail(email).valid) {
+        toast.error('Enter a valid email address');
+        return;
+      }
     }
-    if (email.length > 100) {
-      toast.error('Email cannot exceed 100 characters');
-      return;
-    }
-    if (!isValidEmail(email)) {
-      toast.error('Enter a valid email address');
-      return;
-    }
-    if (!isValidPhone10(mobile)) {
-      toast.error('Enter a valid 10-digit mobile number');
-      return;
+    if (mobile) {
+      if (!isValidPhone10(mobile)) {
+        toast.error('Enter a valid 10-digit mobile number');
+        return;
+      }
     }
     setFormData(prev => ({
       ...prev,
@@ -654,16 +719,26 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
               <div className="md:col-span-2">
                 <div className="flex justify-between items-center mb-3">
                   <label className="block text-sm font-semibold text-foreground">Target Users (Email, Mobile)</label>
-                  <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg cursor-pointer hover:bg-primary/20 transition-all border border-primary/20 font-medium">
-                    <FileUp size={14} />
-                    <span>Upload Excel</span>
-                    <input
-                      type="file"
-                      accept=".xlsx, .xls, .csv"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={downloadSampleExcel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-muted text-muted-foreground rounded-lg cursor-pointer hover:bg-muted/80 transition-all border border-border font-medium"
+                    >
+                      <Download size={14} />
+                      <span>Sample Excel</span>
+                    </button>
+                    <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg cursor-pointer hover:bg-primary/20 transition-all border border-primary/20 font-medium">
+                      <FileUp size={14} />
+                      <span>Upload Excel</span>
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -794,6 +869,73 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           </button>
         </div>
       </motion.div>
+
+      {importSummary && importSummary.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col max-h-[80vh]"
+          >
+            <div className="flex justify-between items-center mb-4 pb-2 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground">Excel Import Summary</h3>
+              <button 
+                type="button"
+                onClick={() => setImportSummary(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+              >
+                <Plus className="rotate-45" size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-sm text-foreground">
+                <p className="font-semibold text-primary mb-1">Upload Results:</p>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                  <li>Valid records parsed: <span className="font-semibold text-foreground">{importSummary.newUsers.length}</span></li>
+                  <li>Invalid records skipped: <span className="font-semibold text-foreground">{importSummary.invalidCount}</span></li>
+                </ul>
+              </div>
+
+              <div className="flex-1 overflow-y-auto border border-border rounded-xl">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-muted sticky top-0">
+                    <tr className="border-b border-border">
+                      <th className="p-2 font-semibold text-muted-foreground">Email</th>
+                      <th className="p-2 font-semibold text-muted-foreground">Mobile</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {importSummary.newUsers.map((user, idx) => (
+                      <tr key={idx} className="hover:bg-muted/30">
+                        <td className="p-2 truncate max-w-[150px]" title={user.email}>{user.email || '-'}</td>
+                        <td className="p-2">{user.mobile || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border justify-end">
+              <button
+                type="button"
+                onClick={() => setImportSummary(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors font-medium text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmImport}
+                className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm transition-all"
+              >
+                Confirm & Add
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

@@ -80,7 +80,7 @@ const AdminUserDetailPage: React.FC = () => {
       toast.error('Please enter a name');
       return;
     }
-    if (!isValidEmail(editFormData.email)) {
+    if (!isValidEmail(editFormData.email).valid) {
       toast.error('Please enter a valid email');
       return;
     }
