@@ -8,6 +8,7 @@ import {
   shouldApplyCheckoutGst,
 } from '../utils/orderPricing.js';
 import { logAudit } from './auditController.js';
+import { isValidDate } from '../utils/validation.js';
 
 export const createOrder = async (req, res) => {
   try {
@@ -152,10 +153,40 @@ export const getUserOrders = async (req, res) => {
 
 export const getAllPayments = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, startDate, endDate } = req.query;
+
+    // Validate date fields if provided
+    if (startDate && !isValidDate(startDate)) {
+      return res.status(400).json({ success: false, message: 'Invalid start date' });
+    }
+    if (endDate && !isValidDate(endDate)) {
+      return res.status(400).json({ success: false, message: 'Invalid end date' });
+    }
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (end < start) {
+        return res.status(400).json({ success: false, message: 'End date cannot be before start date' });
+      }
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
     const filter = {};
     if (status) filter.status = status;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
     const payments = await Payment.find(filter).populate('userId', 'name email phone').populate('bookingId').sort({ createdAt: -1 }).skip(skip).limit(Number(limit));
     const total = await Payment.countDocuments(filter);
     const stats = await Payment.aggregate([
