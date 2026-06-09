@@ -119,12 +119,53 @@ export const paymentService = {
     startDate?: string;
     endDate?: string;
   }) => {
+    const normalizeDate = (dateStr?: string) => {
+      if (!dateStr) return undefined;
+      const trimmed = dateStr.trim().replace(/\//g, '-');
+      
+      // If already YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // If DD-MM-YYYY or MM-DD-YYYY
+      if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+        const parts = trimmed.split('-');
+        const year = parts[2];
+        const p1 = parts[0];
+        const p2 = parts[1];
+        
+        const y = Number(year);
+        const d_ddmmyyyy = Number(p1);
+        const m_ddmmyyyy = Number(p2);
+        const dateA = new Date(y, m_ddmmyyyy - 1, d_ddmmyyyy);
+        const validA = dateA.getFullYear() === y && (dateA.getMonth() + 1) === m_ddmmyyyy && dateA.getDate() === d_ddmmyyyy;
+        
+        if (validA) {
+          return `${year}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+        }
+        
+        const m_mmddyyyy = Number(p1);
+        const d_mmddyyyy = Number(p2);
+        const dateB = new Date(y, m_mmddyyyy - 1, d_mmddyyyy);
+        const validB = dateB.getFullYear() === y && (dateB.getMonth() + 1) === m_mmddyyyy && dateB.getDate() === d_mmddyyyy;
+        
+        if (validB) {
+          return `${year}-${p1.padStart(2, '0')}-${p2.padStart(2, '0')}`;
+        }
+      }
+      return dateStr;
+    };
+
+    const start = normalizeDate(filters?.startDate);
+    const end = normalizeDate(filters?.endDate);
+
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.startDate && { startDate: filters.startDate }),
-      ...(filters?.endDate && { endDate: filters.endDate })
+      ...(start && { startDate: start }),
+      ...(end && { endDate: end })
     });
 
     const response = await api.get(`/payments/all?${params}`);

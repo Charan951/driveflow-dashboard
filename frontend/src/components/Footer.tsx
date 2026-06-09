@@ -43,9 +43,9 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Services</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/services" className="hover:text-primary transition-colors">All Services</Link></li>
-              <li><Link to="/car-wash" className="hover:text-primary transition-colors">Car Wash</Link></li>
-              <li><Link to="/book-service?category=Essentials" className="hover:text-primary transition-colors">Essentials</Link></li>
-              <li><Link to="/tires-battery" className="hover:text-primary transition-colors">Tires & Battery</Link></li>
+              <li><Link to="/services?service=Car%20Wash" className="hover:text-primary transition-colors">Car Wash</Link></li>
+              <li><Link to="/services?service=Essentials" className="hover:text-primary transition-colors">Essentials</Link></li>
+              <li><Link to="/services?service=Tires%20%26%20Battery" className="hover:text-primary transition-colors">Tires & Battery</Link></li>
             </ul>
           </div>
           <div>

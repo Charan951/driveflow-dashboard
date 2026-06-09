@@ -174,40 +174,56 @@ const isValidImageUrl = (value) => {
 
 const isValidDate = (dateStr) => {
   if (typeof dateStr !== 'string') return false;
-  // Check if the string is in YYYY-MM-DD format first
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(dateStr)) {
-    return false;
+  const trimmed = dateStr.trim().replace(/\//g, '-');
+  if (!trimmed) return false;
+
+  // 1. Check standard YYYY-MM-DD
+  const yyyymmddRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (yyyymmddRegex.test(trimmed)) {
+    const [yearStr, monthStr, dayStr] = trimmed.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    if (year < 1900 || year > 2100) return false;
+    if (month < 1 || month > 12) return false;
+    if (day < 1 || day > 31) return false;
+
+    const date = new Date(year, month - 1, day);
+    return !isNaN(date.getTime()) && 
+           date.getFullYear() === year && 
+           (date.getMonth() + 1) === month && 
+           date.getDate() === day;
   }
 
-  // Split into parts and explicitly check month and day ranges
-  const [yearStr, monthStr, dayStr] = dateStr.split('-');
-  const year = parseInt(yearStr, 10);
-  const month = parseInt(monthStr, 10);
-  const day = parseInt(dayStr, 10);
+  // 2. Check DD-MM-YYYY or MM-DD-YYYY
+  const ddmmyyyyRegex = /^\d{2}-\d{2}-\d{4}$/;
+  if (ddmmyyyyRegex.test(trimmed)) {
+    const parts = trimmed.split('-').map(Number);
+    const year = parts[2];
+    const p1 = parts[0];
+    const p2 = parts[1];
 
-  // Check that year is between 1900-2100
-  if (year < 1900 || year > 2100) {
-    return false;
+    if (year < 1900 || year > 2100) return false;
+
+    // A: p1 is day, p2 is month (DD-MM-YYYY)
+    const dateA = new Date(year, p2 - 1, p1);
+    const validA = !isNaN(dateA.getTime()) && 
+                   dateA.getFullYear() === year && 
+                   (dateA.getMonth() + 1) === p2 && 
+                   dateA.getDate() === p1;
+
+    // B: p1 is month, p2 is day (MM-DD-YYYY)
+    const dateB = new Date(year, p1 - 1, p2);
+    const validB = !isNaN(dateB.getTime()) && 
+                   dateB.getFullYear() === year && 
+                   (dateB.getMonth() + 1) === p1 && 
+                   dateB.getDate() === p2;
+
+    return validA || validB;
   }
-  // Check month is 1-12
-  if (month < 1 || month > 12) {
-    return false;
-  }
-  // Check day is at least 1 and max 31
-  if (day < 1 || day > 31) {
-    return false;
-  }
-  
-  const date = new Date(dateStr);
-  
-  // Make sure the parsed date components match the input (to avoid dates like 2023-02-30 being accepted)
-  const parsedYear = date.getFullYear();
-  const parsedMonth = String(date.getMonth() + 1).padStart(2, '0');
-  const parsedDay = String(date.getDate()).padStart(2, '0');
-  const formattedDate = `${parsedYear}-${parsedMonth}-${parsedDay}`;
-  
-  return !isNaN(date.getTime()) && formattedDate === dateStr;
+
+  return false;
 };
 
 const validateHeroSettings = (data) => {

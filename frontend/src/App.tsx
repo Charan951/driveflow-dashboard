@@ -37,6 +37,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ScrollToTop from "./components/ScrollToTop";
 
 const SocketNotificationListener = lazyRetry(() => import("./components/SocketNotificationListener"));
 const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
@@ -150,6 +151,7 @@ const App = () => (
         v7_relativeSplatPath: true,
       }}
     >
+      <ScrollToTop />
       <Suspense fallback={<PageLoader />}>
         <SocketNotificationListener />
         <Routes>

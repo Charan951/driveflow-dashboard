@@ -49,10 +49,10 @@ const CareerDetail: React.FC = () => {
     }
     
     // Validate file size (5MB max)
-    const maxSizeMB = 5;
+    const maxSizeMB = 10;
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      toast.error(`File size should not exceed ${maxSizeMB}MB`);
+      toast.error(`File size should not exceed 5MB`);
       if (event?.target) {
         event.target.value = '';
       }

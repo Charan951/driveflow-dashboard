@@ -164,7 +164,7 @@ const AdminUsersPage: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
             type="text"
-            placeholder="Search by name or email (max 20 characters)..."
+            placeholder="Search by name or email"
             value={searchQuery}
             onChange={(e) => {
               const val = e.target.value;

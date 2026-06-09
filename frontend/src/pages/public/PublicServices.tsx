@@ -121,7 +121,10 @@ const PublicServices = () => {
         'essentials': ['Essentials', 'Accessories'],
         'amaron': ['Battery'],
         'exide': ['Battery'],
-        'tyres': ['Tyres']
+        'tyres': ['Tyres'],
+        'car wash': ['Wash'],
+        'tires & battery': ['Tyres', 'Battery'],
+        'tyres & battery': ['Tyres', 'Battery']
       };
 
       const mappedCategories = mappings[paramLower];
