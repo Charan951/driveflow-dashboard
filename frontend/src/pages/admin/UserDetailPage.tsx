@@ -179,20 +179,7 @@ const AdminUserDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-border flex gap-2">
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors border border-primary"
-              >
-                Edit Profile
-              </button>
-              <button 
-                onClick={() => toast.info('More options feature coming soon')}
-                className="p-2 border border-border rounded-xl hover:bg-muted transition-colors"
-              >
-                <MoreVertical className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </div>
+
           </div>
 
           {/* Quick Stats */}

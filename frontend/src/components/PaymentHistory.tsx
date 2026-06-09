@@ -189,7 +189,6 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
               <option value="created">Created</option>
               <option value="paid">Paid</option>
               <option value="failed">Failed</option>
-              <option value="refunded">Refunded</option>
               <option value="pending">Pending</option>
               <option value="expired">Expired</option>
             </select>

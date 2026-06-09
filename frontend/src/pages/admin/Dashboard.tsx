@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
-  DollarSign, 
+  IndianRupee, 
   FileText, 
   CreditCard,
   UserPlus,
@@ -195,7 +195,7 @@ const AdminDashboard: React.FC = () => {
           <CounterCard 
             label="Revenue Today" 
             value={`₹${stats.revenueToday}`} 
-            icon={<DollarSign className="w-4 h-4 text-emerald-600" />} 
+            icon={<IndianRupee className="w-4 h-4 text-emerald-600" />} 
             delay={0.2} 
           />
         </div>
