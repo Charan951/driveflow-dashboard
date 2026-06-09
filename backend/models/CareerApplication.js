@@ -47,7 +47,7 @@ const careerApplicationSchema = mongoose.Schema(
       trim: true,
       lowercase: true,
       validate: emailValidator,
-      maxlength: [18, 'Email cannot exceed 18 characters'],
+      maxlength: [20, 'Email cannot exceed 20 characters'],
     },
     mobileNumber: {
       type: String,

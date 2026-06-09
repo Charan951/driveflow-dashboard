@@ -5,7 +5,9 @@ import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
-import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, isDisposableEmail } from "@/lib/formValidation";
+import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
+
+const CAREER_MAX_EMAIL_LENGTH = 20;
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,11 +50,11 @@ const CareerDetail: React.FC = () => {
       return;
     }
     
-    // Validate file size (5MB max)
-    const maxSizeMB = 10;
+    // Validate file size (15MB max)
+    const maxSizeMB = 15;
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      toast.error(`File size should not exceed 5MB`);
+      toast.error(`File size should not exceed ${maxSizeMB}MB`);
       if (event?.target) {
         event.target.value = '';
       }
@@ -214,14 +216,14 @@ const CareerDetail: React.FC = () => {
             />
             <input 
               required 
-              maxLength={MAX_EMAIL_LENGTH} 
+              maxLength={CAREER_MAX_EMAIL_LENGTH} 
               type="email" 
               value={form.email} 
               onChange={(e) => {
                 let newEmail = e.target.value;
                 // Truncate if too long
-                if (newEmail.length > MAX_EMAIL_LENGTH) {
-                  newEmail = newEmail.slice(0, MAX_EMAIL_LENGTH);
+                if (newEmail.length > CAREER_MAX_EMAIL_LENGTH) {
+                  newEmail = newEmail.slice(0, CAREER_MAX_EMAIL_LENGTH);
                 }
                 setForm((prev) => ({ ...prev, email: newEmail }));
               }} 
@@ -242,7 +244,7 @@ const CareerDetail: React.FC = () => {
             />
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF, max 5MB)</label>
+              <label className="text-sm font-medium text-muted-foreground">Upload Resume (PDF, max 15MB)</label>
               <div className="flex items-center gap-3">
                 <label className="px-4 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer inline-flex items-center gap-2">
                   <Upload className="w-4 h-4" />
