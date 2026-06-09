@@ -38,6 +38,12 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const activeBookingIdRef = useRef<string | null>(localStorage.getItem('activeBookingId') || null);
 
+  const locationRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
   const setActiveBookingId = useCallback((id: string | null) => {
     _setActiveBookingId(id);
     activeBookingIdRef.current = id;
@@ -279,7 +285,24 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setError(null);
-    getSocket().then(s => s.connect());
+    getSocket().then(s => {
+      s.connect();
+      if (locationRef.current) {
+        const payload: LocationPayload = {
+          userId: user?._id,
+          role: user?.role,
+          subRole: user?.subRole,
+          lat: locationRef.current.lat,
+          lng: locationRef.current.lng,
+          timestamp: new Date().toISOString()
+        };
+        if (activeBookingIdRef.current) {
+          payload.bookingId = activeBookingIdRef.current;
+        }
+        s.emit('location', payload);
+        lastSocketUpdate.current = Date.now();
+      }
+    });
     
     const token = sessionStorage.getItem('token');
     if (token) {

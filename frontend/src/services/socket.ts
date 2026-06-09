@@ -5,13 +5,20 @@ const SOCKET_URL = import.meta.env.VITE_API_URL;
 
 class SocketService {
   private socket: Socket | null = null;
-  private currentRoom: string | null = null;
+  private currentRooms: Set<string> = new Set();
+  private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private globalListeners: Set<(data: any) => void> = new Set();
 
   connect() {
     const token = sessionStorage.getItem('token');
     if (this.socket) {
-      (this.socket as any).auth = { token };
-      if (!this.socket.connected) {
+      const currentToken = (this.socket as any).auth?.token;
+      if (currentToken !== token) {
+        // Token has changed (e.g. login or logout) - reconnect with new token
+        this.socket.disconnect();
+        (this.socket as any).auth = { token };
+        this.socket.connect();
+      } else if (!this.socket.connected) {
         this.socket.connect();
       }
       return;
@@ -29,10 +36,14 @@ class SocketService {
     });
 
     this.socket.on('connect', () => {
-      (this.socket as any).auth = { token: sessionStorage.getItem('token') };
-      if (this.currentRoom) {
-        this.socket?.emit('join', this.currentRoom);
-      }
+      // Keep auth token in sync on reconnect
+      const latestToken = sessionStorage.getItem('token');
+      (this.socket as any).auth = { token: latestToken };
+      
+      // Rejoin all currently tracked rooms
+      this.currentRooms.forEach((room) => {
+        this.socket?.emit('join', room);
+      });
     });
 
     this.socket.on('disconnect', () => {
@@ -53,7 +64,9 @@ class SocketService {
       window.removeEventListener('pagehide', this.handleBeforeUnload);
       this.socket.disconnect();
       this.socket = null;
-      this.currentRoom = null;
+      this.currentRooms.clear();
+      this.listeners.clear();
+      this.globalListeners.clear();
     }
   }
 
@@ -66,18 +79,44 @@ class SocketService {
     this.socket?.emit(event, data);
   }
 
-  on(event: string, callback: (data: unknown) => void) {
+  on(event: string, callback: (data: any) => void) {
     if (!this.socket) this.connect();
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
     this.socket?.on(event, callback);
   }
 
-  off(event: string, callback?: (data: unknown) => void) {
+  onGlobal(event: string, callback: (data: any) => void) {
+    this.globalListeners.add(callback);
+    this.on(event, callback);
+  }
+
+  off(event: string, callback?: (data: any) => void) {
     if (!this.socket) return;
     if (callback) {
+      this.listeners.get(event)?.delete(callback);
+      this.globalListeners.delete(callback);
       this.socket.off(event, callback);
     } else {
-      this.socket.off(event);
+      // If no callback is specified, only remove non-global listeners
+      const callbacks = this.listeners.get(event);
+      if (callbacks) {
+        for (const cb of Array.from(callbacks)) {
+          if (!this.globalListeners.has(cb)) {
+            this.socket.off(event, cb);
+            callbacks.delete(cb);
+          }
+        }
+      }
     }
+  }
+
+  offGlobal(event: string, callback: (data: any) => void) {
+    if (!this.socket) return;
+    this.globalListeners.delete(callback);
+    this.off(event, callback);
   }
 
   onAny(callback: (event: string, data: unknown) => void) {
@@ -105,14 +144,12 @@ class SocketService {
   }
 
   joinRoom(room: string) {
-    this.currentRoom = room;
+    this.currentRooms.add(room);
     this.emit('join', room);
   }
 
   leaveRoom(room: string) {
-    if (this.currentRoom === room) {
-      this.currentRoom = null;
-    }
+    this.currentRooms.delete(room);
     this.emit('leave', room);
   }
 }

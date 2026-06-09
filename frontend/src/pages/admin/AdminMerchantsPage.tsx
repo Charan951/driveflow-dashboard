@@ -10,6 +10,7 @@ import {
   Phone,
   CheckCircle,
   XCircle,
+  X,
   Store,
   Clock,
   Trash2,
@@ -68,10 +69,15 @@ const AdminMerchantsPage: React.FC = () => {
     socketService.connect();
     socketService.joinRoom('admin');
 
-    socketService.on('userStatusUpdate', (data: { userId: string, isOnline: boolean, lastSeen: string }) => {
+    socketService.on('userStatusUpdate', (data: { userId: string, isOnline: boolean, lastSeen: string, isShopOpen?: boolean }) => {
       setUsers(prevUsers => prevUsers.map(u => {
         if (u._id === data.userId) {
-          return { ...u, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          return { 
+            ...u, 
+            isOnline: data.isOnline, 
+            lastSeen: data.lastSeen,
+            isShopOpen: data.isShopOpen !== undefined ? data.isShopOpen : u.isShopOpen
+          };
         }
         return u;
       }));
@@ -436,6 +442,20 @@ const AdminMerchantsPage: React.FC = () => {
                       />
                       {merchant.isOnline ? 'Online' : 'Offline'}
                     </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                        merchant.isShopOpen !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800'
+                          : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          merchant.isShopOpen !== false ? 'bg-emerald-500' : 'bg-red-500'
+                        }`}
+                      />
+                      {merchant.isShopOpen !== false ? 'Open' : 'Closed'}
+                    </span>
                     {merchant.isApproved ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                         <CheckCircle className="w-3 h-3 mr-0.5" />
@@ -536,124 +556,140 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-xl font-bold mb-4 dark:text-white">Add New Merchant</h2>
-              <form onSubmit={handleAddMerchant} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Merchant/Shop Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newMerchant.name}
-                    onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={newMerchant.email}
-                    onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
-                    maxLength={MAX_EMAIL_LENGTH}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={newMerchant.phone}
-                    onChange={(e) => setNewMerchant({ ...newMerchant, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Categories
-                  </label>
-                  <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-                    {(['general', 'battery', 'tires'] as const).map((cat) => (
-                      <label key={cat} className="flex items-center gap-2 cursor-pointer group">
-                        <div className="relative flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={newMerchant.category.includes(cat)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setNewMerchant(prev => ({
-                                ...prev,
-                                category: checked 
-                                  ? [...prev.category, cat]
-                                  : prev.category.length > 1 
-                                    ? prev.category.filter(c => c !== cat)
-                                    : prev.category
-                              }));
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          />
-                        </div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
-                          {cat}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Location
-                  </label>
-                  <LocationPicker
-                    value={newMerchant.location}
-                    onChange={(value) => setNewMerchant({ ...newMerchant, location: value })}
-                    mapClassName="h-[250px]"
-                  />
-                </div>
-                <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Password
-                  </label>
-                  <div className="relative">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-bold dark:text-white">Add New Merchant</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddMerchant} className="flex flex-col flex-1 overflow-hidden">
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Merchant/Shop Name
+                    </label>
                     <input
-                      type={showMerchantPassword ? 'password' : 'text'}
+                      type="text"
                       required
-                      value={newMerchant.password}
-                      onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
-                      maxLength={MAX_PASSWORD_LENGTH}
-                      className="w-full px-3 pr-10 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      value={newMerchant.name}
+                      onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowMerchantPassword(!showMerchantPassword)}
-                      className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-200"
-                    >
-                      {showMerchantPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={newMerchant.email}
+                      onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
+                      maxLength={MAX_EMAIL_LENGTH}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={newMerchant.phone}
+                      onChange={(e) => setNewMerchant({ ...newMerchant, phone: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Categories
+                    </label>
+                    <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                      {(['general', 'battery', 'tires'] as const).map((cat) => (
+                        <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+                          <div className="relative flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={newMerchant.category.includes(cat)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setNewMerchant(prev => ({
+                                  ...prev,
+                                  category: checked 
+                                    ? [...prev.category, cat]
+                                    : prev.category.length > 1 
+                                      ? prev.category.filter(c => c !== cat)
+                                      : prev.category
+                                }));
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
+                            {cat}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Location
+                    </label>
+                    <LocationPicker
+                      value={newMerchant.location}
+                      onChange={(value) => setNewMerchant({ ...newMerchant, location: value })}
+                      mapClassName="h-[250px] rounded-lg overflow-hidden border dark:border-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showMerchantPassword ? 'password' : 'text'}
+                        required
+                        value={newMerchant.password}
+                        onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}
+                        maxLength={MAX_PASSWORD_LENGTH}
+                        className="w-full px-3 pr-10 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMerchantPassword(!showMerchantPassword)}
+                        className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-200"
+                      >
+                        {showMerchantPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-end gap-3 mt-6">
+
+                {/* Modal Footer */}
+                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-700"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isAddingMerchant}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-medium text-sm shadow-sm"
                   >
                     {isAddingMerchant ? 'Adding…' : 'Add Merchant'}
                   </button>
@@ -678,107 +714,126 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-xl font-bold mb-4 dark:text-white">Edit Merchant</h2>
-              <form onSubmit={handleUpdateMerchant} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Merchant/Shop Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingMerchant.name}
-                    onChange={(e) => setEditingMerchant({ ...editingMerchant, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={editingMerchant.email}
-                    onChange={(e) => setEditingMerchant({ ...editingMerchant, email: e.target.value })}
-                    maxLength={MAX_EMAIL_LENGTH}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={editingMerchant.phone}
-                    onChange={(e) => setEditingMerchant({ ...editingMerchant, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Categories
-                  </label>
-                  <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-                    {(['general', 'battery', 'tires'] as const).map((cat) => (
-                      <label key={cat} className="flex items-center gap-2 cursor-pointer group">
-                        <div className="relative flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={editingMerchant.category.includes(cat)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditingMerchant(prev => {
-                                if (!prev) return prev;
-                                return {
-                                  ...prev,
-                                  category: checked 
-                                    ? [...prev.category, cat]
-                                    : prev.category.length > 1 
-                                      ? prev.category.filter(c => c !== cat)
-                                      : prev.category
-                                };
-                              });
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          />
-                        </div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
-                          {cat}
-                        </span>
-                      </label>
-                    ))}
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-bold dark:text-white">Edit Merchant</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingMerchant(null);
+                  }}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateMerchant} className="flex flex-col flex-1 overflow-hidden">
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Merchant/Shop Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingMerchant.name}
+                      onChange={(e) => setEditingMerchant({ ...editingMerchant, name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={editingMerchant.email}
+                      onChange={(e) => setEditingMerchant({ ...editingMerchant, email: e.target.value })}
+                      maxLength={MAX_EMAIL_LENGTH}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={editingMerchant.phone}
+                      onChange={(e) => setEditingMerchant({ ...editingMerchant, phone: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Categories
+                    </label>
+                    <div className="flex flex-wrap gap-4 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                      {(['general', 'battery', 'tires'] as const).map((cat) => (
+                        <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+                          <div className="relative flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={editingMerchant.category.includes(cat)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setEditingMerchant(prev => {
+                                  if (!prev) return prev;
+                                  return {
+                                    ...prev,
+                                    category: checked 
+                                      ? [...prev.category, cat]
+                                      : prev.category.length > 1 
+                                        ? prev.category.filter(c => c !== cat)
+                                        : prev.category
+                                  };
+                                });
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize group-hover:text-blue-600 transition-colors">
+                            {cat}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Location
+                    </label>
+                    <LocationPicker
+                      value={editingMerchant.location}
+                      onChange={(value) => setEditingMerchant({ ...editingMerchant, location: value })}
+                      mapClassName="h-[250px] rounded-lg overflow-hidden border dark:border-gray-600"
+                    />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Location
-                  </label>
-                  <LocationPicker
-                    value={editingMerchant.location}
-                    onChange={(value) => setEditingMerchant({ ...editingMerchant, location: value })}
-                    mapClassName="h-[250px]"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
+
+                {/* Modal Footer */}
+                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <button
                     type="button"
                     onClick={() => {
                       setShowEditModal(false);
                       setEditingMerchant(null);
                     }}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-700"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
                   >
                     Update Merchant
                   </button>
@@ -800,29 +855,43 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full shadow-xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-xl font-bold mb-4 dark:text-white">Reject Merchant</h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Please provide a reason for rejecting <strong>{selectedMerchant?.name}</strong>.
-              </p>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full h-32 px-3 py-2 border rounded-lg resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Reason for rejection..."
-              />
-              <div className="flex justify-end gap-3 mt-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-bold dark:text-white">Reject Merchant</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-gray-500 dark:text-gray-400">
+                  Please provide a reason for rejecting <strong>{selectedMerchant?.name}</strong>.
+                </p>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full h-32 px-3 py-2 border rounded-lg resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Reason for rejection..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <button
                   onClick={() => setIsRejectModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitRejection}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
                 >
                   Reject Merchant
                 </button>

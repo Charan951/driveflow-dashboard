@@ -486,7 +486,9 @@ export const updateOnlineStatus = async (req, res) => {
         io.to('admin').emit('userStatusUpdate', {
             userId: user._id,
             isOnline: user.isOnline,
-            lastSeen: user.lastSeen
+            lastSeen: user.lastSeen,
+            isShopOpen: user.isShopOpen,
+            location: user.location
         });
         
       } catch (err) {

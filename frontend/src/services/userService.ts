@@ -31,6 +31,7 @@ export interface User {
     lat?: number;
     lng?: number;
     address?: string;
+    updatedAt?: string | Date;
   };
   isApproved?: boolean;
   rejectionReason?: string | null;

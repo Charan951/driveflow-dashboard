@@ -71,15 +71,17 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                   toast.error('Too long data: Please enter a valid date');
                   return;
                 }
-                if (!isValidDate(v)) {
-                  toast.error('Please enter a valid date');
-                  return;
-                }
                 const [y, mo, d] = v.split('-').map(Number);
                 if (!y || !mo || !d) return;
                 const date = new Date(y, mo - 1, d);
                 if (!isNaN(date.getTime())) {
                   onDateChange(startOfLocalDay(date));
+                }
+              }}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (val && !isValidDate(val)) {
+                  toast.error('Please enter a valid date');
                 }
               }}
               onClick={(e) => (e.currentTarget as any).showPicker?.()}

@@ -37,9 +37,15 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
     startDate: '',
     endDate: ''
   });
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
-    fetchPayments();
+    const isStartValid = !filters.startDate || isValidDate(filters.startDate);
+    const isEndValid = !filters.endDate || isValidDate(filters.endDate);
+    
+    if (isStartValid && isEndValid) {
+      fetchPayments();
+    }
 
     // Socket Setup
     socketService.connect();
@@ -133,10 +139,6 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
         toast.error('Too long data: Please enter a valid date');
         return;
       }
-      if (value && !isValidDate(value)) {
-        toast.error('Please enter a valid date');
-        return;
-      }
     }
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
@@ -144,6 +146,8 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
 
   const clearFilters = () => {
     setFilters({ status: '', startDate: '', endDate: '' });
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setResetKey(prev => prev + 1);
   };
 
   return (
@@ -191,9 +195,16 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
             </select>
 
             <input
+              key={`start-${resetKey}`}
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (val && !isValidDate(val)) {
+                  toast.error('Please enter a valid start date');
+                }
+              }}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="Start Date"
               maxLength={10}
@@ -202,9 +213,16 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
             />
 
             <input
+              key={`end-${resetKey}`}
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (val && !isValidDate(val)) {
+                  toast.error('Please enter a valid end date');
+                }
+              }}
               className="px-3 py-2 border rounded-lg text-sm"
               placeholder="End Date"
               maxLength={10}

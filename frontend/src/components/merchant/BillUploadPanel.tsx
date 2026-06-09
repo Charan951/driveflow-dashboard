@@ -181,16 +181,42 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
     if (name === 'invoiceDate') {
       if (value && value.length > 10) {
         toast.error('Too long data: Please enter a valid date');
         return;
       }
-      if (value && !isValidDate(value)) {
-        toast.error('Please enter a valid date');
+    }
+
+    if (name === 'invoiceNumber') {
+      // Accept only alphanumeric characters (letters and digits), no special characters
+      const sanitized = value.replace(/[^a-zA-Z0-9]/g, '');
+      if (value !== sanitized) {
+        toast.error('Invoice Number must contain only letters and digits (no special characters)');
+        return;
+      }
+      if (value.length > 20) {
+        toast.error('Invoice Number cannot exceed 20 characters');
         return;
       }
     }
+
+    if (['partsCost', 'labourCost', 'gst'].includes(name)) {
+      if (value !== '') {
+        // Only allow digits (no decimals, no negative signs, no exponent 'e')
+        const isOnlyDigits = /^\d+$/.test(value);
+        if (!isOnlyDigits) {
+          toast.error(`${name === 'partsCost' ? 'Parts Cost' : name === 'labourCost' ? 'Labour Cost' : 'GST'} must be digits only`);
+          return;
+        }
+        if (value.length > 6) {
+          toast.error(`${name === 'partsCost' ? 'Parts Cost' : name === 'labourCost' ? 'Labour Cost' : 'GST'} cannot exceed 6 digits`);
+          return;
+        }
+      }
+    }
+
     setFormData(prev => {
         const newData = { ...prev, [name]: value };
         if (['partsCost', 'labourCost', 'gst'].includes(name)) {
@@ -217,6 +243,63 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Invoice Number validation
+    const invoiceNumStr = formData.invoiceNumber.trim();
+    if (!invoiceNumStr) {
+      toast.error('Invoice Number is required');
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(invoiceNumStr)) {
+      toast.error('Invoice Number must contain only letters and digits (no special characters)');
+      return;
+    }
+    if (invoiceNumStr.length > 20) {
+      toast.error('Invoice Number cannot exceed 20 characters');
+      return;
+    }
+
+    // Invoice Date validation
+    if (!isValidDate(formData.invoiceDate)) {
+      toast.error('Please enter a valid invoice date');
+      return;
+    }
+
+    // Parts Cost validation
+    if (formData.partsCost !== '') {
+      if (!/^\d+$/.test(formData.partsCost)) {
+        toast.error('Parts Cost must contain only digits');
+        return;
+      }
+      if (formData.partsCost.length > 6) {
+        toast.error('Parts Cost cannot exceed 6 digits');
+        return;
+      }
+    }
+
+    // Labour Cost validation
+    if (formData.labourCost !== '') {
+      if (!/^\d+$/.test(formData.labourCost)) {
+        toast.error('Labour Cost must contain only digits');
+        return;
+      }
+      if (formData.labourCost.length > 6) {
+        toast.error('Labour Cost cannot exceed 6 digits');
+        return;
+      }
+    }
+
+    // GST validation
+    if (formData.gst !== '') {
+      if (!/^\d+$/.test(formData.gst)) {
+        toast.error('GST must contain only digits');
+        return;
+      }
+      if (formData.gst.length > 6) {
+        toast.error('GST cannot exceed 6 digits');
+        return;
+      }
+    }
     
     // Check if Inspection is completed
     if (!booking.inspection?.completedAt) {
@@ -345,6 +428,12 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
               name="invoiceDate"
               value={formData.invoiceDate}
               onChange={handleInputChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (val && !isValidDate(val)) {
+                  toast.error('Please enter a valid invoice date');
+                }
+              }}
               required
               maxLength={10}
               min="1900-01-01"
@@ -355,33 +444,36 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
           <div className="space-y-2">
             <label className="text-sm font-medium">Parts Cost</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               name="partsCost"
               value={formData.partsCost}
               onChange={handleInputChange}
-              min="0"
               className="w-full p-2 border border-input rounded-lg bg-background"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Labour Cost</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               name="labourCost"
               value={formData.labourCost}
               onChange={handleInputChange}
-              min="0"
               className="w-full p-2 border border-input rounded-lg bg-background"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">GST</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               name="gst"
               value={formData.gst}
               onChange={handleInputChange}
-              min="0"
               className="w-full p-2 border border-input rounded-lg bg-background"
             />
           </div>

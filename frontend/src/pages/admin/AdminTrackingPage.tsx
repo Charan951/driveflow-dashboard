@@ -87,6 +87,11 @@ const AdminTrackingPage: React.FC = () => {
   const locationState = useLocation();
   const [filter, setFilter] = useState<'all' | 'vehicles' | 'staff' | 'merchants'>('all');
   const [selectedItem, setSelectedItem] = useState<TrackedStaff | TrackedVehicle | null>(null);
+  const selectedItemRef = useRef<TrackedStaff | TrackedVehicle | null>(null);
+  useEffect(() => {
+    selectedItemRef.current = selectedItem;
+  }, [selectedItem]);
+
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number, airDistance?: number } | null>(null);
   const [destination, setDestination] = useState<[number, number] | null>(null);
@@ -123,6 +128,12 @@ const AdminTrackingPage: React.FC = () => {
       isOnline?: boolean;
       isShopOpen?: boolean;
       lastSeen?: string;
+      location?: {
+        lat: number;
+        lng: number;
+        address?: string;
+        updatedAt?: string | Date;
+      };
     }
 
     socketService.on('liveLocation', (data: LiveLocationEvent) => {
@@ -136,11 +147,11 @@ const AdminTrackingPage: React.FC = () => {
              found = true;
              const updated = { 
                ...s, 
-               isOnline: true,
+               isOnline: data.isOnline !== undefined ? data.isOnline : true,
                location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } 
              };
              // Keep selected item in sync
-             if (selectedItem?._id === data.userId) setSelectedItem(updated as any);
+             if (selectedItemRef.current?._id === data.userId) setSelectedItem(updated as any);
              return updated;
            }
            return s;
@@ -151,10 +162,10 @@ const AdminTrackingPage: React.FC = () => {
              found = true;
              const updated = { 
                ...m, 
-               isOnline: true,
+               isOnline: data.isOnline !== undefined ? data.isOnline : true,
                location: { ...m.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } 
              };
-             if (selectedItem?._id === data.userId) setSelectedItem(updated as any);
+             if (selectedItemRef.current?._id === data.userId) setSelectedItem(updated as any);
              return updated;
            }
            return m;
@@ -165,7 +176,7 @@ const AdminTrackingPage: React.FC = () => {
            if (v._id === data.userId || userId === data.userId) {
              found = true;
              const updated = { ...v, location: { ...v.location, lat: data.lat, lng: data.lng, updatedAt: data.timestamp || data.updatedAt } };
-             if (selectedItem?._id === data.userId || selectedItem?._id === v._id) setSelectedItem(updated as any);
+             if (selectedItemRef.current?._id === data.userId || selectedItemRef.current?._id === v._id) setSelectedItem(updated as any);
              return updated;
            }
            return v;
@@ -186,7 +197,22 @@ const AdminTrackingPage: React.FC = () => {
            
            const newMerchants = prev.merchants ? prev.merchants.map(m => {
               if (m._id === data.userId) {
-                return { ...m, isShopOpen: data.isShopOpen, isOnline: data.isOnline, lastSeen: data.lastSeen };
+                const updated = { 
+                  ...m, 
+                  isShopOpen: data.isShopOpen, 
+                  isOnline: data.isOnline, 
+                  lastSeen: data.lastSeen 
+                };
+                if (data.location?.lat && data.location?.lng) {
+                  updated.location = { 
+                    ...m.location, 
+                    lat: data.location.lat, 
+                    lng: data.location.lng, 
+                    updatedAt: data.location.updatedAt ? String(data.location.updatedAt) : new Date().toISOString() 
+                  };
+                }
+                if (selectedItemRef.current?._id === data.userId) setSelectedItem(updated as any);
+                return updated;
               }
               return m;
            }) : [];
@@ -201,17 +227,45 @@ const AdminTrackingPage: React.FC = () => {
          
          const newStaff = prev.staff.map(s => {
            if (s._id === data.userId) {
-             return { ...s, isOnline: data.isOnline, lastSeen: data.lastSeen };
+             const updated = { 
+               ...s, 
+               isOnline: data.isOnline, 
+               lastSeen: data.lastSeen 
+             };
+             if (data.location?.lat && data.location?.lng) {
+               updated.location = { 
+                 ...s.location, 
+                 lat: data.location.lat, 
+                 lng: data.location.lng, 
+                 updatedAt: data.location.updatedAt ? String(data.location.updatedAt) : new Date().toISOString() 
+               };
+             }
+             if (selectedItemRef.current?._id === data.userId) setSelectedItem(updated as any);
+             return updated;
            }
            return s;
          });
 
          const newMerchants = prev.merchants ? prev.merchants.map(m => {
             if (m._id === data.userId) {
-              return { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen };
+              const updated = { 
+                ...m, 
+                isOnline: data.isOnline, 
+                lastSeen: data.lastSeen 
+              };
+              if (data.location?.lat && data.location?.lng) {
+                updated.location = { 
+                  ...m.location, 
+                  lat: data.location.lat, 
+                  lng: data.location.lng, 
+                  updatedAt: data.location.updatedAt ? String(data.location.updatedAt) : new Date().toISOString() 
+                };
+              }
+              if (selectedItemRef.current?._id === data.userId) setSelectedItem(updated as any);
+              return updated;
             }
             return m;
-          }) : [];
+           }) : [];
          
          return { ...prev, staff: newStaff, merchants: newMerchants };
        });
@@ -736,7 +790,7 @@ const AdminTrackingPage: React.FC = () => {
                           {('subRole' in item || ('role' in item && item.role === 'merchant')) && (
                               <span className={`text-[9px] md:text-[10px] px-1 py-0.5 rounded-full ${
                                   ('role' in item && item.role === 'merchant') 
-                                      ? (item.isShopOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
+                                      ? (item.isShopOpen !== false ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400')
                                       : (item.isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400')
                               }`}>
                                   {('role' in item && item.role === 'merchant') 

@@ -322,13 +322,13 @@ export const addVehicle = async (req, res) => {
 // @access  Private
 export const deleteVehicle = async (req, res) => {
   try {
-    console.log('[deleteVehicle] Attempting to delete vehicle with id:', req.params.id);
-    console.log('[deleteVehicle] User id:', req.user._id, 'Role:', req.user.role);
+    // console.log('[deleteVehicle] Attempting to delete vehicle with id:', req.params.id);
+    // console.log('[deleteVehicle] User id:', req.user._id, 'Role:', req.user.role);
 
     const vehicle = await Vehicle.findById(req.params.id);
 
     if (vehicle) {
-      console.log('[deleteVehicle] Found vehicle, owned by:', vehicle.user);
+      // console.log('[deleteVehicle] Found vehicle, owned by:', vehicle.user);
       
       // Get string representations for comparison
       const vehicleUserId = vehicle.user.toString();
@@ -336,7 +336,7 @@ export const deleteVehicle = async (req, res) => {
       const isOwner = vehicleUserId === reqUserId;
       const isAdmin = req.user.role?.toLowerCase() === 'admin';
 
-      console.log('[deleteVehicle] isOwner:', isOwner, 'isAdmin:', isAdmin);
+      // console.log('[deleteVehicle] isOwner:', isOwner, 'isAdmin:', isAdmin);
 
       if (!isOwner && !isAdmin) {
         return res.status(401).json({ message: 'Not authorized' });
@@ -358,14 +358,14 @@ export const deleteVehicle = async (req, res) => {
         
         // Global Real-time Sync
         emitEntitySync('vehicle', 'deleted', { _id: vehicleId, userId });
-        console.log('[deleteVehicle] Vehicle deleted successfully');
+        // console.log('[deleteVehicle] Vehicle deleted successfully');
       } catch (err) {
         console.error('[deleteVehicle] Socket error:', err);
       }
 
       res.json({ message: 'Vehicle removed' });
     } else {
-      console.log('[deleteVehicle] Vehicle not found');
+      // console.log('[deleteVehicle] Vehicle not found');
       res.status(404).json({ message: 'Vehicle not found' });
     }
   } catch (error) {

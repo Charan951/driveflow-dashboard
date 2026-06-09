@@ -443,10 +443,6 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       if (value.length > 10) {
         finalValue = value.slice(0, 10);
       }
-      if (value && !isValidDate(value)) {
-        toast.error('Please enter a valid date');
-        return;
-      }
     }
 
     setFormData((prev) => ({
@@ -661,6 +657,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   name="validFrom"
                   value={formData.validFrom}
                   onChange={handleChange}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (val && !isValidDate(val)) {
+                      toast.error('Please enter a valid date for Valid From');
+                    }
+                  }}
                   min={new Date().toISOString().split('T')[0]}
                   max="2100-12-31"
                   maxLength={10}
@@ -679,6 +681,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   name="validUntil"
                   value={formData.validUntil}
                   onChange={handleChange}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (val && !isValidDate(val)) {
+                      toast.error('Please enter a valid date for Valid Until');
+                    }
+                  }}
                   min={new Date().toISOString().split('T')[0]}
                   max="2100-12-31"
                   maxLength={10}

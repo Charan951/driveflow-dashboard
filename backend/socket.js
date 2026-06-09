@@ -97,14 +97,14 @@ export const initSocket = (server) => {
 
   io.on('connection', (socket) => {
     const transport = socket.conn.transport.name; // websocket or polling
-    console.log(`[Socket] New connection: ${socket.id} (IP: ${socket.handshake.address}, Transport: ${transport})`);
+    // console.log(`[Socket] New connection: ${socket.id} (IP: ${socket.handshake.address}, Transport: ${transport})`);
 
     socket.on('error', (err) => {
       console.error(`[Socket Error] from client ${socket.id}:`, err);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log(`[Socket Disconnected] client ${socket.id}: ${reason}`);
+      // console.log(`[Socket Disconnected] client ${socket.id}: ${reason}`);
     });
 
     if (socket.user) {
@@ -113,19 +113,19 @@ export const initSocket = (server) => {
 
       // Join private user room
       socket.join(`user_${userId}`);
-      console.log(`[Socket] User ${userId} (${userRole}) joined their private room.`);
+      // console.log(`[Socket] User ${userId} (${userRole}) joined their private room.`);
 
       // Automatically join role-based rooms
       if (userRole) {
         socket.join(userRole);
-        console.log(`[Socket] User ${userId} joined global role room: ${userRole}`);
+        // console.log(`[Socket] User ${userId} joined global role room: ${userRole}`);
       }
     }
 
     // Join a specific room
     socket.on('join', (room) => {
       if (!room) return;
-      console.log(`[Socket] ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
+      // console.log(`[Socket] ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
       
       // Security check for admin room
       if (room === 'admin') {
@@ -133,7 +133,7 @@ export const initSocket = (server) => {
           console.warn(`Unauthorized admin room join attempt from user ${socket.user?._id} with role ${socket.user?.role}`);
           return;
         }
-        console.log(`Admin user ${socket.user?._id} joined admin room`);
+        // console.log(`Admin user ${socket.user?._id} joined admin room`);
       }
       
       socket.join(room);
@@ -463,8 +463,28 @@ export const initSocket = (server) => {
       }
     });
 
-    socket.on('disconnect', () => {
-      
+    socket.on('disconnect', async () => {
+      if (socket.user) {
+        const userId = socket.user._id.toString();
+        try {
+          const activeSockets = await io.in(`user_${userId}`).fetchSockets();
+          if (activeSockets.length === 0) {
+            const now = Date.now();
+            await User.findByIdAndUpdate(socket.user._id, {
+              isOnline: false,
+              lastSeen: now
+            });
+            
+            io.to('admin').emit('userStatusUpdate', {
+              userId: socket.user._id,
+              isOnline: false,
+              lastSeen: now
+            });
+          }
+        } catch (err) {
+          console.error('Error handling socket disconnect status update:', err);
+        }
+      }
     });
   });
 

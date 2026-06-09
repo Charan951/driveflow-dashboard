@@ -16,7 +16,10 @@ const SocketNotificationListener = () => {
   const { addNotification } = useAppStore();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      socketService.disconnect();
+      return;
+    }
 
     // Connect to socket if not connected
     socketService.connect();
@@ -261,7 +264,7 @@ const SocketNotificationListener = () => {
             if (s._id === data.userId) {
               return { 
                 ...s, 
-                isOnline: true,
+                isOnline: data.isOnline !== undefined ? data.isOnline : true,
                 location: { ...s.location, lat: data.lat, lng: data.lng, updatedAt: timestamp } 
               };
             }
@@ -372,35 +375,36 @@ const SocketNotificationListener = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
 
-    socketService.on('notification', handleNotification);
-    socketService.on('bookingUpdated', handleBookingUpdate);
-    socketService.on('bookingCreated', handleBookingCreated);
-    socketService.on('bookingCancelled', handleBookingCancelled);
-    socketService.on('user_role_updated', handleRoleUpdated);
-    socketService.on('newApproval', handleNewApproval);
-    socketService.on('userUpdated', handleUserUpdated);
-    socketService.on('vehicleCreated', handleVehicleCreated);
-    socketService.on('vehicleDeleted', handleVehicleDeleted);
-    socketService.on('liveLocation', handleLiveLocation);
-    socketService.on('global:sync', handleGlobalSync);
-    socketService.on('sync:vehicle', handleVehicleSync);
+    socketService.onGlobal('notification', handleNotification);
+    socketService.onGlobal('bookingUpdated', handleBookingUpdate);
+    socketService.onGlobal('bookingCreated', handleBookingCreated);
+    socketService.onGlobal('bookingCancelled', handleBookingCancelled);
+    socketService.onGlobal('user_role_updated', handleRoleUpdated);
+    socketService.onGlobal('newApproval', handleNewApproval);
+    socketService.onGlobal('userUpdated', handleUserUpdated);
+    socketService.onGlobal('vehicleCreated', handleVehicleCreated);
+    socketService.onGlobal('vehicleDeleted', handleVehicleDeleted);
+    socketService.onGlobal('liveLocation', handleLiveLocation);
+    socketService.onGlobal('global:sync', handleGlobalSync);
+    socketService.onGlobal('sync:vehicle', handleVehicleSync);
     socketService.onAny(handleTypedSyncEvent);
 
     return () => {
       socketService.off('connect');
-      socketService.off('notification', handleNotification);
-      socketService.off('bookingUpdated', handleBookingUpdate);
-      socketService.off('bookingCreated', handleBookingCreated);
-      socketService.off('bookingCancelled', handleBookingCancelled);
-      socketService.off('user_role_updated', handleRoleUpdated);
-      socketService.off('newApproval', handleNewApproval);
-      socketService.off('userUpdated', handleUserUpdated);
-      socketService.off('vehicleCreated', handleVehicleCreated);
-      socketService.off('vehicleDeleted', handleVehicleDeleted);
-      socketService.off('liveLocation', handleLiveLocation);
-      socketService.off('global:sync', handleGlobalSync);
-      socketService.off('sync:vehicle', handleVehicleSync);
+      socketService.offGlobal('notification', handleNotification);
+      socketService.offGlobal('bookingUpdated', handleBookingUpdate);
+      socketService.offGlobal('bookingCreated', handleBookingCreated);
+      socketService.offGlobal('bookingCancelled', handleBookingCancelled);
+      socketService.offGlobal('user_role_updated', handleRoleUpdated);
+      socketService.offGlobal('newApproval', handleNewApproval);
+      socketService.offGlobal('userUpdated', handleUserUpdated);
+      socketService.offGlobal('vehicleCreated', handleVehicleCreated);
+      socketService.offGlobal('vehicleDeleted', handleVehicleDeleted);
+      socketService.offGlobal('liveLocation', handleLiveLocation);
+      socketService.offGlobal('global:sync', handleGlobalSync);
+      socketService.offGlobal('sync:vehicle', handleVehicleSync);
       socketService.offAny(handleTypedSyncEvent);
+      socketService.disconnect();
     };
   }, [queryClient, user, userRole, navigate, addNotification, updateUser]);
 

@@ -122,7 +122,7 @@ const AdminServicesPage: React.FC = () => {
   };
 
   const fetchAdminSlots = async () => {
-    if (!selectedSlotDate) return;
+    if (!selectedSlotDate || !isValidDate(selectedSlotDate)) return;
     try {
       setSlotLoading(true);
       const data = await bookingService.getAdminSlots(selectedSlotDate, selectedCategory);
@@ -372,12 +372,14 @@ const AdminServicesPage: React.FC = () => {
                         toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
                         return;
                       }
-                      if (!isValidDate(newDate)) {
-                        toast.error('Please enter a valid date');
-                        return;
-                      }
                     }
                     setSelectedSlotDate(newDate);
+                  }}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (val && !isValidDate(val)) {
+                      toast.error('Please enter a valid date');
+                    }
                   }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />

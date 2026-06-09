@@ -123,6 +123,17 @@ const AdminMerchantDetailPage: React.FC = () => {
                     Pending
                   </span>
                 )}
+                {merchant.isShopOpen !== false ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
+                    Shop Open
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5" />
+                    Shop Closed
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-2">

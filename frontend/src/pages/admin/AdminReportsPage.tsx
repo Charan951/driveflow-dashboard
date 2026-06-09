@@ -59,6 +59,7 @@ const AdminReportsPage = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({});
   const [quickDate, setQuickDate] = useState<string>('all');
+  const [resetKey, setResetKey] = useState(0);
   
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -116,6 +117,7 @@ const AdminReportsPage = () => {
     }
 
     setDateRange({ startDate, endDate });
+    setResetKey(prev => prev + 1);
     fetchData({ startDate, endDate });
   };
 
@@ -123,10 +125,6 @@ const AdminReportsPage = () => {
     if (value) {
       if (value.length > 10) {
         toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
-        return;
-      }
-      if (!isValidDate(value)) {
-        toast.error('Please enter a valid date');
         return;
       }
     }
@@ -297,9 +295,16 @@ const AdminReportsPage = () => {
             <span className="text-sm text-gray-500">Custom Range:</span>
             <div className="flex items-center gap-2">
               <input
+                key={`start-${resetKey}`}
                 type="date"
                 value={dateRange.startDate || ''}
                 onChange={(e) => handleCustomDateChange('startDate', e.target.value)}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && !isValidDate(val)) {
+                    toast.error('Please enter a valid start date');
+                  }
+                }}
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"
@@ -307,9 +312,16 @@ const AdminReportsPage = () => {
               />
               <span className="text-gray-400">to</span>
               <input
+                key={`end-${resetKey}`}
                 type="date"
                 value={dateRange.endDate || ''}
                 onChange={(e) => handleCustomDateChange('endDate', e.target.value)}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && !isValidDate(val)) {
+                    toast.error('Please enter a valid end date');
+                  }
+                }}
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"

@@ -1240,12 +1240,12 @@ export const assignBooking = async (req, res) => {
         const staffAssigned = !!(driverId || technicianId || carWashStaffId);
         if (staffAssigned && updatedBooking.user?.phone) {
           try {
-            console.log('[WhatsApp] Sending assignment message to user:', updatedBooking.user.phone);
+            // console.log('[WhatsApp] Sending assignment message to user:', updatedBooking.user.phone);
             const normalizedPhone = normalizeIndianMobile(updatedBooking.user.phone);
-            console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+            // console.log('[WhatsApp] Normalized phone:', normalizedPhone);
             if (normalizedPhone) {
               const templateName = resolveAssignedWhatsAppTemplateName();
-              console.log('[WhatsApp] Using template:', templateName);
+              // console.log('[WhatsApp] Using template:', templateName);
               
               // Get staff details
               let staffUser = null;
@@ -1274,7 +1274,7 @@ export const assignBooking = async (req, res) => {
               };
               
               await sendWhatsAppMessage(normalizedPhone, templateName, components);
-              console.log('[WhatsApp] Message sent successfully!');
+              // console.log('[WhatsApp] Message sent successfully!');
             }
           } catch (whatsappErr) {
             console.error('[WhatsApp] Failed to send assignment message:', whatsappErr);
@@ -1698,12 +1698,12 @@ export const updateBookingStatus = async (req, res) => {
         // Send WhatsApp feedback message
         if (updatedBooking.user?.phone) {
           try {
-            console.log('[WhatsApp] Sending feedback message to user:', updatedBooking.user.phone);
+            // console.log('[WhatsApp] Sending feedback message to user:', updatedBooking.user.phone);
             const normalizedPhone = normalizeIndianMobile(updatedBooking.user.phone);
-            console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+            // console.log('[WhatsApp] Normalized phone:', normalizedPhone);
             if (normalizedPhone) {
               const templateName = resolveFeedbackWhatsAppTemplateName();
-              console.log('[WhatsApp] Using template:', templateName);
+              // console.log('[WhatsApp] Using template:', templateName);
               
               // Build template components
               const components = {
@@ -1718,7 +1718,7 @@ export const updateBookingStatus = async (req, res) => {
               };
               
               await sendWhatsAppMessage(normalizedPhone, templateName, components);
-              console.log('[WhatsApp] Feedback message sent successfully!');
+              // console.log('[WhatsApp] Feedback message sent successfully!');
             }
           } catch (whatsappErr) {
             console.error('[WhatsApp] Failed to send feedback message:', whatsappErr);
@@ -1878,12 +1878,12 @@ export const verifyDeliveryOtp = async (req, res) => {
     setImmediate(async () => {
       try {
         if ((finalStatus === 'DELIVERED' || finalStatus === 'COMPLETED') && populated.user?.phone) {
-          console.log('[WhatsApp] Sending feedback message to user (via verifyOTP):', populated.user.phone);
+          // console.log('[WhatsApp] Sending feedback message to user (via verifyOTP):', populated.user.phone);
           const normalizedPhone = normalizeIndianMobile(populated.user.phone);
-          console.log('[WhatsApp] Normalized phone:', normalizedPhone);
+          // console.log('[WhatsApp] Normalized phone:', normalizedPhone);
           if (normalizedPhone) {
             const templateName = resolveFeedbackWhatsAppTemplateName();
-            console.log('[WhatsApp] Using template:', templateName);
+            // console.log('[WhatsApp] Using template:', templateName);
             
             const components = {
               body_1: {
@@ -1897,7 +1897,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             };
             
             await sendWhatsAppMessage(normalizedPhone, templateName, components);
-            console.log('[WhatsApp] Feedback message sent successfully!');
+            // console.log('[WhatsApp] Feedback message sent successfully!');
           }
         }
         

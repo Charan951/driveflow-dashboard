@@ -960,59 +960,61 @@ const StaffOrderPage: React.FC = () => {
               <span className="sm:hidden">Navigate</span>
             </Button>
 
-            <Button
-              size="lg"
-              variant="secondary"
-              className="w-full justify-center gap-2 text-sm sm:text-base"
-              onClick={isCarWash ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
-              disabled={isCarWash ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
-            >
-              <Upload className="w-4 h-4" />
-              {(() => {
-                if (isCarWash) {
-                  if (order.status === 'REACHED_CUSTOMER') {
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">Upload Before {isEssentials ? 'Service' : 'Wash'} Photos</span>
-                        <span className="sm:hidden">Before Photos</span>
-                      </>
-                    );
-                  } else if (order.status === 'CAR_WASH_STARTED') {
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">Upload After {isEssentials ? 'Service' : 'Wash'} Photos</span>
-                        <span className="sm:hidden">After Photos</span>
-                      </>
-                    );
+            {!['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_COMPLETED', 'DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full justify-center gap-2 text-sm sm:text-base"
+                onClick={isCarWash ? handlePrePickupUploadClick : (isPrePickupPhase ? handlePrePickupUploadClick : handleUploadClick)}
+                disabled={isCarWash ? isUploadingPrePickup : (isPrePickupPhase && isUploadingPrePickup)}
+              >
+                <Upload className="w-4 h-4" />
+                {(() => {
+                  if (isCarWash) {
+                    if (order.status === 'REACHED_CUSTOMER') {
+                      return isUploadingPrePickup ? 'Uploading...' : (
+                        <>
+                          <span className="hidden sm:inline">Upload Before {isEssentials ? 'Service' : 'Wash'} Photos</span>
+                          <span className="sm:hidden">Before Photos</span>
+                        </>
+                      );
+                    } else if (order.status === 'CAR_WASH_STARTED') {
+                      return isUploadingPrePickup ? 'Uploading...' : (
+                        <>
+                          <span className="hidden sm:inline">Upload After {isEssentials ? 'Service' : 'Wash'} Photos</span>
+                          <span className="sm:hidden">After Photos</span>
+                        </>
+                      );
+                    }
+                    return 'Upload Photos';
+                  } else if (isBatteryOrTire) {
+                    if (order.status === 'REACHED_CUSTOMER') {
+                      return isUploadingPrePickup ? 'Uploading...' : (
+                        <>
+                          <span className="hidden sm:inline">Upload Old & New Part Photos</span>
+                          <span className="sm:hidden">Old & New</span>
+                        </>
+                      );
+                    }
+                    return 'Upload Photos';
+                  } else {
+                    if (isPrePickupPhase) {
+                      const prePickupLabels = ['Front', 'Right', 'Back', 'Left'];
+                      const photoCount = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos.length : 0;
+                      const currentLabel = photoCount < 4 ? prePickupLabels[photoCount] : 'Upload Photos';
+                      
+                      return isUploadingPrePickup ? 'Uploading...' : (
+                        <>
+                          <span className="hidden sm:inline">{photoCount < 4 ? `Upload ${currentLabel} Photo` : 'Upload Photos'}</span>
+                          <span className="sm:hidden">{currentLabel}</span>
+                        </>
+                      );
+                    }
+                    return 'Upload Photos';
                   }
-                  return 'Upload Photos';
-                } else if (isBatteryOrTire) {
-                  if (order.status === 'REACHED_CUSTOMER') {
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">Upload Old & New Part Photos</span>
-                        <span className="sm:hidden">Old & New</span>
-                      </>
-                    );
-                  }
-                  return 'Upload Photos';
-                } else {
-                  if (isPrePickupPhase) {
-                    const prePickupLabels = ['Front', 'Right', 'Back', 'Left'];
-                    const photoCount = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos.length : 0;
-                    const currentLabel = photoCount < 4 ? prePickupLabels[photoCount] : 'Upload Photos';
-                    
-                    return isUploadingPrePickup ? 'Uploading...' : (
-                      <>
-                        <span className="hidden sm:inline">{photoCount < 4 ? `Upload ${currentLabel} Photo` : 'Upload Photos'}</span>
-                        <span className="sm:hidden">{currentLabel}</span>
-                      </>
-                    );
-                  }
-                  return 'Upload Photos';
-                }
-              })()}
-            </Button>
+                })()}
+              </Button>
+            )}
           </div>
 
           <input

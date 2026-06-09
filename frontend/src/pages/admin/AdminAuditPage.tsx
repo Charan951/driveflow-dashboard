@@ -140,6 +140,7 @@ const AdminAuditPage = () => {
     startDate: '',
     endDate: '',
   });
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     fetchLogs();
@@ -203,10 +204,6 @@ const AdminAuditPage = () => {
       // Check for too long data first
       if (value.length > 10) {
         toast.error('Too long data: Please enter a valid date in YYYY-MM-DD format');
-        return;
-      }
-      if (value && !isValidDate(value)) {
-        toast.error('Please enter a valid date');
         return;
       }
     }
@@ -285,6 +282,7 @@ const AdminAuditPage = () => {
       endDate: '',
     };
     setFilters(clearedFilters); // Update state
+    setResetKey(prev => prev + 1);
     fetchLogs(clearedFilters); // Pass clearedFilters directly to fetchLogs!
   };
 
@@ -341,10 +339,17 @@ const AdminAuditPage = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
+                key={`start-${resetKey}`}
                 type="date"
                 name="startDate"
                 value={filters.startDate}
                 onChange={handleFilterChange}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && !isValidDate(val)) {
+                    toast.error('Please enter a valid start date');
+                  }
+                }}
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"
@@ -358,10 +363,17 @@ const AdminAuditPage = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
+                key={`end-${resetKey}`}
                 type="date"
                 name="endDate"
                 value={filters.endDate}
                 onChange={handleFilterChange}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && !isValidDate(val)) {
+                    toast.error('Please enter a valid end date');
+                  }
+                }}
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"

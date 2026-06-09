@@ -11,6 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import Review from './models/Review.js';
+import User from './models/User.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -216,9 +217,14 @@ app.get(/^(?!\/api).*/, (req, res) => {
 });
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI);
-
-;
+mongoose.connect(process.env.MONGO_URI).then(async () => {
+  try {
+    await User.updateMany({}, { isOnline: false });
+    logger.info('Reset all user online statuses to offline on startup.');
+  } catch (err) {
+    logger.error('Error resetting user online statuses on startup:', err);
+  }
+});
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

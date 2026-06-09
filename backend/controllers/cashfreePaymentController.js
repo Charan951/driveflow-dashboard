@@ -11,12 +11,12 @@ import { logAudit } from './auditController.js';
 
 export const createOrder = async (req, res) => {
   try {
-    console.log('createOrder request body:', req.body);
+    // console.log('createOrder request body:', req.body);
     const { bookingId, amount, currency = 'INR', tempBookingData } = req.body;
     const userId = req.user._id;
-    console.log('User ID:', userId);
+    // console.log('User ID:', userId);
     const safeBookingId = bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
-    console.log('Safe booking ID:', safeBookingId);
+    // console.log('Safe booking ID:', safeBookingId);
     let orderAmount = Number(amount);
     if ((!orderAmount || isNaN(orderAmount)) && tempBookingData) {
       if (tempBookingData.finalAmount != null) {
@@ -33,7 +33,7 @@ export const createOrder = async (req, res) => {
     if (isNaN(orderAmount) || orderAmount < 1) {
       return res.status(400).json({ success: false, message: 'Invalid order amount' });
     }
-    console.log('Order amount:', orderAmount);
+    // console.log('Order amount:', orderAmount);
     const orderData = await paymentService.createOrder(userId, safeBookingId, orderAmount, currency, tempBookingData || null);
     await logAudit({
       user: userId,

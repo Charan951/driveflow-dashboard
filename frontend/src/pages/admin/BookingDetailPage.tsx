@@ -273,7 +273,7 @@ const BookingDetailPage: React.FC = () => {
       }
     });
 
-    socketService.on('liveLocation', (data: { userId: string; lat: number; lng: number; timestamp?: string; updatedAt?: string }) => {
+    socketService.on('liveLocation', (data: { userId: string; lat: number; lng: number; timestamp?: string; updatedAt?: string; isOnline?: boolean }) => {
       const timestamp = data.timestamp || data.updatedAt;
       
       // Update merchant locations
@@ -281,7 +281,7 @@ const BookingDetailPage: React.FC = () => {
         if (m._id === data.userId) {
           return {
             ...m,
-            isOnline: true,
+            isOnline: data.isOnline !== undefined ? data.isOnline : true,
             location: {
               ...m.location,
               lat: data.lat,
@@ -298,7 +298,7 @@ const BookingDetailPage: React.FC = () => {
         if (d._id === data.userId) {
           return {
             ...d,
-            isOnline: true,
+            isOnline: data.isOnline !== undefined ? data.isOnline : true,
             location: {
               ...d.location,
               lat: data.lat,
@@ -315,7 +315,7 @@ const BookingDetailPage: React.FC = () => {
         if (s._id === data.userId) {
           return {
             ...s,
-            isOnline: true,
+            isOnline: data.isOnline !== undefined ? data.isOnline : true,
             location: {
               ...s.location,
               lat: data.lat,
@@ -328,22 +328,60 @@ const BookingDetailPage: React.FC = () => {
       }));
     });
 
-    socketService.on('userStatusUpdate', (data: { userId: string; isOnline: boolean; lastSeen: string }) => {
+    socketService.on('userStatusUpdate', (data: { 
+      userId: string; 
+      isOnline: boolean; 
+      lastSeen: string;
+      location?: {
+        lat: number;
+        lng: number;
+        address?: string;
+        updatedAt?: string | Date;
+      };
+    }) => {
+      const timestamp = data.location?.updatedAt ? String(data.location.updatedAt) : data.lastSeen;
       setMerchants(prev => prev.map(m => {
         if (m._id === data.userId) {
-          return { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          const updated = { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          if (data.location?.lat && data.location?.lng) {
+            updated.location = {
+              ...m.location,
+              lat: data.location.lat,
+              lng: data.location.lng,
+              updatedAt: timestamp
+            };
+          }
+          return updated;
         }
         return m;
       }));
       setDrivers(prev => prev.map(d => {
         if (d._id === data.userId) {
-          return { ...d, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          const updated = { ...d, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          if (data.location?.lat && data.location?.lng) {
+            updated.location = {
+              ...d.location,
+              lat: data.location.lat,
+              lng: data.location.lng,
+              updatedAt: timestamp
+            };
+          }
+          return updated;
         }
         return d;
       }));
       setCarWashStaff(prev => prev.map(s => {
         if (s._id === data.userId) {
-          return { ...s, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          const updated = { ...s, isOnline: data.isOnline, lastSeen: data.lastSeen };
+          if (data.location?.lat && data.location?.lng) {
+            updated.location = {
+              ...s.location,
+              lat: data.location.lat,
+              lng: data.location.lng,
+              updatedAt: timestamp
+            };
+          }
+          return updated;
         }
         return s;
       }));
