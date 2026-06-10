@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
+import '../core/form_validation.dart';
 import '../state/auth_provider.dart';
 
 class LoginPage extends StatefulWidget {
@@ -55,11 +56,6 @@ class _LoginPageState extends State<LoginPage>
     super.dispose();
   }
 
-  bool _isValidEmail(String value) {
-    final v = value.trim();
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v);
-  }
-
   void _clearError() {
     if (_error != null) setState(() => _error = null);
   }
@@ -72,28 +68,17 @@ class _LoginPageState extends State<LoginPage>
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty) {
-      setState(() => _error = 'Email is required');
+    final emailError = FormValidation.validateEmail(
+      email,
+      rawInput: _emailController.text,
+    );
+    if (emailError != null) {
+      setState(() => _error = emailError);
       return;
     }
-    if (_emailController.text != _emailController.text.trim()) {
-      setState(() => _error = 'invalid email id');
-      return;
-    }
-    if (email.length > 35) {
-      setState(() => _error = 'Too long data not accept');
-      return;
-    }
-    if (!_isValidEmail(email)) {
-      setState(() => _error = 'invalid email id');
-      return;
-    }
-    if (password.isEmpty) {
-      setState(() => _error = 'Password is required');
-      return;
-    }
-    if (password.length > 15) {
-      setState(() => _error = 'Too long data not accept');
+    final passwordError = FormValidation.validateLoginPassword(password);
+    if (passwordError != null) {
+      setState(() => _error = passwordError);
       return;
     }
 
@@ -149,8 +134,9 @@ class _LoginPageState extends State<LoginPage>
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
 
-    if (otp.length != 6) {
-      setState(() => _error = 'Enter the 6-digit OTP');
+    final otpError = FormValidation.validateOtp(otp);
+    if (otpError != null) {
+      setState(() => _error = otpError);
       return;
     }
 
@@ -369,7 +355,7 @@ class _LoginPageState extends State<LoginPage>
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.mail_outline,
-                                      maxLength: 35,
+                                      maxLength: FormValidation.maxEmailLength,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 20),

@@ -6,7 +6,7 @@ import Timeline from '@/components/Timeline';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { socketService } from '@/services/socket';
-import { isValidName, hasExcessiveRepeatedChars, isValidDescription, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, isOnlySpecialCharacters } from '@/lib/formValidation';
+import { MAX_SUBJECT_LENGTH, MAX_TICKET_DESCRIPTION_LENGTH, MAX_CHAT_MESSAGE_LENGTH, validateSubject, validateTicketMessage, validateChatMessage } from '@/lib/formValidation';
 
 interface Ticket {
   _id: string;
@@ -34,9 +34,6 @@ const SupportPage: React.FC = () => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
-
-  const MAX_SUBJECT_LENGTH = 100;
-  const MAX_DESCRIPTION_LENGTH = 1000;
 
   useEffect(() => {
     fetchTickets();
@@ -72,34 +69,16 @@ const SupportPage: React.FC = () => {
     e.preventDefault();
     const cleanSubject = subject.trim();
     const cleanDescription = description.trim();
-    
-    if (cleanSubject.length < 3) {
-      toast.error('Subject should be at least 3 characters');
+
+    const subjectValidation = validateSubject(cleanSubject);
+    if (!subjectValidation.valid) {
+      toast.error(subjectValidation.error || 'Invalid subject');
       return;
     }
-    if (cleanSubject.length > MAX_SUBJECT_LENGTH) {
-      toast.error(`Subject should be at most ${MAX_SUBJECT_LENGTH} characters`);
-      return;
-    }
-    if (hasExcessiveRepeatedChars(cleanSubject)) {
-      toast.error('Subject contains excessive repeated characters');
-      return;
-    }
-    if (isOnlySpecialCharacters(cleanSubject)) {
-      toast.error('Subject cannot contain only special characters');
-      return;
-    }
-    
-    if (cleanDescription.length < 10) {
-      toast.error('Description should be at least 10 characters');
-      return;
-    }
-    if (cleanDescription.length > MAX_DESCRIPTION_LENGTH) {
-      toast.error(`Description should be at most ${MAX_DESCRIPTION_LENGTH} characters`);
-      return;
-    }
-    if (hasExcessiveRepeatedChars(cleanDescription)) {
-      toast.error('Description contains excessive repeated characters');
+
+    const messageValidation = validateTicketMessage(cleanDescription);
+    if (!messageValidation.valid) {
+      toast.error(messageValidation.error || 'Invalid description');
       return;
     }
 
@@ -124,7 +103,11 @@ const SupportPage: React.FC = () => {
   };
 
   const handleReply = async (ticketId: string) => {
-    if (!replyText.trim()) return;
+    const replyValidation = validateChatMessage(replyText);
+    if (!replyValidation.valid) {
+      toast.error(replyValidation.error || 'Invalid reply');
+      return;
+    }
 
     setIsReplying(true);
     try {
@@ -188,7 +171,7 @@ const SupportPage: React.FC = () => {
             placeholder="Describe your issue..." 
             rows={4} 
             required 
-            maxLength={MAX_DESCRIPTION_LENGTH}
+            maxLength={MAX_TICKET_DESCRIPTION_LENGTH}
             className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none text-sm sm:text-base" 
           />
           <button 
@@ -294,6 +277,7 @@ const SupportPage: React.FC = () => {
                         onChange={(e) => setReplyText(e.target.value)}
                         placeholder="Type your reply here..."
                         rows={2}
+                        maxLength={MAX_CHAT_MESSAGE_LENGTH}
                         className="flex-1 px-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none text-sm"
                       />
                       <button 

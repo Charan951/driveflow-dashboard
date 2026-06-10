@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
+import '../core/form_validation.dart';
 import '../state/auth_provider.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -65,30 +66,8 @@ class _RegisterPageState extends State<RegisterPage>
     super.dispose();
   }
 
-  bool _isValidEmail(String value) {
-    final v = value.trim();
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v);
-  }
-
-  String _digitsOnly(String value) {
-    return value.replaceAll(RegExp(r'[^0-9]'), '');
-  }
-
   void _clearError() {
     if (_error != null) setState(() => _error = null);
-  }
-
-  bool _validatePassword(String pass) {
-    final hasLen = pass.length >= 8;
-    final hasNum = RegExp(r'\d').hasMatch(pass);
-    final hasUpper = RegExp(r'[A-Z]').hasMatch(pass);
-    return hasLen && hasNum && hasUpper;
-  }
-
-  bool _isValidName(String value) {
-    final trimmed = value.trim();
-    // Allow letters, spaces, apostrophes, hyphens only
-    return RegExp(r"^[a-zA-Z][a-zA-Z\s'-]*$").hasMatch(trimmed);
   }
 
   bool _validateSignupForm({
@@ -98,47 +77,27 @@ class _RegisterPageState extends State<RegisterPage>
     required String confirm,
     required String phone,
   }) {
-    if (name.isEmpty) {
-      setState(() => _error = 'Full name is required');
+    final nameError = FormValidation.validateName(name);
+    if (nameError != null) {
+      setState(() => _error = nameError);
       return false;
     }
-    if (name.length > 50) {
-      setState(() => _error = 'Too long data not accept');
+    final emailError = FormValidation.validateEmail(
+      email,
+      rawInput: _emailController.text,
+    );
+    if (emailError != null) {
+      setState(() => _error = emailError);
       return false;
     }
-    if (!_isValidName(name)) {
-      setState(() => _error = 'Please enter a valid full name (must contain letters only with spaces, apostrophes, or hyphens)');
+    final passwordError = FormValidation.validatePassword(pass);
+    if (passwordError != null) {
+      setState(() => _error = passwordError);
       return false;
     }
-    if (email.isEmpty) {
-      setState(() => _error = 'Email is required');
-      return false;
-    }
-    if (_emailController.text != _emailController.text.trim()) {
-      setState(() => _error = 'invalid email id');
-      return false;
-    }
-    if (email.length > 35) {
-      setState(() => _error = 'Too long data not accept');
-      return false;
-    }
-    if (!_isValidEmail(email)) {
-      setState(() => _error = 'invalid email id');
-      return false;
-    }
-    if (pass.length > 15) {
-      setState(() => _error = 'Too long data not accept');
-      return false;
-    }
-    final digits = _digitsOnly(phone);
-    if (digits.length != 10) {
-      setState(() => _error = 'Enter a valid 10-digit WhatsApp number');
-      return false;
-    }
-    if (!_validatePassword(pass)) {
-      setState(
-        () => _error = 'Password must be 8+ chars with uppercase and number',
-      );
+    final phoneError = FormValidation.validatePhone(phone);
+    if (phoneError != null) {
+      setState(() => _error = phoneError);
       return false;
     }
     if (pass != confirm) {
@@ -157,7 +116,7 @@ class _RegisterPageState extends State<RegisterPage>
     final email = _emailController.text.trim();
     final pass = _passwordController.text;
     final confirm = _confirmController.text;
-    final phone = _digitsOnly(_phoneController.text.trim());
+    final phone = FormValidation.digitsOnly(_phoneController.text.trim());
 
     if (!_validateSignupForm(
       name: name,
@@ -207,10 +166,11 @@ class _RegisterPageState extends State<RegisterPage>
     if (_submitting) return;
 
     final otp = _otpController.text.trim();
-    final phone = _digitsOnly(_phoneController.text.trim());
+    final phone = FormValidation.digitsOnly(_phoneController.text.trim());
 
-    if (otp.length != 6) {
-      setState(() => _error = 'Enter the 6-digit OTP');
+    final otpError = FormValidation.validateOtp(otp);
+    if (otpError != null) {
+      setState(() => _error = otpError);
       return;
     }
 
@@ -359,7 +319,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       hintText: 'Full Name',
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.person_outline,
-                                      maxLength: 50,
+                                      maxLength: FormValidation.maxNameLength,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 16),
@@ -369,7 +329,7 @@ class _RegisterPageState extends State<RegisterPage>
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
                                       prefixIcon: Icons.mail_outline,
-                                      maxLength: 35,
+                                      maxLength: FormValidation.maxEmailLength,
                                       onChanged: (_) => _clearError(),
                                     ),
                                     const SizedBox(height: 16),

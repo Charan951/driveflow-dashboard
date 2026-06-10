@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isValidPhone10, isValidName, hasExcessiveRepeatedChars, isValidEmail } from '@/lib/formValidation';
+import { isValidName, hasExcessiveRepeatedChars, isValidEmail, isValidPhone10, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, isNameTooLong } from '@/lib/formValidation';
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -50,7 +50,12 @@ const ProfilePage: React.FC = () => {
   }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      setFormData({ ...formData, phone: value.replace(/\D/g, '').slice(0, 10) });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,8 +67,8 @@ const ProfilePage: React.FC = () => {
       toast.error('Full name is required');
       return;
     }
-    if (trimmedName.length > 50) {
-      toast.error('Name cannot exceed 50 characters');
+    if (isNameTooLong(trimmedName)) {
+      toast.error(`Name cannot exceed ${MAX_NAME_LENGTH} characters`);
       return;
     }
     if (!isValidName(trimmedName)) {
@@ -200,21 +205,21 @@ const ProfilePage: React.FC = () => {
               <Label htmlFor="name">Full Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="name" name="name" value={formData.name} onChange={handleChange} className="pl-10" placeholder="John Doe" maxLength={50} />
+                <Input id="name" name="name" value={formData.name} onChange={handleChange} className="pl-10" placeholder="John Doe" maxLength={MAX_NAME_LENGTH} />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" />
+                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" maxLength={MAX_EMAIL_LENGTH} />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} className="pl-10" placeholder="+91 9876543210" maxLength={15} />
+                <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} className="pl-10" placeholder="9876543210" maxLength={10} inputMode="numeric" />
               </div>
             </div>
           </div>

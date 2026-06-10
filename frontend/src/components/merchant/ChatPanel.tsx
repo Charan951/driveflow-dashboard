@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Send, Image as ImageIcon, Video } from 'lucide-react';
+import { toast } from 'sonner';
+import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '@/lib/formValidation';
 
 interface ChatPanelProps {
   bookingId: string;
@@ -14,11 +16,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ bookingId }) => {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    const validation = validateChatMessage(newMessage);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid message');
+      return;
+    }
+    const trimmedText = newMessage.trim();
     setMessages(prev => [...prev, {
       id: Date.now(),
       sender: 'Me',
-      text: newMessage,
+      text: trimmedText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }]);
     setNewMessage('');
@@ -61,6 +68,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ bookingId }) => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..." 
+            maxLength={MAX_CHAT_MESSAGE_LENGTH}
             className="flex-1 bg-muted/50 border-none rounded-full px-4 py-2 focus:ring-1 focus:ring-primary"
           />
           <button 

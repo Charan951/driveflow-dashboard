@@ -3,6 +3,12 @@ export const MAX_EMAIL_LENGTH = 30;
 export const MAX_PASSWORD_LENGTH = 15;
 export const MAX_NAME_LENGTH = 30;
 export const MAX_DESCRIPTION_LENGTH = 500;
+export const MAX_SUBJECT_LENGTH = 100;
+export const MIN_SUBJECT_LENGTH = 3;
+export const MIN_TICKET_MESSAGE_LENGTH = 10;
+export const MAX_TICKET_DESCRIPTION_LENGTH = 1000;
+export const MAX_CHAT_MESSAGE_LENGTH = 2000;
+export const MAX_REVIEW_COMMENT_LENGTH = 500;
 export const MAX_PRICE_LENGTH = 10;
 export const MAX_DURATION_LENGTH = 3;
 export const MAX_ESTIMATION_TIME_LENGTH = 3;
@@ -585,4 +591,58 @@ export const isValidCareerApplyUrl = (value: string): boolean => {
 
 export const isCareerApplyUrlTooLong = (value: string): boolean => {
   return value.trim().length > MAX_CAREER_APPLY_URL_LENGTH;
+};
+
+export const validateSubject = (value: string): { valid: boolean; error?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { valid: false, error: 'Subject is required.' };
+  if (trimmed.length < MIN_SUBJECT_LENGTH) {
+    return { valid: false, error: `Subject should be at least ${MIN_SUBJECT_LENGTH} characters.` };
+  }
+  if (trimmed.length > MAX_SUBJECT_LENGTH) {
+    return { valid: false, error: `Subject should be at most ${MAX_SUBJECT_LENGTH} characters.` };
+  }
+  if (isOnlySpecialCharacters(trimmed)) {
+    return { valid: false, error: 'Subject cannot contain only special characters.' };
+  }
+  if (hasExcessiveRepeatedChars(trimmed)) {
+    return { valid: false, error: 'Subject contains excessive repeated characters.' };
+  }
+  return { valid: true };
+};
+
+export const validateTicketMessage = (value: string): { valid: boolean; error?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { valid: false, error: 'Description is required.' };
+  if (trimmed.length < MIN_TICKET_MESSAGE_LENGTH) {
+    return { valid: false, error: `Description should be at least ${MIN_TICKET_MESSAGE_LENGTH} characters.` };
+  }
+  if (trimmed.length > MAX_TICKET_DESCRIPTION_LENGTH) {
+    return { valid: false, error: `Description should be at most ${MAX_TICKET_DESCRIPTION_LENGTH} characters.` };
+  }
+  if (hasExcessiveRepeatedChars(trimmed)) {
+    return { valid: false, error: 'Description contains excessive repeated characters.' };
+  }
+  return { valid: true };
+};
+
+export const validateChatMessage = (value: string): { valid: boolean; error?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { valid: false, error: 'Message cannot be empty.' };
+  if (trimmed.length > MAX_CHAT_MESSAGE_LENGTH) {
+    return { valid: false, error: `Message is too long (max ${MAX_CHAT_MESSAGE_LENGTH} characters).` };
+  }
+  return { valid: true };
+};
+
+export const validateReviewComment = (value: string): { valid: boolean; error?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { valid: true };
+  if (trimmed.length > MAX_REVIEW_COMMENT_LENGTH) {
+    return { valid: false, error: `Comment should be at most ${MAX_REVIEW_COMMENT_LENGTH} characters.` };
+  }
+  if (hasExcessiveRepeatedChars(trimmed)) {
+    return { valid: false, error: 'Comment contains excessive repeated characters.' };
+  }
+  return { valid: true };
 };

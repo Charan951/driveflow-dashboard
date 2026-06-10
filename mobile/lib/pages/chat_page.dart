@@ -8,6 +8,7 @@ import '../models/message.dart';
 import '../services/socket_service.dart';
 import '../state/auth_provider.dart';
 import '../core/app_colors.dart';
+import '../core/form_validation.dart';
 
 const carzziGreetingMessage = '''Hi 👋 Hope you're doing well!
 Welcome to Carzzi Support Chat  🚗
@@ -146,8 +147,17 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _sendMessage() {
+    final messageError = FormValidation.validateChatMessage(_messageController.text);
+    if (messageError != null || _isSending) {
+      if (messageError != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(messageError)),
+        );
+      }
+      return;
+    }
+
     final text = _messageController.text.trim();
-    if (text.isEmpty || _isSending) return;
 
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
@@ -580,6 +590,8 @@ class _ChatPageState extends State<ChatPage> {
           Expanded(
             child: TextField(
               controller: _messageController,
+              maxLength: FormValidation.maxChatMessageLength,
+              buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
               decoration: InputDecoration(
                 hintText: 'Type a message...',
                 hintStyle: TextStyle(color: Colors.grey.shade500),

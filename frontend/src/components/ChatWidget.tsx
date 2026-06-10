@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { updateApprovalStatus } from '@/services/approvalService';
 import { toast } from 'sonner';
+import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '@/lib/formValidation';
 import AddPartModal from './merchant/AddPartModal';
 import { useLocation } from 'react-router-dom';
 
@@ -221,11 +222,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    const validation = validateChatMessage(inputText);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid message');
+      return;
+    }
+
+    const trimmedText = inputText.trim();
 
     socketService.emit('sendMessage', {
       bookingId,
-      text: inputText,
+      text: trimmedText,
     });
 
     // Optimistically add the message to the UI
@@ -238,7 +245,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
         name: user!.name,
         role: user!.role,
       },
-      text: inputText,
+      text: trimmedText,
       createdAt: new Date().toISOString(),
       senderId: user!._id,
       senderName: user!.name,
@@ -431,6 +438,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       placeholder="Type message..."
+                      maxLength={MAX_CHAT_MESSAGE_LENGTH}
                       className="flex-1 bg-muted/50 border-none rounded-lg px-2.5 py-1.5 text-[11px] focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                     />
                     <button 

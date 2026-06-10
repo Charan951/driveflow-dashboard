@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -12,6 +13,7 @@ import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../core/app_colors.dart';
 import '../core/env.dart';
+import '../core/form_validation.dart';
 import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../widgets/customer_drawer.dart';
@@ -540,6 +542,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (user == null) return;
     final nameController = TextEditingController(text: user.name);
     final phoneController = TextEditingController(text: user.phone);
+    final formKey = GlobalKey<FormState>();
 
     await showModalBottomSheet(
       context: context,
@@ -556,50 +559,65 @@ class _ProfilePageState extends State<ProfilePage> {
           left: 20,
           right: 20,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Edit Profile', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Edit Profile',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: nameController,
+                maxLength: FormValidation.maxNameLength,
+                validator: FormValidation.validateName,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () async {
-                try {
-                  await context.read<AuthProvider>().updateProfile(
-                    name: nameController.text,
-                    phone: phoneController.text,
-                  );
-                  if (context.mounted) {
-                    Navigator.pop(context);
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: FormValidation.validatePhone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone',
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  try {
+                    await context.read<AuthProvider>().updateProfile(
+                      name: nameController.text.trim(),
+                      phone: FormValidation.digitsOnly(phoneController.text),
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
                   }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
-            const SizedBox(height: 20),
-          ],
+                },
+                child: const Text('Save Changes'),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );

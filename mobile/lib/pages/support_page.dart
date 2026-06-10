@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
+import '../core/form_validation.dart';
 import '../services/ticket_service.dart';
 import '../widgets/customer_drawer.dart';
 import '../core/storage.dart';
@@ -133,7 +134,14 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   Future<void> _handleReply() async {
-    if (_replyController.text.trim().isEmpty || _selectedTicket == null) return;
+    if (_selectedTicket == null) return;
+    final messageError = FormValidation.validateChatMessage(_replyController.text);
+    if (messageError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(messageError)),
+      );
+      return;
+    }
 
     setState(() => _isReplying = true);
     try {
@@ -162,6 +170,7 @@ class _SupportPageState extends State<SupportPage> {
   Future<void> _createTicket() async {
     final subjectController = TextEditingController();
     final messageController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     String category = 'General';
 
     await showModalBottomSheet(
@@ -180,93 +189,81 @@ class _SupportPageState extends State<SupportPage> {
             left: 20,
             right: 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'New Support Ticket',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: subjectController,
-                decoration: const InputDecoration(
-                  labelText: 'Subject',
-                  border: OutlineInputBorder(),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'New Support Ticket',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: category,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: subjectController,
+                  maxLength: FormValidation.maxSubjectLength,
+                  validator: FormValidation.validateSubject,
+                  decoration: const InputDecoration(
+                    labelText: 'Subject',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
                 ),
-                items:
-                    ['Booking', 'Payment', 'Technical', 'General', 'Complaint']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                onChanged: (v) => setModalState(() => category = v!),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: messageController,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  items:
+                      ['Booking', 'Payment', 'Technical', 'General', 'Complaint']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                  onChanged: (v) => setModalState(() => category = v!),
                 ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () async {
-                  final subject = subjectController.text.trim();
-                  final message = messageController.text.trim();
-                  if (subject.isEmpty || message.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please fill all fields')),
-                    );
-                    return;
-                  }
-                  if (subject.length < 3) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Subject must be at least 3 characters'),
-                      ),
-                    );
-                    return;
-                  }
-                  if (message.length < 10) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Description must be at least 10 characters'),
-                      ),
-                    );
-                    return;
-                  }
-                  try {
-                    await _ticketService.createTicket(
-                      subject: subject,
-                      message: message,
-                      category: category,
-                    );
-                    if (context.mounted) Navigator.pop(context);
-                    _loadTickets();
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: messageController,
+                  maxLines: 4,
+                  maxLength: FormValidation.maxTicketDescriptionLength,
+                  validator: FormValidation.validateTicketMessage,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final subject = subjectController.text.trim();
+                    final message = messageController.text.trim();
+                    try {
+                      await _ticketService.createTicket(
+                        subject: subject,
+                        message: message,
+                        category: category,
+                      );
+                      if (context.mounted) Navigator.pop(context);
+                      _loadTickets();
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
                     }
-                  }
-                },
-                child: const Text('Submit Ticket'),
-              ),
-              const SizedBox(height: 20),
-            ],
+                  },
+                  child: const Text('Submit Ticket'),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -759,8 +756,10 @@ class _SupportPageState extends State<SupportPage> {
                   child: TextField(
                     controller: _replyController,
                     maxLines: null,
+                    maxLength: FormValidation.maxChatMessageLength,
                     decoration: InputDecoration(
                       hintText: 'Type your reply...',
+                      counterText: '',
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.grey[100],
                       border: OutlineInputBorder(

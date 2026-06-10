@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/vehicle_service.dart';
 import '../../core/app_colors.dart';
+import '../../core/form_validation.dart';
+import '../../services/vehicle_service.dart';
 
 class AddVehiclePage extends StatefulWidget {
   const AddVehiclePage({super.key});
@@ -32,7 +33,6 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _pickupDropPriceController = TextEditingController();
   String _type = 'Car';
   String _fuelType = 'Petrol';
-  final RegExp _plateRegex = RegExp(r'^[A-Z]{2}\d{1,2}[A-Z]{1,2}\d{4}$');
 
   @override
   void initState() {
@@ -109,7 +109,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   Future<void> _handleRegNoSubmit() async {
     final plate = _licensePlateController.text.trim().toUpperCase();
     final normalized = plate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    if (!_plateRegex.hasMatch(normalized)) {
+    if (!FormValidation.licensePlateCompactRegex.hasMatch(normalized)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -524,28 +524,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           textCapitalization: textCapitalization,
           inputFormatters: keyboardType == TextInputType.number
               ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)]
-              : null,
+              : [LengthLimitingTextInputFormatter(FormValidation.maxVehicleFieldLength)],
           style: const TextStyle(color: AppColors.textPrimary),
           validator: (v) {
-            final value = (v ?? '').trim();
-            if (required && value.isEmpty) return 'Required';
-            if (label == 'Registration Number' && value.isNotEmpty) {
-              final normalized = value.toUpperCase().replaceAll(
-                RegExp(r'[^A-Z0-9]'),
-                '',
-              );
-              if (!_plateRegex.hasMatch(normalized)) {
-                return 'Invalid registration number';
-              }
+            if (label == 'Registration Number') {
+              return FormValidation.validateLicensePlate(v);
             }
-            if (label == 'Year' && value.isNotEmpty) {
-              final year = int.tryParse(value);
-              final currentYear = DateTime.now().year;
-              if (year == null || year < 1980 || year > currentYear + 1) {
-                return 'Enter a valid year';
-              }
+            if (label == 'Year') {
+              return FormValidation.validateVehicleYear(v);
             }
-            return null;
+            return FormValidation.validateVehicleTextField(v, required: required);
           },
           decoration: InputDecoration(
             hintText: hint,

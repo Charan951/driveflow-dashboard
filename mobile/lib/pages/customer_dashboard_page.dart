@@ -6,6 +6,7 @@ import '../state/navigation_provider.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
 import '../core/app_styles.dart';
+import '../core/form_validation.dart';
 import '../core/api_client.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
@@ -1681,6 +1682,7 @@ class _RecentBookingsSection extends StatelessWidget {
                       ),
                       TextField(
                         controller: merchantCommentController,
+                        maxLength: FormValidation.maxReviewCommentLength,
                         style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -1722,6 +1724,7 @@ class _RecentBookingsSection extends StatelessWidget {
                       ),
                       TextField(
                         controller: platformCommentController,
+                        maxLength: FormValidation.maxReviewCommentLength,
                         style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -1740,6 +1743,31 @@ class _RecentBookingsSection extends StatelessWidget {
                       onPressed: isReviewLoading
                           ? null
                           : () async {
+                              final merchantComment =
+                                  merchantCommentController.text.trim();
+                              final platformComment =
+                                  platformCommentController.text.trim();
+                              final merchantCommentError =
+                                  FormValidation.validateReviewComment(
+                                merchantComment,
+                              );
+                              if (merchantCommentError != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(merchantCommentError)),
+                                );
+                                return;
+                              }
+                              final platformCommentError =
+                                  FormValidation.validateReviewComment(
+                                platformComment,
+                              );
+                              if (platformCommentError != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(platformCommentError)),
+                                );
+                                return;
+                              }
+
                               setModalState(() => isReviewLoading = true);
                               try {
                                 if (!hasMerchantReview &&
@@ -1749,8 +1777,7 @@ class _RecentBookingsSection extends StatelessWidget {
                                   await reviewService.createReview(
                                     bookingId: booking.id,
                                     rating: merchantRating,
-                                    comment: merchantCommentController.text
-                                        .trim(),
+                                    comment: merchantComment,
                                     category: 'Merchant',
                                     targetId:
                                         booking.merchant!['_id'] ??
@@ -1761,8 +1788,7 @@ class _RecentBookingsSection extends StatelessWidget {
                                   await reviewService.createReview(
                                     bookingId: booking.id,
                                     rating: platformRating,
-                                    comment: platformCommentController.text
-                                        .trim(),
+                                    comment: platformComment,
                                     category: 'Platform',
                                   );
                                 }
