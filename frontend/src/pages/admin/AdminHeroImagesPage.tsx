@@ -93,6 +93,15 @@ const AdminHeroImagesPage = () => {
   const [pageHeroes, setPageHeroes] = useState<Record<string, PageHero>>({});
   const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
   const [showLearnMore, setShowLearnMore] = useState<boolean>(true);
+  const [originalSlides, setOriginalSlides] = useState<HeroSlide[]>([]);
+  const [originalPageHeroes, setOriginalPageHeroes] = useState<Record<string, PageHero>>({});
+  const [originalContactDetails, setOriginalContactDetails] = useState({
+    address: '',
+    mobileNumber: '',
+    email: '',
+  });
+  const [originalShowGetStarted, setOriginalShowGetStarted] = useState<boolean>(true);
+  const [originalShowLearnMore, setOriginalShowLearnMore] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [savingAll, setSavingAll] = useState(false);
   const [savingHomeSlides, setSavingHomeSlides] = useState(false);
@@ -282,6 +291,7 @@ const AdminHeroImagesPage = () => {
           };
         });
         setHomeSlides(processedSlides);
+        setOriginalSlides(processedSlides);
         
         // Initialize errors state for existing slides
         const initialErrors: Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }> = {};
@@ -294,20 +304,25 @@ const AdminHeroImagesPage = () => {
       // Page heroes
       if (data.pageHeroes) {
         setPageHeroes(data.pageHeroes);
+        setOriginalPageHeroes(data.pageHeroes);
       }
       if (data.contactDetails) {
-        setContactDetails({
+        const contact = {
           address: data.contactDetails.address || '',
           mobileNumber: data.contactDetails.mobileNumber || '',
           email: data.contactDetails.email || '',
-        });
+        };
+        setContactDetails(contact);
+        setOriginalContactDetails(contact);
       }
       // Toggle settings
       if (data.showGetStarted !== undefined) {
         setShowGetStarted(data.showGetStarted);
+        setOriginalShowGetStarted(data.showGetStarted);
       }
       if (data.showLearnMore !== undefined) {
         setShowLearnMore(data.showLearnMore);
+        setOriginalShowLearnMore(data.showLearnMore);
       }
 
       setBlogCategories(categoriesData);
@@ -395,6 +410,11 @@ const AdminHeroImagesPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image');
+      return;
+    }
+
     setUploading(activeUploadTarget.type === 'home' ? activeUploadTarget.id?.toString() || 'new' : activeUploadTarget.id?.toString() || 'page');
     try {
       const res = await uploadService.uploadFile(file);
@@ -447,19 +467,22 @@ const AdminHeroImagesPage = () => {
     try {
       console.log('Sending home slides data:', {
         homeSlides,
-        pageHeroes,
-        contactDetails,
+        pageHeroes: originalPageHeroes,
+        contactDetails: originalContactDetails,
         showGetStarted,
         showLearnMore,
       });
       await heroService.updateHeroSettings({
         homeSlides,
-        pageHeroes,
-        contactDetails,
+        pageHeroes: originalPageHeroes,
+        contactDetails: originalContactDetails,
         showGetStarted,
         showLearnMore,
       });
       toast.success('Home slides saved successfully');
+      setOriginalSlides(homeSlides);
+      setOriginalShowGetStarted(showGetStarted);
+      setOriginalShowLearnMore(showLearnMore);
     } catch (error: any) {
       console.error('Error saving home slides:', error);
       const errorMessage = error?.response?.data?.message || 'Failed to save home slides';
@@ -555,6 +578,7 @@ const AdminHeroImagesPage = () => {
       return;
     }
 
+    const updatedContactDetails = { ...originalContactDetails };
     if (pageId === 'contact') {
       console.log('Validating contact details:', contactDetails);
       if (!isValidAddress(contactDetails.address)) {
@@ -581,25 +605,37 @@ const AdminHeroImagesPage = () => {
         toast.error('Email is too long');
         return;
       }
+      updatedContactDetails.address = contactDetails.address;
+      updatedContactDetails.mobileNumber = contactDetails.mobileNumber;
+      updatedContactDetails.email = contactDetails.email;
     }
 
     setSavingPageId(pageId);
     try {
+      const updatedPageHeroes = {
+        ...originalPageHeroes,
+        [pageId]: pageHero
+      };
+
       console.log('Calling updateHeroSettings with data:', {
-        homeSlides,
-        pageHeroes,
-        contactDetails,
-        showGetStarted,
-        showLearnMore,
+        homeSlides: originalSlides,
+        pageHeroes: updatedPageHeroes,
+        contactDetails: updatedContactDetails,
+        showGetStarted: originalShowGetStarted,
+        showLearnMore: originalShowLearnMore,
       });
       await heroService.updateHeroSettings({
-        homeSlides,
-        pageHeroes,
-        contactDetails,
-        showGetStarted,
-        showLearnMore,
+        homeSlides: originalSlides,
+        pageHeroes: updatedPageHeroes,
+        contactDetails: updatedContactDetails,
+        showGetStarted: originalShowGetStarted,
+        showLearnMore: originalShowLearnMore,
       });
       toast.success(`${pageLabel} hero saved successfully`);
+      setOriginalPageHeroes(updatedPageHeroes);
+      if (pageId === 'contact') {
+        setOriginalContactDetails(updatedContactDetails);
+      }
     } catch (error: any) {
       console.error('Error saving page hero:', error);
       const errorMessage = error?.response?.data?.message || `Failed to save ${pageLabel} hero`;
