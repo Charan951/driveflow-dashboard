@@ -803,7 +803,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   <div className="border border-border rounded-lg overflow-hidden bg-background">
                     <div className="max-h-[200px] overflow-y-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-muted/50 sticky top-0 z-10">
+                        <thead className="bg-muted sticky top-0 z-10">
                           <tr className="border-b border-border">
                             <th className="text-left p-2 font-semibold text-muted-foreground">Email</th>
                             <th className="text-left p-2 font-semibold text-muted-foreground">Mobile</th>

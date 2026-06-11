@@ -138,7 +138,6 @@ export const prepareSignup = async (req, res) => {
     if (isTestingEnv()) {
       const pending = await PendingSignup.findOne({ mobile });
       const user = await createUserFromPendingSignup(pending, mobile);
-      console.info('[auth testing] Signup completed without OTP verification');
       return res.status(201).json(
         buildAuthUserPayload(user, {
           skipOtp: true,
@@ -319,9 +318,6 @@ export const prepareLogin = async (req, res) => {
     }
 
     if (user.role === 'admin' || isTestingEnv()) {
-      if (isTestingEnv()) {
-        console.info('[auth testing] Login completed without OTP verification');
-      }
       return res.json(buildAuthUserPayload(user, { skipOtp: true }));
     }
 

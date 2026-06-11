@@ -244,7 +244,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
                       <div 
                         key={booking._id} 
                         className="bg-card p-5 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all cursor-pointer"
-                        onClick={() => navigate(`/track-service/${booking._id}`)}
+                        onClick={() => navigate(`/track/${booking._id}`)}
                       >
                          <div className="space-y-2">
                             <div className="font-bold text-base sm:text-lg">

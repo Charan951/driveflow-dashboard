@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
         'OUT_FOR_DELIVERY',
       ];
 
-      const completedStatuses: Booking['status'][] = ['DELIVERED'];
+      const completedStatuses: Booking['status'][] = ['COMPLETED'];
 
       const active = bookingsData.filter((b: Booking) =>
         activeStatuses.includes(b.status)

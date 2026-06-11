@@ -31,8 +31,6 @@ class PaymentService {
    * Create Cashfree order + local order/payment records
    */
   async createOrder(userId, bookingId, amount, currency = 'INR', tempBookingData = null) {
-    console.log('PaymentService.createOrder called with:', { userId, bookingId, amount, currency, tempBookingData });
-    
     // Validate Cashfree configuration first
     if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
       console.error('Cashfree configuration missing: CASHFREE_APP_ID or CASHFREE_SECRET_KEY');
@@ -80,11 +78,9 @@ class PaymentService {
       order_expiry_time: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
       order_note: normalizedBookingId ? `booking:${normalizedBookingId}` : 'temp-booking'
     };
-    console.log('Cashfree PGCreateOrder request:', request);
 
     try {
       const cfRes = await this.cashfree.PGCreateOrder(request);
-      console.log('Cashfree PGCreateOrder response:', cfRes);
       const { payment_session_id: paymentSessionId, cf_order_id: cfOrderId, order_expiry_time: orderExpiryTime } = cfRes.data;
 
       const order = await Order.create({

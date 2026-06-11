@@ -127,7 +127,7 @@ const StaffDashboardPage: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <CounterCard label="Today's Orders" value={stats.todaysOrders} icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={0} />
             <CounterCard label="Pending" value={stats.pending} icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={1} />
-            <CounterCard label="Completed" value={stats.completed} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={2} />
+            <CounterCard label="Completed & delivered" value={stats.completed} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={2} />
             <CounterCard label="Job Value" value={`₹${stats.earnings}`} icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={3} />
           </div>
 

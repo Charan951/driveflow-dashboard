@@ -221,8 +221,6 @@ router.get('/search', asyncHandler(async (req, res) => {
   const cleanModel = model.replace(/\[.*\]/g, '').trim().toLowerCase();
   const cleanVariant = variant ? variant.trim().toLowerCase() : '';
 
-  console.log(`Searching for: Brand=${cleanBrand}, Model=${fullModel} (clean=${cleanModel}), Variant=${cleanVariant}`);
-
   const allData = await getVehicleDataFromS3();
 
   // Helper function for regex-like match
@@ -244,13 +242,11 @@ router.get('/search', asyncHandler(async (req, res) => {
       exactMatches(item.brand_model, cleanVariant)
     );
     if (exactMatch) {
-      console.log('Found exact match (Model & Variant):', exactMatch.brand_model);
       return res.json(exactMatch);
     }
 
     // 2. Strict exact match for Variant only (if user provided it, we want exact)
     // We removed the partial matches(item.brand_model, cleanVariant) as per user request
-    console.log('No exact variant match found for:', cleanVariant);
   }
 
   // 3. If no variant provided or no exact match, try exact model fallback
@@ -259,7 +255,6 @@ router.get('/search', asyncHandler(async (req, res) => {
     (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel))
   );
   if (exactModelFallback) {
-    console.log('Found exact model fallback:', exactModelFallback.brand_model);
     return res.json(exactModelFallback);
   }
 
@@ -270,10 +265,8 @@ router.get('/search', asyncHandler(async (req, res) => {
   );
 
   if (fallbackData) {
-    console.log('Found with partial model only:', fallbackData.brand_model, fallbackData.model);
     res.json(fallbackData);
   } else {
-    console.log('No vehicle data found');
     res.status(404).json({ message: 'Vehicle data not found' });
   }
 }));
