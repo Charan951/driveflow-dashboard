@@ -410,8 +410,15 @@ const AdminHeroImagesPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'tiff', 'ico'];
+    const isImage = file.type.startsWith('image/') || validExtensions.includes(fileExtension);
+
+    if (!isImage) {
       toast.error('Please upload a valid image');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -483,6 +490,9 @@ const AdminHeroImagesPage = () => {
       setOriginalSlides(homeSlides);
       setOriginalShowGetStarted(showGetStarted);
       setOriginalShowLearnMore(showLearnMore);
+      // Revert other unsaved page hero inputs and drafts to match S3
+      setPageHeroes(originalPageHeroes);
+      setContactDetails(originalContactDetails);
     } catch (error: any) {
       console.error('Error saving home slides:', error);
       const errorMessage = error?.response?.data?.message || 'Failed to save home slides';
@@ -633,9 +643,17 @@ const AdminHeroImagesPage = () => {
       });
       toast.success(`${pageLabel} hero saved successfully`);
       setOriginalPageHeroes(updatedPageHeroes);
+      setPageHeroes(updatedPageHeroes); // Revert unsaved changes on other pages in the UI
       if (pageId === 'contact') {
         setOriginalContactDetails(updatedContactDetails);
+        setContactDetails(updatedContactDetails);
+      } else {
+        setContactDetails(originalContactDetails); // Revert unsaved contact inputs
       }
+      // Revert unsaved slides and CTA settings
+      setHomeSlides(originalSlides);
+      setShowGetStarted(originalShowGetStarted);
+      setShowLearnMore(originalShowLearnMore);
     } catch (error: any) {
       console.error('Error saving page hero:', error);
       const errorMessage = error?.response?.data?.message || `Failed to save ${pageLabel} hero`;
