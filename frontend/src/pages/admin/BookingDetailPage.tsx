@@ -395,12 +395,44 @@ const BookingDetailPage: React.FC = () => {
     };
   }, [id]);
 
+  const getStatusBadgeClass = (status: string) => {
+    const styles: Record<string, string> = {
+      CREATED: 'bg-red-100 text-red-800',
+      ASSIGNED: 'bg-purple-100 text-purple-800',
+      ACCEPTED: 'bg-indigo-100 text-indigo-800',
+      REACHED_CUSTOMER: 'bg-amber-100 text-amber-800',
+      VEHICLE_PICKED: 'bg-orange-100 text-orange-800',
+      REACHED_MERCHANT: 'bg-cyan-100 text-cyan-800',
+      SERVICE_STARTED: 'bg-yellow-100 text-yellow-800',
+      SERVICE_COMPLETED: 'bg-green-100 text-green-800',
+      OUT_FOR_DELIVERY: 'bg-pink-100 text-pink-800',
+      DELIVERED: 'bg-emerald-100 text-emerald-800',
+      COMPLETED: 'bg-emerald-100 text-emerald-800',
+      CANCELLED: 'bg-red-100 text-red-800',
+      CAR_WASH_STARTED: 'bg-blue-100 text-blue-800',
+      CAR_WASH_COMPLETED: 'bg-green-100 text-green-800',
+      STAFF_REACHED_MERCHANT: 'bg-cyan-100 text-cyan-800',
+      PICKUP_BATTERY_TIRE: 'bg-orange-100 text-orange-800',
+      INSTALLATION: 'bg-yellow-100 text-yellow-800',
+      DELIVERY: 'bg-pink-100 text-pink-800',
+      MERCHANT_INSPECTION: 'bg-indigo-100 text-indigo-800',
+      PENDING_APPROVAL: 'bg-amber-100 text-amber-800',
+    };
+    return styles[status] || 'bg-blue-100 text-blue-800';
+  };
+
+  const truncateOptionLabel = (label: string, max = 72) =>
+    label.length > max ? `${label.slice(0, max - 1)}…` : label;
+
+  const assignmentSelectClass =
+    'w-full min-w-0 max-w-full box-border p-2 rounded-lg border border-border bg-background text-sm';
+
   const handleStatusUpdate = async (newStatus: string) => {
     if (!booking) return;
     try {
       await bookingService.updateBookingStatus(booking._id, newStatus);
       setBooking({ ...booking, status: newStatus as Booking['status'] });
-      toast.success(`Status updated to ${newStatus}`);
+      toast.success(`Status updated to ${getStatusLabel(newStatus, booking.services || [])}`);
     } catch (error) {
       toast.error('Failed to update status');
     }
@@ -456,42 +488,40 @@ const BookingDetailPage: React.FC = () => {
   const vehicle = booking.vehicle as unknown as Vehicle;
   
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full min-w-0 max-w-7xl mx-auto overflow-x-hidden p-4 sm:p-6 pb-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-start gap-2 sm:gap-4 mb-6 min-w-0 max-w-full">
         <button 
           onClick={() => navigate('/admin/bookings')}
-          className="p-2 hover:bg-muted rounded-full transition-colors"
+          className="p-2 hover:bg-muted rounded-full transition-colors shrink-0 -ml-2 sm:ml-0"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3">
+        <div className="flex-1 min-w-0 max-w-full">
+          <h1 className="text-lg sm:text-2xl font-bold break-words leading-snug">
             Booking #{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}
-            <span className={`px-3 py-1 rounded-full text-xs font-medium 
-              ${booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
-                booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-                booking.status === 'CREATED' ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'}`}>
-              {booking.status}
+          </h1>
+          <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <span className={`inline-flex max-w-full shrink-0 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusBadgeClass(booking.status)}`}>
+              {getStatusLabel(booking.status, booking.services || [])}
             </span>
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
+            <span className="inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
               {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length >= 4 ? (
                 <>
-                  <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                  <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
                   <span className="text-green-700">Pickup photos ready</span>
                 </>
               ) : (
                 <>
-                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span className="text-amber-600">
                     {Array.isArray(booking.prePickupPhotos) ? `${booking.prePickupPhotos.length}/4 photos` : '0/4 photos'}
                   </span>
                 </>
               )}
             </span>
-          </h1>
-          <p className="text-muted-foreground text-sm">Created on {new Date(booking.createdAt).toLocaleString()}</p>
+          </div>
+          <p className="text-muted-foreground text-sm mt-2">Created on {new Date(booking.createdAt).toLocaleString()}</p>
         </div>
       </div>
 
@@ -528,17 +558,12 @@ const BookingDetailPage: React.FC = () => {
                     onClick={() => navigate(`/admin/bookings/${prevBooking._id}`)}
                     className="p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors"
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-mono text-[10px] text-muted-foreground">
+                    <div className="flex justify-between items-start gap-2 mb-1">
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
                         #{prevBooking.orderNumber ?? prevBooking._id.slice(-6).toUpperCase()}
                       </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        prevBooking.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-                        prevBooking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
-                        prevBooking.status === 'CREATED' ? 'bg-red-100 text-red-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {prevBooking.status}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium text-right ${getStatusBadgeClass(prevBooking.status)}`}>
+                        {getStatusLabel(prevBooking.status, prevBooking.services || [])}
                       </span>
                     </div>
                     <div className="text-xs font-medium truncate">
@@ -1167,18 +1192,18 @@ const BookingDetailPage: React.FC = () => {
           ) : null}
 
           {/* Assignment Panel */}
-          <div className="bg-card rounded-2xl border border-border p-6">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                   <Shield className="w-5 h-5 text-primary" />
-                   Assignments & Operations
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 min-w-0 max-w-full overflow-hidden">
+             <div className="flex flex-col gap-4 mb-6 min-w-0">
+                <h3 className="font-semibold text-base sm:text-lg flex items-center gap-2 min-w-0">
+                   <Shield className="w-5 h-5 text-primary shrink-0" />
+                   <span className="break-words">Assignments & Operations</span>
                 </h3>
-                <div className="flex items-center gap-3">
+                <div className="flex items-stretch sm:items-center gap-3 w-full sm:w-auto">
                    <button 
                      onClick={handleAssignment}
-                     className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm flex items-center gap-2"
+                     className="w-full sm:w-auto px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2"
                    >
-                      <CheckCircle className="w-4 h-4" />
+                      <CheckCircle className="w-4 h-4 shrink-0" />
                       Save Assignments
                    </button>
                 </div>
@@ -1186,13 +1211,13 @@ const BookingDetailPage: React.FC = () => {
              
              {isCarWashService ? (
                // Car wash service assignment - only show staff selection
-               <div className="space-y-4">
-                 <div className="space-y-2">
+               <div className="space-y-4 min-w-0">
+                 <div className="space-y-2 min-w-0">
                    <label className="text-sm font-medium flex items-center gap-2">
-                      <UserIcon className="w-4 h-4 text-muted-foreground" /> Staff
+                      <UserIcon className="w-4 h-4 text-muted-foreground shrink-0" /> Staff
                    </label>
                    <select 
-                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                      className={assignmentSelectClass}
                       value={selectedCarWashStaff}
                       onChange={(e) => setSelectedCarWashStaff(e.target.value)}
                    >
@@ -1222,7 +1247,7 @@ const BookingDetailPage: React.FC = () => {
                          } else if (s.isOnline) {
                             label += " - Location unknown";
                          }
-                         return <option key={s._id} value={s._id}>{label}</option>;
+                         return <option key={s._id} value={s._id}>{truncateOptionLabel(label)}</option>;
                       })}
                    </select>
                  </div>
@@ -1236,13 +1261,13 @@ const BookingDetailPage: React.FC = () => {
                </div>
              ) : isBatteryOrTireService ? (
                // Battery/Tire service assignment - show both merchant and staff selection
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-2">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                 <div className="space-y-2 min-w-0">
                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
+                      <Store className="w-4 h-4 text-muted-foreground shrink-0" /> Merchant/Workshop
                    </label>
                    <select 
-                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                      className={assignmentSelectClass}
                       value={selectedMerchant}
                       onChange={(e) => setSelectedMerchant(e.target.value)}
                    >
@@ -1272,17 +1297,17 @@ const BookingDetailPage: React.FC = () => {
                                }
                             } catch (e) { /* ignore */ }
                          }
-                         return <option key={m._id} value={m._id}>{label}</option>;
+                         return <option key={m._id} value={m._id}>{truncateOptionLabel(label)}</option>;
                       })}
                    </select>
                  </div>
 
-                 <div className="space-y-2">
+                 <div className="space-y-2 min-w-0">
                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-muted-foreground" /> Battery/Tire Service Staff
+                      <Truck className="w-4 h-4 text-muted-foreground shrink-0" /> Battery/Tire Service Staff
                    </label>
                    <select 
-                      className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                      className={assignmentSelectClass}
                       value={selectedDriver}
                       onChange={(e) => setSelectedDriver(e.target.value)}
                    >
@@ -1312,7 +1337,7 @@ const BookingDetailPage: React.FC = () => {
                          } else if (d.isOnline) {
                             label += " - Location unknown";
                          }
-                         return <option key={d._id} value={d._id}>{label}</option>;
+                         return <option key={d._id} value={d._id}>{truncateOptionLabel(label)}</option>;
                       })}
                    </select>
                  </div>
@@ -1333,13 +1358,13 @@ const BookingDetailPage: React.FC = () => {
                </div>
              ) : (
                // Regular service assignment - show merchant and driver
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                  <div className="space-y-2 min-w-0">
                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Store className="w-4 h-4 text-muted-foreground" /> Merchant/Workshop
+                        <Store className="w-4 h-4 text-muted-foreground shrink-0" /> Merchant/Workshop
                      </label>
                      <select 
-                        className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                        className={assignmentSelectClass}
                         value={selectedMerchant}
                         onChange={(e) => setSelectedMerchant(e.target.value)}
                      >
@@ -1366,17 +1391,17 @@ const BookingDetailPage: React.FC = () => {
                                  // ignore error
                               }
                            }
-                           return <option key={m._id} value={m._id}>{label}</option>
+                           return <option key={m._id} value={m._id}>{truncateOptionLabel(label)}</option>
                         })}
                      </select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <label className="text-sm font-medium flex items-center gap-2">
-                       <Truck className="w-4 h-4 text-muted-foreground" /> Pickup Driver
+                       <Truck className="w-4 h-4 text-muted-foreground shrink-0" /> Pickup Driver
                     </label>
                     <select 
-                       className="w-full p-2 rounded-lg border border-border bg-background text-sm"
+                       className={assignmentSelectClass}
                        value={selectedDriver}
                        onChange={(e) => setSelectedDriver(e.target.value)}
                     >
@@ -1397,7 +1422,7 @@ const BookingDetailPage: React.FC = () => {
                                }
                             } catch (e) { /* ignore */ }
                          }
-                         return <option key={d._id} value={d._id}>{label}</option>;
+                         return <option key={d._id} value={d._id}>{truncateOptionLabel(label)}</option>;
                        })}
                     </select>
                   </div>
@@ -1406,9 +1431,9 @@ const BookingDetailPage: React.FC = () => {
           </div>
 
           {/* Status Workflow */}
-          <div className="bg-card rounded-2xl border border-border p-6">
-             <h3 className="font-semibold text-lg mb-4">Workflow Actions</h3>
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 min-w-0 max-w-full overflow-hidden">
+             <h3 className="font-semibold text-base sm:text-lg mb-4">Workflow Actions</h3>
+            <div className="flex flex-wrap gap-2 min-w-0">
                {(isCarWashService ? (
                  // Car wash specific workflow
                  [
@@ -1451,7 +1476,7 @@ const BookingDetailPage: React.FC = () => {
                     key={s.value}
                     onClick={() => handleStatusUpdate(s.value)}
                     disabled={booking.status === s.value}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all
+                    className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0
                       ${booking.status === s.value 
                         ? 'bg-primary text-primary-foreground shadow-md' 
                         : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}

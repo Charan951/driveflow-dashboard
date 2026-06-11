@@ -549,18 +549,18 @@ const AdminMerchantsPage: React.FC = () => {
       <AnimatePresence>
         {showAddModal && (
           <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 pb-24 lg:pb-4"
             onClick={() => setShowAddModal(false)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[calc(100dvh-7rem)] lg:max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 <h2 className="text-xl font-bold dark:text-white">Add New Merchant</h2>
                 <button
                   type="button"
@@ -571,9 +571,9 @@ const AdminMerchantsPage: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleAddMerchant} className="flex flex-col flex-1 overflow-hidden">
+              <form onSubmit={handleAddMerchant} className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 {/* Modal Body */}
-                <div className="p-6 overflow-y-auto space-y-4">
+                <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Merchant/Shop Name
@@ -678,18 +678,18 @@ const AdminMerchantsPage: React.FC = () => {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isAddingMerchant}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-medium text-sm shadow-sm"
+                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-medium text-sm shadow-sm"
                   >
                     {isAddingMerchant ? 'Adding…' : 'Add Merchant'}
                   </button>
@@ -704,7 +704,7 @@ const AdminMerchantsPage: React.FC = () => {
       <AnimatePresence>
         {showEditModal && editingMerchant && (
           <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 pb-24 lg:pb-4"
             onClick={() => {
               setShowEditModal(false);
               setEditingMerchant(null);
@@ -714,11 +714,11 @@ const AdminMerchantsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full shadow-xl max-h-[calc(100dvh-7rem)] lg:max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 <h2 className="text-xl font-bold dark:text-white">Edit Merchant</h2>
                 <button
                   type="button"
@@ -732,9 +732,9 @@ const AdminMerchantsPage: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleUpdateMerchant} className="flex flex-col flex-1 overflow-hidden">
+              <form onSubmit={handleUpdateMerchant} className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 {/* Modal Body */}
-                <div className="p-6 overflow-y-auto space-y-4">
+                <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Merchant/Shop Name
@@ -820,20 +820,20 @@ const AdminMerchantsPage: React.FC = () => {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       setShowEditModal(false);
                       setEditingMerchant(null);
                     }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
+                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
                   >
                     Update Merchant
                   </button>

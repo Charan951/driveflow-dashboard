@@ -75,7 +75,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         {/* Sidebar — above Leaflet map panes (popup/tooltip ~700) on track/order pages */}
         <aside
           className={cn(
-            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-[1000] transition-transform duration-300 flex flex-col',
+            'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-[1000] transition-transform duration-300 flex flex-col overflow-hidden',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
@@ -94,7 +94,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
           </div>
 
           {/* Menu */}
-          <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+          <nav className="p-4 space-y-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             {customerMenuItems.map((item) => {
               const isActive = location.pathname + location.search === item.path || 
                               (item.path === '/dashboard' && location.pathname === '/dashboard');
@@ -117,8 +117,17 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="p-4 shrink-0">
+          {/* Profile & Logout */}
+          <div className="p-4 pt-3 border-t border-border shrink-0 bg-card pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center gap-3 px-2 py-2 mb-2 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0 overflow-hidden text-left">
+                <p className="text-sm font-semibold truncate">{user?.name || 'Customer'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email || user?.phone || ''}</p>
+              </div>
+            </div>
             <button
               onClick={() => {
                 setSidebarOpen(false);
@@ -126,14 +135,14 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               }}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-5 h-5 shrink-0" />
               <span className="font-medium">Logout</span>
             </button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-h-screen min-w-0">
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 max-w-full">
           {/* Header */}
           <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-6 bg-card/95 backdrop-blur-xl border-b border-border">
             <div className="flex items-center gap-4">
@@ -156,8 +165,8 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
             </div>
           </header>
 
-          <main className="flex-1 pb-20 lg:pb-6 min-w-0">
-            <div className="w-full h-full min-w-0 px-4 sm:px-6 lg:px-8">
+          <main className="flex-1 pb-20 lg:pb-6 min-w-0 overflow-x-hidden">
+            <div className="w-full h-full min-w-0 max-w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
               <PageTransition>
                 {children || <Outlet />}
               </PageTransition>

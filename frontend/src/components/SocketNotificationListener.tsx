@@ -9,6 +9,19 @@ import { useAppStore } from '@/store/appStore';
 import { updateApprovalStatus } from '@/services/approvalService';
 import { dispatchGlobalSync, normalizeGlobalSyncPayload } from '@/lib/globalSync';
 
+/** Prevent duplicate booking toasts within a short window (server + client echo). */
+const recentBookingUpdateToasts = new Map<string, number>();
+const BOOKING_TOAST_DEDUPE_MS = 4000;
+
+const shouldShowBookingUpdateToast = (bookingId: string, status: string) => {
+  const key = `${bookingId}:${status || 'updated'}`;
+  const now = Date.now();
+  const last = recentBookingUpdateToasts.get(key);
+  if (last && now - last < BOOKING_TOAST_DEDUPE_MS) return false;
+  recentBookingUpdateToasts.set(key, now);
+  return true;
+};
+
 const SocketNotificationListener = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -50,8 +63,12 @@ const SocketNotificationListener = () => {
         type: data.type === 'error' ? 'error' : data.type === 'success' ? 'success' : data.type === 'warning' ? 'warning' : 'info',
       });
 
-      // Show toast if it's not a booking update (which has its own toast)
-      if (data.type !== 'order') {
+      // Show toast if it's not a booking/order update (bookingUpdated handles those)
+      const isBookingRelated =
+        data.type === 'order' ||
+        data.type === 'booking' ||
+        (typeof data.title === 'string' && data.title.toLowerCase().includes('booking'));
+      if (!isBookingRelated) {
         toast.info(data.title || 'New Notification', {
           description: data.body || data.message || '',
         });
@@ -69,9 +86,13 @@ const SocketNotificationListener = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
-      // Show notification
+      // Show notification (dedupe rapid repeats for the same booking + status)
       const orderNum = data.orderNumber || data._id.toString().slice(-6).toUpperCase();
       const status = (data.status || 'updated').replace(/_/g, ' ');
+
+      if (!shouldShowBookingUpdateToast(String(data._id), String(data.status || ''))) {
+        return;
+      }
       
       toast.info(`Booking Updated`, {
         description: `Booking #${orderNum} status is now ${status}`,

@@ -110,26 +110,31 @@ const PublicNavbar: React.FC = () => {
   const transparentPaths = ['/', '/about-us', '/careers', '/contact', '/faqs', '/reviews'];
   const isTransparentPage = transparentPaths.includes(location.pathname);
   const shouldBeScrolled = isScrolled || !isTransparentPage;
+  const logoClassName = shouldBeScrolled
+    ? 'w-full h-full object-contain object-left brightness-0'
+    : 'w-full h-full object-contain object-left drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)] drop-shadow-[0_0_16px_rgba(0,0,0,0.55)]';
+  const logoSrcSet = '/carzzilogo.webp 250w, /carzzilogo-original.png 514w';
 
   return (
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         shouldBeScrolled 
           ? 'bg-card/80 backdrop-blur-xl border-b border-border shadow-sm' 
-          : 'bg-transparent'
+          : 'bg-black/45 backdrop-blur-md md:bg-transparent'
       }`}>
-        <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
+        <div className="w-full max-w-full px-4 sm:px-6 md:px-8 h-16 flex items-center justify-between gap-3 min-w-0">
           <Link 
             to="/" 
-            className="flex items-center gap-2">
-            <div className="w-40 h-16 flex items-center justify-center mt-4 md:mt-3">
+            className="flex items-center shrink-0 min-w-0 max-w-[42%] sm:max-w-none">
+            <div className="w-28 h-10 sm:w-36 sm:h-12 md:w-40 md:h-16 flex items-center justify-center">
               <img
                 src="/carzzilogo.webp"
-                srcSet="/carzzilogo-small.webp 1x, /carzzilogo.webp 2x"
+                srcSet={logoSrcSet}
+                sizes="(max-width: 767px) 112px, (max-width: 1023px) 144px, 160px"
                 alt="Carzzi"
                 width={160}
                 height={64}
-                className="w-full h-full object-contain"
+                className={logoClassName}
                 fetchPriority="high"
                 loading="eager"
               />
@@ -263,22 +268,25 @@ const PublicNavbar: React.FC = () => {
       
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 bottom-0 w-[300px] bg-card border-r border-border z-[70] md:hidden flex flex-col shadow-2xl transition-transform duration-300 ease-out transform ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 w-[300px] bg-card border-r border-border z-[70] md:hidden flex flex-col shadow-2xl transition-[left] duration-300 ease-out ${
+          isOpen ? 'left-0' : '-left-[300px]'
         }`}
       >
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           <Link 
             to="/" 
-            className="flex items-center">
-            <div className="w-28 h-10 flex items-center justify-center">
+            className="flex items-center min-w-0">
+            <div className="h-11 w-32 flex items-center justify-start">
               <img
-                src="/carzzilogo.webp"
-                srcSet="/carzzilogo-small.webp 1x, /carzzilogo.webp 2x"
+                src="/carzzilogo-original.png"
+                srcSet="/carzzilogo.png 250w, /carzzilogo-original.png 514w"
+                sizes="128px"
                 alt="Carzzi"
-                width={112}
-                height={40}
-                className="w-full h-full object-contain"
+                width={128}
+                height={56}
+                className="h-full w-auto max-w-full object-contain object-left brightness-0"
+                loading="eager"
+                decoding="async"
               />
             </div>
           </Link>

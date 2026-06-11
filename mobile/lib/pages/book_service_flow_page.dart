@@ -81,6 +81,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedTimeSlot;
   List<String> _availableSlots = [];
+  List<String> _bookedSlots = [];
+  List<String> _blockedSlots = [];
+  List<String> _allSlotsForDate = [];
   List<String> _availableServicePincodes = [];
   bool _pincodesReady = false;
   String? _selectedAddress;
@@ -109,6 +112,46 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   bool _isSameCalendarDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _isSlotInPastForToday(String slot) {
+    final now = DateTime.now();
+    if (!_isSameCalendarDay(_selectedDate, now)) return false;
+    final m = RegExp(r'^(\d{1,2}):(\d{2})\s([AP]M)$').firstMatch(slot);
+    if (m == null) return false;
+    var hour = int.tryParse(m.group(1)!);
+    final minute = int.tryParse(m.group(2)!);
+    final period = m.group(3)!;
+    if (hour == null || minute == null) return false;
+    if (period == 'PM' && hour < 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+    final slotTime = DateTime(now.year, now.month, now.day, hour, minute);
+    return !slotTime.isAfter(now);
+  }
+
+  ({int available, int booked}) _slotBadgeCounts() {
+    final catalog = _allSlotsForDate.isNotEmpty
+        ? _allSlotsForDate
+        : _availableSlots;
+    final unavailable = {..._bookedSlots, ..._blockedSlots};
+    final visible = catalog
+        .where((slot) => !_isSlotInPastForToday(slot))
+        .toList();
+    final serverBooked = visible.where(unavailable.contains).length;
+    final serverAvailable = visible
+        .where(
+          (slot) =>
+              _availableSlots.contains(slot) && !unavailable.contains(slot),
+        )
+        .length;
+    final holdsSelection =
+        _selectedTimeSlot != null &&
+        _availableSlots.contains(_selectedTimeSlot!) &&
+        !unavailable.contains(_selectedTimeSlot!);
+    return (
+      available: holdsSelection ? serverAvailable - 1 : serverAvailable,
+      booked: holdsSelection ? serverBooked + 1 : serverBooked,
+    );
   }
 
   void _onGlobalSyncRefresh() {
@@ -322,14 +365,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return 'General Services';
   }
 
-  Future<void> _fetchSlotsForDate(DateTime date) async {
+  Future<List<String>> _fetchSlotsForDate(DateTime date) async {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final category = _getBookingCategory();
-      var slots = await _bookingService.getAvailableSlots(
+      final availability = await _bookingService.getSlotAvailability(
         dateStr,
         category: category,
       );
+      var slots = List<String>.from(availability.availableSlots);
 
       final now = DateTime.now();
       if (_isSameCalendarDay(date, now)) {
@@ -348,20 +392,28 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         }).toList();
       }
 
-      if (!mounted) return;
+      if (!mounted) return slots;
       setState(() {
         _availableSlots = slots;
+        _bookedSlots = availability.bookedSlots;
+        _blockedSlots = availability.blockedSlots;
+        _allSlotsForDate = availability.allSlots;
         if (_selectedTimeSlot != null &&
             !_availableSlots.contains(_selectedTimeSlot)) {
           _selectedTimeSlot = null;
         }
       });
+      return slots;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return const [];
       setState(() {
         _availableSlots = [];
+        _bookedSlots = [];
+        _blockedSlots = [];
+        _allSlotsForDate = [];
         _selectedTimeSlot = null;
       });
+      return const [];
     }
   }
 
@@ -1155,6 +1207,61 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Builder(
+                    builder: (context) {
+                      final counts = _slotBadgeCounts();
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${counts.available} available',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? AppColors.primaryBlue
+                                    : const Color(0xFF1D4ED8),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${counts.booked} booked',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Expanded(
                   child: _availableSlots.isEmpty
                       ? Center(
@@ -1437,7 +1544,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
   }
 
-  void _handleNext() {
+  Future<void> _handleNext() async {
     if (_currentStep == 2) {
       if (_selectedTimeSlot == null || _selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1450,6 +1557,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           const SnackBar(
             content: Text(
               'Service booking is not enabled for this pincode. Please choose another location.',
+            ),
+          ),
+        );
+        return;
+      }
+      final latestAvailable = await _fetchSlotsForDate(_selectedDate);
+      if (_selectedTimeSlot == null ||
+          !latestAvailable.contains(_selectedTimeSlot)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Selected slot is no longer available. Please choose another slot.',
             ),
           ),
         );

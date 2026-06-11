@@ -131,18 +131,18 @@ const Orders: React.FC = () => {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6 w-full min-w-0 max-w-full overflow-x-hidden"
     >
-      <motion.div variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div variants={staggerItem} className="min-w-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Service Orders</h1>
-          <p className="text-muted-foreground mt-1">Manage your service bookings and assignments</p>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-primary">Service Orders</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage your service bookings and assignments</p>
         </div>
       </motion.div>
 
       {/* Filters and Search */}
-      <motion.div variants={staggerItem} className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
-        <div className="relative flex-1">
+      <motion.div variants={staggerItem} className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border shadow-sm min-w-0 max-w-full overflow-hidden">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
@@ -162,15 +162,16 @@ const Orders: React.FC = () => {
               setSearchQuery(val);
             }}
             maxLength={30}
-            className="w-full pl-9 pr-4 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full min-w-0 pl-9 pr-4 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+        <div className="min-w-0 max-w-full overflow-x-auto -mx-1 px-1">
+          <div className="flex items-center gap-2 w-max min-w-full pb-1 sm:pb-0">
           {(['active', 'completed', 'delivered', 'pending-bills', 'all'] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => handleFilterChange(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`shrink-0 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors ${
                 filter === f 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -179,11 +180,12 @@ const Orders: React.FC = () => {
               {f.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </button>
           ))}
+          </div>
         </div>
       </motion.div>
 
       {/* Orders Grid */}
-      <motion.div variants={staggerItem} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <motion.div variants={staggerItem} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 min-w-0">
         {filteredBookings.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No orders found matching your criteria.
@@ -195,20 +197,20 @@ const Orders: React.FC = () => {
               variants={staggerItem}
               whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }}
               onClick={() => navigate(`/merchant/order/${booking._id}`)}
-              className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
+              className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors min-w-0 max-w-full"
             >
-              <div className="p-5 flex-1 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                      <Car className="w-4 h-4" />
-                      <span>{(booking.vehicle as unknown as Vehicle)?.model || 'Unknown Vehicle'}</span>
+              <div className="p-4 sm:p-5 flex-1 space-y-4 min-w-0">
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium min-w-0">
+                      <Car className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{(booking.vehicle as unknown as Vehicle)?.model || 'Unknown Vehicle'}</span>
                     </div>
-                    <h3 className="font-bold text-lg">
+                    <h3 className="font-bold text-base sm:text-lg break-words">
                       {(booking.vehicle as unknown as Vehicle)?.licensePlate || 'N/A'}
                     </h3>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] sm:text-xs font-semibold max-w-[45%] text-right leading-tight ${
                     booking.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                     booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
                     'bg-blue-100 text-blue-800'

@@ -5,6 +5,9 @@ import { carWashService, CarWashBooking } from '../services/carWashService';
 import { uploadService } from '../services/uploadService';
 import { toast } from '../hooks/use-toast';
 
+const CAR_WASH_REQUIRED_PHOTOS = 4;
+const INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE = 'Please upload complete 4 photos';
+
 interface CarWashPanelProps {
   booking: CarWashBooking;
   onUpdate: () => void;
@@ -17,25 +20,27 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
 
   const isEssentials = booking.services?.some(s => s.category?.toLowerCase().includes('essentials'));
 
-  const canUploadBefore = booking.status === 'REACHED_CUSTOMER' && 
-    (!booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0);
-  
-  const canStartWash = booking.status === 'REACHED_CUSTOMER' && 
-    booking.carWash.beforeWashPhotos && booking.carWash.beforeWashPhotos.length > 0;
+  const existingBeforeCount = booking.carWash.beforeWashPhotos?.length ?? 0;
+  const existingAfterCount = booking.carWash.afterWashPhotos?.length ?? 0;
+
+  const canUploadBefore = booking.status === 'REACHED_CUSTOMER' &&
+    existingBeforeCount < CAR_WASH_REQUIRED_PHOTOS;
+
+  const canStartWash = booking.status === 'REACHED_CUSTOMER';
   
   const canCompleteWash = booking.status === 'CAR_WASH_STARTED';
 
   const handleBeforeImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      const maxImages = Math.max(0, 4 - beforeImages.length);
-      const limitedFiles = files.slice(0, maxImages);
-      setBeforeImages(prev => [...prev, ...limitedFiles].slice(0, 4));
+      const slotsLeft = Math.max(0, CAR_WASH_REQUIRED_PHOTOS - existingBeforeCount - beforeImages.length);
+      const limitedFiles = files.slice(0, slotsLeft);
+      setBeforeImages(prev => [...prev, ...limitedFiles].slice(0, CAR_WASH_REQUIRED_PHOTOS - existingBeforeCount));
       
-      if (files.length > maxImages) {
+      if (files.length > slotsLeft) {
         toast({
           title: "Image Limit",
-          description: `Only ${maxImages} more images can be added (maximum 4 total)`,
+          description: `Only ${slotsLeft} more image(s) can be added (${existingBeforeCount + beforeImages.length}/${CAR_WASH_REQUIRED_PHOTOS} total)`,
           variant: "destructive"
         });
       }
@@ -46,14 +51,14 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   const handleAfterImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      const maxImages = Math.max(0, 4 - afterImages.length);
-      const limitedFiles = files.slice(0, maxImages);
-      setAfterImages(prev => [...prev, ...limitedFiles].slice(0, 4));
+      const slotsLeft = Math.max(0, CAR_WASH_REQUIRED_PHOTOS - existingAfterCount - afterImages.length);
+      const limitedFiles = files.slice(0, slotsLeft);
+      setAfterImages(prev => [...prev, ...limitedFiles].slice(0, CAR_WASH_REQUIRED_PHOTOS - existingAfterCount));
       
-      if (files.length > maxImages) {
+      if (files.length > slotsLeft) {
         toast({
           title: "Image Limit",
-          description: `Only ${maxImages} more images can be added (maximum 4 total)`,
+          description: `Only ${slotsLeft} more image(s) can be added (${existingAfterCount + afterImages.length}/${CAR_WASH_REQUIRED_PHOTOS} total)`,
           variant: "destructive"
         });
       }
@@ -86,14 +91,25 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
       const photoUrls = uploadResponse.files.map(f => f.url);
 
       // Save to booking
-      await carWashService.uploadBeforePhotos(booking._id, photoUrls);
+      const result = await carWashService.uploadBeforePhotos(booking._id, photoUrls);
       
       setBeforeImages([]);
       onUpdate();
-      toast({
-        title: "Success",
-        description: `Before ${isEssentials ? 'service' : 'wash'} photos uploaded successfully`
-      });
+      const totalBefore =
+        result.booking?.carWash?.beforeWashPhotos?.length ??
+        existingBeforeCount + photoUrls.length;
+      if (totalBefore < CAR_WASH_REQUIRED_PHOTOS) {
+        toast({
+          title: "Incomplete Photos",
+          description: `${INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE} (${Math.min(totalBefore, CAR_WASH_REQUIRED_PHOTOS)}/${CAR_WASH_REQUIRED_PHOTOS})`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Before ${isEssentials ? 'service' : 'wash'} photos uploaded successfully`
+        });
+      }
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -107,6 +123,15 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   };
 
   const startWash = async () => {
+    if ((booking.carWash.beforeWashPhotos?.length ?? 0) < CAR_WASH_REQUIRED_PHOTOS) {
+      toast({
+        title: "Incomplete Photos",
+        description: INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       await carWashService.startCarWash(booking._id);
@@ -128,10 +153,11 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   };
 
   const completeWash = async () => {
-    if (afterImages.length === 0) {
+    const totalAfter = existingAfterCount + afterImages.length;
+    if (totalAfter < CAR_WASH_REQUIRED_PHOTOS) {
       toast({
-        title: "No Images",
-        description: `Please select at least one after ${isEssentials ? 'service' : 'wash'} photo`,
+        title: "Incomplete Photos",
+        description: INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE,
         variant: "destructive"
       });
       return;
@@ -139,12 +165,13 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
 
     setLoading(true);
     try {
-      // Upload after images
-      const uploadResponse = await uploadService.uploadFiles(afterImages);
-      const photoUrls = uploadResponse.files.map(f => f.url);
+      if (afterImages.length > 0) {
+        const uploadResponse = await uploadService.uploadFiles(afterImages);
+        const photoUrls = uploadResponse.files.map(f => f.url);
+        await carWashService.uploadAfterPhotos(booking._id, photoUrls);
+      }
 
-      // Complete car wash
-      await carWashService.completeCarWash(booking._id, photoUrls);
+      await carWashService.completeCarWash(booking._id);
       
       setAfterImages([]);
       onUpdate();
@@ -218,6 +245,9 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           {booking.carWash.beforeWashPhotos?.length > 0 && (
             <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-green-600" />
           )}
+          <span className="text-sm text-muted-foreground ml-auto">
+            {existingBeforeCount + beforeImages.length}/{CAR_WASH_REQUIRED_PHOTOS}
+          </span>
         </div>
 
         {/* Existing Before Photos */}
@@ -255,7 +285,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
                 </div>
               ))}
               
-              {beforeImages.length < 4 && (
+              {beforeImages.length < (CAR_WASH_REQUIRED_PHOTOS - existingBeforeCount) && (
                 <label className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all">
                   <Upload className="w-6 sm:w-8 h-6 sm:h-8 text-muted-foreground mb-1 sm:mb-2" />
                   <span className="text-xs sm:text-sm text-muted-foreground text-center">Add Photo</span>
@@ -305,7 +335,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
             </div>
             <button 
               onClick={startWash}
-              disabled={loading || !booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0}
+              disabled={loading}
               className="px-4 sm:px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base self-start sm:self-auto"
             >
               {loading ? 'Starting...' : (
@@ -328,7 +358,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
               {isEssentials ? 'After Service Photos' : 'After Wash Photos'}
             </h3>
             <span className="text-sm text-muted-foreground">
-              {afterImages.length}/4 images
+              {existingAfterCount + afterImages.length}/{CAR_WASH_REQUIRED_PHOTOS} images
             </span>
           </div>
 
@@ -345,7 +375,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
               </div>
             ))}
             
-            {afterImages.length < 4 && (
+            {afterImages.length < (CAR_WASH_REQUIRED_PHOTOS - existingAfterCount) && (
               <label className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all">
                 <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                 <span className="text-sm text-muted-foreground text-center">Add Photo</span>
@@ -363,7 +393,7 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
           <div className="flex justify-end">
             <button 
               onClick={completeWash}
-              disabled={loading || afterImages.length === 0}
+              disabled={loading}
               className="px-4 sm:px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base self-start sm:self-auto"
             >
               {loading ? 'Completing...' : (

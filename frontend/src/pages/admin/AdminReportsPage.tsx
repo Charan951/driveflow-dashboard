@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Download, TrendingUp, Users, Car, Calendar, DollarSign, RefreshCw, Zap, ZapOff } from 'lucide-react';
 import {
@@ -62,6 +62,35 @@ const AdminReportsPage = () => {
   const [resetKey, setResetKey] = useState(0);
   
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isMobileChart, setIsMobileChart] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const syncLayout = () => setIsMobileChart(media.matches);
+    syncLayout();
+    media.addEventListener('change', syncLayout);
+    return () => media.removeEventListener('change', syncLayout);
+  }, []);
+
+  const serviceChartData = useMemo(
+    () =>
+      topServices.map((service) => {
+        const label = service._id || 'Unknown';
+        const maxLength = isMobileChart ? 14 : 22;
+        return {
+          ...service,
+          label: label.length > maxLength ? `${label.slice(0, maxLength)}…` : label,
+        };
+      }),
+    [topServices, isMobileChart]
+  );
+
+  const chartMargin = isMobileChart
+    ? { top: 8, right: 8, left: 0, bottom: 8 }
+    : { top: 8, right: 16, left: 8, bottom: 8 };
+
+  const serviceYAxisWidth = isMobileChart ? 92 : 140;
+  const revenueYAxisWidth = isMobileChart ? 42 : 56;
 
   const fetchData = useCallback(async (params?: DateRange) => {
     try {
@@ -228,13 +257,13 @@ const AdminReportsPage = () => {
       entities={['booking', 'payment', 'user']}
       onSync={() => fetchData(dateRange)}
     >
-    <div className="p-6 space-y-6 max-w-[1800px] mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">Overview of system performance and metrics</p>
+    <div className="p-4 sm:p-6 space-y-6 w-full max-w-[1800px] mx-auto min-w-0 overflow-x-hidden pb-24 lg:pb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Reports & Analytics</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Overview of system performance and metrics</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto min-w-0">
           <button
             onClick={toggleAutoRefresh}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
@@ -267,10 +296,10 @@ const AdminReportsPage = () => {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+        className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 min-w-0 overflow-hidden"
       >
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 min-w-0">
+          <div className="flex flex-wrap gap-2 min-w-0">
             {[
               { key: 'all', label: 'All Time' },
               { key: 'today', label: 'Today' },
@@ -291,9 +320,9 @@ const AdminReportsPage = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 lg:ml-auto">
+          <div className="flex flex-col gap-3 w-full min-w-0 lg:w-auto lg:ml-auto">
             <span className="text-sm text-gray-500">Custom Range:</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 w-full min-w-0">
               <input
                 key={`start-${resetKey}`}
                 type="date"
@@ -308,9 +337,9 @@ const AdminReportsPage = () => {
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-w-0 max-w-full box-border px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <span className="text-gray-400">to</span>
+              <span className="text-gray-400 text-center shrink-0">to</span>
               <input
                 key={`end-${resetKey}`}
                 type="date"
@@ -325,12 +354,12 @@ const AdminReportsPage = () => {
                 maxLength={10}
                 min="1900-01-01"
                 max="2100-12-31"
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-w-0 max-w-full box-border px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={applyCustomDateRange}
                 disabled={!dateRange.startDate || !dateRange.endDate}
-                className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full shrink-0 px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Apply
               </button>
@@ -372,18 +401,18 @@ const AdminReportsPage = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+          className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 min-w-0 max-w-full overflow-hidden"
         >
           <h3 className="text-lg font-bold text-gray-800 mb-4">Revenue Trend</h3>
-          <div className="h-80">
+          <div className="h-72 sm:h-80 w-full min-w-0 max-w-full overflow-hidden">
             {revenueData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
+              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                <AreaChart data={revenueData} margin={chartMargin}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
@@ -395,12 +424,13 @@ const AdminReportsPage = () => {
                     dataKey="_id" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tick={{ fill: '#6b7280', fontSize: isMobileChart ? 10 : 12 }}
                   />
                   <YAxis 
+                    width={revenueYAxisWidth}
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tick={{ fill: '#6b7280', fontSize: isMobileChart ? 10 : 12 }}
                     tickFormatter={(value) => `₹${value}`}
                   />
                   <Tooltip 
@@ -434,27 +464,28 @@ const AdminReportsPage = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
+          className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 min-w-0 max-w-full overflow-hidden"
         >
           <h3 className="text-lg font-bold text-gray-800 mb-4">Top Services by Volume</h3>
-          <div className="h-80">
-            {topServices.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topServices} layout="vertical">
+          <div className="h-72 sm:h-80 w-full min-w-0 max-w-full overflow-hidden">
+            {serviceChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                <BarChart data={serviceChartData} layout="vertical" margin={chartMargin}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
                   <XAxis 
                     type="number" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tick={{ fill: '#6b7280', fontSize: isMobileChart ? 10 : 12 }}
                   />
                   <YAxis 
-                    dataKey="_id" 
+                    dataKey="label" 
                     type="category" 
-                    width={140} 
+                    width={serviceYAxisWidth}
                     axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    interval={0}
+                    tick={{ fill: '#6b7280', fontSize: isMobileChart ? 10 : 12 }}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -469,7 +500,7 @@ const AdminReportsPage = () => {
                     dataKey="count" 
                     fill="#4f46e5" 
                     radius={[0, 6, 6, 0]}
-                    barSize={28}
+                    barSize={isMobileChart ? 22 : 28}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -486,21 +517,42 @@ const AdminReportsPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+        className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-w-0 max-w-full"
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
           <h3 className="text-lg font-bold text-gray-800">Top Performing Merchants</h3>
-          <span className="text-sm text-gray-500">{merchants.length} merchants</span>
+          <span className="text-sm text-gray-500 shrink-0">{merchants.length} merchants</span>
         </div>
-        <div className="overflow-x-auto">
-          {merchants.length > 0 ? (
-            <table className="w-full text-left min-w-[800px]">
+        {merchants.length > 0 ? (
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-gray-100 min-w-0">
+              {merchants.map((merchant, index) => (
+                <motion.div
+                  key={merchant._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + index * 0.05 }}
+                  className="p-4 space-y-2 min-w-0"
+                >
+                  <p className="font-medium text-gray-800 break-words">{merchant.name}</p>
+                  <p className="text-sm text-gray-600 break-all">{merchant.email}</p>
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-gray-500">Bookings: <span className="font-medium text-gray-800">{merchant.totalBookings}</span></span>
+                    <span className="font-medium text-green-600">₹{merchant.totalRevenue.toLocaleString()}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto max-w-full">
+            <table className="w-full text-left min-w-[640px]">
               <thead className="bg-gray-50 text-gray-600 text-sm">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Merchant Name</th>
-                  <th className="px-6 py-4 font-medium">Email</th>
-                  <th className="px-6 py-4 font-medium text-right">Total Bookings</th>
-                  <th className="px-6 py-4 font-medium text-right">Total Revenue</th>
+                  <th className="px-4 lg:px-6 py-4 font-medium text-left">Merchant Name</th>
+                  <th className="px-4 lg:px-6 py-4 font-medium text-left">Email</th>
+                  <th className="px-4 lg:px-6 py-4 font-medium text-right">Total Bookings</th>
+                  <th className="px-4 lg:px-6 py-4 font-medium text-right">Total Revenue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -512,23 +564,24 @@ const AdminReportsPage = () => {
                     transition={{ delay: 0.5 + index * 0.05 }}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-6 py-4 font-medium text-gray-800">{merchant.name}</td>
-                    <td className="px-6 py-4 text-gray-600">{merchant.email}</td>
-                    <td className="px-6 py-4 text-right text-gray-800">{merchant.totalBookings}</td>
-                    <td className="px-6 py-4 text-right font-medium text-green-600">
+                    <td className="px-4 lg:px-6 py-4 font-medium text-gray-800">{merchant.name}</td>
+                    <td className="px-4 lg:px-6 py-4 text-gray-600 break-all max-w-[200px]">{merchant.email}</td>
+                    <td className="px-4 lg:px-6 py-4 text-right text-gray-800">{merchant.totalBookings}</td>
+                    <td className="px-4 lg:px-6 py-4 text-right font-medium text-green-600">
                       ₹{merchant.totalRevenue.toLocaleString()}
                     </td>
                   </motion.tr>
                 ))}
               </tbody>
             </table>
-          ) : (
-            <div className="px-6 py-16 text-center">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No merchant data available for selected period</p>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="px-6 py-16 text-center">
+            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No merchant data available for selected period</p>
+          </div>
+        )}
       </motion.div>
     </div>
     </GlobalSyncRefresh>

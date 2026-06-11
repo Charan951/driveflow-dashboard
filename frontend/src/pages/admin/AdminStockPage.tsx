@@ -260,7 +260,7 @@ const AdminVehicleDataPage = () => {
 
   return (
     <GlobalSyncRefresh entities={['vehicle', 'vehicle_reference']} onSync={fetchVehicleData}>
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-6 w-full min-w-0 max-w-full overflow-x-hidden pb-24 lg:pb-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800">Vehicle Reference Data</h1>
         <div className="flex gap-2">
@@ -353,14 +353,52 @@ const AdminVehicleDataPage = () => {
       </div>
 
       {/* Data View */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-w-0 max-w-full">
+        {/* Mobile card list */}
+        <div className="md:hidden divide-y divide-gray-100">
+          {filteredData.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">No vehicle data found.</div>
+          ) : (
+            filteredData.map((item) => (
+              <div key={item._id} className="p-4 space-y-2 min-w-0">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Brand</p>
+                    <p className="font-semibold text-gray-800">{item.brand_name}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide pt-1">Model</p>
+                    <p className="text-sm text-gray-700">{item.model}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide pt-1">Variant</p>
+                    <p className="text-sm text-gray-700 break-all">{item.brand_model}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => handleOpenModal(item)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item._id)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto max-w-full">
           <table className="w-full text-left min-w-[1000px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-6 py-4 font-semibold text-gray-700">Brand</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Model</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Variant</th>
+                <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Brand</th>
+                <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Model</th>
+                <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Variant</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Tyre Size</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Bridgestone</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Yokohama</th>
@@ -381,13 +419,13 @@ const AdminVehicleDataPage = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredData.map((item) => (
                 <tr key={item._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-800">
+                  <td className="px-4 lg:px-6 py-4 font-medium text-gray-800 text-left">
                     {item.brand_name}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 text-left">
                     {item.model}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 text-left break-words max-w-[220px]">
                     {item.brand_model}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 font-mono">
@@ -461,7 +499,7 @@ const AdminVehicleDataPage = () => {
           </table>
         </div>
         {filteredData.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
+          <div className="hidden md:block p-8 text-center text-gray-500">
             No vehicle data found. Import an Excel file to get started.
           </div>
         )}

@@ -158,13 +158,13 @@ const MyNotificationsPage: React.FC = () => {
   const loading = initialLoading || notificationsLoading;
 
   return (
-    <div className="p-4 lg:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+    <div className="p-4 lg:p-6 w-full max-w-5xl mx-auto min-w-0 overflow-x-hidden pb-24 lg:pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 min-w-0">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
             <Bell className="w-5 h-5 text-blue-600" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight">My Notifications</h1>
             <p className="text-sm text-muted-foreground">
               All alerts sent to you across customer, staff, merchant, and admin portals.
@@ -173,12 +173,13 @@ const MyNotificationsPage: React.FC = () => {
         </div>
 
         {hasNotifications && (
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={handleMarkAllAsRead}
               disabled={notificationsLoading}
+              className="w-full sm:w-auto whitespace-nowrap"
             >
               Mark all as read
             </Button>
@@ -187,7 +188,7 @@ const MyNotificationsPage: React.FC = () => {
               size="sm"
               onClick={handleClearAll}
               disabled={notificationsLoading}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              className="w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 whitespace-nowrap"
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Clear all

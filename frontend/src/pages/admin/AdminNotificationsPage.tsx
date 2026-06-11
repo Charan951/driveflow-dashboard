@@ -1,14 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Send, CheckCircle, AlertCircle, Clock, User, Users, Trash2 } from 'lucide-react';
-import { notificationService, NotificationHistoryItem, NotificationPayload } from '../../services/notificationService';
+import { Bell, CheckCircle, AlertCircle, User, Users, Trash2 } from 'lucide-react';
+import { notificationService, NotificationHistoryItem } from '../../services/notificationService';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+type ConfirmAction =
+  | { type: 'delete'; id: string }
+  | { type: 'clearAll'; count: number }
+  | null;
 
 const AdminNotificationsPage = () => {
   const navigate = useNavigate();
   const [history, setHistory] = useState<NotificationHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -26,34 +43,50 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent navigation when clicking delete
-    if (!window.confirm('Are you sure you want to delete this notification?')) return;
-    
-    try {
-      await notificationService.deleteNotification(id);
-      setHistory(prev => prev.filter(n => n._id !== id));
-      toast.success('Notification deleted');
-    } catch (error) {
-      toast.error('Failed to delete notification');
-    }
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmAction({ type: 'delete', id });
   };
 
-  const handleClearAll = async () => {
+  const handleClearAllClick = () => {
     if (history.length === 0) return;
-    if (!window.confirm(`Are you sure you want to clear all ${history.length} notifications?`)) return;
+    setConfirmAction({ type: 'clearAll', count: history.length });
+  };
 
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+
+    setIsConfirming(true);
     try {
-      setLoading(true);
-      await notificationService.clearHistory();
-      setHistory([]);
-      toast.success('Notification history cleared');
+      if (confirmAction.type === 'delete') {
+        await notificationService.deleteNotification(confirmAction.id);
+        setHistory((prev) => prev.filter((n) => n._id !== confirmAction.id));
+        toast.success('Notification deleted');
+      } else {
+        setLoading(true);
+        await notificationService.clearHistory();
+        setHistory([]);
+        toast.success('Notification history cleared');
+      }
     } catch (error) {
-      toast.error('Failed to clear notification history');
+      toast.error(
+        confirmAction.type === 'delete'
+          ? 'Failed to delete notification'
+          : 'Failed to clear notification history'
+      );
     } finally {
+      setIsConfirming(false);
       setLoading(false);
+      setConfirmAction(null);
     }
   };
+
+  const confirmTitle =
+    confirmAction?.type === 'clearAll' ? 'Clear all notifications?' : 'Delete notification?';
+  const confirmDescription =
+    confirmAction?.type === 'clearAll'
+      ? `Are you sure you want to clear all ${confirmAction.count} notifications? This action cannot be undone.`
+      : 'Are you sure you want to delete this notification? This action cannot be undone.';
 
   const handleNotificationClick = (notif: NotificationHistoryItem) => {
     const data = notif.data;
@@ -75,7 +108,7 @@ const AdminNotificationsPage = () => {
         </div>
         {history.length > 0 && (
           <button
-            onClick={handleClearAll}
+            onClick={handleClearAllClick}
             disabled={loading}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-all font-medium disabled:opacity-50 w-full sm:w-auto shadow-sm"
           >
@@ -120,7 +153,7 @@ const AdminNotificationsPage = () => {
                       {new Date(notif.createdAt).toLocaleString()}
                     </span>
                     <button
-                      onClick={(e) => handleDelete(notif._id, e)}
+                      onClick={(e) => handleDeleteClick(notif._id, e)}
                       className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete notification"
                     >
@@ -146,6 +179,33 @@ const AdminNotificationsPage = () => {
           ))
         )}
       </div>
+
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => {
+          if (!open && !isConfirming) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isConfirming}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmAction();
+              }}
+              disabled={isConfirming}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isConfirming ? 'Deleting...' : confirmAction?.type === 'clearAll' ? 'Clear All' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

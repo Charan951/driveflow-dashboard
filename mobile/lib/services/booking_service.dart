@@ -2,6 +2,34 @@ import '../core/api_client.dart';
 import '../core/env.dart';
 import '../models/booking.dart';
 
+class SlotAvailability {
+  final List<String> availableSlots;
+  final List<String> bookedSlots;
+  final List<String> blockedSlots;
+  final List<String> allSlots;
+
+  const SlotAvailability({
+    this.availableSlots = const [],
+    this.bookedSlots = const [],
+    this.blockedSlots = const [],
+    this.allSlots = const [],
+  });
+
+  factory SlotAvailability.fromJson(Map<String, dynamic> json) {
+    List<String> parseList(dynamic raw) {
+      if (raw is! List) return const [];
+      return raw.map((e) => e.toString()).toList();
+    }
+
+    return SlotAvailability(
+      availableSlots: parseList(json['availableSlots']),
+      bookedSlots: parseList(json['bookedSlots']),
+      blockedSlots: parseList(json['blockedSlots']),
+      allSlots: parseList(json['allSlots']),
+    );
+  }
+}
+
 class BookingService {
   final ApiClient _api = ApiClient();
 
@@ -48,22 +76,25 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
-  Future<List<String>> getAvailableSlots(String date, {String category = 'All'}) async {
+  Future<SlotAvailability> getSlotAvailability(
+    String date, {
+    String category = 'All',
+  }) async {
     final res = await _api.getAny(
       '${ApiEndpoints.bookingsAvailableSlots}?date=$date&category=$category',
     );
     if (res is Map<String, dynamic>) {
-      final raw = res['availableSlots'];
-      if (raw is List) {
-        return raw.map((e) => e.toString()).toList();
-      }
-    } else if (res is Map) {
-      final raw = res['availableSlots'];
-      if (raw is List) {
-        return raw.map((e) => e.toString()).toList();
-      }
+      return SlotAvailability.fromJson(res);
     }
-    return <String>[];
+    if (res is Map) {
+      return SlotAvailability.fromJson(Map<String, dynamic>.from(res));
+    }
+    return const SlotAvailability();
+  }
+
+  Future<List<String>> getAvailableSlots(String date, {String category = 'All'}) async {
+    final availability = await getSlotAvailability(date, category: category);
+    return availability.availableSlots;
   }
 
   Future<List<String>> getAvailableServicePincodes() async {

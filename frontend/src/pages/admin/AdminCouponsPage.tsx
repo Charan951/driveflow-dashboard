@@ -546,20 +546,20 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[60] p-4 pb-24 lg:pb-4">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-card rounded-lg w-full max-w-lg flex flex-col max-h-[90vh] shadow-xl"
+        className="bg-card rounded-t-2xl sm:rounded-lg w-full max-w-lg flex flex-col max-h-[calc(100dvh-7rem)] lg:max-h-[90vh] overflow-hidden shadow-xl"
       >
-        <div className="p-6 border-b border-border flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b border-border flex justify-between items-center shrink-0">
           <h2 className="text-xl font-bold">{coupon ? 'Edit Coupon' : 'Add New Coupon'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <Plus className="rotate-45" size={24} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <form id="coupon-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -647,7 +647,8 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2 grid grid-cols-1 gap-4 min-w-0">
+              <div className="min-w-0">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-semibold">Valid From</label>
                   <span className="text-xs text-muted-foreground">{formData.validFrom.toString().length}/10 characters</span>
@@ -666,12 +667,12 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   min={new Date().toISOString().split('T')[0]}
                   max="2100-12-31"
                   maxLength={10}
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  className="w-full min-w-0 max-w-full box-border p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-semibold">Valid Until</label>
                   <span className="text-xs text-muted-foreground">{formData.validUntil.toString().length}/10 characters</span>
@@ -690,9 +691,10 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                   min={new Date().toISOString().split('T')[0]}
                   max="2100-12-31"
                   maxLength={10}
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  className="w-full min-w-0 max-w-full box-border p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   required
                 />
+              </div>
               </div>
 
               <div className="md:col-span-2 flex items-center gap-2 py-2">
@@ -860,18 +862,18 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           </form>
         </div>
 
-        <div className="p-6 border-t border-border flex justify-end gap-3 bg-muted/30">
+        <div className="p-4 sm:p-6 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3 bg-muted/30 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium"
           >
             Cancel
           </button>
           <button
             type="submit"
             form="coupon-form"
-            className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-medium shadow-sm active:scale-[0.98]"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-medium shadow-sm active:scale-[0.98]"
           >
             {coupon ? 'Save changes' : 'Save Coupon'}
           </button>

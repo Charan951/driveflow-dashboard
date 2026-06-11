@@ -14,6 +14,48 @@ import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
 
+const CAR_WASH_MIN_PHOTOS = 2;
+const CAR_WASH_MAX_PHOTOS = 4;
+const INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE = `Please upload at least ${CAR_WASH_MIN_PHOTOS} photos`;
+const BATTERY_BEFORE_PHOTOS_REQUIRED = 2;
+const BATTERY_AFTER_PHOTOS_REQUIRED = 4;
+const BATTERY_BEFORE_PHOTOS_MESSAGE =
+  'Please upload Old Part and New Part photos before starting installation';
+const BATTERY_AFTER_PHOTOS_MESSAGE = 'Please upload complete 4 after service photos';
+
+const getBatteryBeforePhotoLabel = (index: number) => {
+  if (index === 0) return 'Old Part';
+  if (index === 1) return 'New Part';
+  return `Photo ${index + 1}`;
+};
+
+const getBatteryAfterPhotoLabel = (index: number) => `Photo ${index + 1}`;
+
+const getPhotoStatusBadge = (count: number, minRequired: number, maxAllowed: number) => {
+  const cappedCount = Math.min(count, maxAllowed);
+  const isComplete = count >= minRequired && count <= maxAllowed;
+  const isOverLimit = count > maxAllowed;
+  if (isOverLimit) {
+    return {
+      isComplete: false,
+      isOverLimit: true,
+      text: `${count}/${maxAllowed} photos (max ${maxAllowed})`,
+    };
+  }
+  if (isComplete) {
+    return {
+      isComplete: true,
+      isOverLimit: false,
+      text: `${cappedCount}/${maxAllowed} photos captured`,
+    };
+  }
+  return {
+    isComplete: false,
+    isOverLimit: false,
+    text: `${count}/${maxAllowed} photos`,
+  };
+};
+
 
 const StaffOrderPage: React.FC = () => {
   const { id } = useParams();
@@ -200,8 +242,8 @@ const StaffOrderPage: React.FC = () => {
         if (newStatus === 'CAR_WASH_STARTED') {
           // For car wash start, check for before photos
           const beforePhotos = Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
-          if (beforePhotos.length < 2) {
-            toast.error('Please upload at least 2 before wash photos first');
+          if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
+            toast.error(INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
             setIsUpdating(false);
             return;
           }
@@ -209,8 +251,8 @@ const StaffOrderPage: React.FC = () => {
         } else if (newStatus === 'CAR_WASH_COMPLETED') {
           // For car wash completion, check for after photos
           const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
-          if (afterPhotos.length < 2) {
-            toast.error('Please upload at least 2 after wash photos first');
+          if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
+            toast.error(INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
             setIsUpdating(false);
             return;
           }
@@ -261,13 +303,21 @@ const StaffOrderPage: React.FC = () => {
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'INSTALLATION') {
           const photos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-          if (photos.length < 2) {
-            toast.error('Please upload at least 2 photos (Old Part and New Part) before starting installation');
+          if (photos.length < BATTERY_BEFORE_PHOTOS_REQUIRED) {
+            toast.error(BATTERY_BEFORE_PHOTOS_MESSAGE);
             setIsUpdating(false);
             return;
           }
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERY') {
+          const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
+            ? order.serviceExecution.afterPhotos
+            : [];
+          if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
+            toast.error(BATTERY_AFTER_PHOTOS_MESSAGE);
+            setIsUpdating(false);
+            return;
+          }
           // For battery/tire delivery, generate OTP first
           try {
             // Check if OTP already exists
@@ -322,8 +372,6 @@ const StaffOrderPage: React.FC = () => {
       setOrder(updated);
       toast.success(`Order updated to ${newStatus.replace('_', ' ')}`);
 
-      // Emit manual socket update for immediate UI refresh across all portals
-      socketService.emit('bookingUpdated', updated);
       // Navigation logic
       if (!isCarWashNow) {
         if (newStatus === 'VEHICLE_PICKED' && order.merchant?.location) {
@@ -678,71 +726,187 @@ const StaffOrderPage: React.FC = () => {
           service.category === 'Essentials'
         )
       );
+    const isBatteryTireService = Array.isArray(order.services) &&
+      order.services.some(service =>
+        typeof service === 'object' && service.category && (
+          service.category.toLowerCase().includes('battery') ||
+          service.category.toLowerCase().includes('tire') ||
+          service.category.toLowerCase().includes('tyre')
+        )
+      );
     
     try {
       setIsUploadingPrePickup(true);
       const loadingToast = toast.loading(`Uploading ${files.length} photos...`);
-      
-      const res = await uploadService.uploadFiles(files);
-      
-      const newUrls = (res.files || []).map((f: { url: string }) => f.url);
-      
+      let uploadedCarWashPhotoCount: number | null = null;
+
       if (isCarWashService) {
         // Handle car wash photo uploads based on status
         if (order.status === 'REACHED_CUSTOMER') {
-          // Upload before wash photos - replace existing photos
-          const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
-          
-          // Use car wash service to upload before photos
+          const existingPhotos = Array.isArray(order.carWash?.beforeWashPhotos)
+            ? order.carWash.beforeWashPhotos
+            : [];
+          const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
+          if (remaining <= 0) {
+            toast.dismiss(loadingToast);
+            toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} before wash photos`);
+            return;
+          }
+          const filesToUpload = files.slice(0, remaining);
+          if (files.length > remaining) {
+            toast.warning(`Only ${remaining} more before wash photo(s) can be added`);
+          }
+
+          const res = await uploadService.uploadFiles(filesToUpload);
+          const newUrls = (res.files || []).map((f: { url: string }) => f.url);
+
           const { carWashService } = await import('@/services/carWashService');
-          const result = await carWashService.uploadBeforePhotos(order._id, updatedPhotos);
-          
-          // Update local state with the result from backend
+          const result = await carWashService.uploadBeforePhotos(order._id, newUrls);
+
           if (result.booking) {
             setOrder(result.booking);
+            uploadedCarWashPhotoCount = result.booking.carWash?.beforeWashPhotos?.length ?? 0;
           } else {
-            // Fallback to manual state update
-            setOrder({ 
-              ...order, 
-              carWash: { 
-                ...order.carWash, 
-                beforeWashPhotos: updatedPhotos 
-              } 
+            const merged = [...existingPhotos, ...newUrls].slice(0, CAR_WASH_MAX_PHOTOS);
+            setOrder({
+              ...order,
+              carWash: {
+                ...order.carWash,
+                beforeWashPhotos: merged,
+              },
             });
+            uploadedCarWashPhotoCount = merged.length;
           }
         } else if (order.status === 'CAR_WASH_STARTED') {
-          // Upload after wash photos - replace existing photos
-          const updatedPhotos = newUrls.slice(0, 4); // Use only new photos, limit to 4
-          
-          // Use car wash service to upload after photos
+          const existingPhotos = Array.isArray(order.carWash?.afterWashPhotos)
+            ? order.carWash.afterWashPhotos
+            : [];
+          const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
+          if (remaining <= 0) {
+            toast.dismiss(loadingToast);
+            toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} after wash photos`);
+            return;
+          }
+          const filesToUpload = files.slice(0, remaining);
+          if (files.length > remaining) {
+            toast.warning(`Only ${remaining} more after wash photo(s) can be added`);
+          }
+
+          const res = await uploadService.uploadFiles(filesToUpload);
+          const newUrls = (res.files || []).map((f: { url: string }) => f.url);
+
           const { carWashService } = await import('@/services/carWashService');
-          const result = await carWashService.uploadAfterPhotos(order._id, updatedPhotos);
-          
-          // Update local state with the result from backend
+          const result = await carWashService.uploadAfterPhotos(order._id, newUrls);
+
           if (result.booking) {
             setOrder(result.booking);
+            uploadedCarWashPhotoCount = result.booking.carWash?.afterWashPhotos?.length ?? 0;
           } else {
-            // Fallback to manual state update
-            setOrder({ 
-              ...order, 
-              carWash: { 
-                ...order.carWash, 
-                afterWashPhotos: updatedPhotos 
-              } 
+            const merged = [...existingPhotos, ...newUrls].slice(0, CAR_WASH_MAX_PHOTOS);
+            setOrder({
+              ...order,
+              carWash: {
+                ...order.carWash,
+                afterWashPhotos: merged,
+              },
             });
+            uploadedCarWashPhotoCount = merged.length;
           }
         }
+      } else if (isBatteryTireService) {
+        if (order.status === 'REACHED_CUSTOMER') {
+          const existingPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+          const remaining = BATTERY_BEFORE_PHOTOS_REQUIRED - existingPhotos.length;
+          if (remaining <= 0) {
+            toast.dismiss(loadingToast);
+            toast.error('You already uploaded before installation photos');
+            return;
+          }
+          const filesToUpload = files.slice(0, remaining);
+          if (files.length > remaining) {
+            toast.warning(`Only ${remaining} more before installation photo(s) can be added`);
+          }
+
+          const uploadRes = await uploadService.uploadFiles(filesToUpload);
+          const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
+          const updatedPhotos = [...existingPhotos, ...uploadedUrls].slice(
+            0,
+            BATTERY_BEFORE_PHOTOS_REQUIRED,
+          );
+          await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
+          setOrder({ ...order, prePickupPhotos: updatedPhotos });
+          if (updatedPhotos.length < BATTERY_BEFORE_PHOTOS_REQUIRED) {
+            toast.warning(
+              `${BATTERY_BEFORE_PHOTOS_MESSAGE} (${updatedPhotos.length}/${BATTERY_BEFORE_PHOTOS_REQUIRED})`,
+            );
+          }
+        } else if (order.status === 'INSTALLATION') {
+          const existingPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
+            ? order.serviceExecution.afterPhotos
+            : [];
+          const remaining = BATTERY_AFTER_PHOTOS_REQUIRED - existingPhotos.length;
+          if (remaining <= 0) {
+            toast.dismiss(loadingToast);
+            toast.error('You already uploaded after service photos');
+            return;
+          }
+          const filesToUpload = files.slice(0, remaining);
+          if (files.length > remaining) {
+            toast.warning(`Only ${remaining} more after service photo(s) can be added`);
+          }
+
+          const uploadRes = await uploadService.uploadFiles(filesToUpload);
+          const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
+          const updatedPhotos = [...existingPhotos, ...uploadedUrls].slice(
+            0,
+            BATTERY_AFTER_PHOTOS_REQUIRED,
+          );
+          await bookingService.updateBookingDetails(order._id, {
+            serviceExecution: {
+              ...order.serviceExecution,
+              afterPhotos: updatedPhotos,
+            },
+          });
+          setOrder({
+            ...order,
+            serviceExecution: {
+              ...order.serviceExecution,
+              afterPhotos: updatedPhotos,
+            },
+          });
+          if (updatedPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
+            toast.warning(
+              `${BATTERY_AFTER_PHOTOS_MESSAGE} (${updatedPhotos.length}/${BATTERY_AFTER_PHOTOS_REQUIRED})`,
+            );
+          }
+        } else {
+          toast.dismiss(loadingToast);
+          toast.error('Photos cannot be uploaded at this stage');
+          return;
+        }
       } else {
+        const res = await uploadService.uploadFiles(files);
+        const newUrls = (res.files || []).map((f: { url: string }) => f.url);
+
         // Regular service pre-pickup photos
         const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-        const updatedPhotos = [...currentPhotos, ...newUrls];
-        
+        const updatedPhotos = [...currentPhotos, ...newUrls].slice(0, 4);
+
         await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
         setOrder({ ...order, prePickupPhotos: updatedPhotos });
       }
       
       toast.dismiss(loadingToast);
-      toast.success(`${newUrls.length} photos uploaded successfully`);
+      toast.success(`${files.length} photo(s) uploaded successfully`);
+
+      if (
+        uploadedCarWashPhotoCount !== null &&
+        uploadedCarWashPhotoCount < CAR_WASH_MIN_PHOTOS
+      ) {
+        toast.warning(
+          `${INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE} (${uploadedCarWashPhotoCount}/${CAR_WASH_MIN_PHOTOS})`,
+        );
+      }
     } catch (error) {
       console.error('Photo upload error:', error);
       toast.error(`Failed to upload photos: ${error.message || 'Unknown error'}`);
@@ -836,13 +1000,7 @@ const StaffOrderPage: React.FC = () => {
     isWaitingForPayment ||
     !isAssignedStaff ||
     (nextAction?.nextStatus === 'VEHICLE_PICKED' &&
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4)) ||
-    (isBatteryOrTire && (nextAction?.nextStatus === 'INSTALLATION' || nextAction?.nextStatus === 'DELIVERY') && 
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 2)) ||
-    (isCarWash && nextAction?.nextStatus === 'CAR_WASH_STARTED' && 
-      (!Array.isArray(order.carWash?.beforeWashPhotos) || order.carWash.beforeWashPhotos.length < 2)) ||
-    (isCarWash && nextAction?.nextStatus === 'CAR_WASH_COMPLETED' && 
-      (!Array.isArray(order.carWash?.afterWashPhotos) || order.carWash.afterWashPhotos.length < 2));
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4));
 
   // Determine display location and labels
   const isHeadingToMerchant = !isCarWash && (
@@ -888,20 +1046,21 @@ const StaffOrderPage: React.FC = () => {
                 ? (order.status === 'CAR_WASH_STARTED' ? order.carWash?.afterWashPhotos : order.carWash?.beforeWashPhotos)
                 : order.prePickupPhotos;
               const count = Array.isArray(photos) ? photos.length : 0;
-              const required = 2;
+              const minRequired = isCarWash ? CAR_WASH_MIN_PHOTOS : 2;
+              const maxAllowed = isCarWash ? CAR_WASH_MAX_PHOTOS : (isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4);
               
-              if (count >= required) {
+              if (count >= minRequired && count <= maxAllowed) {
                 return (
                   <>
                     <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
-                    <span className="text-green-700">Photos ready ({count}/{required})</span>
+                    <span className="text-green-700">Photos ready ({count}/{maxAllowed})</span>
                   </>
                 );
               }
               return (
                 <>
                   <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
-                  <span className="text-amber-600">Photos ({count}/{required})</span>
+                  <span className="text-amber-600">Photos ({count}/{maxAllowed})</span>
                 </>
               );
             })()
@@ -972,27 +1131,46 @@ const StaffOrderPage: React.FC = () => {
                 {(() => {
                   if (isCarWash) {
                     if (order.status === 'REACHED_CUSTOMER') {
+                      const beforeCount = order.carWash?.beforeWashPhotos?.length || 0;
                       return isUploadingPrePickup ? 'Uploading...' : (
                         <>
-                          <span className="hidden sm:inline">Upload Before {isEssentials ? 'Service' : 'Wash'} Photos</span>
-                          <span className="sm:hidden">Before Photos</span>
+                          <span className="hidden sm:inline">
+                            {beforeCount}/{CAR_WASH_MAX_PHOTOS} — Upload Before {isEssentials ? 'Service' : 'Wash'} Photos
+                          </span>
+                          <span className="sm:hidden">{beforeCount}/{CAR_WASH_MAX_PHOTOS} Before</span>
                         </>
                       );
                     } else if (order.status === 'CAR_WASH_STARTED') {
+                      const afterCount = order.carWash?.afterWashPhotos?.length || 0;
                       return isUploadingPrePickup ? 'Uploading...' : (
                         <>
-                          <span className="hidden sm:inline">Upload After {isEssentials ? 'Service' : 'Wash'} Photos</span>
-                          <span className="sm:hidden">After Photos</span>
+                          <span className="hidden sm:inline">
+                            {afterCount}/{CAR_WASH_MAX_PHOTOS} — Upload After {isEssentials ? 'Service' : 'Wash'} Photos
+                          </span>
+                          <span className="sm:hidden">{afterCount}/{CAR_WASH_MAX_PHOTOS} After</span>
                         </>
                       );
                     }
                     return 'Upload Photos';
                   } else if (isBatteryOrTire) {
                     if (order.status === 'REACHED_CUSTOMER') {
+                      const beforeCount = order.prePickupPhotos?.length || 0;
                       return isUploadingPrePickup ? 'Uploading...' : (
                         <>
-                          <span className="hidden sm:inline">Upload Old & New Part Photos</span>
-                          <span className="sm:hidden">Old & New</span>
+                          <span className="hidden sm:inline">
+                            {beforeCount}/{BATTERY_BEFORE_PHOTOS_REQUIRED} — Upload Old & New Part Photos
+                          </span>
+                          <span className="sm:hidden">{beforeCount}/{BATTERY_BEFORE_PHOTOS_REQUIRED} Old & New</span>
+                        </>
+                      );
+                    } else if (order.status === 'INSTALLATION') {
+                      const afterCount = order.serviceExecution?.afterPhotos?.length || 0;
+                      return isUploadingPrePickup ? 'Uploading...' : (
+                        <>
+                          <span className="hidden sm:inline">
+                            {afterCount}/{BATTERY_AFTER_PHOTOS_REQUIRED} — Upload After Service Photos
+                          </span>
+                          <span className="sm:hidden">{afterCount}/{BATTERY_AFTER_PHOTOS_REQUIRED} After</span>
                         </>
                       );
                     }
@@ -1037,15 +1215,62 @@ const StaffOrderPage: React.FC = () => {
 
           {isPrePickupPhase && (
             <div className="mt-4 space-y-2">
+              {isBatteryOrTire && order.status === 'INSTALLATION' ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Before installation photos</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {order.prePickupPhotos?.length || 0}/{BATTERY_BEFORE_PHOTOS_REQUIRED}
+                      </span>
+                    </div>
+                    {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {order.prePickupPhotos.slice(0, BATTERY_BEFORE_PHOTOS_REQUIRED).map((url, index) => (
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`Before ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">No before photos uploaded.</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">After service photos</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {order.serviceExecution?.afterPhotos?.length || 0}/{BATTERY_AFTER_PHOTOS_REQUIRED}
+                      </span>
+                    </div>
+                    {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        Upload {BATTERY_AFTER_PHOTOS_REQUIRED} clear after service photos before completing delivery.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Pre-pickup photos</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {isBatteryOrTire ? 'Before installation photos' : 'Pre-pickup photos'}
+                </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/${isBatteryOrTire ? '2' : '4'}` : `0/${isBatteryOrTire ? '2' : '4'}`}
+                  {Array.isArray(order.prePickupPhotos) ? `${order.prePickupPhotos.length}/${isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : '4'}` : `0/${isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : '4'}`}
                 </span>
               </div>
               {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {order.prePickupPhotos.slice(0, isBatteryOrTire ? 2 : 4).map((url, index) => (
+                  {order.prePickupPhotos.slice(0, isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4).map((url, index) => (
                     <div
                       key={index}
                       className="relative rounded-lg overflow-hidden border border-border bg-muted"
@@ -1060,8 +1285,10 @@ const StaffOrderPage: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-[11px] text-muted-foreground">
-                  No photos uploaded yet. Upload {isBatteryOrTire ? '2' : '4'} clear photos {isBatteryOrTire ? 'for the service' : 'of the vehicle before pickup'}.
+                  No photos uploaded yet. Upload {isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : '4'} clear photos {isBatteryOrTire ? 'before starting installation' : 'of the vehicle before pickup'}.
                 </p>
+              )}
+                </>
               )}
             </div>
           )}
@@ -1085,9 +1312,8 @@ const StaffOrderPage: React.FC = () => {
         <TabsList className="grid w-full grid-cols-4 text-xs sm:text-sm">
           <TabsTrigger value="overview" className="px-2 sm:px-4">Overview</TabsTrigger>
           <TabsTrigger value="vehicle" className="px-2 sm:px-4">Vehicle</TabsTrigger>
-          <TabsTrigger value="navigation" className="px-2 sm:px-4">
-            <span className="hidden sm:inline">Navigation</span>
-            <span className="sm:hidden">Nav</span>
+          <TabsTrigger value="navigation" className="px-1.5 sm:px-4 text-[11px] sm:text-sm leading-tight">
+            Navigation
           </TabsTrigger>
           <TabsTrigger value="media" className="px-2 sm:px-4">Photos</TabsTrigger>
         </TabsList>
@@ -1184,25 +1410,27 @@ const StaffOrderPage: React.FC = () => {
                       <div className="space-y-1">
                         <h3 className="font-medium">{isEssentials ? 'Before Service Photos' : 'Before Wash Photos'}</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length >= 2 ? (
-                            <>
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                              <span className="text-green-700">2/2 photos captured</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              <span className="text-amber-600">
-                                {order.carWash?.beforeWashPhotos?.length || 0}/2 photos
-                              </span>
-                            </>
-                          )}
+                          {(() => {
+                            const count = order.carWash?.beforeWashPhotos?.length || 0;
+                            const badge = getPhotoStatusBadge(count, CAR_WASH_MIN_PHOTOS, CAR_WASH_MAX_PHOTOS);
+                            return badge.isComplete ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                                <span className="text-green-700">{badge.text}</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className={`w-3 h-3 ${badge.isOverLimit ? 'text-red-500' : 'text-amber-500'}`} />
+                                <span className={badge.isOverLimit ? 'text-red-600' : 'text-amber-600'}>{badge.text}</span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 ? (
-                        order.carWash.beforeWashPhotos.map((url, index) => (
+                        order.carWash.beforeWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
                             <img src={url} alt={`Before ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
                           </div>
@@ -1221,25 +1449,27 @@ const StaffOrderPage: React.FC = () => {
                       <div className="space-y-1">
                         <h3 className="font-medium">{isEssentials ? 'After Service Photos' : 'After Wash Photos'}</h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length >= 2 ? (
-                            <>
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                              <span className="text-green-700">2/2 photos captured</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              <span className="text-amber-600">
-                                {order.carWash?.afterWashPhotos?.length || 0}/2 photos
-                              </span>
-                            </>
-                          )}
+                          {(() => {
+                            const count = order.carWash?.afterWashPhotos?.length || 0;
+                            const badge = getPhotoStatusBadge(count, CAR_WASH_MIN_PHOTOS, CAR_WASH_MAX_PHOTOS);
+                            return badge.isComplete ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                                <span className="text-green-700">{badge.text}</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className={`w-3 h-3 ${badge.isOverLimit ? 'text-red-500' : 'text-amber-500'}`} />
+                                <span className={badge.isOverLimit ? 'text-red-600' : 'text-amber-600'}>{badge.text}</span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 ? (
-                        order.carWash.afterWashPhotos.map((url, index) => (
+                        order.carWash.afterWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
                             <img src={url} alt={`After ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
                           </div>
@@ -1261,24 +1491,24 @@ const StaffOrderPage: React.FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <div className="space-y-1">
                         <h3 className="font-medium">
-                          {isBatteryOrTire ? 'Pickup & Installation Photos' : 'Pre-Pickup Vehicle Photos'}
+                          {isBatteryOrTire ? 'Before Installation Photos' : 'Pre-Pickup Vehicle Photos'}
                         </h3>
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
-                          {isBatteryOrTire ? (
-                            order.prePickupPhotos && order.prePickupPhotos.length >= 2 ? (
+                          {isBatteryOrTire ? (() => {
+                            const count = order.prePickupPhotos?.length || 0;
+                            const badge = getPhotoStatusBadge(count, BATTERY_BEFORE_PHOTOS_REQUIRED, BATTERY_BEFORE_PHOTOS_REQUIRED);
+                            return badge.isComplete ? (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600" />
-                                <span className="text-green-700">2/2 photos captured</span>
+                                <span className="text-green-700">{badge.text}</span>
                               </>
                             ) : (
                               <>
-                                <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                <span className="text-amber-600">
-                                  {order.prePickupPhotos?.length || 0}/2 photos
-                                </span>
+                                <AlertTriangle className={`w-3 h-3 ${badge.isOverLimit ? 'text-red-500' : 'text-amber-500'}`} />
+                                <span className={badge.isOverLimit ? 'text-red-600' : 'text-amber-600'}>{badge.text}</span>
                               </>
-                            )
-                          ) : (
+                            );
+                          })() : (
                             order.prePickupPhotos && order.prePickupPhotos.length >= 4 ? (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600" />
@@ -1298,12 +1528,12 @@ const StaffOrderPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
-                        order.prePickupPhotos.map((url, index) => (
+                        order.prePickupPhotos.slice(0, isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4).map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                             {isBatteryOrTire && (
                               <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
-                                {index === 0 ? 'New Part' : index === 1 ? 'Old Part' : `Photo ${index + 1}`}
+                                {getBatteryBeforePhotoLabel(index)}
                               </div>
                             )}
                           </div>
@@ -1315,6 +1545,48 @@ const StaffOrderPage: React.FC = () => {
                       )}
                     </div>
                   </div>
+                  {isBatteryOrTire && ['INSTALLATION', 'DELIVERY', 'COMPLETED'].includes(order.status) && (
+                    <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <h3 className="font-medium">After Service Photos</h3>
+                          <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border">
+                            {(() => {
+                              const count = order.serviceExecution?.afterPhotos?.length || 0;
+                              const badge = getPhotoStatusBadge(count, BATTERY_AFTER_PHOTOS_REQUIRED, BATTERY_AFTER_PHOTOS_REQUIRED);
+                              return badge.isComplete ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3 text-green-600" />
+                                  <span className="text-green-700">{badge.text}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle className={`w-3 h-3 ${badge.isOverLimit ? 'text-red-500' : 'text-amber-500'}`} />
+                                  <span className={badge.isOverLimit ? 'text-red-600' : 'text-amber-600'}>{badge.text}</span>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 ? (
+                          order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
+                            <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
+                              <img src={url} alt={`After service ${index + 1}`} className="w-full h-full object-cover" />
+                              <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
+                                {getBatteryAfterPhotoLabel(index)}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-4 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                            No after service photos yet
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
                     <h3 className="font-medium mb-3">Uploaded Photos</h3>
                     {order.media && order.media.length > 0 ? (

@@ -46,8 +46,20 @@ export const getCareerById = async (req, res) => {
 // @access  Private/Admin
 export const getAdminCareers = async (req, res) => {
   try {
-    const careers = await Career.find({}).sort({ createdAt: -1 });
-    res.json(careers);
+    const careers = await Career.find({}).sort({ createdAt: -1 }).lean();
+    const applicationCounts = await CareerApplication.aggregate([
+      { $group: { _id: '$career', count: { $sum: 1 } } },
+    ]);
+    const countByCareerId = Object.fromEntries(
+      applicationCounts.map(({ _id, count }) => [String(_id), count])
+    );
+
+    res.json(
+      careers.map((career) => ({
+        ...career,
+        applicationCount: countByCareerId[String(career._id)] || 0,
+      }))
+    );
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

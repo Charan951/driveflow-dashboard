@@ -209,7 +209,12 @@ export const hasExcessiveRepeatedChars = (value: string, maxConsecutive: number 
 export const isOnlySpecialCharacters = (value: string): boolean => {
   const trimmed = value.trim();
   // Check if there are no alphanumeric characters
-  return !/[a-zA-Z0-9]/.test(trimmed);
+  return trimmed.length > 0 && !/[a-zA-Z0-9]/.test(trimmed);
+};
+
+export const isOnlyNumbers = (value: string): boolean => {
+  const trimmed = value.trim();
+  return trimmed.length > 0 && /^\d+$/.test(trimmed.replace(/\s/g, ''));
 };
 
 export const isPasswordTooLong = (value: string): boolean => {
@@ -365,6 +370,8 @@ export const isValidDate = (dateStr: string): boolean => {
 export const isValidHeroTitle = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false; // Required - not optional
+  if (isOnlySpecialCharacters(trimmed)) return false;
+  if (isOnlyNumbers(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -376,6 +383,8 @@ export const isHeroTitleTooLong = (value: string): boolean => {
 export const isValidHeroSubtitle = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false; // Required - not optional
+  if (isOnlySpecialCharacters(trimmed)) return false;
+  if (isOnlyNumbers(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
   return true;
 };
@@ -511,11 +520,22 @@ export const isCategoryDescriptionTooLong = (value: string): boolean => {
 };
 
 // Career validation
+const validateRequiredCareerText = (trimmed: string): boolean => {
+  if (isOnlySpecialCharacters(trimmed)) return false;
+  if (isOnlyNumbers(trimmed)) return false;
+  if (hasExcessiveRepeatedChars(trimmed)) return false;
+  return true;
+};
+
+const validateOptionalCareerText = (trimmed: string): boolean => {
+  if (trimmed.length === 0) return true;
+  return validateRequiredCareerText(trimmed);
+};
+
 export const isValidCareerTitle = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateRequiredCareerText(trimmed);
 };
 
 export const isCareerTitleTooLong = (value: string): boolean => {
@@ -525,8 +545,7 @@ export const isCareerTitleTooLong = (value: string): boolean => {
 export const isValidCareerDepartment = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateRequiredCareerText(trimmed);
 };
 
 export const isCareerDepartmentTooLong = (value: string): boolean => {
@@ -536,8 +555,7 @@ export const isCareerDepartmentTooLong = (value: string): boolean => {
 export const isValidCareerLocation = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateRequiredCareerText(trimmed);
 };
 
 export const isCareerLocationTooLong = (value: string): boolean => {
@@ -547,8 +565,7 @@ export const isCareerLocationTooLong = (value: string): boolean => {
 export const isValidCareerType = (value: string): boolean => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateRequiredCareerText(trimmed);
 };
 
 export const isCareerTypeTooLong = (value: string): boolean => {
@@ -556,10 +573,7 @@ export const isCareerTypeTooLong = (value: string): boolean => {
 };
 
 export const isValidCareerSalary = (value: string): boolean => {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateOptionalCareerText(value.trim());
 };
 
 export const isCareerSalaryTooLong = (value: string): boolean => {
@@ -567,10 +581,7 @@ export const isCareerSalaryTooLong = (value: string): boolean => {
 };
 
 export const isValidCareerShortDescription = (value: string): boolean => {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return true; // optional
-  if (hasExcessiveRepeatedChars(trimmed)) return false;
-  return true;
+  return validateOptionalCareerText(value.trim());
 };
 
 export const isCareerShortDescriptionTooLong = (value: string): boolean => {
@@ -591,6 +602,79 @@ export const isValidCareerApplyUrl = (value: string): boolean => {
 
 export const isCareerApplyUrlTooLong = (value: string): boolean => {
   return value.trim().length > MAX_CAREER_APPLY_URL_LENGTH;
+};
+
+export type CareerFormField =
+  | 'title'
+  | 'department'
+  | 'location'
+  | 'type'
+  | 'salary'
+  | 'shortDescription'
+  | 'applyUrl';
+
+const CAREER_FIELD_LABELS: Record<CareerFormField, string> = {
+  title: 'Job title',
+  department: 'Department',
+  location: 'Location',
+  type: 'Type',
+  salary: 'Salary',
+  shortDescription: 'Short description',
+  applyUrl: 'Apply URL',
+};
+
+export const validateCareerField = (field: CareerFormField, value: string): string | null => {
+  const trimmed = value.trim();
+  const label = CAREER_FIELD_LABELS[field];
+  const isRequired = field === 'title' || field === 'department' || field === 'location' || field === 'type';
+
+  if (isRequired && !trimmed) {
+    return `${label} is required`;
+  }
+
+  if (!trimmed) {
+    if (field === 'applyUrl') return null;
+    return null;
+  }
+
+  if (field !== 'applyUrl') {
+    if (isOnlySpecialCharacters(trimmed)) {
+      return `${label} cannot contain only special characters`;
+    }
+    if (isOnlyNumbers(trimmed)) {
+      return `${label} cannot contain only numbers`;
+    }
+    if (hasExcessiveRepeatedChars(value)) {
+      return `${label} contains too many repeated characters`;
+    }
+  }
+
+  switch (field) {
+    case 'title':
+      if (isCareerTitleTooLong(value)) return `${label} is too long`;
+      break;
+    case 'department':
+      if (isCareerDepartmentTooLong(value)) return `${label} is too long`;
+      break;
+    case 'location':
+      if (isCareerLocationTooLong(value)) return `${label} is too long`;
+      break;
+    case 'type':
+      if (isCareerTypeTooLong(value)) return `${label} is too long`;
+      break;
+    case 'salary':
+      if (isCareerSalaryTooLong(value)) return `${label} is too long`;
+      break;
+    case 'shortDescription':
+      if (isCareerShortDescriptionTooLong(value)) return `${label} is too long`;
+      break;
+    case 'applyUrl':
+      if (!isValidCareerApplyUrl(value)) return `${label} is invalid`;
+      if (isCareerApplyUrlTooLong(value)) return `${label} is too long`;
+      break;
+  }
+
+  return null;
 };
 
 export const validateSubject = (value: string): { valid: boolean; error?: string } => {

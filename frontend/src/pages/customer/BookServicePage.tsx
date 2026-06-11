@@ -89,6 +89,9 @@ const BookServicePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => startOfLocalDay());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
+  const [allSlotsForDate, setAllSlotsForDate] = useState<string[]>([]);
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ 
     address: user?.address || '',
     lat: user?.location?.lat,
@@ -273,15 +276,18 @@ const BookServicePage: React.FC = () => {
       case 1: return selectedServices.length > 0;
       case 2: {
         const isScheduleComplete = selectedDate !== null && selectedTime !== null;
+        const isSlotStillAvailable = Boolean(
+          selectedTime && availableSlots.includes(selectedTime),
+        );
         const isAddressComplete = pickupLocation.address.trim() !== '' && isSelectedLocationAllowed;
-        return isScheduleComplete && isAddressComplete;
+        return isScheduleComplete && isSlotStillAvailable && isAddressComplete;
       }
       case 3: return true;
       default: return false;
     }
   };
 
-  const refreshSlotsForDate = async (date: Date) => {
+  const refreshSlotsForDate = async (date: Date): Promise<string[]> => {
     try {
       const dateStr = formatLocalYmd(date);
       const category = getBookingCategory();
@@ -292,12 +298,20 @@ const BookServicePage: React.FC = () => {
           !isSameLocalCalendarDay(date) || !isSlotStartInPast(date, slot)
       );
       setAvailableSlots(filtered);
+      setBookedSlots(Array.isArray(data?.bookedSlots) ? data.bookedSlots : []);
+      setBlockedSlots(Array.isArray(data?.blockedSlots) ? data.blockedSlots : []);
+      setAllSlotsForDate(Array.isArray(data?.allSlots) ? data.allSlots : []);
       if (selectedTime && !filtered.includes(selectedTime)) {
         setSelectedTime(null);
         toast.info('Previously selected slot is no longer available for the selected services. Please select another slot.');
       }
+      return filtered;
     } catch {
       setAvailableSlots([]);
+      setBookedSlots([]);
+      setBlockedSlots([]);
+      setAllSlotsForDate([]);
+      return [];
     }
   };
 
@@ -586,6 +600,14 @@ const BookServicePage: React.FC = () => {
   }, [isSelectedLocationAllowed]);
 
   const handleNext = async () => {
+    if (currentStep === 2 && selectedDate) {
+      const timeToValidate = selectedTime;
+      const latestAvailable = await refreshSlotsForDate(selectedDate);
+      if (!timeToValidate || !latestAvailable.includes(timeToValidate)) {
+        toast.error('Selected slot is no longer available. Please choose another slot.');
+        return;
+      }
+    }
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -792,7 +814,7 @@ const BookServicePage: React.FC = () => {
       entities={['availableservicepincode', 'slotblock', 'booking']}
       onSync={handleGlobalSync}
     >
-    <div className="w-full min-h-screen py-4 lg:py-6 space-y-6">
+    <div className="w-full min-h-screen py-4 lg:py-6 space-y-6 min-w-0 max-w-full overflow-x-hidden pb-28 lg:pb-6">
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">{getServiceTitle()}</h1>
@@ -1320,6 +1342,9 @@ const BookServicePage: React.FC = () => {
                     onDateChange={setSelectedDate}
                     onTimeChange={setSelectedTime}
                     availableSlots={availableSlots}
+                    bookedSlots={bookedSlots}
+                    blockedSlots={blockedSlots}
+                    allSlotsFromApi={allSlotsForDate}
                   />
                 </div>
               </div>
@@ -1483,7 +1508,8 @@ const BookServicePage: React.FC = () => {
           </motion.div>
 
           {/* Navigation Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-border">
+          <div className="sticky bottom-0 z-20 -mx-4 sm:mx-0 px-4 sm:px-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background/95 backdrop-blur-sm border-t border-border mt-4">
+            <div className={cn('flex flex-col sm:flex-row gap-3 w-full', currentStep > 0 ? 'sm:grid sm:grid-cols-2' : '')}>
             {currentStep > 0 && (
               <button
                 onClick={() => {
@@ -1493,7 +1519,7 @@ const BookServicePage: React.FC = () => {
                   }
                   setCurrentStep(currentStep - 1);
                 }}
-                className="w-full sm:flex-1 py-3 sm:py-4 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+                className="w-full min-h-[48px] py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors flex items-center justify-center whitespace-nowrap"
               >
                 Back
               </button>
@@ -1501,7 +1527,10 @@ const BookServicePage: React.FC = () => {
             <button
               onClick={handleNext}
               disabled={!canProceed() || isLoading}
-              className="w-full sm:flex-1 py-3 sm:py-4 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={cn(
+                'w-full min-h-[48px] py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap',
+                currentStep === 0 ? '' : ''
+              )}
             >
               {isLoading ? (
                 <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -1522,14 +1551,15 @@ const BookServicePage: React.FC = () => {
                 </>
               )}
             </button>
+            </div>
           </div>
     </div>
     <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Add New Address</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2 min-w-0">
           <div className="space-y-2">
             <Label>Label</Label>
             <select 
@@ -1563,7 +1593,7 @@ const BookServicePage: React.FC = () => {
               />
             </div>
           </div>
-          <Button onClick={handleAddAddress} className="w-full">Save Address</Button>
+          <Button onClick={handleAddAddress} className="w-full min-h-[44px]">Save Address</Button>
         </div>
       </DialogContent>
     </Dialog>

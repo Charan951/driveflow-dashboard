@@ -335,7 +335,7 @@ const DashboardPage: React.FC = () => {
         <Dialog>
           <DialogTrigger asChild>
             <button
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+              className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               Book Service

@@ -18,7 +18,9 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Users,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -27,7 +29,7 @@ import { uploadService } from '@/services/uploadService';
 import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { blogService, BlogPost, BlogCategory } from '@/services/blogService';
-import { careerService, Career } from '@/services/careerService';
+import { careerService, Career, CareerApplication } from '@/services/careerService';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -61,21 +63,18 @@ import {
   isCategoryNameTooLong,
   isValidCategoryDescription,
   isCategoryDescriptionTooLong,
-  isValidCareerTitle,
-  isCareerTitleTooLong,
-  isValidCareerDepartment,
-  isCareerDepartmentTooLong,
-  isValidCareerLocation,
-  isCareerLocationTooLong,
-  isValidCareerType,
-  isCareerTypeTooLong,
-  isValidCareerSalary,
-  isCareerSalaryTooLong,
-  isValidCareerShortDescription,
-  isCareerShortDescriptionTooLong,
-  isValidCareerApplyUrl,
-  isCareerApplyUrlTooLong,
-  hasExcessiveRepeatedChars
+  hasExcessiveRepeatedChars,
+  isOnlySpecialCharacters,
+  isOnlyNumbers,
+  validateCareerField,
+  type CareerFormField,
+  MAX_CAREER_TITLE_LENGTH,
+  MAX_CAREER_DEPARTMENT_LENGTH,
+  MAX_CAREER_LOCATION_LENGTH,
+  MAX_CAREER_TYPE_LENGTH,
+  MAX_CAREER_SALARY_LENGTH,
+  MAX_CAREER_SHORT_DESCRIPTION_LENGTH,
+  MAX_CAREER_APPLY_URL_LENGTH,
 } from '@/lib/formValidation';
 
 const PAGES = [
@@ -137,8 +136,71 @@ const AdminHeroImagesPage = () => {
     applyUrl: '',
     isActive: true,
   });
+  const [selectedCareerForApps, setSelectedCareerForApps] = useState<string | null>(null);
+  const [careerApplications, setCareerApplications] = useState<CareerApplication[]>([]);
+  const [loadingCareerApplications, setLoadingCareerApplications] = useState(false);
+  const [careerFormErrors, setCareerFormErrors] = useState<Partial<Record<CareerFormField, string>>>({});
+  const careerFormFields: CareerFormField[] = [
+    'title',
+    'department',
+    'location',
+    'type',
+    'salary',
+    'shortDescription',
+    'applyUrl',
+  ];
   // Track validation errors for slides
   const [slideErrors, setSlideErrors] = useState<Record<string | number, { titleWhite?: string; titleBlue?: string; subtitle?: string }>>({});
+  const [pageHeroErrors, setPageHeroErrors] = useState<Record<string, { title?: string; subtitle?: string }>>({});
+
+  const validatePageHeroField = (
+    field: 'title' | 'subtitle',
+    value: string,
+  ): string | null => {
+    const trimmed = value.trim();
+
+    if (field === 'title') {
+      if (!trimmed) return 'Title is required';
+      if (isHeroTitleTooLong(value)) return 'Title is too long (max 100 characters)';
+      if (isOnlySpecialCharacters(trimmed)) {
+        return 'Title cannot contain only special characters';
+      }
+      if (isOnlyNumbers(trimmed)) {
+        return 'Title cannot contain only numbers';
+      }
+      if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
+      return null;
+    }
+
+    if (!trimmed) return 'Subtitle is required';
+    if (isHeroSubtitleTooLong(value)) return 'Subtitle is too long (max 300 characters)';
+    if (isOnlySpecialCharacters(trimmed)) {
+      return 'Subtitle cannot contain only special characters';
+    }
+    if (isOnlyNumbers(trimmed)) {
+      return 'Subtitle cannot contain only numbers';
+    }
+    if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
+    return null;
+  };
+
+  const validatePageHero = (hero: PageHero): { title?: string; subtitle?: string } => {
+    const errors: { title?: string; subtitle?: string } = {};
+    const titleError = validatePageHeroField('title', hero.title || '');
+    if (titleError) errors.title = titleError;
+    const subtitleError = validatePageHeroField('subtitle', hero.subtitle || '');
+    if (subtitleError) errors.subtitle = subtitleError;
+    return errors;
+  };
+
+  const applyPageHeroValidationErrors = (pageId: string, hero: PageHero) => {
+    const errors = validatePageHero(hero);
+    setPageHeroErrors((prev) => ({
+      ...prev,
+      [pageId]: errors,
+    }));
+    return Object.keys(errors).length === 0;
+  };
 
   // Validate a single slide field and return error message
   const validateSlideField = (slideId: string | number, field: keyof HeroSlide, value: string): string | null => {
@@ -153,6 +215,12 @@ const AdminHeroImagesPage = () => {
     if (field === 'subtitle') {
       if (!trimmed) return 'This field is required';
       if (isSlideSubtitleTooLong(value)) return 'Subtitle is too long (max 150 characters)';
+      if (isOnlySpecialCharacters(trimmed)) {
+        return 'Subtitle cannot contain only special characters';
+      }
+      if (isOnlyNumbers(trimmed)) {
+        return 'Subtitle cannot contain only numbers';
+      }
       if (hasExcessiveRepeatedChars(value)) return 'Too many repeated characters';
       if (!isValidHeroSubtitle(value)) return 'Invalid subtitle';
     }
@@ -298,26 +366,17 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleUpdatePageHero = (pageId: string, field: keyof PageHero, value: string) => {
-    if (field === 'title') {
-      if (isHeroTitleTooLong(value)) {
-        toast.error(`Title is too long. Max 100 characters.`);
-        return;
-      }
-      if (hasExcessiveRepeatedChars(value)) {
-        toast.error('Title contains excessive repeated characters');
-        return;
-      }
+    if (field === 'title' || field === 'subtitle') {
+      const error = validatePageHeroField(field, value);
+      setPageHeroErrors((prev) => ({
+        ...prev,
+        [pageId]: {
+          ...prev[pageId],
+          [field]: error || undefined,
+        },
+      }));
     }
-    if (field === 'subtitle') {
-      if (isHeroSubtitleTooLong(value)) {
-        toast.error(`Subtitle is too long. Max 300 characters.`);
-        return;
-      }
-      if (hasExcessiveRepeatedChars(value)) {
-        toast.error('Subtitle contains excessive repeated characters');
-        return;
-      }
-    }
+
     setPageHeroes({
       ...pageHeroes,
       [pageId]: {
@@ -411,40 +470,30 @@ const AdminHeroImagesPage = () => {
   };
 
   const handleSavePageHeroes = async () => {
-    for (const pageId in pageHeroes) {
-      const pageHero = pageHeroes[pageId];
-      if (!pageHero.title || !pageHero.title.trim()) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is required`);
-        return;
-      }
-      if (!isValidHeroTitle(pageHero.title)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
-        return;
-      }
-      if (isHeroTitleTooLong(pageHero.title)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
-        return;
-      }
-      if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is required`);
-        return;
-      }
-      if (!isValidHeroSubtitle(pageHero.subtitle)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle contains invalid characters`);
-        return;
-      }
-      if (isHeroSubtitleTooLong(pageHero.subtitle)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is too long`);
-        return;
+    let hasPageHeroErrors = false;
+    const allPageHeroErrors: Record<string, { title?: string; subtitle?: string }> = {};
+
+    for (const page of PAGES) {
+      const pageHero = pageHeroes[page.id] || { page: page.id, image: '', title: '', subtitle: '' };
+      const errors = validatePageHero(pageHero);
+      if (Object.keys(errors).length > 0) {
+        hasPageHeroErrors = true;
+        allPageHeroErrors[page.id] = errors;
       }
       if (pageHero.image && !isValidImageUrl(pageHero.image)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is invalid`);
+        toast.error(`${page.label} hero image URL is invalid`);
         return;
       }
       if (isImageUrlTooLong(pageHero.image)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is too long`);
+        toast.error(`${page.label} hero image URL is too long`);
         return;
       }
+    }
+
+    setPageHeroErrors(allPageHeroErrors);
+    if (hasPageHeroErrors) {
+      toast.error('Please fix the errors in page hero banners before saving');
+      return;
     }
     if (!isValidAddress(contactDetails.address)) {
       toast.error('Address contains invalid characters');
@@ -493,28 +542,8 @@ const AdminHeroImagesPage = () => {
 
     console.log('Current page hero data:', pageHero);
 
-    if (!pageHero.title || !pageHero.title.trim()) {
-      toast.error(`${pageLabel} hero title is required`);
-      return;
-    }
-    if (!isValidHeroTitle(pageHero.title)) {
-      toast.error(`${pageLabel} hero title contains invalid characters`);
-      return;
-    }
-    if (isHeroTitleTooLong(pageHero.title)) {
-      toast.error(`${pageLabel} hero title is too long`);
-      return;
-    }
-    if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
-      toast.error(`${pageLabel} hero subtitle is required`);
-      return;
-    }
-    if (!isValidHeroSubtitle(pageHero.subtitle)) {
-      toast.error(`${pageLabel} hero subtitle contains invalid characters`);
-      return;
-    }
-    if (isHeroSubtitleTooLong(pageHero.subtitle)) {
-      toast.error(`${pageLabel} hero subtitle is too long`);
+    if (!applyPageHeroValidationErrors(pageId, pageHero)) {
+      toast.error(`Please fix the errors in ${pageLabel} hero banner before saving`);
       return;
     }
     if (pageHero.image && !isValidImageUrl(pageHero.image)) {
@@ -604,40 +633,30 @@ const AdminHeroImagesPage = () => {
     }
 
     // Validate page heroes
-    for (const pageId in pageHeroes) {
-      const pageHero = pageHeroes[pageId];
-      if (!pageHero.title || !pageHero.title.trim()) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is required`);
-        return;
-      }
-      if (!isValidHeroTitle(pageHero.title)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title contains invalid characters`);
-        return;
-      }
-      if (isHeroTitleTooLong(pageHero.title)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero title is too long`);
-        return;
-      }
-      if (!pageHero.subtitle || !pageHero.subtitle.trim()) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is required`);
-        return;
-      }
-      if (!isValidHeroSubtitle(pageHero.subtitle)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle contains invalid characters`);
-        return;
-      }
-      if (isHeroSubtitleTooLong(pageHero.subtitle)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero subtitle is too long`);
-        return;
+    let hasPageHeroErrors = false;
+    const allPageHeroErrors: Record<string, { title?: string; subtitle?: string }> = {};
+
+    for (const page of PAGES) {
+      const pageHero = pageHeroes[page.id] || { page: page.id, image: '', title: '', subtitle: '' };
+      const errors = validatePageHero(pageHero);
+      if (Object.keys(errors).length > 0) {
+        hasPageHeroErrors = true;
+        allPageHeroErrors[page.id] = errors;
       }
       if (pageHero.image && !isValidImageUrl(pageHero.image)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is invalid`);
+        toast.error(`${page.label} hero image URL is invalid`);
         return;
       }
       if (isImageUrlTooLong(pageHero.image)) {
-        toast.error(`${PAGES.find(p => p.id === pageId)?.label || pageId} hero image URL is too long`);
+        toast.error(`${page.label} hero image URL is too long`);
         return;
       }
+    }
+
+    setPageHeroErrors(allPageHeroErrors);
+    if (hasPageHeroErrors) {
+      toast.error('Please fix the errors in page hero banners before saving');
+      return;
     }
     // Validate contact details
     if (!isValidAddress(contactDetails.address)) {
@@ -955,7 +974,29 @@ const AdminHeroImagesPage = () => {
       applyUrl: '',
       isActive: true,
     });
+    setCareerFormErrors({});
   };
+
+  const updateCareerFormField = (field: CareerFormField, value: string) => {
+    setCareerForm((prev) => ({ ...prev, [field]: value }));
+    const error = validateCareerField(field, value);
+    setCareerFormErrors((prev) => ({ ...prev, [field]: error || undefined }));
+  };
+
+  const validateCareerForm = () => {
+    const errors: Partial<Record<CareerFormField, string>> = {};
+    for (const field of careerFormFields) {
+      const error = validateCareerField(field, String(careerForm[field] ?? ''));
+      if (error) errors[field] = error;
+    }
+    setCareerFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const careerInputClass = (field: CareerFormField) =>
+    `w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all ${
+      careerFormErrors[field] ? 'ring-2 ring-red-500 focus:ring-red-500' : ''
+    }`;
 
   const editCareer = (career: Career) => {
     setCareerForm({
@@ -970,87 +1011,33 @@ const AdminHeroImagesPage = () => {
       isActive: career.isActive,
     });
     setActiveManagerTab('careers');
+    setCareerFormErrors({});
+  };
+
+  const loadCareerApplications = async (careerId: string) => {
+    setSelectedCareerForApps(careerId);
+    setLoadingCareerApplications(true);
+    try {
+      const applications = await careerService.getCareerApplications(careerId);
+      setCareerApplications(Array.isArray(applications) ? applications : []);
+    } catch (error) {
+      setCareerApplications([]);
+      toast.error('Failed to load career applications');
+    } finally {
+      setLoadingCareerApplications(false);
+    }
+  };
+
+  const selectCareerForApplications = (career: Career) => {
+    void loadCareerApplications(career._id);
   };
 
   const handleSaveCareer = async () => {
-    if (!careerForm.title.trim()) {
-      toast.error('Career title is required');
+    if (!validateCareerForm()) {
+      toast.error('Please fix the errors in the career form before saving');
       return;
     }
-    if (!isValidCareerTitle(careerForm.title)) {
-      toast.error('Career title contains invalid characters');
-      return;
-    }
-    if (isCareerTitleTooLong(careerForm.title)) {
-      toast.error('Career title is too long');
-      return;
-    }
-    
-    if (!careerForm.department.trim()) {
-      toast.error('Career department is required');
-      return;
-    }
-    if (!isValidCareerDepartment(careerForm.department)) {
-      toast.error('Career department contains invalid characters');
-      return;
-    }
-    if (isCareerDepartmentTooLong(careerForm.department)) {
-      toast.error('Career department is too long');
-      return;
-    }
-    
-    if (!careerForm.location.trim()) {
-      toast.error('Career location is required');
-      return;
-    }
-    if (!isValidCareerLocation(careerForm.location)) {
-      toast.error('Career location contains invalid characters');
-      return;
-    }
-    if (isCareerLocationTooLong(careerForm.location)) {
-      toast.error('Career location is too long');
-      return;
-    }
-    
-    if (!careerForm.type.trim()) {
-      toast.error('Career type is required');
-      return;
-    }
-    if (!isValidCareerType(careerForm.type)) {
-      toast.error('Career type contains invalid characters');
-      return;
-    }
-    if (isCareerTypeTooLong(careerForm.type)) {
-      toast.error('Career type is too long');
-      return;
-    }
-    
-    if (!isValidCareerSalary(careerForm.salary)) {
-      toast.error('Career salary contains invalid characters');
-      return;
-    }
-    if (isCareerSalaryTooLong(careerForm.salary)) {
-      toast.error('Career salary is too long');
-      return;
-    }
-    
-    if (!isValidCareerShortDescription(careerForm.shortDescription)) {
-      toast.error('Career short description contains invalid characters');
-      return;
-    }
-    if (isCareerShortDescriptionTooLong(careerForm.shortDescription)) {
-      toast.error('Career short description is too long');
-      return;
-    }
-    
-    if (careerForm.applyUrl && !isValidCareerApplyUrl(careerForm.applyUrl)) {
-      toast.error('Career apply URL is invalid');
-      return;
-    }
-    if (isCareerApplyUrlTooLong(careerForm.applyUrl)) {
-      toast.error('Career apply URL is too long');
-      return;
-    }
+
     try {
       const payload = {
         title: careerForm.title,
@@ -1109,13 +1096,18 @@ const AdminHeroImagesPage = () => {
   }, [blogCategories, blogForm._id, blogForm.category]);
 
   return (
-    <GlobalSyncRefresh entities={['hero', 'blog', 'blogcategory', 'career']} onSync={fetchAllData}>
+    <GlobalSyncRefresh entities={['hero', 'blog', 'blogcategory', 'career', 'careerapplication']} onSync={(payload) => {
+      fetchAllData();
+      if (payload.entity === 'careerapplication' && selectedCareerForApps) {
+        void loadCareerApplications(selectedCareerForApps);
+      }
+    }}>
     {loading ? (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Loader2 className="w-8 h-8 animate-spin text-primary" />
     </div>
     ) : (
-    <div className="max-w-6xl mx-auto p-4 lg:p-8">
+    <div className="max-w-6xl mx-auto p-4 lg:p-8 min-w-0 pb-24 lg:pb-8">
       <div className="mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit website</h1>
@@ -1126,27 +1118,27 @@ const AdminHeroImagesPage = () => {
       <div className="space-y-12">
         {/* Home Page Carousel */}
         <section>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
                 <Layout className="w-6 h-6 text-blue-500" />
               </div>
-              <h2 className="text-xl font-bold">Home Page Carousel</h2>
+              <h2 className="text-lg sm:text-xl font-bold">Home Page Carousel</h2>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col xs:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto shrink-0">
               <button
                 onClick={handleAddSlide}
-                className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 shrink-0" />
                 Add Slide
               </button>
               <button
                 onClick={handleSaveHomeSlides}
                 disabled={savingHomeSlides}
-                className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-70"
+                className="bg-primary text-primary-foreground px-4 sm:px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-70"
               >
-                {savingHomeSlides ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingHomeSlides ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
                 {savingHomeSlides ? 'Saving...' : 'Save Slides'}
               </button>
             </div>
@@ -1372,20 +1364,26 @@ const AdminHeroImagesPage = () => {
                           type="text"
                           value={hero.title}
                           onChange={(e) => handleUpdatePageHero(page.id, 'title', e.target.value)}
-                          className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                          className={`w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all ${pageHeroErrors[page.id]?.title ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                           placeholder="Default Page Title"
                           maxLength={100}
                         />
+                        {pageHeroErrors[page.id]?.title ? (
+                          <p className="text-xs text-red-500 mt-1">{pageHeroErrors[page.id].title}</p>
+                        ) : null}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Subtitle / Description</label>
                         <textarea 
                           value={hero.subtitle}
                           onChange={(e) => handleUpdatePageHero(page.id, 'subtitle', e.target.value)}
-                          className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[60px] resize-none"
+                          className={`w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[60px] resize-none ${pageHeroErrors[page.id]?.subtitle ? 'ring-2 ring-red-500 focus:ring-red-500' : ''}`}
                           placeholder="Enter banner description..."
                           maxLength={300}
                         />
+                        {pageHeroErrors[page.id]?.subtitle ? (
+                          <p className="text-xs text-red-500 mt-1">{pageHeroErrors[page.id].subtitle}</p>
+                        ) : null}
                       </div>
                       {page.id === 'contact' && (
                         <>
@@ -1439,7 +1437,7 @@ const AdminHeroImagesPage = () => {
             <h2 className="text-xl font-bold">Content Manager</h2>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <button
               onClick={() => setActiveManagerTab('blog')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeManagerTab === 'blog' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
@@ -1455,21 +1453,21 @@ const AdminHeroImagesPage = () => {
           </div>
 
           {activeManagerTab === 'blog' ? (
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="grid lg:grid-cols-3 gap-6 min-w-0 overflow-x-hidden">
+              <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 min-w-0 overflow-hidden order-2 lg:order-1">
                 <h3 className="font-bold text-lg">Categories</h3>
                 <input
                   type="text"
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="Category name"
-                  className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
+                  className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all"
                 />
                 <textarea
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Description (optional)"
-                  className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none"
+                  className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none"
                 />
                 <button
                   onClick={editingCategoryId ? handleSaveCategoryEdit : handleCreateCategory}
@@ -1478,16 +1476,16 @@ const AdminHeroImagesPage = () => {
                   {editingCategoryId ? 'Save Category' : 'Add Category'}
                 </button>
 
-                <div className="space-y-2 pt-2 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-2 pt-2 max-h-64 overflow-y-auto overflow-x-hidden min-w-0">
                   {blogCategories.map((category) => (
-                    <div key={category._id} className="flex items-center justify-between bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{category.name}</p>
+                    <div key={category._id} className="flex items-start justify-between gap-2 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium break-all [overflow-wrap:anywhere]">{category.name}</p>
                         {category.description ? (
-                          <p className="text-[11px] text-muted-foreground truncate">{category.description}</p>
+                          <p className="text-[11px] text-muted-foreground break-all [overflow-wrap:anywhere] mt-0.5">{category.description}</p>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleEditCategory(category)}
                           className="p-1.5 rounded-md hover:bg-background text-primary"
@@ -1508,49 +1506,61 @@ const AdminHeroImagesPage = () => {
                 </div>
               </div>
 
-              <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-lg">{blogForm._id ? 'Edit Blog' : 'Create Blog'}</h3>
-                  <button onClick={resetBlogForm} className="text-sm text-primary hover:underline">New Blog</button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Blog title *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={blogForm.author} onChange={(e) => setBlogForm((prev) => ({ ...prev, author: e.target.value }))} placeholder="Author *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <select value={blogForm.category} onChange={(e) => setBlogForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all">
-                    <option value="">Select category *</option>
-                    {blogCategories.map((category) => (<option key={category._id} value={category._id}>{category.name}</option>))}
-                  </select>
-                  <input type="text" value={blogForm.readTime} onChange={(e) => setBlogForm((prev) => ({ ...prev, readTime: e.target.value }))} placeholder="Read time (e.g. 5 min read) *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                </div>
-
-                <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none" />
-                <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[150px] resize-y" />
-                <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated) *" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL *" className="flex-1 min-w-[220px] px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <button onClick={() => triggerUpload('blog')} className="px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors">Upload Image</button>
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <input type="checkbox" checked={blogForm.isPublished} onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} />
-                    Published
-                  </label>
-                  <button onClick={handleSaveBlog} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
+              <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm min-w-0 overflow-hidden order-1 lg:order-2 flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <h3 className="font-bold text-lg">{blogForm._id ? 'Edit Blog' : 'Create Blog'}</h3>
+                    <button onClick={resetBlogForm} className="text-sm text-primary hover:underline self-start sm:self-auto">New Blog</button>
+                  </div>
+                  <button
+                    onClick={handleSaveBlog}
+                    className="lg:hidden w-full px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm"
+                  >
                     {blogForm._id ? 'Update Blog' : 'Create Blog'}
                   </button>
                 </div>
 
-                <div className="space-y-2 pt-3 border-t border-border max-h-72 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
+                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Blog title *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
+                  <input type="text" value={blogForm.author} onChange={(e) => setBlogForm((prev) => ({ ...prev, author: e.target.value }))} placeholder="Author *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
+                  <select value={blogForm.category} onChange={(e) => setBlogForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all truncate">
+                    <option value="">Select category *</option>
+                    {blogCategories.map((category) => (<option key={category._id} value={category._id}>{category.name.length > 48 ? `${category.name.slice(0, 48)}…` : category.name}</option>))}
+                  </select>
+                  <input type="text" value={blogForm.readTime} onChange={(e) => setBlogForm((prev) => ({ ...prev, readTime: e.target.value }))} placeholder="Read time (e.g. 5 min read) *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+
+                <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none break-all" />
+                <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[120px] sm:min-h-[150px] resize-y break-all" />
+                <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated) *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
+                <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
+
+                <div className="sticky bottom-[5.5rem] lg:static z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 bg-card/95 backdrop-blur-md border border-border rounded-xl lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:py-0 lg:mx-0 lg:px-0 lg:bg-transparent lg:backdrop-blur-none shadow-sm lg:shadow-none">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 min-w-0">
+                    <button onClick={() => triggerUpload('blog')} className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium">
+                      Upload Image
+                    </button>
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+                      <input type="checkbox" checked={blogForm.isPublished} onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} />
+                      Published
+                    </label>
+                    <button onClick={handleSaveBlog} className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm">
+                      {blogForm._id ? 'Update Blog' : 'Create Blog'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 lg:pt-3 border-t border-border max-h-72 overflow-y-auto overflow-x-hidden min-w-0">
                   {blogs.map((blog) => (
-                    <div key={blog._id} className="flex items-center justify-between gap-3 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
-                      <div className="min-w-0 flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${blog.isPublished ? 'bg-emerald-500' : 'bg-amber-500'}`} title={blog.isPublished ? 'Published' : 'Draft'} />
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{blog.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{typeof blog.category === 'string' ? '' : blog.category?.name} • {blog.isPublished ? 'Published' : 'Draft'}</p>
+                    <div key={blog._id} className="flex items-start justify-between gap-3 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors min-w-0">
+                      <div className="min-w-0 flex items-start gap-2 flex-1">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${blog.isPublished ? 'bg-emerald-500' : 'bg-amber-500'}`} title={blog.isPublished ? 'Published' : 'Draft'} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm break-words [overflow-wrap:anywhere]">{blog.title}</p>
+                          <p className="text-xs text-muted-foreground break-words [overflow-wrap:anywhere]">{typeof blog.category === 'string' ? '' : blog.category?.name} • {blog.isPublished ? 'Published' : 'Draft'}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openBlogPreview(blog)} className="p-1.5 rounded-md hover:bg-background text-muted-foreground hover:text-foreground" title="Preview blog"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => editBlog(blog)} className="p-1.5 rounded-md hover:bg-background text-primary" title="Edit blog"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => handleDeleteBlog(blog._id)} className="p-1.5 rounded-md hover:bg-red-50 text-red-600" title="Delete blog"><Trash2 className="w-4 h-4" /></button>
@@ -1569,15 +1579,36 @@ const AdminHeroImagesPage = () => {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-3">
-                  <input type="text" value={careerForm.title} onChange={(e) => setCareerForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Job title" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={careerForm.department} onChange={(e) => setCareerForm((prev) => ({ ...prev, department: e.target.value }))} placeholder="Department" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={careerForm.location} onChange={(e) => setCareerForm((prev) => ({ ...prev, location: e.target.value }))} placeholder="Location" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={careerForm.type} onChange={(e) => setCareerForm((prev) => ({ ...prev, type: e.target.value }))} placeholder="Type (e.g. Full-time)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={careerForm.salary} onChange={(e) => setCareerForm((prev) => ({ ...prev, salary: e.target.value }))} placeholder="Salary (e.g. ₹8L - ₹12L)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
-                  <input type="text" value={careerForm.applyUrl} onChange={(e) => setCareerForm((prev) => ({ ...prev, applyUrl: e.target.value }))} placeholder="Apply URL (optional)" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <div>
+                    <input type="text" value={careerForm.title} onChange={(e) => updateCareerFormField('title', e.target.value)} placeholder="Job title" maxLength={MAX_CAREER_TITLE_LENGTH} className={careerInputClass('title')} />
+                    {careerFormErrors.title ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.title}</p> : null}
+                  </div>
+                  <div>
+                    <input type="text" value={careerForm.department} onChange={(e) => updateCareerFormField('department', e.target.value)} placeholder="Department" maxLength={MAX_CAREER_DEPARTMENT_LENGTH} className={careerInputClass('department')} />
+                    {careerFormErrors.department ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.department}</p> : null}
+                  </div>
+                  <div>
+                    <input type="text" value={careerForm.location} onChange={(e) => updateCareerFormField('location', e.target.value)} placeholder="Location" maxLength={MAX_CAREER_LOCATION_LENGTH} className={careerInputClass('location')} />
+                    {careerFormErrors.location ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.location}</p> : null}
+                  </div>
+                  <div>
+                    <input type="text" value={careerForm.type} onChange={(e) => updateCareerFormField('type', e.target.value)} placeholder="Type (e.g. Full-time)" maxLength={MAX_CAREER_TYPE_LENGTH} className={careerInputClass('type')} />
+                    {careerFormErrors.type ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.type}</p> : null}
+                  </div>
+                  <div>
+                    <input type="text" value={careerForm.salary} onChange={(e) => updateCareerFormField('salary', e.target.value)} placeholder="Salary (e.g. ₹8L - ₹12L)" maxLength={MAX_CAREER_SALARY_LENGTH} className={careerInputClass('salary')} />
+                    {careerFormErrors.salary ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.salary}</p> : null}
+                  </div>
+                  <div>
+                    <input type="text" value={careerForm.applyUrl} onChange={(e) => updateCareerFormField('applyUrl', e.target.value)} placeholder="Apply URL (optional)" maxLength={MAX_CAREER_APPLY_URL_LENGTH} className={careerInputClass('applyUrl')} />
+                    {careerFormErrors.applyUrl ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.applyUrl}</p> : null}
+                  </div>
                 </div>
 
-                <textarea value={careerForm.shortDescription} onChange={(e) => setCareerForm((prev) => ({ ...prev, shortDescription: e.target.value }))} placeholder="Short description" className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[80px] resize-none" />
+                <div>
+                  <textarea value={careerForm.shortDescription} onChange={(e) => updateCareerFormField('shortDescription', e.target.value)} placeholder="Short description" maxLength={MAX_CAREER_SHORT_DESCRIPTION_LENGTH} className={`${careerInputClass('shortDescription')} min-h-[80px] resize-none`} />
+                  {careerFormErrors.shortDescription ? <p className="text-xs text-red-500 mt-1">{careerFormErrors.shortDescription}</p> : null}
+                </div>
 
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1594,22 +1625,119 @@ const AdminHeroImagesPage = () => {
                 <h3 className="font-bold text-lg">Posted Careers</h3>
                 <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                   {careers.map((career) => (
-                    <div key={career._id} className="flex items-center justify-between gap-2 bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-2 transition-colors">
+                    <div
+                      key={career._id}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 transition-colors ${
+                        selectedCareerForApps === career._id
+                          ? 'bg-primary/10 border border-primary/30'
+                          : 'bg-muted/40 hover:bg-muted/60'
+                      }`}
+                    >
                       <button
-                        onClick={() => navigate(`/admin/careers/${career._id}`)}
+                        onClick={() => selectCareerForApplications(career)}
                         className="min-w-0 text-left flex-1"
-                        title="Open job details and applications"
+                        title="View applications for this role"
                       >
                         <p className="font-medium text-sm truncate">{career.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{career.department} • {career.isActive ? 'Active' : 'Inactive'}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {career.department} • {career.isActive ? 'Active' : 'Inactive'}
+                          {(career.applicationCount ?? 0) > 0 ? ` • ${career.applicationCount} application${career.applicationCount === 1 ? '' : 's'}` : ''}
+                        </p>
                       </button>
                       <div className="flex items-center gap-1">
+                        {(career.applicationCount ?? 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Users className="w-3 h-3" />
+                            {career.applicationCount}
+                          </span>
+                        ) : null}
+                        <button
+                          onClick={() => navigate(`/admin/careers/${career._id}`)}
+                          className="p-1.5 rounded-md hover:bg-background text-muted-foreground"
+                          title="Open full career page"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
                         <button onClick={() => editCareer(career)} className="p-1.5 rounded-md hover:bg-background text-primary" title="Edit career"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => handleDeleteCareer(career._id)} className="p-1.5 rounded-md hover:bg-red-50 text-red-600" title="Delete career"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg">Career Applications</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCareerForApps
+                        ? `Showing applications for ${careers.find((career) => career._id === selectedCareerForApps)?.title || 'selected role'}`
+                        : 'Select a posted career to view submitted applications'}
+                    </p>
+                  </div>
+                  {selectedCareerForApps ? (
+                    <button
+                      onClick={() => navigate(`/admin/careers/${selectedCareerForApps}`)}
+                      className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                    >
+                      Open full page
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  ) : null}
+                </div>
+
+                {!selectedCareerForApps ? (
+                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                    Applications submitted from the public Careers page will appear here.
+                  </div>
+                ) : loadingCareerApplications ? (
+                  <div className="flex items-center justify-center py-10 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading applications...
+                  </div>
+                ) : careerApplications.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                    No applications yet for this role.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {careerApplications.map((application) => (
+                      <div key={application._id} className="rounded-xl border border-border p-4 bg-muted/20">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{application.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {application.email} • {application.mobileNumber}
+                            </p>
+                          </div>
+                          <span className="text-xs px-2 py-1 rounded-full bg-muted border border-border capitalize">
+                            {application.status}
+                          </span>
+                        </div>
+                        {application.additionalMessage ? (
+                          <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap">
+                            {application.additionalMessage}
+                          </p>
+                        ) : null}
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <a
+                            href={application.resumeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Resume
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {application.createdAt ? new Date(application.createdAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -139,9 +139,9 @@ const AdminSupportPage = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     ) : (
-    <div className="flex h-[calc(100vh-100px)] gap-6">
+    <div className="flex flex-col md:flex-row w-full min-w-0 max-w-full overflow-x-hidden gap-4 md:gap-6 md:h-[calc(100vh-100px)] pb-24 lg:pb-6">
       {/* Ticket List (Left Panel) */}
-      <div className={`w-full ${selectedTicket ? 'md:w-1/3 hidden md:block' : 'w-full'} flex flex-col space-y-4`}>
+      <div className={`w-full min-w-0 ${selectedTicket ? 'md:w-1/3 hidden md:flex' : 'w-full'} flex flex-col space-y-4`}>
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">Support Tickets</h1>
         </div>
@@ -235,7 +235,7 @@ const AdminSupportPage = () => {
       </div>
 
       {/* Ticket Detail (Right Panel) */}
-      <div className={`w-full md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col ${!selectedTicket ? 'hidden md:flex justify-center items-center' : ''}`}>
+      <div className={`w-full min-w-0 md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden ${!selectedTicket ? 'hidden md:flex justify-center items-center' : ''}`}>
         {!selectedTicket ? (
             <div className="text-center text-gray-400">
                 <MessageSquare size={48} className="mx-auto mb-4 opacity-50" />
@@ -243,22 +243,30 @@ const AdminSupportPage = () => {
             </div>
         ) : (
             <>
+                {/* Mobile back to list */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicket(null)}
+                  className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-gray-100 text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  ← Back to tickets
+                </button>
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-                    <div>
-                        <div className="flex items-center space-x-2 mb-2">
-                            <h2 className="text-xl font-bold text-gray-800">{selectedTicket.subject}</h2>
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">#{selectedTicket._id.slice(-6)}</span>
+                <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start min-w-0">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h2 className="text-lg sm:text-xl font-bold text-gray-800 break-words">{selectedTicket.subject}</h2>
+                            <span className="shrink-0 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">#{selectedTicket._id.slice(-6)}</span>
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center"><User size={16} className="mr-1"/> {selectedTicket.user?.name}</span>
-                            <span className="flex items-center"><Clock size={16} className="mr-1"/> {selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : 'N/A'}</span>
-                            <span>Category: {selectedTicket.category}</span>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2 text-sm text-gray-500">
+                            <span className="flex items-center min-w-0"><User size={16} className="mr-1 shrink-0"/> <span className="truncate">{selectedTicket.user?.name}</span></span>
+                            <span className="flex items-center"><Clock size={16} className="mr-1 shrink-0"/> {selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : 'N/A'}</span>
+                            <span className="break-words">Category: {selectedTicket.category}</span>
                         </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="w-full sm:w-auto shrink-0">
                         <select
-                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={selectedTicket.status}
                             onChange={(e) => handleStatusUpdate(selectedTicket._id, e.target.value)}
                         >
@@ -313,19 +321,19 @@ const AdminSupportPage = () => {
                 </div>
 
                 {/* Reply Box */}
-                <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-                    <div className="flex space-x-2">
+                <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl pb-24 md:pb-4">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             placeholder="Type your reply..."
-                            className="flex-1 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={replyMessage}
                             onChange={(e) => setReplyMessage(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSendReply()}
                         />
                         <button
                             onClick={handleSendReply}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium shrink-0"
                         >
                             Send
                         </button>

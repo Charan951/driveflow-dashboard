@@ -59,6 +59,37 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const mergePhotoUrlLists = (previous: string[] = [], incoming: string[] = []): string[] => {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const url of [...previous, ...incoming]) {
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    merged.push(url);
+  }
+  return merged.slice(0, 4);
+};
+
+const mergeBookingCarWashPhotos = (previous: Booking | null, incoming: Booking): Booking => {
+  if (!previous?.carWash || !incoming.carWash || previous._id !== incoming._id) {
+    return incoming;
+  }
+  return {
+    ...incoming,
+    carWash: {
+      ...incoming.carWash,
+      beforeWashPhotos: mergePhotoUrlLists(
+        previous.carWash.beforeWashPhotos,
+        incoming.carWash.beforeWashPhotos,
+      ),
+      afterWashPhotos: mergePhotoUrlLists(
+        previous.carWash.afterWashPhotos,
+        incoming.carWash.afterWashPhotos,
+      ),
+    },
+  };
+};
+
 const MapController = ({ center, destination, zoom, isMaximized }: { center: [number, number]; destination?: [number, number]; zoom: number; isMaximized: boolean }) => {
   const map = useMap();
   
@@ -293,7 +324,7 @@ const TrackServicePage: React.FC = () => {
 
       socketService.on('bookingUpdated', (updatedBooking: Booking) => {
         if (updatedBooking._id === id) {
-          setOrder(updatedBooking);
+          setOrder((previous) => mergeBookingCarWashPhotos(previous, updatedBooking));
           if (
             updatedBooking.status === 'SERVICE_STARTED' ||
             updatedBooking.status === 'SERVICE_COMPLETED' ||
@@ -875,7 +906,9 @@ const TrackServicePage: React.FC = () => {
               <div className="grid grid-cols-1 gap-6">
                 {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">{isEssentials ? 'Before Service' : 'Before Wash'}</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+                      {isEssentials ? 'Before Service' : 'Before Wash'} ({order.carWash.beforeWashPhotos.length}/4)
+                    </h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {order.carWash.beforeWashPhotos.map((url, i) => (
                         <button
@@ -893,7 +926,9 @@ const TrackServicePage: React.FC = () => {
 
                 {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">{isEssentials ? 'After Service' : 'After Wash'}</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+                      {isEssentials ? 'After Service' : 'After Wash'} ({order.carWash.afterWashPhotos.length}/4)
+                    </h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {order.carWash.afterWashPhotos.map((url, i) => (
                         <button

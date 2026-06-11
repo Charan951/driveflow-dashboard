@@ -88,6 +88,25 @@ const defaultHeroSlides = [
   // }
 ];
 
+const getHomeHeroImageSources = (imageUrl?: string) => {
+  if (!imageUrl) {
+    return { src: '', srcSet: undefined as string | undefined };
+  }
+
+  if (imageUrl.includes('unsplash.com')) {
+    const base = imageUrl.split('?')[0];
+    const build = (width: number, height: number) =>
+      `${base}?auto=format&fm=webp&fit=crop&crop=entropy&q=80&w=${width}&h=${height}`;
+
+    return {
+      src: build(1200, 900),
+      srcSet: `${build(640, 960)} 640w, ${build(1200, 900)} 1200w, ${build(1920, 1080)} 1920w`,
+    };
+  }
+
+  return { src: imageUrl, srcSet: undefined as string | undefined };
+};
+
 const HomePage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [heroSlides, setHeroSlides] = useState<any[]>(() => {
@@ -219,45 +238,38 @@ const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative w-full h-[100dvh] min-h-[600px] flex items-center overflow-hidden">
+      <section className="relative w-full min-h-[600px] h-[100svh] overflow-hidden">
         {/* Carousel Background */}
         {heroSlides.map((slide, index) => {
           const isActive = index === currentSlide;
+          const imageSources = getHomeHeroImageSources(slide?.image);
           return (
             <div
               key={slide.id || index}
-              className={`absolute inset-0 z-0 transition-all duration-[1500ms] ease-in-out transform ${
-                isActive ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-105 pointer-events-none z-0'
+              className={`absolute inset-0 transition-opacity duration-[1500ms] ease-in-out ${
+                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
               }`}
             >
-              <img 
-                src={
-                  slide?.image?.includes('unsplash.com')
-                    ? `${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200`
-                    : slide?.image?.includes('amazonaws.com')
-                      ? `https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1200&output=webp&q=35`
-                      : slide?.image || ''
-                }
-                crossOrigin="anonymous"
-                srcSet={
-                  slide?.image?.includes('amazonaws.com')
-                    ? `https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=600&output=webp&q=35 600w, https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1200&output=webp&q=35 1200w, https://wsrv.nl/?url=${encodeURIComponent(slide.image)}&w=1920&output=webp&q=35 1920w`
-                    : slide?.image?.includes('unsplash.com') 
-                      ? `${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=600 600w, ${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1200 1200w, ${slide.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=35&w=1920 1920w`
-                      : undefined
-                }
-                sizes="100vw"
-                alt={slide?.title || ''}
-                className="w-full h-full object-cover object-center"
-                loading={index === 0 ? 'eager' : 'lazy'}
-                fetchPriority={index === 0 ? 'high' : 'low'}
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
+              {imageSources.src ? (
+                <img 
+                  src={imageSources.src}
+                  srcSet={imageSources.srcSet}
+                  sizes="100vw"
+                  alt={slide?.titleWhite || slide?.title || 'Carzzi hero'}
+                  className="absolute inset-0 h-full w-full object-cover object-[50%_38%] md:object-center"
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={index === 0 ? 'high' : 'low'}
+                  decoding="async"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-muted" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/35 md:via-black/40 md:to-transparent" />
             </div>
           );
         })}
         
-        <div className="container relative z-10 mx-auto px-4">
+        <div className="relative z-20 mx-auto flex min-h-[600px] h-[100svh] items-center px-4 pt-16 pb-10 container">
           <div className="relative min-h-[250px] flex flex-col justify-center w-full">
             {heroSlides.map((slide, index) => {
               const isActive = index === currentSlide;

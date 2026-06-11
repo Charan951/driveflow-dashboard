@@ -225,7 +225,7 @@ const OrderDetail: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-10"
+      className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 space-y-6 pb-24 lg:pb-10 w-full min-w-0 max-w-full overflow-x-hidden"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -257,9 +257,9 @@ const OrderDetail: React.FC = () => {
         <Tabs 
           value={activeTab}
           onValueChange={setActiveTab}
-          className="w-full"
+          className="w-full min-w-0 max-w-full"
         >
-            <TabsList className={`grid w-full gap-2 h-auto p-2 bg-muted/50 border border-border rounded-2xl lg:w-[800px] ${
+            <TabsList className={`grid w-full min-w-0 max-w-full gap-2 h-auto p-2 bg-muted/50 border border-border rounded-2xl ${
                 (isCarWashService && !hasApprovedParts) 
                 ? 'grid-cols-1' 
                 : (booking.batteryTire?.isBatteryTireService 

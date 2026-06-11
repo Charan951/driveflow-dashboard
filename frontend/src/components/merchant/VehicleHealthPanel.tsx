@@ -189,19 +189,19 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
   ] as const;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-            Vehicle Health Indicators
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
+        <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
+            <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+            <span className="break-words">Vehicle Health Indicators</span>
         </h3>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-blue-50 px-2 py-1 rounded-full">
-            <Info className="w-3 h-3" />
+        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-blue-50 px-2 py-1 rounded-full shrink-0 self-start sm:self-auto">
+            <Info className="w-3 h-3 shrink-0" />
             Merchant Update Only
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 py-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 py-2 min-w-0">
         {indicators.map((indicator) => {
             const row = health[indicator.key];
             const baselineAt = vehicle?.healthPercentBaselineAt;
@@ -221,33 +221,33 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                   : 'text-green-600';
 
             return (
-            <div key={indicator.key} className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl">{indicator.icon}</span>
-                        <div className="flex flex-col">
-                            <span className="font-medium text-sm">{indicator.label}</span>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] text-muted-foreground">Fixed KM:</span>
+            <div key={indicator.key} className="space-y-4 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 min-w-0">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <span className="text-xl shrink-0">{indicator.icon}</span>
+                        <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-medium text-sm break-words">{indicator.label}</span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+                                <span className="text-[10px] text-muted-foreground shrink-0">Fixed KM:</span>
                                 <input 
                                     type="number"
                                     value={health[indicator.key].fixedKm}
                                     onChange={(e) => handleKmChange(indicator.key, e.target.value)}
-                                    className="w-20 h-5 text-[10px] border rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="w-20 min-w-0 h-7 text-[10px] border rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     placeholder="Enter KM"
                                 />
-                                <span className="text-[10px] text-muted-foreground ml-2">Fixed Days:</span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">Fixed Days:</span>
                                 <input 
                                     type="number"
                                     value={health[indicator.key].fixedDays}
                                     onChange={(e) => handleDaysChange(indicator.key, e.target.value)}
-                                    className="w-16 h-5 text-[10px] border rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="w-20 min-w-0 h-7 text-[10px] border rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     placeholder="Days"
                                 />
                             </div>
                         </div>
                     </div>
-                    <span className={`text-sm font-bold ${pctClass}`}>
+                    <span className={`text-sm font-bold shrink-0 self-start ${pctClass}`}>
                         {remaining}%
                     </span>
                 </div>
@@ -268,17 +268,13 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
                     }
                     className={useAutoPercent ? 'cursor-default opacity-95' : 'cursor-pointer'}
                 />
-                <p className="text-[10px] text-muted-foreground italic flex justify-between items-center">
-                    <span>
+                <p className="text-[10px] text-muted-foreground italic flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                    <span className="break-words">
                       Last updated: {vehicle?.healthIndicators?.[indicator.key as keyof typeof vehicle.healthIndicators]?.lastServiceDate ? new Date(vehicle.healthIndicators[indicator.key as keyof typeof vehicle.healthIndicators]!.lastServiceDate).toLocaleDateString() : 'Never'}
                     </span>
-                    <div className="flex gap-4">
-                      <span>
-                        Fixed KM: {health[indicator.key].fixedKm}
-                      </span>
-                      <span>
-                        Fixed Days: {health[indicator.key].fixedDays}
-                      </span>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Fixed KM: {health[indicator.key].fixedKm}</span>
+                      <span>Fixed Days: {health[indicator.key].fixedDays}</span>
                     </div>
                 </p>
             </div>
@@ -286,18 +282,18 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
         })}
       </div>
 
-      <div className="pt-4 border-t flex justify-between items-center">
+      <div className="pt-4 border-t flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-stretch">
         <button
             onClick={handleResetHealth}
             disabled={loading}
-            className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            className="w-full sm:flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
         >
             Reset All
         </button>
         <button
             onClick={handleSaveHealth}
             disabled={loading}
-            className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            className="w-full sm:flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
         >
             {loading ? 'Updating...' : 'Save Health Stats'}
         </button>

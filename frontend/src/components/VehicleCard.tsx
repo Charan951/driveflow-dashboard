@@ -74,7 +74,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       whileTap="tap"
       onClick={onClick}
       className={cn(
-        'relative p-4 bg-card rounded-2xl border border-border cursor-pointer w-full flex gap-4',
+        'relative p-4 bg-card rounded-2xl border border-border cursor-pointer w-full min-w-0 max-w-full flex gap-4',
         'shadow-card',
         className
       )}

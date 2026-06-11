@@ -250,9 +250,9 @@ const AdminServicesPage: React.FC = () => {
         if (activeTab === 'available-pincodes') fetchAvailableServicePincodes();
       }}
     >
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Services</h1>
+    <div className="p-4 sm:p-6 w-full min-w-0 max-w-full overflow-x-hidden pb-24 lg:pb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold">Services</h1>
         {activeTab === 'services' && (
           <button
             onClick={() => {
@@ -267,11 +267,18 @@ const AdminServicesPage: React.FC = () => {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'services' | 'slots' | 'available-pincodes')}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="slots">Slots</TabsTrigger>
-          <TabsTrigger value="available-pincodes">Available Pincodes</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'services' | 'slots' | 'available-pincodes')} className="min-w-0">
+        <TabsList className="mb-6 w-full h-auto p-1 grid grid-cols-3 gap-1 items-stretch">
+          <TabsTrigger value="services" className="text-[11px] sm:text-sm px-1 sm:px-3 py-2.5 h-auto whitespace-normal leading-tight data-[state=active]:shadow-sm">
+            Services
+          </TabsTrigger>
+          <TabsTrigger value="slots" className="text-[11px] sm:text-sm px-1 sm:px-3 py-2.5 h-auto whitespace-normal leading-tight data-[state=active]:shadow-sm">
+            Slots
+          </TabsTrigger>
+          <TabsTrigger value="available-pincodes" className="text-[11px] sm:text-sm px-1 sm:px-3 py-2.5 h-auto whitespace-normal leading-tight data-[state=active]:shadow-sm">
+            <span className="hidden sm:inline">Available Pincodes</span>
+            <span className="sm:hidden">Pincodes</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="services" className="space-y-4">
@@ -785,14 +792,14 @@ const ServiceModal = ({ service, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[60] p-4 pb-24 lg:pb-4">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-card rounded-lg w-full max-w-lg flex flex-col max-h-[90vh] shadow-xl"
+        className="bg-card rounded-t-2xl sm:rounded-lg w-full max-w-lg flex flex-col max-h-[calc(100dvh-7rem)] lg:max-h-[90vh] overflow-hidden shadow-xl"
       >
         {/* Header - Fixed */}
-        <div className="p-6 border-b border-border flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b border-border flex justify-between items-center shrink-0">
           <h2 className="text-xl font-bold">{service ? 'Edit Service' : 'Add New Service'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <Plus className="rotate-45" size={24} />
@@ -800,7 +807,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
         </div>
 
         {/* Body - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <form id="service-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -921,7 +928,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                     </div>
                   )}
                   
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 min-w-0">
                     <input
                       type="text"
                       name="image"
@@ -929,14 +936,14 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                       onChange={handleChange}
                       placeholder="Paste image URL here"
                       maxLength={500}
-                      className="flex-1 p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      className="flex-1 min-w-0 w-full p-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="bg-secondary text-secondary-foreground px-4 py-2.5 rounded-lg flex items-center gap-2 hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      className="w-full sm:w-auto shrink-0 bg-secondary text-secondary-foreground px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors disabled:opacity-50"
                     >
                       {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
                       {uploading ? 'Uploading...' : 'Upload'}
@@ -993,18 +1000,18 @@ const ServiceModal = ({ service, onClose, onSave }) => {
         </div>
 
         {/* Footer - Fixed */}
-        <div className="p-6 border-t border-border flex justify-end gap-3 bg-muted/30">
+        <div className="p-4 sm:p-6 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3 bg-muted/30 shrink-0">
           <button 
             type="button" 
             onClick={onClose} 
-            className="px-6 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium"
           >
             Cancel
           </button>
           <button 
             type="submit" 
             form="service-form"
-            className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-medium shadow-sm active:scale-[0.98]"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-medium shadow-sm active:scale-[0.98]"
           >
             Save Service
           </button>

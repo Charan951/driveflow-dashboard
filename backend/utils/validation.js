@@ -92,7 +92,13 @@ const hasExcessiveRepeatedChars = (value, maxConsecutive = MAX_CONSECUTIVE_CHARS
 const isOnlySpecialCharacters = (value) => {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
-  return !/[a-zA-Z0-9]/.test(trimmed);
+  return trimmed.length > 0 && !/[a-zA-Z0-9]/.test(trimmed);
+};
+
+const isOnlyNumbers = (value) => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && /^\d+$/.test(trimmed.replace(/\s/g, ''));
 };
 
 const isValidEmail = (value) => {
@@ -278,6 +284,12 @@ const validateHeroSettings = (data) => {
     if (!subtitle.trim()) {
       return { valid: false, message: `Slide ${i + 1} subtitle is required` };
     }
+    if (isOnlySpecialCharacters(subtitle)) {
+      return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only special characters` };
+    }
+    if (isOnlyNumbers(subtitle)) {
+      return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only numbers` };
+    }
     if (hasExcessiveRepeatedChars(subtitle)) {
       return { valid: false, message: `Slide ${i + 1} subtitle contains excessive repeated characters` };
     }
@@ -304,16 +316,32 @@ const validateHeroSettings = (data) => {
     const image = pageHero.image || '';
 
     // Check if title is valid (if provided)
-    if (title && hasExcessiveRepeatedChars(title)) {
-      return { valid: false, message: `${pageId} hero title contains excessive repeated characters` };
+    if (title.trim()) {
+      if (isOnlySpecialCharacters(title)) {
+        return { valid: false, message: `${pageId} hero title cannot contain only special characters` };
+      }
+      if (isOnlyNumbers(title)) {
+        return { valid: false, message: `${pageId} hero title cannot contain only numbers` };
+      }
+      if (hasExcessiveRepeatedChars(title)) {
+        return { valid: false, message: `${pageId} hero title contains excessive repeated characters` };
+      }
     }
     if (title.length > MAX_HERO_TITLE_LENGTH) {
       return { valid: false, message: `${pageId} hero title is too long` };
     }
 
     // Check if subtitle is valid (if provided)
-    if (subtitle && hasExcessiveRepeatedChars(subtitle)) {
-      return { valid: false, message: `${pageId} hero subtitle contains excessive repeated characters` };
+    if (subtitle.trim()) {
+      if (isOnlySpecialCharacters(subtitle)) {
+        return { valid: false, message: `${pageId} hero subtitle cannot contain only special characters` };
+      }
+      if (isOnlyNumbers(subtitle)) {
+        return { valid: false, message: `${pageId} hero subtitle cannot contain only numbers` };
+      }
+      if (hasExcessiveRepeatedChars(subtitle)) {
+        return { valid: false, message: `${pageId} hero subtitle contains excessive repeated characters` };
+      }
     }
     if (subtitle.length > MAX_HERO_SUBTITLE_LENGTH) {
       return { valid: false, message: `${pageId} hero subtitle is too long` };
@@ -475,70 +503,74 @@ const validateBlogCategory = (data) => {
   return { valid: true };
 };
 
+const validateCareerTextField = (label, value, { required = true, maxLength } = {}) => {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+
+  if (!trimmed) {
+    if (required) {
+      return { valid: false, message: `${label} is required` };
+    }
+    return null;
+  }
+
+  if (isOnlySpecialCharacters(trimmed)) {
+    return { valid: false, message: `${label} cannot contain only special characters` };
+  }
+  if (isOnlyNumbers(trimmed)) {
+    return { valid: false, message: `${label} cannot contain only numbers` };
+  }
+  if (hasExcessiveRepeatedChars(trimmed)) {
+    return { valid: false, message: `${label} contains excessive repeated characters` };
+  }
+  if (maxLength && trimmed.length > maxLength) {
+    return { valid: false, message: `${label} is too long` };
+  }
+
+  return null;
+};
+
 const validateCareer = (data) => {
   const { title, department, location, type, salary, shortDescription, applyUrl } = data;
 
-  if (!title || typeof title !== 'string' || !title.trim()) {
-    return { valid: false, message: 'Career title is required' };
-  }
-  if (hasExcessiveRepeatedChars(title)) {
-    return { valid: false, message: 'Career title contains excessive repeated characters' };
-  }
-  if (title.length > MAX_CAREER_TITLE_LENGTH) {
-    return { valid: false, message: 'Career title is too long' };
-  }
+  const titleError = validateCareerTextField('Career title', title, {
+    required: true,
+    maxLength: MAX_CAREER_TITLE_LENGTH,
+  });
+  if (titleError) return titleError;
 
-  if (!department || typeof department !== 'string' || !department.trim()) {
-    return { valid: false, message: 'Career department is required' };
-  }
-  if (hasExcessiveRepeatedChars(department)) {
-    return { valid: false, message: 'Career department contains excessive repeated characters' };
-  }
-  if (department.length > MAX_CAREER_DEPARTMENT_LENGTH) {
-    return { valid: false, message: 'Career department is too long' };
-  }
+  const departmentError = validateCareerTextField('Career department', department, {
+    required: true,
+    maxLength: MAX_CAREER_DEPARTMENT_LENGTH,
+  });
+  if (departmentError) return departmentError;
 
-  if (!location || typeof location !== 'string' || !location.trim()) {
-    return { valid: false, message: 'Career location is required' };
-  }
-  if (hasExcessiveRepeatedChars(location)) {
-    return { valid: false, message: 'Career location contains excessive repeated characters' };
-  }
-  if (location.length > MAX_CAREER_LOCATION_LENGTH) {
-    return { valid: false, message: 'Career location is too long' };
-  }
+  const locationError = validateCareerTextField('Career location', location, {
+    required: true,
+    maxLength: MAX_CAREER_LOCATION_LENGTH,
+  });
+  if (locationError) return locationError;
 
-  if (!type || typeof type !== 'string' || !type.trim()) {
-    return { valid: false, message: 'Career type is required' };
-  }
-  if (hasExcessiveRepeatedChars(type)) {
-    return { valid: false, message: 'Career type contains excessive repeated characters' };
-  }
-  if (type.length > MAX_CAREER_TYPE_LENGTH) {
-    return { valid: false, message: 'Career type is too long' };
-  }
+  const typeError = validateCareerTextField('Career type', type, {
+    required: true,
+    maxLength: MAX_CAREER_TYPE_LENGTH,
+  });
+  if (typeError) return typeError;
 
-  if (salary && typeof salary === 'string') {
-    if (hasExcessiveRepeatedChars(salary)) {
-      return { valid: false, message: 'Career salary contains excessive repeated characters' };
-    }
-    if (salary.length > MAX_CAREER_SALARY_LENGTH) {
-      return { valid: false, message: 'Career salary is too long' };
-    }
-  }
+  const salaryError = validateCareerTextField('Career salary', salary, {
+    required: false,
+    maxLength: MAX_CAREER_SALARY_LENGTH,
+  });
+  if (salaryError) return salaryError;
 
-  if (shortDescription && typeof shortDescription === 'string') {
-    if (hasExcessiveRepeatedChars(shortDescription)) {
-      return { valid: false, message: 'Career short description contains excessive repeated characters' };
-    }
-    if (shortDescription.length > MAX_CAREER_SHORT_DESCRIPTION_LENGTH) {
-      return { valid: false, message: 'Career short description is too long' };
-    }
-  }
+  const shortDescriptionError = validateCareerTextField('Career short description', shortDescription, {
+    required: false,
+    maxLength: MAX_CAREER_SHORT_DESCRIPTION_LENGTH,
+  });
+  if (shortDescriptionError) return shortDescriptionError;
 
-  if (applyUrl && typeof applyUrl === 'string') {
+  if (applyUrl && typeof applyUrl === 'string' && applyUrl.trim()) {
     try {
-      new URL(applyUrl);
+      new URL(applyUrl.trim());
     } catch {
       return { valid: false, message: 'Career apply URL is invalid' };
     }

@@ -41,11 +41,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={cn('flex mb-4', isSelf ? 'justify-end' : 'justify-start')}
+      className={cn('flex mb-4 w-full min-w-0', isSelf ? 'justify-end' : 'justify-start')}
     >
       <div
         className={cn(
-          'max-w-[80%] rounded-2xl p-3',
+          'max-w-[80%] min-w-0 shrink rounded-2xl p-3 overflow-hidden',
           isSelf
             ? 'bg-primary text-primary-foreground rounded-br-sm'
             : 'bg-card border border-border rounded-bl-sm'
@@ -65,7 +65,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
               </div>
             )}
             {caption && (
-              <p className={cn('text-sm mt-2', isSelf ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+              <p className={cn('text-sm mt-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere]', isSelf ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
                 {caption}
               </p>
             )}
@@ -73,14 +73,14 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         )}
 
         {type === 'text' && (
-          <p className={cn('text-sm', isSelf ? 'text-primary-foreground' : 'text-foreground')}>
+          <p className={cn('text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]', isSelf ? 'text-primary-foreground' : 'text-foreground')}>
             {message}
           </p>
         )}
 
         {type === 'approval' && (
           <div className="space-y-3">
-            <p className={cn('text-sm', isSelf ? 'text-primary-foreground' : 'text-foreground')}>
+            <p className={cn('text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]', isSelf ? 'text-primary-foreground' : 'text-foreground')}>
               {message}
             </p>
             {amount !== undefined && (

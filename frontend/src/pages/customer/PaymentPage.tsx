@@ -283,7 +283,7 @@ const PaymentPage: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     ) : (
-    <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6">
+    <div className="w-full min-w-0 max-w-full overflow-x-hidden py-4 lg:py-6 space-y-4 sm:space-y-6 pb-28 lg:pb-6">
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
@@ -395,7 +395,7 @@ const PaymentPage: React.FC = () => {
           ) : availableCoupons.length > 0 ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Available coupons:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
                 {availableCoupons.map((coupon, index) => {
                   const isSelected = appliedCoupon?._id === coupon._id;
                   const minRequired = Number(coupon.minOrderAmount) || 0;
@@ -433,7 +433,7 @@ const PaymentPage: React.FC = () => {
                           ? `Minimum order ₹${minRequired} required (current ₹${orderSubtotal})`
                           : undefined
                       }
-                      className={`relative overflow-hidden rounded-xl text-left transition-all disabled:cursor-not-allowed ${
+                      className={`relative overflow-hidden rounded-xl text-left transition-all disabled:cursor-not-allowed shrink-0 w-[min(280px,85vw)] snap-start ${
                         isDisabledByMinOrder
                           ? 'opacity-55 grayscale'
                           : 'transform hover:scale-[1.02] disabled:opacity-50'
@@ -546,7 +546,7 @@ const PaymentPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="pt-4 space-y-4"
+        className="sticky bottom-0 z-20 -mx-4 sm:mx-0 px-4 sm:px-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background/95 backdrop-blur-sm border-t border-border space-y-4"
       >
         {/* Cashfree Payment Component */}
         {user && (

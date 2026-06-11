@@ -351,20 +351,20 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                         return (
                           <div
                             key={msg._id}
-                            className={cn("flex", isSelf ? "justify-end" : "justify-start")}
+                            className={cn("flex w-full min-w-0", isSelf ? "justify-end" : "justify-start")}
                           >
                             <div className={cn(
-                              "max-w-[75%] p-2 rounded-xl shadow-sm",
+                              "max-w-[75%] min-w-0 shrink p-2 rounded-xl shadow-sm overflow-hidden",
                               isSelf
                                 ? "bg-primary text-primary-foreground rounded-br-sm"
                                 : "bg-card border border-border/50 text-foreground rounded-bl-sm"
                             )}>
                               {!isSelf && (msg.sender.role === 'system' || msg.sender.role === 'merchant' || msg.sender.role === 'admin') && (
-                                <p className="text-[8px] font-bold mb-0.5 opacity-70 uppercase tracking-tight">
+                                <p className="text-[8px] font-bold mb-0.5 opacity-70 uppercase tracking-tight break-words">
                                   {msg.sender.role === 'admin' ? 'Carzii' : msg.sender.name}
                                 </p>
                               )}
-                              <p className="text-[11.5px] leading-tight whitespace-pre-wrap">{msg.text}</p>
+                              <p className="text-[11.5px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.text}</p>
                               {msg.type === 'approval' && msg.approval && (
                                 <div className={cn(
                                   "mt-2 p-2.5 rounded-lg border transition-all",
@@ -377,7 +377,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                                   {msg.approval.image && (
                                   <img src={msg.approval.image} alt={msg.approval.partName} className="rounded-md my-1.5 w-full object-cover max-h-32" />
                                 )}
-                                <p className="font-bold text-xs mb-0.5">{msg.approval.partName}</p>
+                                <p className="font-bold text-xs mb-0.5 break-words [overflow-wrap:anywhere]">{msg.approval.partName}</p>
                                   <p className="text-[10px] opacity-70 mb-2.5 font-medium">Amount: ₹{msg.approval.amount}</p>
                                   
                                   {msg.approval.status === 'pending' && !isSelf && user?.role === 'customer' && (

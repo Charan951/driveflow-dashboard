@@ -3,6 +3,16 @@ import { motion } from 'framer-motion';
 import { Search, Filter, Star, ThumbsUp, MessageSquare, Trash2, User, CheckCircle, XCircle } from 'lucide-react';
 import { reviewService, Review } from '../../services/reviewService';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const AdminFeedbackPage = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -10,6 +20,8 @@ const AdminFeedbackPage = () => {
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterRating, setFilterRating] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteReviewId, setDeleteReviewId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -26,14 +38,18 @@ const AdminFeedbackPage = () => {
     }
   };
 
-  const handleDeleteReview = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this review?')) return;
+  const handleDeleteReview = async () => {
+    if (!deleteReviewId) return;
+    setIsDeleting(true);
     try {
-      await reviewService.deleteReview(id);
+      await reviewService.deleteReview(deleteReviewId);
       toast.success('Review deleted');
-      setReviews(reviews.filter(r => r._id !== id));
+      setReviews(reviews.filter(r => r._id !== deleteReviewId));
+      setDeleteReviewId(null);
     } catch (error) {
       toast.error('Failed to delete review');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -75,11 +91,11 @@ const AdminFeedbackPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Ratings & Feedback</h1>
-        <div className="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center">
-            <Star className="mr-2 fill-current" size={16} />
+    <div className="space-y-6 w-full min-w-0 max-w-full overflow-x-hidden pb-24 lg:pb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Ratings & Feedback</h1>
+        <div className="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center shrink-0">
+            <Star className="mr-2 fill-current shrink-0" size={16} />
             Average Rating: {stats.averageRating} / 5.0
         </div>
       </div>
@@ -138,8 +154,8 @@ const AdminFeedbackPage = () => {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-4 min-w-0 max-w-full">
+        <div className="relative w-full min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
@@ -157,20 +173,22 @@ const AdminFeedbackPage = () => {
             }}
           />
         </div>
-        <div className="flex items-center space-x-2 w-full md:w-auto">
-          <Filter size={20} className="text-gray-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Filter size={18} className="text-gray-400 shrink-0 hidden sm:block" />
+            <select
+              className="w-full min-w-0 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="All">All Categories</option>
+              <option value="Merchant">Merchant</option>
+              <option value="Staff">Staff</option>
+              <option value="Platform">Platform</option>
+            </select>
+          </div>
           <select
-            className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="All">All Categories</option>
-            <option value="Merchant">Merchant</option>
-            <option value="Staff">Staff</option>
-            <option value="Platform">Platform</option>
-          </select>
-          <select
-            className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-w-0 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filterRating}
             onChange={(e) => setFilterRating(e.target.value)}
           >
@@ -189,8 +207,9 @@ const AdminFeedbackPage = () => {
         {filteredReviews.map((review) => (
           <div key={review._id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative group">
             <button 
-                onClick={() => handleDeleteReview(review._id)}
-                className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => setDeleteReviewId(review._id)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1"
+                aria-label="Delete review"
             >
                 <Trash2 size={18} />
             </button>
@@ -260,6 +279,35 @@ const AdminFeedbackPage = () => {
             No reviews found matching your filters.
           </div>
       )}
+
+      <AlertDialog
+        open={!!deleteReviewId}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteReviewId(null);
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md z-[60]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete review?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this review? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteReview();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

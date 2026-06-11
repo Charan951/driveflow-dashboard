@@ -16,6 +16,26 @@ Through this chat, you can easily communicate with your assigned merchant regard
 If you have any questions, need assistance, or want to follow up on a request, feel free to message here anytime — we're here to help you!
 Thank you for choosing Carzzi 🙌''';
 
+String _breakLongChatWords(String text, {int maxRun = 32}) {
+  if (text.isEmpty) return text;
+  final buffer = StringBuffer();
+  var run = 0;
+  for (var i = 0; i < text.length; i++) {
+    final ch = text[i];
+    buffer.write(ch);
+    if (ch.trim().isEmpty) {
+      run = 0;
+      continue;
+    }
+    run += 1;
+    if (run >= maxRun) {
+      buffer.write('\u200b');
+      run = 0;
+    }
+  }
+  return buffer.toString();
+}
+
 class ChatPage extends StatefulWidget {
   final Booking booking;
 
@@ -330,65 +350,69 @@ class _ChatPageState extends State<ChatPage> {
 
     return Align(
       alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: isSelf
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          if (!isSelf && message.sender.name != 'Carzzi')
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 4),
-              child: Text(
-                message.sender.name,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            decoration: BoxDecoration(
-              color: isSelf ? AppColors.primaryPurple : const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: isSelf ? const Radius.circular(16) : Radius.zero,
-                bottomRight: isSelf ? Radius.zero : const Radius.circular(16),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  message.text,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: isSelf ? Colors.white : Colors.black87,
-                  ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: Column(
+          crossAxisAlignment: isSelf
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isSelf && message.sender.name != 'Carzzi')
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 4),
+                child: Text(
+                  message.sender.name,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
-                if (message.type == 'approval' && message.approval != null)
-                  _buildApprovalCard(message.approval!, isSelf),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${message.createdAt.hour}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+              ),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelf ? AppColors.primaryPurple : const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: isSelf ? const Radius.circular(16) : Radius.zero,
+                  bottomRight: isSelf ? Radius.zero : const Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _breakLongChatWords(message.text),
+                    softWrap: true,
                     style: TextStyle(
-                      fontSize: 10,
-                      color: isSelf
-                          ? Colors.white.withValues(alpha: 0.6)
-                          : Colors.grey.shade500,
+                      fontSize: 14,
+                      height: 1.4,
+                      color: isSelf ? Colors.white : Colors.black87,
                     ),
                   ),
-                ),
-              ],
+                  if (message.type == 'approval' && message.approval != null)
+                    _buildApprovalCard(message.approval!, isSelf),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${message.createdAt.hour}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelf
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -425,7 +449,11 @@ class _ChatPageState extends State<ChatPage> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(message.text, style: const TextStyle(fontSize: 13, height: 1.5)),
+          Text(
+            _breakLongChatWords(message.text),
+            softWrap: true,
+            style: const TextStyle(fontSize: 13, height: 1.5),
+          ),
         ],
       ),
     );

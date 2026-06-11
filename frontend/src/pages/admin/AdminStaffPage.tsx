@@ -235,7 +235,7 @@ const AdminStaffPage: React.FC = () => {
             <div 
               key={staff._id} 
               className="bg-card rounded-2xl border border-border p-5 hover:shadow-md transition-all cursor-pointer group relative"
-              onClick={() => navigate(`/admin/users/${staff._id}`)} // Reusing User Detail for now, maybe specialized later
+              onClick={() => navigate(`/admin/users/${staff._id}`, { state: { returnTo: '/admin/staff' } })}
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="p-3 bg-muted rounded-xl group-hover:bg-primary/10 transition-colors">

@@ -8,9 +8,9 @@ const PublicLayout: React.FC = () => {
   const isTrackPage = pathname.startsWith('/track/');
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden w-full">
       {!isTrackPage && <PublicNavbar />}
-      <main className={isTrackPage ? 'flex-1 min-w-0 overflow-x-hidden' : 'flex-1'}>
+      <main className="flex-1 min-w-0 overflow-x-hidden w-full">
         <Outlet />
       </main>
       {!isTrackPage && <Footer />}

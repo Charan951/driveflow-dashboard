@@ -34,8 +34,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   int _detailsTabIndex = 0;
   List<XFile> _selectedPhotos = const [];
   final ImagePicker _picker = ImagePicker();
+  static const int _carWashRequiredPhotos = 4;
+  static const int _batteryBeforePhotosRequired = 2;
+  static const int _batteryAfterPhotosRequired = 4;
+  static const String _incompleteCarWashPhotosMessage =
+      'Please upload complete 4 photos';
+  static const String _batteryBeforePhotosMessage =
+      'Please upload Old Part and New Part photos before starting installation';
+  static const String _batteryAfterPhotosMessage =
+      'Please upload complete 4 after service photos';
 
-  @override
   @override
   void dispose() {
     if (_booking != null) {
@@ -297,6 +305,94 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           return;
         }
       }
+      if (status == 'CAR_WASH_STARTED' || status == 'CAR_WASH_COMPLETED') {
+        final requiredPhotos = _carWashRequiredPhotos;
+        final currentCount = status == 'CAR_WASH_STARTED'
+            ? (booking.carWash?.beforeWashPhotos.length ?? 0)
+            : (booking.carWash?.afterWashPhotos.length ?? 0);
+        if (currentCount < requiredPhotos) {
+          if (mounted) {
+            await showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Incomplete Photos'),
+                content: Text(
+                  '$_incompleteCarWashPhotosMessage ($currentCount/$requiredPhotos)',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _updatingStatus = false;
+            });
+          }
+          return;
+        }
+      }
+      if (booking.batteryTire?.isBatteryTireService == true) {
+        if (status == 'INSTALLATION') {
+          if (booking.prePickupPhotos.length < _batteryBeforePhotosRequired) {
+            if (mounted) {
+              await showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Incomplete Photos'),
+                  content: Text(
+                    '$_batteryBeforePhotosMessage (${booking.prePickupPhotos.length}/$_batteryBeforePhotosRequired)',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (mounted) {
+              setState(() {
+                _updatingStatus = false;
+              });
+            }
+            return;
+          }
+        }
+        if (status == 'DELIVERY') {
+          final afterCount = booking.serviceExecution?.afterPhotos.length ?? 0;
+          if (afterCount < _batteryAfterPhotosRequired) {
+            if (mounted) {
+              await showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Incomplete Photos'),
+                  content: Text(
+                    '$_batteryAfterPhotosMessage ($afterCount/$_batteryAfterPhotosRequired)',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (mounted) {
+              setState(() {
+                _updatingStatus = false;
+              });
+            }
+            return;
+          }
+        }
+      }
       await _service.updateBookingStatus(booking.id, status);
       await _load(
         booking.id,
@@ -363,17 +459,59 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     return loc;
   }
 
+  int _requiredPhotoCountForCurrentFlow(BookingDetail booking) {
+    if (booking.carWash?.isCarWashService == true) {
+      return _carWashRequiredPhotos;
+    }
+    if (booking.batteryTire?.isBatteryTireService == true) {
+      final status = _normalizeStatus(booking.status);
+      if (status == 'INSTALLATION') {
+        return _batteryAfterPhotosRequired;
+      }
+      if (status == 'REACHED_CUSTOMER') {
+        return _batteryBeforePhotosRequired;
+      }
+      return _batteryBeforePhotosRequired;
+    }
+    return 4;
+  }
+
+  int _currentPhasePhotoCount(BookingDetail booking) {
+    if (booking.carWash?.isCarWashService == true) {
+      final status = _normalizeStatus(booking.status);
+      if (status == 'CAR_WASH_STARTED') {
+        return booking.carWash?.afterWashPhotos.length ?? 0;
+      }
+      return booking.carWash?.beforeWashPhotos.length ?? 0;
+    }
+    if (booking.batteryTire?.isBatteryTireService == true) {
+      final status = _normalizeStatus(booking.status);
+      if (status == 'INSTALLATION') {
+        return booking.serviceExecution?.afterPhotos.length ?? 0;
+      }
+    }
+    return booking.prePickupPhotos.length;
+  }
+
+  bool _canUploadPhotosForBooking(BookingDetail booking) {
+    if (booking.carWash?.isCarWashService == true ||
+        booking.batteryTire?.isBatteryTireService == true) {
+      return true;
+    }
+    return booking.pickupRequired;
+  }
+
   Future<void> _capturePrePickupPhoto() async {
     final booking = _booking;
     if (booking == null || _uploadingPhotos) return;
-    if (!booking.pickupRequired) return;
+    if (!_canUploadPhotosForBooking(booking)) return;
     final maxPhotos = _requiredPhotoCountForCurrentFlow(booking);
-    final existingCount = booking.prePickupPhotos.length;
+    final existingCount = _currentPhasePhotoCount(booking);
     final remaining = maxPhotos - existingCount;
     if (remaining <= 0) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You already captured 4 photos')),
+        SnackBar(content: Text('You already captured $maxPhotos photos')),
       );
       return;
     }
@@ -393,7 +531,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Future<void> _showPrePickupPhotoOptions() async {
     final booking = _booking;
     if (booking == null || _uploadingPhotos) return;
-    if (!booking.pickupRequired) return;
+    if (!_canUploadPhotosForBooking(booking)) return;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) {
@@ -427,14 +565,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Future<void> _pickPrePickupPhotos() async {
     final booking = _booking;
     if (booking == null || _uploadingPhotos) return;
-    if (!booking.pickupRequired) return;
+    if (!_canUploadPhotosForBooking(booking)) return;
     final maxPhotos = _requiredPhotoCountForCurrentFlow(booking);
-    final existingCount = booking.prePickupPhotos.length;
+    final existingCount = _currentPhasePhotoCount(booking);
     final remaining = maxPhotos - existingCount;
     if (remaining <= 0) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You already captured 4 photos')),
+        SnackBar(content: Text('You already captured $maxPhotos photos')),
       );
       return;
     }
@@ -471,6 +609,94 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       _uploadingPhotos = true;
     });
     try {
+      if (booking.carWash?.isCarWashService == true) {
+        final status = _normalizeStatus(booking.status);
+        final uploaded = await _service.uploadFiles(_selectedPhotos);
+        if (status == 'REACHED_CUSTOMER') {
+          await _service.uploadCarWashBeforePhotos(booking.id, uploaded);
+        } else if (status == 'CAR_WASH_STARTED') {
+          await _service.uploadCarWashAfterPhotos(booking.id, uploaded);
+        } else {
+          throw ApiException(
+            statusCode: 400,
+            message: 'Photos cannot be uploaded at this stage',
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _selectedPhotos = const [];
+        });
+        await _load(booking.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photos uploaded')),
+        );
+        final count = _currentPhasePhotoCount(_booking!);
+        if (count < _carWashRequiredPhotos) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '$_incompleteCarWashPhotosMessage ($count/$_carWashRequiredPhotos)',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (booking.batteryTire?.isBatteryTireService == true) {
+        final status = _normalizeStatus(booking.status);
+        final uploaded = await _service.uploadFiles(_selectedPhotos);
+        if (status == 'REACHED_CUSTOMER') {
+          final existing = booking.prePickupPhotos;
+          final remaining = _batteryBeforePhotosRequired - existing.length;
+          final merged = [
+            ...existing,
+            ...uploaded.take(remaining),
+          ].take(_batteryBeforePhotosRequired).toList();
+          await _service.updateBookingDetails(booking.id, {
+            'prePickupPhotos': merged,
+          });
+        } else if (status == 'INSTALLATION') {
+          final existing = booking.serviceExecution?.afterPhotos ?? const <String>[];
+          final remaining = _batteryAfterPhotosRequired - existing.length;
+          final merged = [
+            ...existing,
+            ...uploaded.take(remaining),
+          ].take(_batteryAfterPhotosRequired).toList();
+          await _service.updateBookingDetails(booking.id, {
+            'serviceExecution': {
+              'afterPhotos': merged,
+            },
+          });
+        } else {
+          throw ApiException(
+            statusCode: 400,
+            message: 'Photos cannot be uploaded at this stage',
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _selectedPhotos = const [];
+        });
+        await _load(booking.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photos uploaded')),
+        );
+        final count = _currentPhasePhotoCount(_booking!);
+        final required = _requiredPhotoCountForCurrentFlow(_booking!);
+        if (count < required) {
+          final message = status == 'INSTALLATION'
+              ? _batteryAfterPhotosMessage
+              : _batteryBeforePhotosMessage;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$message ($count/$required)')),
+          );
+        }
+        return;
+      }
+
       final uploaded = await _service.uploadPrePickupPhotos(
         booking.id,
         _selectedPhotos,
@@ -678,7 +904,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     };
 
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
-    final hasRequiredPhotos = booking.prePickupPhotos.length >= requiredPhotos;
+    final currentPhotoCount = _currentPhasePhotoCount(booking);
+    final hasRequiredPhotos = currentPhotoCount >= requiredPhotos;
     final shouldShowUpload =
         allowedStatuses.contains(normalizedStatus) && !hasRequiredPhotos;
     final canShowPrimary = nextAction != null;
@@ -693,14 +920,6 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         _updatingStatus ||
         isWaitingForPayment ||
         (nextAction?.status == 'VEHICLE_PICKED' &&
-            booking.prePickupPhotos.length < requiredPhotos) ||
-        (isBatteryTire &&
-            (nextAction?.status == 'INSTALLATION' ||
-                nextAction?.status == 'DELIVERY') &&
-            booking.prePickupPhotos.length < requiredPhotos) ||
-        (isCarWash &&
-            (nextAction?.status == 'CAR_WASH_STARTED' ||
-                nextAction?.status == 'CAR_WASH_COMPLETED') &&
             booking.prePickupPhotos.length < requiredPhotos);
 
     // Always add directions button if it makes sense for current status
@@ -880,13 +1099,6 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       default:
         return null;
     }
-  }
-
-  int _requiredPhotoCountForCurrentFlow(BookingDetail booking) {
-    final isCarWash = booking.carWash?.isCarWashService == true;
-    final isBattery = booking.batteryTire?.isBatteryTireService == true;
-    if (isCarWash || isBattery) return 2;
-    return 4;
   }
 
   Widget _buildWorkflowCard(BookingDetail booking) {
@@ -1297,21 +1509,34 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final normalizedStatus = _normalizeStatus(booking.status);
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
-    String label = booking.prePickupPhotos.length >= requiredPhotos
+    final currentPhotoCount = _currentPhasePhotoCount(booking);
+    String label = currentPhotoCount >= requiredPhotos
         ? 'Photos Done'
         : 'Upload Photos';
 
     if (booking.carWash?.isCarWashService == true) {
       if (normalizedStatus == 'REACHED_CUSTOMER') {
-        label = 'Upload Before Wash Photos';
+        final count = booking.carWash?.beforeWashPhotos.length ?? 0;
+        label = count >= requiredPhotos
+            ? 'Photos Done'
+            : '$count/$requiredPhotos Before Photos';
       } else if (normalizedStatus == 'CAR_WASH_STARTED') {
-        label = 'Upload After Wash Photos';
+        final count = booking.carWash?.afterWashPhotos.length ?? 0;
+        label = count >= requiredPhotos
+            ? 'Photos Done'
+            : '$count/$requiredPhotos After Photos';
       }
     } else if (booking.batteryTire?.isBatteryTireService == true) {
       if (normalizedStatus == 'REACHED_CUSTOMER') {
-        label = 'Upload Old and New Part Photos';
-      } else {
-        label = 'Upload Photos';
+        final count = booking.prePickupPhotos.length;
+        label = count >= _batteryBeforePhotosRequired
+            ? 'Photos Done'
+            : '$count/$_batteryBeforePhotosRequired Old & New';
+      } else if (normalizedStatus == 'INSTALLATION') {
+        final count = booking.serviceExecution?.afterPhotos.length ?? 0;
+        label = count >= _batteryAfterPhotosRequired
+            ? 'Photos Done'
+            : '$count/$_batteryAfterPhotosRequired After Photos';
       }
     } else if (normalizedStatus == 'REACHED_CUSTOMER') {
       const prePickupLabels = [
@@ -1528,7 +1753,8 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Widget _buildPhotoBadge(BookingDetail booking, {bool compact = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final required = _requiredPhotoCountForCurrentFlow(booking);
-    final completed = booking.prePickupPhotos.length >= required;
+    final count = _currentPhasePhotoCount(booking);
+    final completed = count >= required;
     final borderColor = completed
         ? (isDark ? AppColors.success : const Color(0xFF16A34A))
         : (isDark ? AppColors.warning : const Color(0xFFF59E0B));
@@ -1565,7 +1791,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           Text(
             completed
                 ? '$required/$required photos'
-                : '${booking.prePickupPhotos.length}/$required photos',
+                : '$count/$required photos',
             style: TextStyle(
               fontSize: compact ? 10 : 11,
               color: textColor,

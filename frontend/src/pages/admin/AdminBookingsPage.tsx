@@ -164,7 +164,7 @@ const AdminBookingsPage: React.FC = () => {
 
   return (
     <GlobalSyncRefresh entities={['booking']} onSync={fetchBookings}>
-    <div className="space-y-4 p-4 max-w-full">
+    <div className="space-y-4 p-4 max-w-full min-w-0 pb-24 lg:pb-4 overflow-x-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold mb-1">Booking Management</h1>
@@ -173,8 +173,8 @@ const AdminBookingsPage: React.FC = () => {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-card p-3 lg:p-4 rounded-xl border border-border">
-        <div className="flex gap-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0">
+      <div className="flex flex-col gap-4 justify-between items-stretch bg-card p-3 lg:p-4 rounded-xl border border-border min-w-0 overflow-hidden">
+        <div className="flex flex-wrap gap-2 w-full min-w-0">
           {[
             { id: 'all', label: 'All Bookings' },
             { id: 'new', label: 'New' },
@@ -186,7 +186,7 @@ const AdminBookingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors shrink-0 ${
                 statusFilter === tab.id 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-muted/50 text-muted-foreground hover:bg-muted'
@@ -197,15 +197,15 @@ const AdminBookingsPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="relative w-full lg:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative w-full min-w-0 lg:max-w-sm lg:ml-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search ID, Customer, or Vehicle..."
+            placeholder="Search ID, customer, vehicle"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             maxLength={20}
-            className="pl-9 pr-4 py-2 w-full rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="pl-9 pr-4 py-2 w-full min-w-0 box-border rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
@@ -335,7 +335,7 @@ const AdminBookingsPage: React.FC = () => {
           </div>
 
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-4">
+          <div className="md:hidden space-y-4 min-w-0">
             {filteredBookings.map((booking) => (
               <div 
                 key={booking._id} 
@@ -343,51 +343,53 @@ const AdminBookingsPage: React.FC = () => {
                   booking.status === 'CREATED' 
                     ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' 
                     : 'bg-card border-border'
-                } p-4 rounded-xl border shadow-sm active:scale-[0.98] transition-all`}
+                } p-4 rounded-xl border shadow-sm active:scale-[0.98] transition-all min-w-0 overflow-hidden`}
                 onClick={() => navigate(`/admin/bookings/${booking._id}`)}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex flex-col">
-                    <span className="font-mono text-xs text-muted-foreground">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
-                    <span className="font-bold text-sm mt-0.5">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
+                <div className="flex justify-between items-start gap-2 mb-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-mono text-xs text-muted-foreground block truncate">#{booking.orderNumber ?? booking._id.slice(-6).toUpperCase()}</span>
+                    <span className="font-bold text-sm mt-0.5 block truncate">{(booking.user && typeof booking.user === 'object' && 'name' in booking.user && booking.user.name) || 'Unknown User'}</span>
                   </div>
-                  {getStatusBadge(booking.status, booking.services)}
+                  <div className="shrink-0 max-w-[48%]">
+                    {getStatusBadge(booking.status, booking.services)}
+                  </div>
                 </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="space-y-2 mb-4 min-w-0">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
                     <Car className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
+                    <span className="truncate min-w-0">{(booking.vehicle && typeof booking.vehicle === 'object' && 'model' in booking.vehicle && booking.vehicle.model) || 'Unknown Vehicle'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
                     <Wrench className="w-4 h-4 shrink-0" />
-                    <span className="truncate">
+                    <span className="truncate min-w-0">
                       {Array.isArray(booking.services) 
                         ? booking.services.map(s => typeof s === 'object' ? s.name : 'Service').join(', ') 
                         : 'Service'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-xs">
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                      <div className="flex items-center gap-1 text-xs shrink-0">
                         <Calendar className="w-3 h-3 text-muted-foreground" />
                         <span>{new Date(booking.date).toLocaleDateString('en-GB')}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs">
+                      <div className="flex items-center gap-1 text-xs shrink-0">
                         <Clock className="w-3 h-3 text-muted-foreground" />
                         <span>{new Date(booking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                       </div>
                     </div>
-                    <span className="font-bold text-primary">₹{booking.totalAmount}</span>
+                    <span className="font-bold text-primary shrink-0">₹{booking.totalAmount}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                <div className="flex items-center justify-between gap-2 mt-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
                       <User className="w-3 h-3 text-muted-foreground" />
                     </div>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground truncate">
                       {(() => {
                         const isCarWashService = Array.isArray(booking.services) && 
                           booking.services.some(service => 
@@ -406,7 +408,7 @@ const AdminBookingsPage: React.FC = () => {
                       })()}
                     </span>
                   </div>
-                  <button className="text-xs font-medium text-primary flex items-center gap-1">
+                  <button className="text-xs font-medium text-primary flex items-center gap-1 shrink-0 whitespace-nowrap">
                     View Details <Eye className="w-3 h-3" />
                   </button>
                 </div>

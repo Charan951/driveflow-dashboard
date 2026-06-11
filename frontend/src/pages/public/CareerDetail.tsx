@@ -5,8 +5,9 @@ import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
-import { isValidEmail, isValidPhone10, isValidName, isNameTooLong, isEmailTooLong, hasExcessiveRepeatedChars, MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
+import { isValidEmail, isValidPhone10, isValidName, hasExcessiveRepeatedChars } from "@/lib/formValidation";
 
+const CAREER_MAX_NAME_LENGTH = 10;
 const CAREER_MAX_EMAIL_LENGTH = 20;
 
 const CareerDetail: React.FC = () => {
@@ -95,8 +96,8 @@ const CareerDetail: React.FC = () => {
       toast.error('Please enter your name');
       return;
     }
-    if (isNameTooLong(form.name)) {
-      toast.error('Too long data: Please enter a maximum of 10 characters');
+    if (form.name.trim().length > CAREER_MAX_NAME_LENGTH) {
+      toast.error(`Name cannot exceed ${CAREER_MAX_NAME_LENGTH} characters`);
       return;
     }
     if (!isValidName(form.name)) {
@@ -201,15 +202,13 @@ const CareerDetail: React.FC = () => {
             <h2 className="text-2xl font-bold">Apply for this role</h2>
             <input 
               required 
-              maxLength={MAX_NAME_LENGTH} 
+              maxLength={CAREER_MAX_NAME_LENGTH} 
               value={form.name} 
               onChange={(e) => {
-                let newName = e.target.value;
-                // Truncate if too long
-                if (newName.length > MAX_NAME_LENGTH) {
-                  newName = newName.slice(0, MAX_NAME_LENGTH);
-                }
-                setForm((prev) => ({ ...prev, name: newName }));
+                setForm((prev) => ({
+                  ...prev,
+                  name: e.target.value.slice(0, CAREER_MAX_NAME_LENGTH),
+                }));
               }} 
               placeholder="Name" 
               className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" 

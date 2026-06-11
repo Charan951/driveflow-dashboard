@@ -88,7 +88,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-[100dvh] w-64 bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col',
+          'fixed left-0 top-0 h-[100dvh] w-64 max-w-[85vw] bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col overflow-hidden',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -109,7 +109,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
 
         {/* Menu */}
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll">
+        <nav className="p-4 space-y-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden sidebar-scroll">
           {adminMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -132,14 +132,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-border shrink-0">
-          <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+        <div className="p-4 pt-3 border-t border-border shrink-0 bg-card pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center gap-3 px-2 py-2 mb-2 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <UserCog className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1 overflow-hidden text-left">
-              <p className="font-medium text-sm truncate">{user?.name}</p>
-              <p className="text-xs text-muted-foreground truncate uppercase">{user?.role}</p>
+            <div className="flex-1 min-w-0 overflow-hidden text-left">
+              <p className="font-medium text-sm truncate">{user?.name || 'Admin User'}</p>
+              <p className="text-xs text-muted-foreground truncate uppercase">{user?.role || 'admin'}</p>
             </div>
           </div>
           <button
@@ -149,7 +149,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all duration-200"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 shrink-0" />
             <span className="font-medium text-sm">Sign Out</span>
           </button>
         </div>
@@ -179,8 +179,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 p-3 lg:p-4 pb-24 lg:pb-8 max-w-full">
-          <div className="max-w-full h-full">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 p-3 lg:p-4 pb-24 lg:pb-8 max-w-full min-w-0">
+          <div className="max-w-full min-w-0 h-full overflow-x-hidden">
             {children || <Outlet />}
           </div>
         </main>

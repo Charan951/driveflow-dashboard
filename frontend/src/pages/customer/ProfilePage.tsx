@@ -243,11 +243,11 @@ const ProfilePage: React.FC = () => {
                 <Plus className="w-4 h-4" /> Add Address
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Add New Address</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-2 min-w-0">
                 <div className="space-y-2">
                   <Label>Label</Label>
                   <select 
@@ -281,7 +281,7 @@ const ProfilePage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <Button onClick={handleAddAddress} className="w-full">Save Address</Button>
+                <Button onClick={handleAddAddress} className="w-full min-h-[44px]">Save Address</Button>
               </div>
             </DialogContent>
           </Dialog>

@@ -583,15 +583,15 @@ const AdminTrackingPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-100px)] gap-4 overflow-hidden">
+    <div className="flex flex-col gap-3 sm:gap-4 pb-4 lg:pb-0 lg:h-[calc(100vh-100px)] lg:overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 px-1">
-        <div>
+        <div className="hidden lg:block">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Navigation className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
             Mapping
           </h1>
-          <p className="hidden sm:block text-xs md:text-sm text-gray-500 dark:text-gray-400">Real-time tracking of staff and vehicles</p>
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Real-time tracking of staff and vehicles</p>
         </div>
         
         <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-sm">
@@ -639,9 +639,9 @@ const AdminTrackingPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0 relative h-full">
+      <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0 relative lg:h-full">
         {/* Map Area - Top on Mobile, Right on Desktop */}
-        <div className="flex-1 min-h-[50vh] lg:min-h-0 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden shadow-inner z-0 order-1 lg:order-2">
+        <div className="h-[38vh] min-h-[240px] sm:h-[42vh] lg:h-auto lg:flex-1 lg:min-h-0 bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden shadow-inner z-0 order-1 lg:order-2">
            <MapContainer 
              center={MAP_CENTER} 
              zoom={MAP_ZOOM} 
@@ -735,8 +735,8 @@ const AdminTrackingPage: React.FC = () => {
         </div>
 
         {/* Sidebar List - Bottom on Mobile, Left on Desktop */}
-        <div className="w-full lg:w-80 h-[30vh] lg:h-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden shadow-sm order-2 lg:order-1">
-          <div className="p-3 md:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div className="w-full lg:w-80 flex flex-col max-h-[min(46dvh,28rem)] min-h-[260px] lg:max-h-none lg:min-h-0 lg:h-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0 overflow-hidden shadow-sm order-2 lg:order-1">
+          <div className="p-3 md:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 shrink-0">
             <h2 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white flex items-center justify-between">
               Active Assets
               <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
@@ -745,7 +745,7 @@ const AdminTrackingPage: React.FC = () => {
             </h2>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2 pb-24 lg:pb-2 space-y-2 overscroll-contain">
             {isLoading && !liveData ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>

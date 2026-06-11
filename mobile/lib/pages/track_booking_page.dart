@@ -34,6 +34,87 @@ import 'package:provider/provider.dart';
 import 'chat_page.dart';
 import 'coupons_page.dart';
 
+List<String> _mergeTrackPhotoUrlLists(
+  List<String> previous,
+  List<String> incoming,
+) {
+  final seen = <String>{};
+  final merged = <String>[];
+  for (final url in [...previous, ...incoming]) {
+    if (url.isEmpty || seen.contains(url)) continue;
+    seen.add(url);
+    merged.add(url);
+  }
+  if (merged.length > 4) return merged.sublist(0, 4);
+  return merged;
+}
+
+Booking _mergeTrackBookingCarWashPhotos(Booking? previous, Booking incoming) {
+  if (previous == null || previous.id != incoming.id) return incoming;
+  final prevCw = previous.carWash;
+  final nextCw = incoming.carWash;
+  if (prevCw == null || nextCw == null) return incoming;
+
+  return Booking(
+    id: incoming.id,
+    orderNumber: incoming.orderNumber,
+    status: incoming.status,
+    date: incoming.date,
+    totalAmount: incoming.totalAmount,
+    finalAmount: incoming.finalAmount,
+    gstAmount: incoming.gstAmount,
+    discountAmount: incoming.discountAmount,
+    couponCode: incoming.couponCode,
+    vehicle: incoming.vehicle,
+    services: incoming.services,
+    location: incoming.location,
+    notes: incoming.notes,
+    paymentStatus: incoming.paymentStatus,
+    createdAt: incoming.createdAt,
+    merchantLocation: incoming.merchantLocation,
+    merchantName: incoming.merchantName,
+    merchantPhone: incoming.merchantPhone,
+    merchant: incoming.merchant,
+    deliveryOtp: incoming.deliveryOtp,
+    prePickupPhotos: incoming.prePickupPhotos,
+    beforeServicePhotos: incoming.beforeServicePhotos,
+    duringServicePhotos: incoming.duringServicePhotos,
+    postServicePhotos: incoming.postServicePhotos,
+    serviceParts: incoming.serviceParts,
+    invoiceUrl: incoming.invoiceUrl,
+    driverName: incoming.driverName,
+    driverPhone: incoming.driverPhone,
+    technicianName: incoming.technicianName,
+    technicianPhone: incoming.technicianPhone,
+    pickupRequired: incoming.pickupRequired,
+    inspectionCompletedAt: incoming.inspectionCompletedAt,
+    qcCompletedAt: incoming.qcCompletedAt,
+    assignedAt: incoming.assignedAt,
+    carWash: CarWashDetails(
+      isCarWashService: nextCw.isCarWashService,
+      beforeWashPhotos: _mergeTrackPhotoUrlLists(
+        prevCw.beforeWashPhotos,
+        nextCw.beforeWashPhotos,
+      ),
+      afterWashPhotos: _mergeTrackPhotoUrlLists(
+        prevCw.afterWashPhotos,
+        nextCw.afterWashPhotos,
+      ),
+      washStartedAt: nextCw.washStartedAt ?? prevCw.washStartedAt,
+      washCompletedAt: nextCw.washCompletedAt ?? prevCw.washCompletedAt,
+      staffName: nextCw.staffName ?? prevCw.staffName,
+      staffPhone: nextCw.staffPhone ?? prevCw.staffPhone,
+    ),
+    batteryTire: incoming.batteryTire,
+    inspection: incoming.inspection,
+    delay: incoming.delay,
+    revisit: incoming.revisit,
+    statusHistory: incoming.statusHistory,
+    billing: incoming.billing,
+    pickupDropPrice: incoming.pickupDropPrice,
+  );
+}
+
 class TrackBookingPage extends StatefulWidget {
   const TrackBookingPage({super.key});
 
@@ -242,7 +323,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               : Map<String, dynamic>.from(data as Map);
           final updated = Booking.fromJson(mapData);
           if (updated.id == _bookingId) {
-            setState(() => _booking = updated);
+            setState(
+              () => _booking = _mergeTrackBookingCarWashPhotos(_booking, updated),
+            );
             _fetchPendingApprovals(); // Refresh approvals too
             if (updated.status == 'DELIVERED' ||
                 updated.status == 'COMPLETED') {
@@ -1539,30 +1622,36 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                       }
                     }
 
-                    if (isCarWash) {
-                      final allCarWashPhotos = <String>[
-                        ...(booking.carWash?.beforeWashPhotos ?? const []),
-                        ...(booking.carWash?.afterWashPhotos ?? const []),
-                      ];
-                      for (int i = 0; i < allCarWashPhotos.length; i++) {
-                        final resolved = _resolveImageUrl(allCarWashPhotos[i]);
+                    void addCarWashPhotoItems(
+                      List<String> photos,
+                      List<_PhotoCarouselItem> target,
+                      String labelPrefix,
+                    ) {
+                      for (int i = 0; i < photos.length; i++) {
+                        final resolved = _resolveImageUrl(photos[i]);
                         if (resolved == null) continue;
-                        if (i < 4) {
-                          beforeCarWashItems.add(
-                            _PhotoCarouselItem(
-                              url: resolved,
-                              label: directionalLabels[i],
-                            ),
-                          );
-                        } else {
-                          afterCarWashItems.add(
-                            _PhotoCarouselItem(
-                              url: resolved,
-                              label: directionalLabels[(i - 4) % 4],
-                            ),
-                          );
-                        }
+                        target.add(
+                          _PhotoCarouselItem(
+                            url: resolved,
+                            label: i < directionalLabels.length
+                                ? directionalLabels[i]
+                                : '$labelPrefix ${i + 1}',
+                          ),
+                        );
                       }
+                    }
+
+                    if (isCarWash) {
+                      addCarWashPhotoItems(
+                        booking.carWash?.beforeWashPhotos ?? const [],
+                        beforeCarWashItems,
+                        beforeCarWashTitle,
+                      );
+                      addCarWashPhotoItems(
+                        booking.carWash?.afterWashPhotos ?? const [],
+                        afterCarWashItems,
+                        afterCarWashTitle,
+                      );
                     } else {
                       addServicePhotos(
                         booking.beforeServicePhotos,
@@ -2579,7 +2668,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           if (beforeCarWashItems.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             _buildPhotoGridSection(
-                              title: beforeCarWashTitle,
+                              title:
+                                  '$beforeCarWashTitle (${beforeCarWashItems.length}/4)',
                               items: beforeCarWashItems,
                               isDark: isDark,
                             ),
@@ -2587,7 +2677,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           if (afterCarWashItems.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             _buildPhotoGridSection(
-                              title: afterCarWashTitle,
+                              title:
+                                  '$afterCarWashTitle (${afterCarWashItems.length}/4)',
                               items: afterCarWashItems,
                               isDark: isDark,
                             ),

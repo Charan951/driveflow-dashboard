@@ -10,6 +10,7 @@ export interface Career {
   shortDescription?: string;
   applyUrl?: string;
   isActive: boolean;
+  applicationCount?: number;
 }
 
 export interface CareerPayload {

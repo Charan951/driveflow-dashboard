@@ -5145,76 +5145,168 @@ class _AddPartDialogState extends State<_AddPartDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: isDark ? Colors.grey[300] : const Color(0xFF374151),
+    );
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(
+        color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+      ),
+    );
+
+    Widget labeledField({
+      required String label,
+      required Widget field,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: labelStyle),
+          const SizedBox(height: 6),
+          field,
+        ],
+      );
+    }
+
     return AlertDialog(
       title: const Text('Add Additional Part'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Part Name',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
+            labeledField(
+              label: 'Part Name',
+              field: TextField(
+                controller: _nameController,
+                minLines: 1,
+                maxLines: 4,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  hintText: 'Enter part name',
+                  border: fieldBorder,
+                  enabledBorder: fieldBorder,
+                  focusedBorder: fieldBorder.copyWith(
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED),
+                    ),
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _qtyController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Qty',
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                  child: labeledField(
+                    label: 'Quantity',
+                    field: TextField(
+                      controller: _qtyController,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '1',
+                        border: fieldBorder,
+                        enabledBorder: fieldBorder,
+                        focusedBorder: fieldBorder.copyWith(
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.primaryPurple
+                                : const Color(0xFF7C3AED),
+                          ),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextField(
-                    controller: _priceController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Price (₹)',
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                  child: labeledField(
+                    label: 'Price',
+                    field: TextField(
+                      controller: _priceController,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '0',
+                        prefixText: '₹ ',
+                        border: fieldBorder,
+                        enabledBorder: fieldBorder,
+                        focusedBorder: fieldBorder.copyWith(
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.primaryPurple
+                                : const Color(0xFF7C3AED),
+                          ),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            InkWell(
-              onTap: _loading ? null : _pickImage,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
+            labeledField(
+              label: 'Part Image (Optional)',
+              field: InkWell(
+                onTap: _loading ? null : _pickImage,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _imageUrl != null
+                      ? Column(
+                          children: [
+                            const Icon(Icons.check_circle, color: Colors.green),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Image Selected',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            const Icon(Icons.add_a_photo, color: Colors.grey),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Tap to upload',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
                 ),
-                child: _imageUrl != null
-                    ? Column(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.green),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Image Selected',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          const Icon(Icons.add_a_photo, color: Colors.grey),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Upload Part Image (Optional)',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
               ),
             ),
           ],

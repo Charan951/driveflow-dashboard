@@ -21,6 +21,9 @@ import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDispl
 const SLOT_INTERVAL_MINUTES = 30;
 const SLOT_START_HOUR = 8;
 const SLOT_END_HOUR = 19;
+const CAR_WASH_MIN_PHOTOS = 2;
+const CAR_WASH_MAX_PHOTOS = 4;
+const BATTERY_AFTER_PHOTOS_REQUIRED = 4;
 
 /** Customer mobile push when vehicle is out for delivery with PIN. */
 const sendCustomerDeliveryOtpPush = async (booking, code) => {
@@ -235,37 +238,28 @@ const getBlockedSlotsForDate = async (dateInput, category = 'All') => {
 
 const isSlotAvailable = async (date, categories = ['All']) => {
   const slotStart = new Date(date);
-  const slotEnd = new Date(slotStart.getTime() + SLOT_INTERVAL_MINUTES * 60 * 1000);
   const slotLabel = formatTo12HourSlot(slotStart).trim();
-  
   const categoriesToCheck = Array.isArray(categories) ? categories : [categories];
   const { start, end } = getDayBounds(date);
 
-  // Check for admin blocks
-  const blockedSlot = await SlotBlock.findOne({
-    date: { $gte: start, $lte: end },
-    slot: slotLabel,
-    $or: [
-      { category: 'All' },
-      { category: { $in: categoriesToCheck } }
-    ]
-  }).select('_id');
-
-  if (blockedSlot) {
-    return false;
+  // Check for admin blocks (same rules as getAvailableSlots)
+  for (const category of categoriesToCheck) {
+    const blockedSlots = await getBlockedSlotsForDate(start, category);
+    if (blockedSlots.has(slotLabel)) {
+      return false;
+    }
   }
 
-  // Check for conflicting bookings in the same category
-  const bookingsAtTime = await Booking.find({
+  // Check for conflicting bookings using slot labels (aligned with getAvailableSlots)
+  const bookings = await Booking.find({
     status: BLOCKING_STATUSES,
-    date: { $gte: slotStart, $lt: slotEnd },
+    date: { $gte: start, $lte: end },
   }).populate('services', 'category');
 
-  if (categoriesToCheck.includes('All')) {
-    return bookingsAtTime.length === 0;
-  }
+  for (const booking of bookings) {
+    const bookingSlot = formatTo12HourSlot(new Date(booking.date)).trim();
+    if (bookingSlot !== slotLabel) continue;
 
-  for (const booking of bookingsAtTime) {
     const bookingCategories = new Set();
     booking.services.forEach((s) => {
       bookingCategories.add(getCategoryGroup(s.category));
@@ -1421,10 +1415,10 @@ export const updateBookingStatus = async (req, res) => {
       if (canonTo === 'CAR_WASH_STARTED') {
         const isEssentials = await isEssentialsBooking(booking);
         const beforePhotos = Array.isArray(booking.carWash?.beforeWashPhotos) ? booking.carWash.beforeWashPhotos : [];
-        if (beforePhotos.length < 2) {
-          const msg = isEssentials 
-            ? 'Please upload at least 2 before service photos before starting service'
-            : 'Please upload at least 2 before wash photos before starting car wash';
+        if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
+          const msg = isEssentials
+            ? `Please upload at least ${CAR_WASH_MIN_PHOTOS} before service photos before starting service`
+            : `Please upload at least ${CAR_WASH_MIN_PHOTOS} before wash photos before starting car wash`;
           return res.status(400).json({ message: msg });
         }
         
@@ -1438,10 +1432,10 @@ export const updateBookingStatus = async (req, res) => {
         const isEssentials = await isEssentialsBooking(booking);
         const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
         
-        if (afterPhotos.length < 2) {
-          const msg = isEssentials 
-            ? 'Please upload at least 2 after service photos before completing service'
-            : 'Please upload at least 2 after wash photos before completing car wash';
+        if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
+          const msg = isEssentials
+            ? `Please upload at least ${CAR_WASH_MIN_PHOTOS} after service photos before completing service`
+            : `Please upload at least ${CAR_WASH_MIN_PHOTOS} after wash photos before completing car wash`;
           return res.status(400).json({ message: msg });
         }
         
@@ -1487,9 +1481,13 @@ export const updateBookingStatus = async (req, res) => {
       }
 
         if (canonTo === 'DELIVERY') {
-          const photos = Array.isArray(booking.prePickupPhotos) ? booking.prePickupPhotos : [];
-          if (photos.length < 2) {
-            return res.status(400).json({ message: 'Please upload at least 2 photos (New Part and Old Part) before starting delivery' });
+          const afterPhotos = Array.isArray(booking.serviceExecution?.afterPhotos)
+            ? booking.serviceExecution.afterPhotos
+            : [];
+          if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
+            return res.status(400).json({
+              message: 'Please upload complete 4 after service photos before delivery',
+            });
           }
         }
 
@@ -1966,7 +1964,11 @@ export const updateBookingDetails = async (req, res) => {
 
       if (media) booking.media = media;
       if (notes) booking.notes = notes;
-      if (prePickupPhotos) booking.prePickupPhotos = prePickupPhotos;
+      if (prePickupPhotos) {
+        booking.prePickupPhotos = Array.isArray(prePickupPhotos)
+          ? prePickupPhotos.slice(0, 4)
+          : prePickupPhotos;
+      }
       
       if (inspection) {
         if (!booking.inspection) booking.inspection = {};
@@ -1980,6 +1982,9 @@ export const updateBookingDetails = async (req, res) => {
       }
       if (serviceExecution) {
         if (!booking.serviceExecution) booking.serviceExecution = {};
+        if (Array.isArray(serviceExecution.afterPhotos)) {
+          serviceExecution.afterPhotos = serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED);
+        }
         Object.assign(booking.serviceExecution, serviceExecution);
         booking.markModified('serviceExecution');
       }
@@ -2140,9 +2145,8 @@ export const uploadCarWashBeforePhotos = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to upload photos for this booking' });
     }
 
-    // Limit to 4 photos
-    if (photos.length > 4) {
-      return res.status(400).json({ message: 'Maximum 4 photos allowed' });
+    if (!Array.isArray(photos) || photos.length === 0) {
+      return res.status(400).json({ message: 'At least one photo is required' });
     }
 
     // Ensure carWash object exists
@@ -2150,7 +2154,19 @@ export const uploadCarWashBeforePhotos = async (req, res) => {
       booking.carWash = { isCarWashService: true };
     }
 
-    booking.carWash.beforeWashPhotos = photos;
+    const existing = Array.isArray(booking.carWash.beforeWashPhotos)
+      ? booking.carWash.beforeWashPhotos
+      : [];
+    if (existing.length >= CAR_WASH_MAX_PHOTOS) {
+      return res.status(400).json({ message: `Maximum ${CAR_WASH_MAX_PHOTOS} before wash photos already uploaded` });
+    }
+
+    const merged = [...existing, ...photos].slice(0, CAR_WASH_MAX_PHOTOS);
+    if (merged.length > CAR_WASH_MAX_PHOTOS) {
+      return res.status(400).json({ message: `Maximum ${CAR_WASH_MAX_PHOTOS} photos allowed` });
+    }
+
+    booking.carWash.beforeWashPhotos = merged;
     await booking.save();
 
     // Populate for real-time consumers
@@ -2187,9 +2203,13 @@ export const startCarWash = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to start car wash for this booking' });
     }
 
-    // Check if before photos are uploaded
-    if (!booking.carWash.beforeWashPhotos || booking.carWash.beforeWashPhotos.length === 0) {
-      return res.status(400).json({ message: 'Please upload before wash photos first' });
+    const beforePhotos = Array.isArray(booking.carWash.beforeWashPhotos)
+      ? booking.carWash.beforeWashPhotos
+      : [];
+    if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
+      return res.status(400).json({
+        message: `Please upload at least ${CAR_WASH_MIN_PHOTOS} before wash photos before starting car wash`,
+      });
     }
 
     booking.status = 'CAR_WASH_STARTED';
@@ -2254,9 +2274,8 @@ export const uploadCarWashAfterPhotos = async (req, res) => {
       return res.status(400).json({ message: 'Car wash must be started before uploading after photos' });
     }
 
-    // Limit to 4 photos
-    if (photos.length > 4) {
-      return res.status(400).json({ message: 'Maximum 4 photos allowed' });
+    if (!Array.isArray(photos) || photos.length === 0) {
+      return res.status(400).json({ message: 'At least one photo is required' });
     }
 
     // Ensure carWash object exists
@@ -2264,7 +2283,15 @@ export const uploadCarWashAfterPhotos = async (req, res) => {
       booking.carWash = { isCarWashService: true };
     }
 
-    booking.carWash.afterWashPhotos = photos;
+    const existingAfter = Array.isArray(booking.carWash.afterWashPhotos)
+      ? booking.carWash.afterWashPhotos
+      : [];
+    if (existingAfter.length >= CAR_WASH_MAX_PHOTOS) {
+      return res.status(400).json({ message: `Maximum ${CAR_WASH_MAX_PHOTOS} after wash photos already uploaded` });
+    }
+
+    const mergedAfter = [...existingAfter, ...photos].slice(0, CAR_WASH_MAX_PHOTOS);
+    booking.carWash.afterWashPhotos = mergedAfter;
     await booking.save();
 
     // Populate for real-time consumers
@@ -2314,9 +2341,10 @@ export const completeCarWash = async (req, res) => {
 
     // Check if after photos are uploaded
     const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
-    if (afterPhotos.length < 4) {
-      
-      return res.status(400).json({ message: 'Please upload 4 after wash photos before completing car wash' });
+    if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
+      return res.status(400).json({
+        message: `Please upload at least ${CAR_WASH_MIN_PHOTOS} after wash photos before completing car wash`,
+      });
     }
 
     booking.status = 'CAR_WASH_COMPLETED';
