@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/coupon_service.dart';
+import '../utils/coupon_utils.dart';
 import '../core/socket_sync.dart';
 import '../core/app_colors.dart';
 import '../core/order_pricing.dart';
@@ -52,54 +53,19 @@ class _CouponsPageState extends State<CouponsPage> {
       if (!mounted) return;
       final user = context.read<AuthProvider>().user;
 
-      final active = data.where((c) {
-        if (c is! Map) return false;
-        final isActive = c['isActive'] == true;
-        if (!isActive) return false;
+      String? serviceType;
+      if (widget.isSelectionMode &&
+          widget.bookingCategory != null &&
+          widget.bookingCategory!.isNotEmpty &&
+          widget.bookingCategory!.toLowerCase() != 'all') {
+        serviceType = mapCategoryToCouponServiceType(widget.bookingCategory);
+      }
 
-        // Filter by category if in selection mode
-        if (widget.isSelectionMode &&
-            widget.bookingCategory != null &&
-            widget.bookingCategory!.isNotEmpty &&
-            widget.bookingCategory!.toLowerCase() != 'all') {
-          final List<dynamic>? couponCategories = c['applicableCategories'];
-          if (couponCategories != null && couponCategories.isNotEmpty) {
-            final matchesCategory = couponCategories.any(
-              (cat) =>
-                  cat.toString().toLowerCase() ==
-                  widget.bookingCategory!.toLowerCase(),
-            );
-            if (!matchesCategory) return false;
-          }
-        }
-
-        final validUntilStr = c['validUntil'];
-        if (validUntilStr != null) {
-          try {
-            final validUntil = DateTime.parse(validUntilStr);
-            if (validUntil.isBefore(DateTime.now())) return false;
-          } catch (_) {}
-        }
-
-        // Filter by targeted users
-        final List<dynamic>? targetUsers = c['targetUsers'];
-        if (targetUsers != null && targetUsers.isNotEmpty) {
-          final bool isTargeted = targetUsers.any((target) {
-            final String? targetEmail = target['email'];
-            final String? targetMobile = target['mobile'];
-
-            return (user?.email != null &&
-                    targetEmail != null &&
-                    targetEmail.toLowerCase() == user!.email.toLowerCase()) ||
-                (user?.phone != null &&
-                    targetMobile != null &&
-                    targetMobile == user!.phone);
-          });
-          if (!isTargeted) return false;
-        }
-
-        return true;
-      }).toList();
+      final active = filterCouponsForUser(
+        coupons: data,
+        user: user,
+        serviceType: serviceType,
+      );
 
       if (mounted) {
         setState(() {

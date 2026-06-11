@@ -514,7 +514,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                               height: 120,
                                               width: double.infinity,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Container(
+                                              errorBuilder: (_, _, _) => Container(
                                                 height: 120,
                                                 color: Colors.grey.shade100,
                                                 alignment: Alignment.center,

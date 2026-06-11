@@ -21,6 +21,7 @@ import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../services/coupon_service.dart';
+import '../utils/coupon_utils.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../widgets/coupon_slider.dart';
@@ -174,9 +175,10 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _bookings = bookings;
         _services = services;
         _reviews = reviews;
-        _coupons = coupons
-            .where((c) => (c as Map)['isActive'] == true)
-            .toList();
+        _coupons = filterCouponsForUser(
+          coupons: coupons,
+          user: context.read<AuthProvider>().user,
+        );
         _unreadNotificationsCount = unreadCount;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;

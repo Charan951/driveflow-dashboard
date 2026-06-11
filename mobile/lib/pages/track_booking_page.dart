@@ -551,13 +551,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       final booking = await _service.getBooking(id);
       if (mounted) {
         setState(() => _booking = booking);
-        if (booking.vehicle != null &&
-            booking.vehicle!.make != null &&
-            booking.vehicle!.model != null) {
+        final vehicle = booking.vehicle;
+        if (vehicle != null &&
+            vehicle.make.isNotEmpty &&
+            vehicle.model.isNotEmpty) {
           final ref = await _vehicleService.searchReference(
-            make: booking.vehicle!.make!,
-            model: booking.vehicle!.model!,
-            variant: booking.vehicle!.variant,
+            make: vehicle.make,
+            model: vehicle.model,
+            variant: vehicle.variant,
           );
           if (mounted) {
             setState(() => _vehicleRef = ref);
@@ -2958,7 +2959,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                                 if (discount > 0) ...[
                                   _buildCostRow(
                                     'Discount',
-                                    '-₹${discount}',
+                                    '-₹$discount',
                                     isDark,
                                   ),
                                   _buildCalculationBreakdown(

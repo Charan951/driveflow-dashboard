@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
 import '../services/coupon_service.dart';
+import '../utils/coupon_utils.dart';
 import '../state/auth_provider.dart';
 
 /// Home coupon ticket colors — readable on light and dark scaffold backgrounds.
@@ -102,40 +103,8 @@ class _CouponSliderState extends State<CouponSlider> {
   }
 
   List<dynamic> _filterActive(List<dynamic> data) {
-    final now = DateTime.now();
     final user = context.read<AuthProvider>().user;
-
-    return data.where((c) {
-      if (c is! Map) return false;
-      final isActive = c['isActive'] == true;
-      if (!isActive) return false;
-
-      final validUntilStr = c['validUntil'];
-      if (validUntilStr != null) {
-        try {
-          final validUntil = DateTime.parse(validUntilStr);
-          if (validUntil.isBefore(now)) return false;
-        } catch (_) {}
-      }
-
-      final List<dynamic>? targetUsers = c['targetUsers'];
-      if (targetUsers != null && targetUsers.isNotEmpty) {
-        final bool isTargeted = targetUsers.any((target) {
-          final String? targetEmail = target['email'];
-          final String? targetMobile = target['mobile'];
-
-          return (user?.email != null &&
-                  targetEmail != null &&
-                  targetEmail.toLowerCase() == user!.email.toLowerCase()) ||
-              (user?.phone != null &&
-                  targetMobile != null &&
-                  targetMobile == user!.phone);
-        });
-        if (!isTargeted) return false;
-      }
-
-      return true;
-    }).toList();
+    return filterCouponsForUser(coupons: data, user: user);
   }
 
   Future<void> _fetchCoupons() async {

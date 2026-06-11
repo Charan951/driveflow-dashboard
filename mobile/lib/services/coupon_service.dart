@@ -1,14 +1,12 @@
 import '../core/api_client.dart';
+import '../utils/coupon_utils.dart';
 
 class CouponService {
   final ApiClient _api = ApiClient();
 
   Future<List<dynamic>> getCoupons() async {
     final res = await _api.getAny('/coupons');
-    if (res is List) {
-      return res;
-    }
-    return [];
+    return parseCouponsResponse(res);
   }
 
   Future<Map<String, dynamic>> validateCoupon(

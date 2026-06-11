@@ -234,7 +234,7 @@ class _RegisterPageState extends State<RegisterPage>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.cinematicOrange.withOpacity(0.15),
+                    AppColors.cinematicOrange.withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.7],
@@ -268,13 +268,13 @@ class _RegisterPageState extends State<RegisterPage>
                           ),
                           const SizedBox(height: 24),
                           Card(
-                            color: AppColors.backgroundSecondary.withOpacity(0.9),
+                            color: AppColors.backgroundSecondary.withValues(alpha: 0.9),
                             elevation: 8,
-                            shadowColor: Colors.black.withOpacity(0.5),
+                            shadowColor: Colors.black.withValues(alpha: 0.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                               side: BorderSide(
-                                color: Colors.white.withOpacity(0.05),
+                                color: Colors.white.withValues(alpha: 0.05),
                               ),
                             ),
                             child: Padding(
@@ -405,7 +405,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         vertical: 8,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.error.withOpacity(0.1),
+                                        color: AppColors.error.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
@@ -444,7 +444,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         foregroundColor: Colors.white,
                                         elevation: 4,
                                         shadowColor: AppColors.cinematicOrange
-                                            .withOpacity(0.4),
+                                            .withValues(alpha: 0.4),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             16,
@@ -452,7 +452,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         disabledBackgroundColor: AppColors
                                             .cinematicOrange
-                                            .withOpacity(0.6),
+                                            .withValues(alpha: 0.6),
                                       ),
                                       child: _submitting
                                           ? const SizedBox(
@@ -625,18 +625,18 @@ class _GlassField extends StatelessWidget {
         suffixIcon: suffix,
         counterText: '',
         filled: true,
-        fillColor: Colors.white.withOpacity(0.03),
+        fillColor: Colors.white.withValues(alpha: 0.03),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

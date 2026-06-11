@@ -28,6 +28,7 @@ import '../services/vehicle_service.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import '../services/coupon_service.dart';
+import '../utils/coupon_utils.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
@@ -427,44 +428,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final serviceType = _getSelectedServiceType();
 
       setState(() {
-        _availableCoupons = coupons.where((c) {
-          if (c['isActive'] != true) return false;
-
-          // Filter by service applicability
-          final List<dynamic>? applicableServices = c['applicableServices'];
-          if (serviceType != null &&
-              applicableServices != null &&
-              applicableServices.isNotEmpty) {
-            final bool isAllApplicable = applicableServices.contains('All');
-            if (!isAllApplicable && !applicableServices.contains(serviceType)) {
-              return false;
-            }
-          }
-
-          // Filter by targeted users
-          final List<dynamic>? targetUsers = c['targetUsers'];
-          if (targetUsers != null && targetUsers.isNotEmpty) {
-            final bool isTargeted = targetUsers.any((target) {
-              final String? targetEmail = target['email'];
-              final String? targetMobile = target['mobile'];
-
-              return (user?.email != null &&
-                      targetEmail != null &&
-                      targetEmail.toLowerCase() == user!.email.toLowerCase()) ||
-                  (user?.phone != null &&
-                      targetMobile != null &&
-                      targetMobile == user!.phone);
-            });
-            if (!isTargeted) return false;
-          }
-
-          // Check if eligible (Min Order) - ONLY show if eligible
-          final double total = _calculateTotal();
-          final num minAmount = (c['minOrderAmount'] ?? 0) as num;
-          if (total < minAmount) return false;
-
-          return true;
-        }).toList();
+        _availableCoupons = filterCouponsForUser(
+          coupons: coupons,
+          user: user,
+          serviceType: serviceType,
+        );
         _loadingCoupons = false;
       });
     } catch (_) {
@@ -533,19 +501,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       orElse: () => _allServices.first,
     );
 
-    final category = service.category?.toLowerCase() ?? '';
-
-    if (category.contains('periodic') || category.contains('general')) {
-      return 'General Services';
-    } else if (category.contains('wash')) {
-      return 'Car Wash';
-    } else if (category.contains('essential')) {
-      return 'Essentials';
-    } else if (category.contains('tyre') || category.contains('battery')) {
-      return 'Tyres and Battery';
-    }
-
-    return null;
+    return mapCategoryToCouponServiceType(
+      service.category,
+      serviceName: service.name,
+    );
   }
 
   static const List<String> commonTireBrands = [
@@ -3479,7 +3438,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         const SizedBox(height: 24),
 
         // Coupon Section
-        if (_getSelectedServiceType() != 'General Services') ...[
+        ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3989,8 +3948,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (context) => PopScope(
+        canPop: false,
         child: Dialog(
           backgroundColor: Colors.transparent,
           child: Container(

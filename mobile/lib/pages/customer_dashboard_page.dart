@@ -20,6 +20,7 @@ import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../state/auth_provider.dart';
 import '../services/coupon_service.dart';
+import '../utils/coupon_utils.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/coupon_slider.dart';
 
@@ -223,6 +224,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
         final services = (results[2] as List<ServiceItem>);
         final reviews = (results[3] as List<Map<String, dynamic>>);
         final coupons = (results[4] as List<dynamic>);
+        final user = context.read<AuthProvider>().user;
 
         // If everything is empty and it wasn't a background refresh, we might want to show an error
         // But usually we just show empty states.
@@ -234,9 +236,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
           _bookings = bookings;
           _services = services;
           _reviews = reviews;
-          _coupons = coupons
-              .where((c) => (c as Map)['isActive'] == true)
-              .toList();
+          _coupons = filterCouponsForUser(coupons: coupons, user: user);
           _upcomingBookingCached = upcoming;
           if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
             _selectedVehicleId = _vehicles.first.id;
