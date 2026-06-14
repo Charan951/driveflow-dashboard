@@ -220,14 +220,15 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
+      backgroundColor: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Add Vehicle',
           style: TextStyle(
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -298,6 +299,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   }
 
   Widget _buildStep1() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -318,19 +320,19 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s-]')),
             LengthLimitingTextInputFormatter(13),
           ],
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
           decoration: InputDecoration(
             hintText: 'e.g. MH12AB1234',
-            hintStyle: const TextStyle(color: AppColors.textMuted),
+            hintStyle: TextStyle(color: isDark ? AppColors.textMuted : AppColors.textMutedLight),
             filled: true,
-            fillColor: AppColors.backgroundSecondary,
+            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -508,6 +510,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     bool required = true,
     TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -525,7 +528,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           inputFormatters: keyboardType == TextInputType.number
               ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)]
               : [LengthLimitingTextInputFormatter(FormValidation.maxVehicleFieldLength)],
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
           validator: (v) {
             if (label == 'Registration Number') {
               return FormValidation.validateLicensePlate(v);
@@ -537,16 +540,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           },
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.textMuted),
+            hintStyle: TextStyle(color: isDark ? AppColors.textMuted : AppColors.textMutedLight),
             filled: true,
-            fillColor: AppColors.backgroundSecondary,
+            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -567,6 +570,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     List<String> items,
     Function(String?) onChanged,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -580,16 +584,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: AppColors.backgroundSecondary,
+            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderColor),
+            border: Border.all(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              dropdownColor: AppColors.backgroundSurface,
-              style: const TextStyle(color: AppColors.textPrimary),
+              dropdownColor: isDark ? AppColors.backgroundSurface : AppColors.backgroundSurfaceLight,
+              style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
               items: items
                   .map((i) => DropdownMenuItem(value: i, child: Text(i)))
                   .toList(),

@@ -11,6 +11,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:http/http.dart' as http;
 
 import '../models/user.dart';
+import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/env.dart';
 import '../core/form_validation.dart';
@@ -607,9 +608,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      final msg = e is ApiException
+                          ? e.message
+                          : e.toString().replaceFirst('Exception: ', '');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(msg)),
+                      );
                     }
                   }
                 },
@@ -861,8 +865,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             }
                           } catch (e) {
                             if (context.mounted) {
+                              final msg = e is ApiException
+                                  ? e.message
+                                  : e.toString().replaceFirst('Exception: ', '');
                               messenger.showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
+                                SnackBar(content: Text(msg)),
                               );
                             }
                           }
@@ -890,9 +897,10 @@ class _ProfilePageState extends State<ProfilePage> {
       await context.read<AuthProvider>().updateProfile(addresses: newList);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        final msg = e is ApiException
+            ? e.message
+            : e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }

@@ -151,6 +151,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _catalogService.listServices(isQuickService: true),
         _reviewService.getMyReviews(),
         _couponService.getCoupons(),
+        _notificationService.listMyNotifications().catchError((_) => <NotificationItem>[]),
       ]);
 
       if (!mounted) return;
@@ -159,13 +160,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       final services = (results[2] as List<ServiceItem>);
       final reviews = (results[3] as List<Map<String, dynamic>>);
       final coupons = (results[4] as List<dynamic>);
-      var unreadCount = 0;
-      try {
-        final notifications = await _notificationService.listMyNotifications();
-        unreadCount = notifications.where((n) => !n.isRead).length;
-      } catch (_) {
-        // Ignore notification count failures so dashboard still loads.
-      }
+      final notifications = (results[5] as List<NotificationItem>);
+      final unreadCount = notifications.where((n) => !n.isRead).length;
 
       final upcoming = _computeUpcomingBooking(bookings);
       final recent = _computeRecentBookings(bookings, upcoming);
@@ -864,12 +860,14 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       if (!mounted) return;
       final upcoming = _computeUpcomingBooking(bookings);
       final recent = _computeRecentBookings(bookings, upcoming);
+      final cachedUnreadCount = (map['unreadNotificationsCount'] as num?)?.toInt() ?? 0;
 
       setState(() {
         _vehicles = vehicles;
         _bookings = bookings;
         _services = services;
         _coupons = coupons;
+        _unreadNotificationsCount = cachedUnreadCount;
         _upcomingBookingCached = upcoming;
         _recentBookings = recent;
       });
@@ -885,6 +883,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         'bookings': _bookings.map((b) => b.toJson()).toList(),
         'services': _services.map((s) => s.toJson()).toList(),
         'coupons': _coupons,
+        'unreadNotificationsCount': _unreadNotificationsCount,
         'updatedAt': DateTime.now().toIso8601String(),
       };
       await AppStorage().setDashboardJson(jsonEncode(map));
@@ -1138,29 +1137,32 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.28)
-                        : Colors.black.withValues(alpha: 0.16),
-                    width: 1.0,
+              Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
                   ),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.notifications_none_rounded,
-                    color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.notifications_none_rounded,
+                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                    ),
+                    tooltip: 'Notifications',
+                    onPressed: _openNotifications,
                   ),
-                  tooltip: 'Notifications',
-                  onPressed: _openNotifications,
                 ),
               ),
               if (_unreadNotificationsCount > 0)
                 Positioned(
-                  right: -2,
-                  top: -2,
+                  right: 0,
+                  top: 0,
                   child: Container(
                     constraints: const BoxConstraints(
                       minWidth: 18,

@@ -499,18 +499,21 @@ class _BookingCardState extends State<_BookingCard> {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        gradient: LinearGradient(
-                          colors: [
-                            widget.statusColor.withValues(alpha: 0.25),
-                            Color.lerp(
-                              widget.statusColor,
-                              Colors.white,
-                              0.18,
-                            )!.withValues(alpha: 0.32),
-                          ],
-                          begin: const Alignment(-1, 0),
-                          end: const Alignment(1, 0),
-                        ),
+                        color: isDark ? null : widget.statusColor,
+                        gradient: isDark
+                            ? LinearGradient(
+                                colors: [
+                                  widget.statusColor.withValues(alpha: 0.25),
+                                  Color.lerp(
+                                    widget.statusColor,
+                                    Colors.white,
+                                    0.18,
+                                  )!.withValues(alpha: 0.32),
+                                ],
+                                begin: const Alignment(-1, 0),
+                                end: const Alignment(1, 0),
+                              )
+                            : null,
                       ),
                       child: Text(
                         widget.statusLabel,

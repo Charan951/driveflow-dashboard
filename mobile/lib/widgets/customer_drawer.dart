@@ -143,10 +143,14 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
         child: RepaintBoundary(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20,
-                  horizontal: 8,
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.transparent
+                      : const Color(0xFF0D0D0D),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Image.asset(
                   'assets/carzzilogo.png',

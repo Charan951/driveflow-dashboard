@@ -280,9 +280,14 @@ class _SupportPageState extends State<SupportPage> {
         if (!_loading) _loadTickets();
       },
       child: PopScope(
-      canPop: Navigator.of(context).canPop(),
+      canPop: _selectedTicket == null && Navigator.of(context).canPop(),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        if (_selectedTicket != null) {
+          _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
+          setState(() => _selectedTicket = null);
+          return;
+        }
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/customer', (route) => false);
@@ -888,13 +893,38 @@ class _TicketCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(ticket.category, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
-          if (ticket.messages.isNotEmpty)
-            Text(
-              ticket.messages.first.message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
-            ),
+          if (ticket.messages.isNotEmpty) ...[
+            Builder(builder: (context) {
+              final lastMsg = ticket.messages.last;
+              final hasAdminReply = lastMsg.senderRole == 'admin' || lastMsg.senderRole == 'staff';
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      lastMsg.message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                        fontWeight: hasAdminReply ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  if (hasAdminReply)
+                    Container(
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(left: 8, top: 4),
+                      decoration: const BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              );
+            }),
+          ],
         ],
       ),
     );
