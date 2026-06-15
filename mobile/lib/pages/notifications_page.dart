@@ -241,6 +241,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return AppColors.warning;
       case 'error':
         return AppColors.error;
+      case 'support':
+      case 'ticket_reply':
+        return Colors.teal;
       default:
         return AppColors.primaryBlue;
     }
@@ -254,6 +257,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return Icons.warning_amber_rounded;
       case 'error':
         return Icons.error_outline;
+      case 'support':
+      case 'ticket_reply':
+        return Icons.support_agent;
       default:
         return Icons.notifications_outlined;
     }
@@ -266,18 +272,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
       onSync: () {
         if (!_loading) _load();
       },
-      child: Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
+      child: Builder(builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         elevation: 0,
         actions: [
           if (_items.isNotEmpty)
@@ -637,7 +646,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 itemCount: _items.length,
               ),
       ),
-    ),
+    );
+      }),
     );
   }
 }

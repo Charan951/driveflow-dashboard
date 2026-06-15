@@ -264,6 +264,13 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
       toast.error('Please enter a valid invoice date');
       return;
     }
+    const invoiceDateObj = new Date(formData.invoiceDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (invoiceDateObj > today) {
+      toast.error('Invoice date cannot be a future date');
+      return;
+    }
 
     // Parts Cost validation
     if (formData.partsCost !== '') {
@@ -437,7 +444,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
               required
               maxLength={10}
               min="1900-01-01"
-              max="2100-12-31"
+              max={new Date().toISOString().split('T')[0]}
               className="w-full p-2 border border-input rounded-lg bg-background"
             />
           </div>

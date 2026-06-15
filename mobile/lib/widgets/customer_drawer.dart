@@ -149,7 +149,7 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.transparent
-                      : const Color(0xFF0D0D0D),
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Image.asset(

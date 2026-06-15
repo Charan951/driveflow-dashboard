@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getETA, ETAResponse } from '@/services/trackingService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { isPaymentRequiredService, isCarWashService } from '@/lib/serviceUtils';
 
 const CAR_WASH_MIN_PHOTOS = 2;
 const CAR_WASH_MAX_PHOTOS = 4;
@@ -1042,12 +1041,16 @@ const StaffOrderPage: React.FC = () => {
         <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
           {isBatteryOrTire || isCarWash ? (
             (() => {
-              const photos = isCarWash 
-                ? (order.status === 'CAR_WASH_STARTED' ? order.carWash?.afterWashPhotos : order.carWash?.beforeWashPhotos)
+              const beforePhotos = Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
+              const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
+              const photos = isCarWash
+                ? null  // use combined count below
                 : order.prePickupPhotos;
-              const count = Array.isArray(photos) ? photos.length : 0;
-              const minRequired = isCarWash ? CAR_WASH_MIN_PHOTOS : 2;
-              const maxAllowed = isCarWash ? CAR_WASH_MAX_PHOTOS : (isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4);
+              const count = isCarWash
+                ? (beforePhotos.length + afterPhotos.length)
+                : (Array.isArray(photos) ? photos.length : 0);
+              const minRequired = isCarWash ? CAR_WASH_MIN_PHOTOS * 2 : 2;
+              const maxAllowed = isCarWash ? CAR_WASH_MAX_PHOTOS * 2 : (isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4);
               
               if (count >= minRequired && count <= maxAllowed) {
                 return (

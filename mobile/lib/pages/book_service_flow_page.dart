@@ -1249,6 +1249,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       : SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
                           child: Wrap(
+                            alignment: WrapAlignment.center,
                             spacing: 12,
                             runSpacing: 12,
                             children: _availableSlots.map((slot) {

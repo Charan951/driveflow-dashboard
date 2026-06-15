@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
@@ -81,6 +82,11 @@ class _SupportPageState extends State<SupportPage> {
             _selectedTicket = updatedTicket;
           }
         });
+        // Refresh messages immediately if this ticket is open
+        if (_selectedTicket != null &&
+            _selectedTicket!.id == updatedTicket.id) {
+          _loadTickets();
+        }
       }
     } catch (e) {
       // Silent catch
@@ -288,9 +294,7 @@ class _SupportPageState extends State<SupportPage> {
           setState(() => _selectedTicket = null);
           return;
         }
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/customer', (route) => false);
+        Navigator.of(context).pop();
       },
       child: Scaffold(
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -819,7 +823,7 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   String _formatDate(DateTime date) {
-    return "${date.hour}:${date.minute.toString().padLeft(2, '0')} ${date.day}/${date.month}";
+    return "${DateFormat('hh:mm a').format(date)} ${date.day}/${date.month}";
   }
 }
 

@@ -22,6 +22,7 @@ import { userService, User } from '@/services/userService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
+import { paymentService, PaymentData } from '@/services/paymentService';
 import { toast } from 'sonner';
 import VehicleCard from '@/components/VehicleCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -39,6 +40,8 @@ const AdminUserDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(
     returnToFromState === '/admin/staff' ? 'bookings' : 'vehicles'
   );
+  const [payments, setPayments] = useState<PaymentData[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
@@ -89,6 +92,30 @@ const AdminUserDetailPage: React.FC = () => {
       fetchData();
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    const fetchPayments = async () => {
+      if (!id) return;
+      try {
+        setPaymentsLoading(true);
+        const data = await paymentService.getAllPayments(1, 100);
+        const allPayments: PaymentData[] = Array.isArray(data?.data) ? data.data : (Array.isArray(data?.payments) ? data.payments : []);
+        const userPayments = allPayments.filter((p) => {
+          const uid = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return uid === id;
+        });
+        setPayments(userPayments);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setPaymentsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchPayments();
+    }
+  }, [id]);
 
   const handleSaveProfile = async () => {
     if (!editFormData.name.trim()) {
@@ -361,11 +388,48 @@ const AdminUserDetailPage: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="payments">
-              <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
-                <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <h3 className="text-lg font-medium">No payments found</h3>
-                <p className="text-muted-foreground">Payment history will appear here.</p>
-              </div>
+              {paymentsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">Loading payments...</div>
+              ) : payments.length > 0 ? (
+                <div className="bg-card rounded-2xl border border-border overflow-hidden min-w-0 max-w-full">
+                  <div className="overflow-x-auto max-w-full">
+                    <table className="w-full text-sm text-left min-w-[500px]">
+                      <thead className="bg-muted/50 text-muted-foreground">
+                        <tr>
+                          <th className="p-4 font-medium">Date</th>
+                          <th className="p-4 font-medium">Order ID</th>
+                          <th className="p-4 font-medium">Status</th>
+                          <th className="p-4 font-medium text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map((payment) => (
+                          <tr key={payment._id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                            <td className="p-4">{new Date(payment.createdAt).toLocaleDateString()}</td>
+                            <td className="p-4 font-mono text-xs">{payment.orderId}</td>
+                            <td className="p-4">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                payment.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                payment.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {payment.status}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right font-medium">₹{payment.amount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
+                  <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <h3 className="text-lg font-medium">No payments found</h3>
+                  <p className="text-muted-foreground">Payment history will appear here.</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="documents">

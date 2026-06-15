@@ -592,30 +592,45 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
                     padding: EdgeInsets.only(top: 32),
                     child: Center(child: CircularProgressIndicator.adaptive()),
                   )
-                else if (_error != null && _vehicles.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.section),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Failed to load dashboard',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        AppSpacing.verticalSmall,
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                        ),
-                        AppSpacing.verticalMedium,
-                        OutlinedButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+                else if (_error != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: AppSpacing.section,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: isDark ? Colors.red[300] : Colors.red[600],
+                          ),
+                          AppSpacing.verticalSmall,
+                          Text(
+                            'Failed to load dashboard',
+                            style: Theme.of(context).textTheme.titleMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                          AppSpacing.verticalSmall,
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                ),
+                          ),
+                          AppSpacing.verticalMedium,
+                          OutlinedButton(
+                            onPressed: _load,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 else ...[

@@ -372,8 +372,8 @@ class _LoginPageState extends State<LoginPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility
-                                              : Icons.visibility_off,
+                                              ? Icons.visibility_off
+                                              : Icons.visibility,
                                           color: Colors.white38,
                                           size: 20,
                                         ),

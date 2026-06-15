@@ -404,7 +404,26 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
 
         if (status == 'DELIVERED' || status == 'COMPLETED') {
-          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Order Completed'),
+              content: const Text('Order has been marked as completed.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Go to Home'),
+                ),
+              ],
+            ),
+          );
         }
       }
       if (status == 'ACCEPTED' ||

@@ -201,14 +201,15 @@ const AdminServicesPage: React.FC = () => {
         return;
       }
     }
-    // If there are valid pending pincodes, add them first
+    // If there are valid pending pincodes, merge them first into a local variable
+    const mergedPincodes = Array.from(new Set([...availableServicePincodes, ...parsed]));
     if (parsed.length > 0) {
-      setAvailableServicePincodes((prev) => Array.from(new Set([...prev, ...parsed])));
+      setAvailableServicePincodes(mergedPincodes);
       setAvailableServicePincodeInput('');
     }
     try {
       setAvailableServiceSaving(true);
-      await bookingService.updateAvailableServicePincodes(availableServicePincodes);
+      await bookingService.updateAvailableServicePincodes(mergedPincodes);
       toast.success('Available service pincodes updated');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to update available service pincodes');
@@ -238,7 +239,10 @@ const AdminServicesPage: React.FC = () => {
   };
 
   const removeAvailablePincode = (pincode: string) => {
+    const confirmed = window.confirm(`Are you sure you want to remove pincode ${pincode}?`);
+    if (!confirmed) return;
     setAvailableServicePincodes((prev) => prev.filter((p) => p !== pincode));
+    toast.success(`Pincode ${pincode} removed. Click Save to persist changes.`);
   };
 
   return (
@@ -363,7 +367,7 @@ const AdminServicesPage: React.FC = () => {
                   <option value="All">All Services</option>
                   <option value="General Services">General Services</option>
                   <option value="Car Wash">Car Wash</option>
-                  <option value="Tyres & Battery">Tyres & Battery</option>
+                  <option value="Tyre & Battery">Tyre & Battery</option>
                   <option value="Essentials">Essentials</option>
                 </select>
                 <input

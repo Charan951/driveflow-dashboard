@@ -1540,21 +1540,21 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           url: _resolveImageUrl(
                             booking.inspection!.frontPhoto,
                           )!,
-                          label: 'Front',
+                          label: 'Photo 1',
                         ),
                       if (booking.inspection?.backPhoto != null &&
                           _resolveImageUrl(booking.inspection!.backPhoto) !=
                               null)
                         _PhotoCarouselItem(
                           url: _resolveImageUrl(booking.inspection!.backPhoto)!,
-                          label: 'Back',
+                          label: 'Photo 2',
                         ),
                       if (booking.inspection?.leftPhoto != null &&
                           _resolveImageUrl(booking.inspection!.leftPhoto) !=
                               null)
                         _PhotoCarouselItem(
                           url: _resolveImageUrl(booking.inspection!.leftPhoto)!,
-                          label: 'Left',
+                          label: 'Photo 3',
                         ),
                       if (booking.inspection?.rightPhoto != null &&
                           _resolveImageUrl(booking.inspection!.rightPhoto) !=
@@ -1563,7 +1563,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                           url: _resolveImageUrl(
                             booking.inspection!.rightPhoto,
                           )!,
-                          label: 'Right',
+                          label: 'Photo 4',
                         ),
                     ];
                     final prePickupItems = <_PhotoCarouselItem>[
@@ -1572,15 +1572,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                             null)
                           _PhotoCarouselItem(
                             url: _resolveImageUrl(booking.prePickupPhotos[i])!,
-                            label: i == 0
-                                ? 'Front'
-                                : i == 1
-                                ? 'Back'
-                                : i == 2
-                                ? 'Left'
-                                : i == 3
-                                ? 'Right'
-                                : 'Photo ${i + 1}',
+                            label: 'Photo ${i + 1}',
                           ),
                     ];
                     final servicePhotoItems = <_PhotoCarouselItem>[];
@@ -1600,10 +1592,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
                         ? 'After Service'
                         : 'After Car Wash';
                     const directionalLabels = [
-                      'Front',
-                      'Back',
-                      'Left',
-                      'Right',
+                      'Photo 1',
+                      'Photo 2',
+                      'Photo 3',
+                      'Photo 4',
                     ];
                     void addServicePhotos(
                       List<String> photos,

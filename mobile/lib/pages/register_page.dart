@@ -346,8 +346,8 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility
-                                              : Icons.visibility_off,
+                                              ? Icons.visibility_off
+                                              : Icons.visibility,
                                           color: Colors.white38,
                                           size: 20,
                                         ),
@@ -368,8 +368,8 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility
-                                              : Icons.visibility_off,
+                                              ? Icons.visibility_off
+                                              : Icons.visibility,
                                           color: Colors.white38,
                                           size: 20,
                                         ),

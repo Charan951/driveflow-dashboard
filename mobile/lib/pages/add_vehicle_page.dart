@@ -366,7 +366,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      foregroundColor: AppColors.textPrimary,
+                      foregroundColor: Colors.white,
                     ),
                     child: _isFetching
                         ? const SizedBox(
@@ -389,8 +389,8 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                 child: OutlinedButton(
                   onPressed: () => setState(() => _step = 2),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.borderColor),
+                    foregroundColor: isDark ? AppColors.textPrimary : Colors.black87,
+                    side: BorderSide(color: isDark ? AppColors.borderColor : Colors.black26),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

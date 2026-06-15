@@ -180,7 +180,7 @@ class _MerchantOrdersPageState extends State<MerchantOrdersPage> {
                           return _OrderCard(
                             booking: booking,
                             onTap: () {
-                              Navigator.of(context).pushNamed(
+                              Navigator.of(context).pushReplacementNamed(
                                 '/merchant-order-detail',
                                 arguments: booking.id,
                               );

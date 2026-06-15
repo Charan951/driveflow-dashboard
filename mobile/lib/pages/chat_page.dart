@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/env.dart';
@@ -399,7 +400,7 @@ class _ChatPageState extends State<ChatPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      '${message.createdAt.hour}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+                      DateFormat('hh:mm a').format(message.createdAt),
                       style: TextStyle(
                         fontSize: 10,
                         color: isSelf

@@ -1165,11 +1165,11 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   top: 0,
                   child: Container(
                     constraints: const BoxConstraints(
-                      minWidth: 18,
+                      minWidth: 20,
                       minHeight: 18,
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
+                      horizontal: 4,
                       vertical: 2,
                     ),
                     decoration: const BoxDecoration(
@@ -1196,10 +1196,21 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     );
   }
 
+  Future<void> _refreshNotificationCount() async {
+    try {
+      final notifications = await _notificationService.listMyNotifications();
+      if (!mounted) return;
+      final unreadCount = notifications.where((n) => !n.isRead).length;
+      setState(() => _unreadNotificationsCount = unreadCount);
+    } catch (_) {
+      // Silently ignore — count will update on next full load
+    }
+  }
+
   void _openNotifications() {
     Navigator.pushNamed(context, '/notifications').then((_) {
       if (!mounted) return;
-      _load(isInitial: true);
+      _refreshNotificationCount();
     });
   }
 
