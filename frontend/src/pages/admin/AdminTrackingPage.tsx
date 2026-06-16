@@ -302,7 +302,6 @@ const AdminTrackingPage: React.FC = () => {
       socketService.off('liveLocation');
       socketService.off('userStatusUpdate');
       socketService.off('bookingUpdated');
-      socketService.disconnect();
     };
   }, [queryClient]);
 

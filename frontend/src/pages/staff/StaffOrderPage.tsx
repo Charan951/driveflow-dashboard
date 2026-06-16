@@ -235,14 +235,26 @@ const StaffOrderPage: React.FC = () => {
           const cat = service.category.toLowerCase();
           return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
         });
+
+      const isBatteryNow = Array.isArray(order?.services) && 
+        order.services.some(service => {
+          if (typeof service !== 'object' || !service.category) return false;
+          const cat = service.category.toLowerCase();
+          return cat.includes('battery');
+        });
       
       if (isCarWashNow) {
         // Handle car wash specific status updates
+        const isEssentialsNow = Array.isArray(order?.services) && 
+          order.services.some(service => 
+            typeof service === 'object' && service.category?.toLowerCase().includes('essentials')
+          );
         if (newStatus === 'CAR_WASH_STARTED') {
           // For car wash start, check for before photos
           const beforePhotos = Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
-          if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
-            toast.error(INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
+          const requiredBeforeCount = isEssentialsNow ? 4 : CAR_WASH_MIN_PHOTOS;
+          if (beforePhotos.length < requiredBeforeCount) {
+            toast.error(isEssentialsNow ? 'Please upload at least 4 before service photos before starting service' : INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
             setIsUpdating(false);
             return;
           }
@@ -250,8 +262,9 @@ const StaffOrderPage: React.FC = () => {
         } else if (newStatus === 'CAR_WASH_COMPLETED') {
           // For car wash completion, check for after photos
           const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
-          if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
-            toast.error(INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
+          const requiredAfterCount = isEssentialsNow ? 4 : CAR_WASH_MIN_PHOTOS;
+          if (afterPhotos.length < requiredAfterCount) {
+            toast.error(isEssentialsNow ? 'Please upload at least 4 after service photos before completing service' : INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE);
             setIsUpdating(false);
             return;
           }
@@ -309,13 +322,15 @@ const StaffOrderPage: React.FC = () => {
           }
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERY') {
-          const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
-            ? order.serviceExecution.afterPhotos
-            : [];
-          if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
-            toast.error(BATTERY_AFTER_PHOTOS_MESSAGE);
-            setIsUpdating(false);
-            return;
+          if (!isBatteryNow) {
+            const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
+              ? order.serviceExecution.afterPhotos
+              : [];
+            if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
+              toast.error(BATTERY_AFTER_PHOTOS_MESSAGE);
+              setIsUpdating(false);
+              return;
+            }
           }
           // For battery/tire delivery, generate OTP first
           try {
@@ -492,6 +507,9 @@ const StaffOrderPage: React.FC = () => {
   useEffect(() => {
     if (order?.status === 'REACHED_MERCHANT') {
       toast.info('Vehicle has reached merchant. Redirecting to dashboard.');
+      navigate('/dashboard', { replace: true });
+    } else if (order?.status === 'DELIVERED' || order?.status === 'COMPLETED') {
+      toast.success('Order delivered successfully. Returning to dashboard.');
       navigate('/dashboard', { replace: true });
     }
   }, [order?.status, navigate]);
@@ -952,6 +970,13 @@ const StaffOrderPage: React.FC = () => {
       return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
     });
 
+  const isBattery = Array.isArray(order?.services) && 
+    order.services.some(service => {
+      if (typeof service !== 'object' || !service.category) return false;
+      const cat = service.category.toLowerCase();
+      return cat.includes('battery');
+    });
+
   const getNextStatusAction = (currentStatus: string) => {
     if (isCarWash) {
       // Car wash specific workflow - no acceptance needed
@@ -994,12 +1019,19 @@ const StaffOrderPage: React.FC = () => {
                           user?._id === (typeof order.technician === 'object' ? order.technician?._id : order.technician) ||
                           user?._id === (typeof order.carWash?.staffAssigned === 'object' ? order.carWash?.staffAssigned?._id : order.carWash?.staffAssigned);
 
+  const beforeWashPhotos = Array.isArray(order?.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
+  const afterWashPhotos = Array.isArray(order?.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
+  const requiredBefore = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+  const requiredAfter = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+
   const shouldDisablePrimaryAction =
     isUpdating ||
     isWaitingForPayment ||
     !isAssignedStaff ||
     (nextAction?.nextStatus === 'VEHICLE_PICKED' &&
-      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4));
+      (!Array.isArray(order.prePickupPhotos) || order.prePickupPhotos.length < 4)) ||
+    (nextAction?.nextStatus === 'CAR_WASH_STARTED' && beforeWashPhotos.length < requiredBefore) ||
+    (nextAction?.nextStatus === 'CAR_WASH_COMPLETED' && afterWashPhotos.length < requiredAfter);
 
   // Determine display location and labels
   const isHeadingToMerchant = !isCarWash && (
@@ -1039,33 +1071,115 @@ const StaffOrderPage: React.FC = () => {
 
         </div>
         <span className="inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 text-xs font-medium border border-border flex-shrink-0">
-          {isBatteryOrTire || isCarWash ? (
+          {isCarWash ? (
             (() => {
               const beforePhotos = Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos : [];
               const afterPhotos = Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
-              const photos = isCarWash
-                ? null  // use combined count below
-                : order.prePickupPhotos;
-              const count = isCarWash
-                ? (beforePhotos.length + afterPhotos.length)
-                : (Array.isArray(photos) ? photos.length : 0);
-              const minRequired = isCarWash ? CAR_WASH_MIN_PHOTOS * 2 : 2;
-              const maxAllowed = isCarWash ? CAR_WASH_MAX_PHOTOS * 2 : (isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4);
+              const requiredBefore = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+              const requiredAfter = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
               
-              if (count >= minRequired && count <= maxAllowed) {
+              if (order.status === 'CAR_WASH_STARTED') {
+                const count = afterPhotos.length;
+                if (count >= requiredAfter) {
+                  return (
+                    <>
+                      <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                      <span className="text-green-700">After photos ready ({count}/4)</span>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
+                    <span className="text-amber-600">After photos ({count}/4)</span>
+                  </>
+                );
+              } else if (['CAR_WASH_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(order.status)) {
+                const count = beforePhotos.length + afterPhotos.length;
                 return (
                   <>
                     <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
-                    <span className="text-green-700">Photos ready ({count}/{maxAllowed})</span>
+                    <span className="text-green-700">Photos complete ({count}/8)</span>
+                  </>
+                );
+              } else {
+                const count = beforePhotos.length;
+                if (count >= requiredBefore) {
+                  return (
+                    <>
+                      <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                      <span className="text-green-700">Before photos ready ({count}/4)</span>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
+                    <span className="text-amber-600">Before photos ({count}/4)</span>
                   </>
                 );
               }
-              return (
-                <>
-                  <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
-                  <span className="text-amber-600">Photos ({count}/{maxAllowed})</span>
-                </>
-              );
+            })()
+          ) : isBatteryOrTire ? (
+            (() => {
+              const beforePhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+              const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos) ? order.serviceExecution.afterPhotos : [];
+              
+              if (isBattery && order.status === 'INSTALLATION') {
+                return (
+                  <>
+                    <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                    <span className="text-green-700">Photos complete ({beforePhotos.length}/{BATTERY_BEFORE_PHOTOS_REQUIRED})</span>
+                  </>
+                );
+              } else if (isBattery && ['DELIVERY', 'COMPLETED'].includes(order.status)) {
+                return (
+                  <>
+                    <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                    <span className="text-green-700">Photos complete ({beforePhotos.length}/{BATTERY_BEFORE_PHOTOS_REQUIRED})</span>
+                  </>
+                );
+              } else if (order.status === 'INSTALLATION') {
+                const count = afterPhotos.length;
+                if (count >= BATTERY_AFTER_PHOTOS_REQUIRED) {
+                  return (
+                    <>
+                      <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                      <span className="text-green-700">After photos ready ({count}/{BATTERY_AFTER_PHOTOS_REQUIRED})</span>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
+                    <span className="text-amber-600">After photos ({count}/{BATTERY_AFTER_PHOTOS_REQUIRED})</span>
+                  </>
+                );
+              } else if (['DELIVERY', 'COMPLETED'].includes(order.status)) {
+                const count = beforePhotos.length + afterPhotos.length;
+                return (
+                  <>
+                    <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                    <span className="text-green-700">Photos complete ({count}/{BATTERY_BEFORE_PHOTOS_REQUIRED + BATTERY_AFTER_PHOTOS_REQUIRED})</span>
+                  </>
+                );
+              } else {
+                const count = beforePhotos.length;
+                if (count >= BATTERY_BEFORE_PHOTOS_REQUIRED) {
+                  return (
+                    <>
+                      <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
+                      <span className="text-green-700">Before photos ready ({count}/{BATTERY_BEFORE_PHOTOS_REQUIRED})</span>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <AlertTriangle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-500" />
+                    <span className="text-amber-600">Before photos ({count}/{BATTERY_BEFORE_PHOTOS_REQUIRED})</span>
+                  </>
+                );
+              }
             })()
           ) : (
             Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length >= 4 ? (
@@ -1122,7 +1236,8 @@ const StaffOrderPage: React.FC = () => {
               <span className="sm:hidden">Navigate</span>
             </Button>
 
-            {!['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_COMPLETED', 'DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+            {!['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_COMPLETED', 'DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && 
+             !(isBattery && (order.status === 'STAFF_REACHED_MERCHANT' || order.status === 'INSTALLATION')) && (
               <Button
                 size="lg"
                 variant="secondary"
@@ -1216,9 +1331,60 @@ const StaffOrderPage: React.FC = () => {
             onChange={handlePrePickupFileChange}
           />
 
-          {isPrePickupPhase && (
+          {(isPrePickupPhase || (isCarWash && order.status === 'CAR_WASH_STARTED')) && 
+           !(isBattery && order.status === 'STAFF_REACHED_MERCHANT') && (
             <div className="mt-4 space-y-2">
-              {isBatteryOrTire && order.status === 'INSTALLATION' ? (
+              {isCarWash ? (
+                order.status === 'REACHED_CUSTOMER' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {isEssentials ? 'Before service photos' : 'Before wash photos'}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {beforeWashPhotos.length}/{isEssentials ? 4 : CAR_WASH_MAX_PHOTOS}
+                      </span>
+                    </div>
+                    {beforeWashPhotos.length > 0 ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {beforeWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`Before ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        No before {isEssentials ? 'service' : 'wash'} photos uploaded yet. Upload {isEssentials ? 4 : CAR_WASH_MIN_PHOTOS} clear photos.
+                      </p>
+                    )}
+                  </>
+                ) : order.status === 'CAR_WASH_STARTED' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {isEssentials ? 'After service photos' : 'After wash photos'}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {afterWashPhotos.length}/{isEssentials ? 4 : CAR_WASH_MAX_PHOTOS}
+                      </span>
+                    </div>
+                    {afterWashPhotos.length > 0 ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {afterWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        No after {isEssentials ? 'service' : 'wash'} photos uploaded yet. Upload {isEssentials ? 4 : CAR_WASH_MIN_PHOTOS} clear photos.
+                      </p>
+                    )}
+                  </>
+                ) : null
+              ) : isBatteryOrTire && order.status === 'INSTALLATION' ? (
                 <>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -1239,27 +1405,29 @@ const StaffOrderPage: React.FC = () => {
                       <p className="text-[11px] text-muted-foreground">No before photos uploaded.</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">After service photos</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {order.serviceExecution?.afterPhotos?.length || 0}/{BATTERY_AFTER_PHOTOS_REQUIRED}
-                      </span>
-                    </div>
-                    {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 ? (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                        {order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
-                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
-                            <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
-                          </div>
-                        ))}
+                  {!isBattery && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">After service photos</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {order.serviceExecution?.afterPhotos?.length || 0}/{BATTERY_AFTER_PHOTOS_REQUIRED}
+                        </span>
                       </div>
-                    ) : (
-                      <p className="text-[11px] text-muted-foreground">
-                        Upload {BATTERY_AFTER_PHOTOS_REQUIRED} clear after service photos before completing delivery.
-                      </p>
-                    )}
-                  </div>
+                      {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
+                            <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                              <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          Upload {BATTERY_AFTER_PHOTOS_REQUIRED} clear after service photos before completing delivery.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -1548,7 +1716,7 @@ const StaffOrderPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  {isBatteryOrTire && ['INSTALLATION', 'DELIVERY', 'COMPLETED'].includes(order.status) && (
+                  {isBatteryOrTire && !isBattery && ['INSTALLATION', 'DELIVERY', 'COMPLETED'].includes(order.status) && (
                     <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="space-y-1">

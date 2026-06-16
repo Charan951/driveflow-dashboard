@@ -169,7 +169,7 @@ const AdminHeroImagesPage = () => {
     const trimmed = value.trim();
 
     if (field === 'title') {
-      if (!trimmed) return 'Title is required';
+      if (!trimmed) return null;
       if (isHeroTitleTooLong(value)) return 'Title is too long (max 100 characters)';
       if (isOnlySpecialCharacters(trimmed)) {
         return 'Title cannot contain only special characters';
@@ -181,7 +181,7 @@ const AdminHeroImagesPage = () => {
       return null;
     }
 
-    if (!trimmed) return 'Subtitle is required';
+    if (!trimmed) return null;
     if (isHeroSubtitleTooLong(value)) return 'Subtitle is too long (max 300 characters)';
     if (isOnlySpecialCharacters(trimmed)) {
       return 'Subtitle cannot contain only special characters';
@@ -216,13 +216,13 @@ const AdminHeroImagesPage = () => {
     const trimmed = value.trim();
     
     if (field === 'titleWhite' || field === 'titleBlue') {
-      if (!trimmed) return 'This field is required';
+      if (!trimmed) return null;
       if (isSlideTitleTooLong(value)) return 'Title is too long (max 20 characters)';
       if (!isValidSlideTitle(value)) return 'Letters and numbers only. Special characters and purely digit entries are not allowed.';
     }
     
     if (field === 'subtitle') {
-      if (!trimmed) return 'This field is required';
+      if (!trimmed) return null;
       if (isSlideSubtitleTooLong(value)) return 'Subtitle is too long (max 150 characters)';
       if (isOnlySpecialCharacters(trimmed)) {
         return 'Subtitle cannot contain only special characters';
@@ -517,7 +517,7 @@ const AdminHeroImagesPage = () => {
         toast.error(`${page.label} hero image URL is invalid`);
         return;
       }
-      if (isImageUrlTooLong(pageHero.image)) {
+      if (pageHero.image && isImageUrlTooLong(pageHero.image)) {
         toast.error(`${page.label} hero image URL is too long`);
         return;
       }
@@ -583,7 +583,7 @@ const AdminHeroImagesPage = () => {
       toast.error(`${pageLabel} hero image URL is invalid`);
       return;
     }
-    if (isImageUrlTooLong(pageHero.image)) {
+    if (pageHero.image && isImageUrlTooLong(pageHero.image)) {
       toast.error(`${pageLabel} hero image URL is too long`);
       return;
     }
@@ -701,7 +701,7 @@ const AdminHeroImagesPage = () => {
         toast.error(`${page.label} hero image URL is invalid`);
         return;
       }
-      if (isImageUrlTooLong(pageHero.image)) {
+      if (pageHero.image && isImageUrlTooLong(pageHero.image)) {
         toast.error(`${page.label} hero image URL is too long`);
         return;
       }
@@ -1235,11 +1235,17 @@ const AdminHeroImagesPage = () => {
                   <div className="flex flex-col lg:flex-row">
                     {/* Image Preview */}
                     <div className="lg:w-1/3 relative group">
-                      <img 
-                        src={slide.image} 
-                        alt={slide.title} 
-                        className="w-full h-48 lg:h-full object-cover"
-                      />
+                      {slide.image ? (
+                        <img 
+                          src={slide.image} 
+                          alt={slide.titleWhite || 'Slide preview'} 
+                          className="w-full h-48 lg:h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-48 lg:h-full flex items-center justify-center bg-muted">
+                          <ImageIcon className="w-8 h-8 text-muted-foreground opacity-20" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <button 
                           onClick={() => triggerUpload('home', slide.id)}

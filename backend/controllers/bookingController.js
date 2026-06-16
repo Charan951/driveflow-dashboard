@@ -79,7 +79,7 @@ const getCategoryGroup = (serviceCategory) => {
 };
 
 /** Helper to calculate services total with vehicle-specific pricing (like car wash). */
-const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}) => {
+export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}) => {
   try {
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
@@ -345,6 +345,19 @@ const isBatteryOrTireBooking = async (booking) => {
       service.category === 'Battery' ||
       service.category === 'Tyres' ||
       service.category === 'Tyre & Battery'
+    );
+  } catch (error) {
+    return false;
+  }
+};
+
+// Helper function to check if booking is for battery service only
+const isBatteryBooking = async (booking) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: booking.services } });
+    return services.some(service => 
+      service.category === 'Battery'
     );
   } catch (error) {
     return false;
@@ -1415,9 +1428,10 @@ export const updateBookingStatus = async (req, res) => {
       if (canonTo === 'CAR_WASH_STARTED') {
         const isEssentials = await isEssentialsBooking(booking);
         const beforePhotos = Array.isArray(booking.carWash?.beforeWashPhotos) ? booking.carWash.beforeWashPhotos : [];
-        if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
+        const requiredBeforeCount = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+        if (beforePhotos.length < requiredBeforeCount) {
           const msg = isEssentials
-            ? `Please upload at least ${CAR_WASH_MIN_PHOTOS} before service photos before starting service`
+            ? `Please upload at least 4 before service photos before starting service`
             : `Please upload at least ${CAR_WASH_MIN_PHOTOS} before wash photos before starting car wash`;
           return res.status(400).json({ message: msg });
         }
@@ -1431,10 +1445,10 @@ export const updateBookingStatus = async (req, res) => {
       if (canonTo === 'CAR_WASH_COMPLETED') {
         const isEssentials = await isEssentialsBooking(booking);
         const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
-        
-        if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
+        const requiredAfterCount = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+        if (afterPhotos.length < requiredAfterCount) {
           const msg = isEssentials
-            ? `Please upload at least ${CAR_WASH_MIN_PHOTOS} after service photos before completing service`
+            ? `Please upload at least 4 after service photos before completing service`
             : `Please upload at least ${CAR_WASH_MIN_PHOTOS} after wash photos before completing car wash`;
           return res.status(400).json({ message: msg });
         }
@@ -1481,13 +1495,16 @@ export const updateBookingStatus = async (req, res) => {
       }
 
         if (canonTo === 'DELIVERY') {
-          const afterPhotos = Array.isArray(booking.serviceExecution?.afterPhotos)
-            ? booking.serviceExecution.afterPhotos
-            : [];
-          if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
-            return res.status(400).json({
-              message: 'Please upload complete 4 after service photos before delivery',
-            });
+          const isBattery = await isBatteryBooking(booking);
+          if (!isBattery) {
+            const afterPhotos = Array.isArray(booking.serviceExecution?.afterPhotos)
+              ? booking.serviceExecution.afterPhotos
+              : [];
+            if (afterPhotos.length < BATTERY_AFTER_PHOTOS_REQUIRED) {
+              return res.status(400).json({
+                message: 'Please upload complete 4 after service photos before delivery',
+              });
+            }
           }
         }
 
@@ -2206,9 +2223,13 @@ export const startCarWash = async (req, res) => {
     const beforePhotos = Array.isArray(booking.carWash.beforeWashPhotos)
       ? booking.carWash.beforeWashPhotos
       : [];
-    if (beforePhotos.length < CAR_WASH_MIN_PHOTOS) {
+    const isEssentials = await isEssentialsBooking(booking);
+    const requiredBeforeCount = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+    if (beforePhotos.length < requiredBeforeCount) {
       return res.status(400).json({
-        message: `Please upload at least ${CAR_WASH_MIN_PHOTOS} before wash photos before starting car wash`,
+        message: isEssentials
+          ? `Please upload at least 4 before service photos before starting service`
+          : `Please upload at least ${CAR_WASH_MIN_PHOTOS} before wash photos before starting car wash`,
       });
     }
 
@@ -2244,7 +2265,6 @@ export const startCarWash = async (req, res) => {
       
     }
 
-    const isEssentials = await isEssentialsBooking(populated);
     res.json({ message: isEssentials ? 'Service started successfully' : 'Car wash started successfully', booking: populated });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -2341,9 +2361,13 @@ export const completeCarWash = async (req, res) => {
 
     // Check if after photos are uploaded
     const afterPhotos = Array.isArray(booking.carWash?.afterWashPhotos) ? booking.carWash.afterWashPhotos : [];
-    if (afterPhotos.length < CAR_WASH_MIN_PHOTOS) {
+    const isEssentials = await isEssentialsBooking(booking);
+    const requiredAfterCount = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+    if (afterPhotos.length < requiredAfterCount) {
       return res.status(400).json({
-        message: `Please upload at least ${CAR_WASH_MIN_PHOTOS} after wash photos before completing car wash`,
+        message: isEssentials
+          ? `Please upload at least 4 after service photos before completing service`
+          : `Please upload at least ${CAR_WASH_MIN_PHOTOS} after wash photos before completing car wash`,
       });
     }
 
@@ -2392,7 +2416,6 @@ export const completeCarWash = async (req, res) => {
       
     }
 
-    const isEssentials = await isEssentialsBooking(populated);
     res.json({
       message: isEssentials ? 'Service completed successfully' : 'Car wash completed successfully',
       booking: populated,

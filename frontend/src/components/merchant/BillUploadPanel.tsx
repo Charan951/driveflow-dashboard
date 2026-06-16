@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { isValidDate } from '@/lib/formValidation';
 import { toast } from 'sonner';
 import { Upload, X, FileText, Camera } from 'lucide-react';
@@ -8,6 +9,7 @@ import { uploadService } from '../../services/uploadService';
 import { searchVehicleReference } from '../../services/vehicleReferenceService';
 import { Vehicle } from '../../services/vehicleService';
 import { PICKUP_FLOW_ORDER, NO_PICKUP_FLOW_ORDER, getFlowForService } from '@/lib/statusFlow';
+import { sumBookingServicesSubtotal } from '@/lib/vehicleServicePricing';
 
 interface BillUploadPanelProps {
   booking: Booking;
@@ -27,11 +29,13 @@ const getRecordedPartsTotal = (b: Booking): number => {
   return 0;
 };
 
-const getBaseServiceAmount = (b: Booking) => {
+const getBaseServiceAmount = (b: Booking, vehicleRef: any = null) => {
   // Prefer calculating from services array for accuracy
   if (Array.isArray(b.services) && b.services.length > 0) {
-    const sum = b.services.reduce((acc, s) => acc + (typeof s === 'object' ? (s.price || 0) : 0), 0);
-    if (sum > 0) return sum;
+    const serviceList = b.services.filter((s): s is any => typeof s === 'object' && s !== null);
+    if (serviceList.length > 0) {
+      return sumBookingServicesSubtotal(serviceList, vehicleRef);
+    }
   }
 
   const total = b.totalAmount || 0;
@@ -47,6 +51,8 @@ const getBaseServiceAmount = (b: Booking) => {
 };
 
 const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComplete }) => {
+  const navigate = useNavigate();
+  const [vehicleRef, setVehicleRef] = useState<Record<string, any> | null>(null);
   const recordedParts = getRecordedPartsTotal(booking);
   const baseAtInit = getBaseServiceAmount(booking);
   const partsAtInit =
@@ -79,12 +85,13 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
     partsCost: string,
     labourCost: string,
     gst: string,
-    pickupDrop: number
+    pickupDrop: number,
+    ref = vehicleRef
   ) => {
     const parts = parseFloat(partsCost) || 0;
     const labour = parseFloat(labourCost) || 0;
     const gstNum = parseFloat(gst) || 0;
-    const baseAmount = getBaseServiceAmount(booking);
+    const baseAmount = getBaseServiceAmount(booking, ref);
     return (baseAmount + parts + labour + gstNum + pickupDrop).toString();
   };
 
@@ -106,7 +113,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
           setFormData((prev) => ({
             ...prev,
             pickupDropPrice: fallback > 0 ? String(fallback) : '',
-            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback),
+            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback, null),
           }));
         }
         return;
@@ -127,18 +134,25 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
           : fallback;
 
         if (!cancelled) {
-          setFormData((prev) => ({
-            ...prev,
-            pickupDropPrice: price > 0 ? String(price) : '0',
-            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, price),
-          }));
+          setVehicleRef(details ?? null);
+          setFormData((prev) => {
+            const baseAmount = getBaseServiceAmount(booking, details);
+            const parts = parseFloat(prev.partsCost) || 0;
+            const labour = parseFloat(prev.labourCost) || 0;
+            const gstNum = parseFloat(prev.gst) || 0;
+            return {
+              ...prev,
+              pickupDropPrice: price > 0 ? String(price) : '0',
+              totalAmount: (baseAmount + parts + labour + gstNum + price).toString(),
+            };
+          });
         }
       } catch {
         if (!cancelled) {
           setFormData((prev) => ({
             ...prev,
             pickupDropPrice: fallback > 0 ? String(fallback) : '',
-            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback),
+            totalAmount: recalcTotal(prev.partsCost, prev.labourCost, prev.gst, fallback, null),
           }));
         }
       } finally {
@@ -169,7 +183,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
         const labourCost = parseFloat(prev.labourCost.toString() || '0');
         const gst = parseFloat(prev.gst.toString() || '0');
         const pickupDrop = parseFloat(prev.pickupDropPrice.toString() || '0');
-        const baseAmount = getBaseServiceAmount(booking);
+        const baseAmount = getBaseServiceAmount(booking, vehicleRef);
 
         return {
             ...prev,
@@ -177,7 +191,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
             totalAmount: (baseAmount + partsNum + labourCost + gst + pickupDrop).toString()
         };
     });
-  }, [booking.billing?.partsTotal, booking.totalAmount, booking.parts]);
+  }, [booking.billing?.partsTotal, booking.totalAmount, booking.parts, vehicleRef]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -225,7 +239,8 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
               newData.partsCost,
               newData.labourCost,
               newData.gst,
-              pickupDrop
+              pickupDrop,
+              vehicleRef
             );
         }
         return newData;
@@ -371,6 +386,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
         setIsUploaded(true);
         onUploadComplete();
         toast.success('Bill uploaded and service marked as completed');
+        navigate('/dashboard');
     } catch (error) {
         console.error(error);
         toast.error('Failed to save bill details');

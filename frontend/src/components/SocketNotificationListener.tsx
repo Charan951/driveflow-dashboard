@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socketService } from '@/services/socket';
 import { toast } from 'sonner';
@@ -27,6 +27,7 @@ const SocketNotificationListener = () => {
   const navigate = useNavigate();
   const { user, role: userRole, updateUser } = useAuthStore();
   const { addNotification } = useAppStore();
+  const lastPaymentStatuses = useRef<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) {
@@ -80,6 +81,56 @@ const SocketNotificationListener = () => {
 
     const handleBookingUpdate = (data: any) => {
       if (!data || !data._id) return;
+
+      const bookingId = String(data._id);
+      const currentPaymentStatus = data.paymentStatus;
+      
+      // Get previous payment status from ref or query cache
+      let prevPaymentStatus = lastPaymentStatuses.current[bookingId];
+      if (prevPaymentStatus === undefined) {
+        const cachedBooking: any = queryClient.getQueryData(['booking', data._id]);
+        prevPaymentStatus = cachedBooking?.paymentStatus;
+        
+        if (prevPaymentStatus === undefined) {
+          const cachedBookings: any = queryClient.getQueryData(['bookings']);
+          if (Array.isArray(cachedBookings)) {
+            const found = cachedBookings.find((b: any) => b._id === data._id);
+            if (found) {
+              prevPaymentStatus = found.paymentStatus;
+            }
+          }
+        }
+      }
+      
+      // Update stored payment status
+      lastPaymentStatuses.current[bookingId] = currentPaymentStatus;
+
+      // Check if this is a general service booking
+      const isGeneralService = 
+        !data.batteryTire?.isBatteryTireService &&
+        !data.carWash?.isCarWashService &&
+        Array.isArray(data.services) &&
+        data.services.some((s: any) => {
+          if (!s || typeof s !== 'object') return false;
+          const cat = String(s.category || '');
+          const name = String(s.name || '').toLowerCase();
+          return cat === 'Periodic' || cat === 'Services' || name.includes('general service');
+        });
+
+      // Redirect staff to order details page once payment is completed for a General Service
+      if (
+        userRole === 'staff' &&
+        isGeneralService &&
+        currentPaymentStatus === 'paid' &&
+        prevPaymentStatus !== 'paid' &&
+        data.status === 'SERVICE_COMPLETED'
+      ) {
+        const targetPath = `/staff/order/${data._id}`;
+        if (window.location.pathname !== targetPath) {
+          navigate(targetPath);
+        }
+      }
+
       // Refresh relevant queries
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['booking', data._id] });
@@ -106,6 +157,8 @@ const SocketNotificationListener = () => {
               navigate(`/merchant/orders/${data._id}`);
             } else if (userRole === 'customer') {
               navigate(`/track/${data._id}`);
+            } else if (userRole === 'staff') {
+              navigate(`/staff/order/${data._id}`);
             }
           },
         },
@@ -129,6 +182,8 @@ const SocketNotificationListener = () => {
               navigate(`/merchant/orders/${data._id}`);
             } else if (userRole === 'customer') {
               navigate(`/track/${data._id}`);
+            } else if (userRole === 'staff') {
+              navigate(`/staff/order/${data._id}`);
             }
           },
         },
@@ -152,6 +207,8 @@ const SocketNotificationListener = () => {
               navigate(`/merchant/orders/${data._id}`);
             } else if (userRole === 'customer') {
               navigate(`/track/${data._id}`);
+            } else if (userRole === 'staff') {
+              navigate(`/staff/order/${data._id}`);
             }
           },
         },

@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import BottomNav from '@/components/BottomNav';
-import { TrackingProvider } from '@/context/TrackingProvider';
+
 
 const customerMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -59,8 +59,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   };
 
   return (
-    <TrackingProvider>
-      <div className="min-h-screen flex w-full bg-background overflow-x-hidden">
+    <div className="min-h-screen flex w-full bg-background overflow-x-hidden">
         {/* Overlay */}
         {sidebarOpen && (
           <motion.div
@@ -175,7 +174,6 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
           {!sidebarOpen && <BottomNav />}
         </div>
       </div>
-    </TrackingProvider>
   );
 };
 

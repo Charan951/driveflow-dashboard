@@ -44,13 +44,28 @@ const formatInr = (amount) => {
 
 const isGeneralServiceBooking = async (booking) => {
   try {
-    const services = await Service.find({ _id: { $in: booking.services } });
-    return services.some(
-      (service) =>
-        service.category === 'Periodic' ||
-        service.category === 'Services' ||
-        service.name.toLowerCase().includes('general service')
-    );
+    if (!booking || !booking.services || !Array.isArray(booking.services)) {
+      return false;
+    }
+    const isPopulated = booking.services.length > 0 && typeof booking.services[0] === 'object';
+    if (isPopulated) {
+      return booking.services.some(
+        (service) =>
+          service &&
+          (service.category === 'Periodic' ||
+            service.category === 'Services' ||
+            (service.name && service.name.toLowerCase().includes('general service')))
+      );
+    } else {
+      const services = await Service.find({ _id: { $in: booking.services } });
+      return services.some(
+        (service) =>
+          service &&
+          (service.category === 'Periodic' ||
+            service.category === 'Services' ||
+            (service.name && service.name.toLowerCase().includes('general service')))
+      );
+    }
   } catch {
     return false;
   }
@@ -154,7 +169,7 @@ const getInvoiceOwnerPassword = () => {
 const sealPdfBuffer = async (pdfBuffer) => {
   try {
     const ownerPassword = getInvoiceOwnerPassword();
-    const encrypted = await encryptPDF(new Uint8Array(pdfBuffer), '', {
+    const encryptPromise = encryptPDF(new Uint8Array(pdfBuffer), '', {
       ownerPassword,
       algorithm: 'AES-256',
       allowPrinting: true,
@@ -166,6 +181,10 @@ const sealPdfBuffer = async (pdfBuffer) => {
       allowExtraction: false,
       allowAssembly: false,
     });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('PDF encryption timed out')), 2000)
+    );
+    const encrypted = await Promise.race([encryptPromise, timeoutPromise]);
     return Buffer.from(encrypted);
   } catch (err) {
     console.warn('Invoice PDF encryption failed, sending unencrypted PDF:', err.message);
@@ -452,7 +471,11 @@ export const getBookingInvoice = async (req, res) => {
     try {
       const v = booking.vehicle;
       if (v && typeof v === 'object' && v.make && v.model) {
-        const allRefData = await getVehicleDataFromS3();
+        const s3Promise = getVehicleDataFromS3();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('S3 fetch timed out')), 2500)
+        );
+        const allRefData = await Promise.race([s3Promise, timeoutPromise]);
         const cleanBrand = v.make.trim().toLowerCase();
         const cleanModel = v.model.trim().toLowerCase();
         const cleanVariant = v.variant ? v.variant.trim().toLowerCase() : '';

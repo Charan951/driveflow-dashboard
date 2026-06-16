@@ -365,31 +365,37 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           }
         }
         if (status == 'DELIVERY') {
-          final afterCount = booking.serviceExecution?.afterPhotos.length ?? 0;
-          if (afterCount < _batteryAfterPhotosRequired) {
-            if (mounted) {
-              await showDialog<void>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Incomplete Photos'),
-                  content: Text(
-                    '$_batteryAfterPhotosMessage ($afterCount/$_batteryAfterPhotosRequired)',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('OK'),
+          final isBatteryOnly = booking.services?.any((s) =>
+                  s['category']?.toString().toLowerCase().contains('battery') ??
+                  false) ??
+              false;
+          if (!isBatteryOnly) {
+            final afterCount = booking.serviceExecution?.afterPhotos.length ?? 0;
+            if (afterCount < _batteryAfterPhotosRequired) {
+              if (mounted) {
+                await showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Incomplete Photos'),
+                    content: Text(
+                      '$_batteryAfterPhotosMessage ($afterCount/$_batteryAfterPhotosRequired)',
                     ),
-                  ],
-                ),
-              );
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (mounted) {
+                setState(() {
+                  _updatingStatus = false;
+                });
+              }
+              return;
             }
-            if (mounted) {
-              setState(() {
-                _updatingStatus = false;
-              });
-            }
-            return;
           }
         }
       }
@@ -483,9 +489,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       return _carWashRequiredPhotos;
     }
     if (booking.batteryTire?.isBatteryTireService == true) {
+      final isBatteryOnly = booking.services?.any((s) =>
+              s['category']?.toString().toLowerCase().contains('battery') ??
+              false) ??
+          false;
       final status = _normalizeStatus(booking.status);
       if (status == 'INSTALLATION') {
-        return _batteryAfterPhotosRequired;
+        return isBatteryOnly ? 0 : _batteryAfterPhotosRequired;
       }
       if (status == 'REACHED_CUSTOMER') {
         return _batteryBeforePhotosRequired;
@@ -506,7 +516,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     if (booking.batteryTire?.isBatteryTireService == true) {
       final status = _normalizeStatus(booking.status);
       if (status == 'INSTALLATION') {
-        return booking.serviceExecution?.afterPhotos.length ?? 0;
+        final isBatteryOnly = booking.services?.any((s) =>
+                s['category']?.toString().toLowerCase().contains('battery') ??
+                false) ??
+            false;
+        return isBatteryOnly ? 0 : (booking.serviceExecution?.afterPhotos.length ?? 0);
       }
     }
     return booking.prePickupPhotos.length;
@@ -925,8 +939,18 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
     final currentPhotoCount = _currentPhasePhotoCount(booking);
     final hasRequiredPhotos = currentPhotoCount >= requiredPhotos;
-    final shouldShowUpload =
+    bool shouldShowUpload =
         allowedStatuses.contains(normalizedStatus) && !hasRequiredPhotos;
+    final isBattery = isBatteryTire &&
+        (booking.services?.any((s) =>
+                s['category']?.toString().toLowerCase().contains('battery') ??
+                false) ??
+            false);
+    if (isBattery &&
+        (normalizedStatus == 'STAFF_REACHED_MERCHANT' ||
+            normalizedStatus == 'INSTALLATION')) {
+      shouldShowUpload = false;
+    }
     final canShowPrimary = nextAction != null;
 
     final isWaitingForPayment =
@@ -1771,8 +1795,20 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
 
   Widget _buildPhotoBadge(BookingDetail booking, {bool compact = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final required = _requiredPhotoCountForCurrentFlow(booking);
-    final count = _currentPhasePhotoCount(booking);
+    final isBatteryOnly = booking.services?.any((s) =>
+            s['category']?.toString().toLowerCase().contains('battery') ??
+            false) ??
+        false;
+    final status = _normalizeStatus(booking.status);
+    
+    int required = _requiredPhotoCountForCurrentFlow(booking);
+    int count = _currentPhasePhotoCount(booking);
+    
+    if (isBatteryOnly && (status == 'INSTALLATION' || status == 'DELIVERY' || status == 'COMPLETED')) {
+      required = _batteryBeforePhotosRequired;
+      count = booking.prePickupPhotos.length;
+    }
+    
     final completed = count >= required;
     final borderColor = completed
         ? (isDark ? AppColors.success : const Color(0xFF16A34A))

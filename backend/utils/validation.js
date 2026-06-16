@@ -247,54 +247,51 @@ const validateHeroSettings = (data) => {
     const image = slide.image || '';
 
     // Check if titleWhite is required and valid
-    if (!titleWhite.trim()) {
-      return { valid: false, message: `Slide ${i + 1} white title is required` };
-    }
-    if (!/^[a-zA-Z0-9\s]+$/.test(titleWhite.trim())) {
-      return { valid: false, message: `Slide ${i + 1} white title must contain only letters and numbers` };
-    }
-    if (/^\d+$/.test(titleWhite.trim().replace(/\s/g, ''))) {
-      return { valid: false, message: `Slide ${i + 1} white title cannot contain only numbers` };
-    }
-    if (hasExcessiveRepeatedChars(titleWhite)) {
-      return { valid: false, message: `Slide ${i + 1} white title contains excessive repeated characters` };
-    }
-    if (titleWhite.length > MAX_SLIDE_TITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} white title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
+    if (titleWhite.trim()) {
+      if (!/^[a-zA-Z0-9\s]+$/.test(titleWhite.trim())) {
+        return { valid: false, message: `Slide ${i + 1} white title must contain only letters and numbers` };
+      }
+      if (/^\d+$/.test(titleWhite.trim().replace(/\s/g, ''))) {
+        return { valid: false, message: `Slide ${i + 1} white title cannot contain only numbers` };
+      }
+      if (hasExcessiveRepeatedChars(titleWhite)) {
+        return { valid: false, message: `Slide ${i + 1} white title contains excessive repeated characters` };
+      }
+      if (titleWhite.length > MAX_SLIDE_TITLE_LENGTH) {
+        return { valid: false, message: `Slide ${i + 1} white title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
+      }
     }
 
     // Check if titleBlue is required and valid
-    if (!titleBlue.trim()) {
-      return { valid: false, message: `Slide ${i + 1} blue title is required` };
-    }
-    if (!/^[a-zA-Z0-9\s]+$/.test(titleBlue.trim())) {
-      return { valid: false, message: `Slide ${i + 1} blue title must contain only letters and numbers` };
-    }
-    if (/^\d+$/.test(titleBlue.trim().replace(/\s/g, ''))) {
-      return { valid: false, message: `Slide ${i + 1} blue title cannot contain only numbers` };
-    }
-    if (hasExcessiveRepeatedChars(titleBlue)) {
-      return { valid: false, message: `Slide ${i + 1} blue title contains excessive repeated characters` };
-    }
-    if (titleBlue.length > MAX_SLIDE_TITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} blue title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
+    if (titleBlue.trim()) {
+      if (!/^[a-zA-Z0-9\s]+$/.test(titleBlue.trim())) {
+        return { valid: false, message: `Slide ${i + 1} blue title must contain only letters and numbers` };
+      }
+      if (/^\d+$/.test(titleBlue.trim().replace(/\s/g, ''))) {
+        return { valid: false, message: `Slide ${i + 1} blue title cannot contain only numbers` };
+      }
+      if (hasExcessiveRepeatedChars(titleBlue)) {
+        return { valid: false, message: `Slide ${i + 1} blue title contains excessive repeated characters` };
+      }
+      if (titleBlue.length > MAX_SLIDE_TITLE_LENGTH) {
+        return { valid: false, message: `Slide ${i + 1} blue title is too long (max ${MAX_SLIDE_TITLE_LENGTH})` };
+      }
     }
 
     // Check if subtitle is required and valid
-    if (!subtitle.trim()) {
-      return { valid: false, message: `Slide ${i + 1} subtitle is required` };
-    }
-    if (isOnlySpecialCharacters(subtitle)) {
-      return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only special characters` };
-    }
-    if (isOnlyNumbers(subtitle)) {
-      return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only numbers` };
-    }
-    if (hasExcessiveRepeatedChars(subtitle)) {
-      return { valid: false, message: `Slide ${i + 1} subtitle contains excessive repeated characters` };
-    }
-    if (subtitle.length > MAX_SLIDE_SUBTITLE_LENGTH) {
-      return { valid: false, message: `Slide ${i + 1} subtitle is too long (max ${MAX_SLIDE_SUBTITLE_LENGTH})` };
+    if (subtitle.trim()) {
+      if (isOnlySpecialCharacters(subtitle)) {
+        return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only special characters` };
+      }
+      if (isOnlyNumbers(subtitle)) {
+        return { valid: false, message: `Slide ${i + 1} subtitle cannot contain only numbers` };
+      }
+      if (hasExcessiveRepeatedChars(subtitle)) {
+        return { valid: false, message: `Slide ${i + 1} subtitle contains excessive repeated characters` };
+      }
+      if (subtitle.length > MAX_SLIDE_SUBTITLE_LENGTH) {
+        return { valid: false, message: `Slide ${i + 1} subtitle is too long (max ${MAX_SLIDE_SUBTITLE_LENGTH})` };
+      }
     }
 
     if (image && !isValidImageUrl(image)) {

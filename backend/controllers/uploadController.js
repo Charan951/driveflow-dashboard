@@ -49,8 +49,8 @@ const processAndUpload = async (file) => {
   if (file.mimetype.startsWith('image/')) {
     try {
       buffer = await sharp(file.buffer)
-        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 80 })
+        .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 90 })
         .toBuffer();
       mimetype = 'image/jpeg';
     } catch (error) {

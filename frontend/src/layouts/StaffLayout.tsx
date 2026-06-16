@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
-import { TrackingProvider } from '@/context/TrackingProvider';
+
 import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const staffMenuItems = [
@@ -47,8 +47,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   };
 
   return (
-    <TrackingProvider>
-      <div className="min-h-screen flex w-full max-w-full bg-background">
+    <div className="min-h-screen flex w-full max-w-full bg-background">
         {/* Overlay */}
         {sidebarOpen && (
           <motion.div
@@ -172,7 +171,6 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
           {!sidebarOpen && <BottomNav items={staffBottomNavItems} />}
         </div>
       </div>
-    </TrackingProvider>
   );
 };
 

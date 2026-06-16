@@ -1,7 +1,12 @@
 import { io, Socket } from 'socket.io-client';
 
 // Ensure this matches your backend URL
-const SOCKET_URL = import.meta.env.VITE_API_URL; 
+const getSocketUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || '';
+  if (!apiUrl || apiUrl.startsWith('/')) return window.location.origin;
+  return apiUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+};
+const SOCKET_URL = getSocketUrl();
 
 class SocketService {
   private socket: Socket | null = null;

@@ -369,7 +369,7 @@ export const isValidDate = (dateStr: string): boolean => {
 // Hero validation
 export const isValidHeroTitle = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return false; // Required - not optional
+  if (trimmed.length === 0) return true;
   if (isOnlySpecialCharacters(trimmed)) return false;
   if (isOnlyNumbers(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
@@ -382,7 +382,7 @@ export const isHeroTitleTooLong = (value: string): boolean => {
 
 export const isValidHeroSubtitle = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return false; // Required - not optional
+  if (trimmed.length === 0) return true;
   if (isOnlySpecialCharacters(trimmed)) return false;
   if (isOnlyNumbers(trimmed)) return false;
   if (hasExcessiveRepeatedChars(trimmed)) return false;
@@ -391,7 +391,7 @@ export const isValidHeroSubtitle = (value: string): boolean => {
 
 export const isValidSlideTitle = (value: string): boolean => {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return false;
+  if (trimmed.length === 0) return true;
   // Letters, numbers, and spaces only
   if (!/^[a-zA-Z0-9\s]+$/.test(trimmed)) return false;
   // Cannot be only digits (must have at least one letter)

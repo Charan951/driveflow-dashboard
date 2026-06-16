@@ -704,7 +704,7 @@ const TrackServicePage: React.FC = () => {
         order.inspection.leftPhoto ||
         order.inspection.rightPhoto)
   );
-  const hasServicePhotos = Boolean(
+  const hasServicePhotos = !isCarWashService && Boolean(
     order.serviceExecution?.afterPhotos?.length ||
       (isBatteryOrTire && Array.isArray(order.prePickupPhotos) && order.prePickupPhotos.length > 0) ||
       order.status === 'SERVICE_COMPLETED' ||

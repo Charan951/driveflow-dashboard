@@ -310,7 +310,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     
     if (user?._id) {
-        getSocket().then(s => s.joinRoom(`user-${user._id}`));
+        getSocket().then(s => s.joinRoom(`user_${user._id}`));
     }
 
     navigator.geolocation.getCurrentPosition(

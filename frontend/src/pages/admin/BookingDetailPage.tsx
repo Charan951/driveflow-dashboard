@@ -30,6 +30,8 @@ import {
   MessageCircle
 } from 'lucide-react';
 import * as turf from '@turf/turf';
+import { searchVehicleReference } from '@/services/vehicleReferenceService';
+import { sumBookingServicesSubtotal } from '@/lib/vehicleServicePricing';
 
 
 const BookingDetailPage: React.FC = () => {
@@ -38,6 +40,24 @@ const BookingDetailPage: React.FC = () => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [userBookings, setUserBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [vehicleRef, setVehicleRef] = useState<Record<string, unknown> | null>(null);
+
+  const loadVehicleReference = React.useCallback(async (vehicle: Vehicle) => {
+    if (!vehicle?.make || !vehicle?.model) {
+      setVehicleRef(null);
+      return;
+    }
+    try {
+      const ref = await searchVehicleReference(
+        vehicle.make,
+        vehicle.model,
+        vehicle.variant,
+      );
+      setVehicleRef(ref ?? null);
+    } catch {
+      setVehicleRef(null);
+    }
+  }, []);
   const [merchants, setMerchants] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
   const [carWashStaff, setCarWashStaff] = useState<User[]>([]);
@@ -195,6 +215,11 @@ const BookingDetailPage: React.FC = () => {
           userService.getAllUsers()
         ]);
         setBooking(bookingData);
+        if (bookingData.vehicle && typeof bookingData.vehicle === 'object') {
+          await loadVehicleReference(bookingData.vehicle);
+        } else {
+          setVehicleRef(null);
+        }
 
         // Fetch user's other bookings
         if (bookingData.user) {
@@ -252,6 +277,11 @@ const BookingDetailPage: React.FC = () => {
     socketService.on('bookingUpdated', (updatedBooking: Booking) => {
       if (updatedBooking._id === id) {
          setBooking(updatedBooking);
+         if (updatedBooking.vehicle && typeof updatedBooking.vehicle === 'object') {
+            void loadVehicleReference(updatedBooking.vehicle);
+          } else {
+            setVehicleRef(null);
+          }
          
          // Helper to safely get ID
          const getResourceId = (resource: any) => {
@@ -505,21 +535,6 @@ const BookingDetailPage: React.FC = () => {
             <span className={`inline-flex max-w-full shrink-0 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusBadgeClass(booking.status)}`}>
               {getStatusLabel(booking.status, booking.services || [])}
             </span>
-            <span className="inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border border-border">
-              {Array.isArray(booking.prePickupPhotos) && booking.prePickupPhotos.length >= 4 ? (
-                <>
-                  <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                  <span className="text-green-700">Pickup photos ready</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="text-amber-600">
-                    {Array.isArray(booking.prePickupPhotos) ? `${booking.prePickupPhotos.length}/4 photos` : '0/4 photos'}
-                  </span>
-                </>
-              )}
-            </span>
           </div>
           <p className="text-muted-foreground text-sm mt-2">Created on {new Date(booking.createdAt).toLocaleString()}</p>
         </div>
@@ -755,20 +770,41 @@ const BookingDetailPage: React.FC = () => {
              </h3>
              <div className="space-y-2 text-sm">
                 {isGeneralService && (
+                   <div className="flex justify-between">
+                      <span className="text-muted-foreground">Pickup/Drop Price:</span>
+                      <span className="font-bold">₹{booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0}</span>
+                   </div>
+                )}
+                
+                {booking.gstAmount && booking.gstAmount > 0 && !isGeneralService ? (
+                  <>
+                    <div className="flex justify-between">
+                       <span className="text-muted-foreground">Base Service Amount:</span>
+                       <span className="font-bold">₹{booking.totalAmount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                       <span className="text-muted-foreground">Tax (GST 18%):</span>
+                       <span className="font-bold">₹{booking.gstAmount}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-border pt-2 mt-2">
+                       <span className="text-muted-foreground font-semibold">Total Billed Amount:</span>
+                       <span className="font-bold text-primary">
+                          ₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + booking.gstAmount)}
+                       </span>
+                    </div>
+                  </>
+                ) : (
                   <div className="flex justify-between">
-                     <span className="text-muted-foreground">Pickup/Drop Price:</span>
-                     <span className="font-bold">₹{booking.billing?.pickupDropPrice || booking.pickupDropPrice || 0}</span>
+                     <span className="text-muted-foreground">Total Amount:</span>
+                     <span className="font-bold">
+                        ₹{booking.billing?.total || 
+                          (booking.totalAmount < (booking.pickupDropPrice || 0) 
+                            ? (booking.totalAmount + (booking.pickupDropPrice || 0)) 
+                            : booking.totalAmount)}
+                     </span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                   <span className="text-muted-foreground">Total Amount:</span>
-                   <span className="font-bold">
-                      ₹{booking.billing?.total || 
-                        (booking.totalAmount < (booking.pickupDropPrice || 0) 
-                          ? (booking.totalAmount + (booking.pickupDropPrice || 0)) 
-                          : booking.totalAmount)}
-                   </span>
-                </div>
+
                 <div className="flex justify-between">
                    <span className="text-muted-foreground">Status:</span>
                    <span className={`capitalize ${booking.paymentStatus === 'paid' ? 'text-green-600' : 'text-amber-600'}`}>
@@ -776,7 +812,7 @@ const BookingDetailPage: React.FC = () => {
                    </span>
                 </div>
 
-                {booking.discountAmount && booking.discountAmount > 0 && (
+                {booking.discountAmount > 0 && (
                   <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-xl space-y-3">
                     <h4 className="text-[10px] font-bold text-green-800 uppercase tracking-widest flex items-center gap-2">
                       <div className="w-1 h-3 bg-green-500 rounded-full" />
@@ -842,8 +878,11 @@ const BookingDetailPage: React.FC = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Base Service:</span>
                     <span>₹{(() => {
-                        const servicesTotal = Array.isArray(booking.services) 
-                          ? booking.services.reduce((sum, s) => sum + (typeof s === 'object' ? (s.price || 0) : 0), 0)
+                        const serviceList = (Array.isArray(booking.services)
+                          ? booking.services.filter((s): s is Service => typeof s === 'object' && s !== null)
+                          : []) as Service[];
+                        const servicesTotal = serviceList.length > 0
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
                           : 0;
                         return servicesTotal;
                     })()}</span>
@@ -869,8 +908,11 @@ const BookingDetailPage: React.FC = () => {
                   <div className="flex justify-between font-bold pt-1">
                     <span>Total:</span>
                     <span>₹{(() => {
-                        const servicesTotal = Array.isArray(booking.services) 
-                          ? booking.services.reduce((sum, s) => sum + (typeof s === 'object' ? (s.price || 0) : 0), 0)
+                        const serviceList = (Array.isArray(booking.services)
+                          ? booking.services.filter((s): s is Service => typeof s === 'object' && s !== null)
+                          : []) as Service[];
+                        const servicesTotal = serviceList.length > 0
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
                           : 0;
                         const parts = booking.billing.partsTotal || 0;
                         const labour = booking.billing.labourCost || 0;
