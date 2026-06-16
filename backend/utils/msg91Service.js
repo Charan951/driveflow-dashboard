@@ -118,6 +118,14 @@ const resolveFeedbackWhatsAppTemplateName = () => {
 };
 
 const sendWhatsAppMessage = async (mobile, templateName, components) => {
+  if (!isOtpExternalDeliveryEnabled()) {
+    console.info(
+      `[WhatsApp testing] APP_ENV=testing — skipped WhatsApp outbound message (${templateName}) for ${maskMobileForLog(mobile)}`,
+      { components }
+    );
+    return { delivery: 'testing', status: 'skipped', message: 'Skipped in testing environment' };
+  }
+
   const authkey = process.env.MSG91_AUTH_KEY;
   const integratedNumber = process.env.MSG91_WHATSAPP_INTEGRATED_NUMBER?.trim();
   const namespace = process.env.MSG91_WHATSAPP_NAMESPACE?.trim();
@@ -187,6 +195,13 @@ const sendWhatsAppMessage = async (mobile, templateName, components) => {
 };
 
 const sendWhatsAppOtp = async (mobile, otp, templateOverride) => {
+  if (!isOtpExternalDeliveryEnabled()) {
+    console.info(
+      `[WhatsApp OTP testing] APP_ENV=testing — skipped WhatsApp OTP for ${maskMobileForLog(mobile)}`
+    );
+    return { delivery: 'testing', status: 'skipped', message: 'Skipped in testing environment' };
+  }
+
   const authkey = process.env.MSG91_AUTH_KEY;
   const integratedNumber = process.env.MSG91_WHATSAPP_INTEGRATED_NUMBER?.trim();
   const templateName = resolveWhatsAppTemplateName(templateOverride);
