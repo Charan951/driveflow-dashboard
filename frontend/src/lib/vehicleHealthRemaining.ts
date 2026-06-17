@@ -73,7 +73,8 @@ export function calculateHealthDisplayPercent(
   currentKm: number,
   vehicleBaselineAt?: string | Date | null
 ): number {
-  if (vehicleBaselineAt) {
+  const hasInterval = indicator && ((indicator.fixedKm || 0) > 0 || (indicator.fixedDays || 0) > 0);
+  if (vehicleBaselineAt && !hasInterval) {
     return dailyDecayPercentFromBaseline(vehicleBaselineAt);
   }
   return calculateRemainingHealthPercentLegacy(indicator, currentKm);

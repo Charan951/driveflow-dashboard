@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Camera, Save, Plus, Trash2, Home, Car } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Plus, Trash2, Home, Car } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { userService } from '@/services/userService';
@@ -186,9 +186,6 @@ const ProfilePage: React.FC = () => {
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
             <User className="w-10 h-10 text-white" />
           </div>
-          <button className="absolute bottom-0 right-0 w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center shadow-sm hover:bg-muted transition-colors">
-            <Camera className="w-4 h-4 text-foreground" />
-          </button>
         </div>
         <h2 className="mt-4 text-xl font-semibold">{user?.name || 'User'}</h2>
         <p className="text-muted-foreground">{user?.email}</p>

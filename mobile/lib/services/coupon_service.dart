@@ -15,6 +15,7 @@ class CouponService {
     String? serviceType,
     String? email,
     String? mobile,
+    List<String>? serviceIds,
   }) async {
     try {
       final res = await _api.postAny(
@@ -25,6 +26,7 @@ class CouponService {
           'serviceType': serviceType,
           'email': email,
           'mobile': mobile,
+          'serviceIds': serviceIds,
         },
       );
       return res as Map<String, dynamic>;

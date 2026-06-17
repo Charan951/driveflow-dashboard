@@ -1,6 +1,7 @@
 import Coupon from '../models/Coupon.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { isValidEmail, isValidPhone10 } from '../utils/validation.js';
+import { mapCategoryToCouponServiceType } from '../utils/orderPricing.js';
 
 export const getCoupons = async (req, res) => {
   try {
@@ -25,7 +26,7 @@ export const getCouponById = async (req, res) => {
 
 export const validateCoupon = async (req, res) => {
   try {
-    const { code, orderAmount, serviceType, email, mobile } = req.body;
+    const { code, orderAmount, serviceType, email, mobile, serviceIds } = req.body;
 
     if (!code) {
       return res.status(400).json({ message: 'Coupon code is required' });
@@ -50,8 +51,34 @@ export const validateCoupon = async (req, res) => {
       return res.status(400).json({ valid: false, message: 'Coupon usage limit reached' });
     }
 
-    // Check service applicability
-    if (serviceType && coupon.applicableServices && coupon.applicableServices.length > 0) {
+    // Check service applicability and calculate discount amount
+    let applicableAmount = orderAmount;
+
+    if (serviceIds && Array.isArray(serviceIds) && serviceIds.length > 0) {
+      const Service = (await import('../models/Service.js')).default;
+      const services = await Service.find({ _id: { $in: serviceIds } }).lean();
+      
+      const isAllApplicable = coupon.applicableServices.includes('All');
+      if (!isAllApplicable) {
+        const applicableServicesList = services.filter(service => {
+          const mappedCat = mapCategoryToCouponServiceType(service.category);
+          return coupon.applicableServices.includes(mappedCat);
+        });
+
+        if (applicableServicesList.length === 0) {
+          return res.status(400).json({ 
+            valid: false, 
+            message: `Coupon is not applicable for any of the selected services` 
+          });
+        }
+
+        const applicableServicesTotal = applicableServicesList.reduce((sum, s) => sum + s.price, 0);
+        const totalBasePrice = services.reduce((sum, s) => sum + s.price, 0);
+        
+        const prop = totalBasePrice > 0 ? (applicableServicesTotal / totalBasePrice) : 0;
+        applicableAmount = orderAmount * prop;
+      }
+    } else if (serviceType && coupon.applicableServices && coupon.applicableServices.length > 0) {
       const isAllApplicable = coupon.applicableServices.includes('All');
       if (!isAllApplicable && !coupon.applicableServices.includes(serviceType)) {
         return res.status(400).json({ 
@@ -84,7 +111,7 @@ export const validateCoupon = async (req, res) => {
 
     let discountAmount = 0;
     if (orderAmount !== undefined) {
-      discountAmount = (orderAmount * coupon.discountPercentage) / 100;
+      discountAmount = (applicableAmount * coupon.discountPercentage) / 100;
       if (coupon.maxDiscountAmount) {
         discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
       }

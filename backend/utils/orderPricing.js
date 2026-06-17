@@ -60,3 +60,26 @@ export function calculateOrderTotals(subtotal, discountAmount = 0, applyTax = tr
     total,
   };
 }
+
+export function mapCategoryToCouponServiceType(category) {
+  if (!category) return null;
+  const cat = String(category).toLowerCase();
+  if (cat.includes('wash') || cat.includes('detailing')) return 'Car Wash';
+  if (cat.includes('essential') || cat.includes('accessories')) return 'Essentials';
+  if (cat.includes('tyre') || cat.includes('tire') || cat.includes('battery')) {
+    return 'Tyres and Battery';
+  }
+  if (
+    cat.includes('periodic') ||
+    cat.includes('general') ||
+    cat === 'services' ||
+    cat === 'repair' ||
+    cat === 'ac' ||
+    cat === 'painting' ||
+    cat === 'denting'
+  ) {
+    return 'General Service';
+  }
+  return null;
+}
+

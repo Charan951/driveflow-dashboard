@@ -79,7 +79,6 @@ const AdminFeedbackPage = () => {
       : '0.0',
     totalReviews: reviews.length,
     merchantReviews: reviews.filter(r => r.category === 'Merchant').length,
-    staffReviews: reviews.filter(r => r.category === 'Staff').length,
   };
 
   if (loading) {
@@ -101,7 +100,7 @@ const AdminFeedbackPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -130,23 +129,6 @@ const AdminFeedbackPage = () => {
               <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.merchantReviews}</h3>
             </div>
             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-              <User size={24} />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-gray-500">Staff Reviews</p>
-              <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.staffReviews}</h3>
-            </div>
-            <div className="p-2 bg-green-50 text-green-600 rounded-lg">
               <User size={24} />
             </div>
           </div>
@@ -183,7 +165,6 @@ const AdminFeedbackPage = () => {
             >
               <option value="All">All Categories</option>
               <option value="Merchant">Merchant</option>
-              <option value="Staff">Staff</option>
               <option value="Platform">Platform</option>
             </select>
           </div>

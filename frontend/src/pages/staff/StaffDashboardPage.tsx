@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Clock, DollarSign, CheckCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Package, Clock, CheckCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { bookingService, Booking } from '@/services/bookingService';
 import CounterCard from '@/components/CounterCard';
@@ -12,13 +12,13 @@ import { toast } from 'sonner';
 import { STATUS_LABELS } from '@/lib/statusFlow';
 
 const StaffDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     todaysOrders: 0,
     pending: 0,
-    completed: 0,
-    earnings: 0
+    completed: 0
   });
 
   useEffect(() => {
@@ -67,15 +67,11 @@ const StaffDashboardPage: React.FC = () => {
       const todaysOrders = data.filter(b => b.date && b.date.startsWith(today)).length;
       const pending = data.filter(b => activeStatuses.includes(b.status)).length;
       const completed = data.filter(b => ['SERVICE_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(b.status)).length;
-      const earnings = data
-        .filter(b => ['SERVICE_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(b.status))
-        .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
 
       setStats({
         todaysOrders,
         pending,
-        completed,
-        earnings
+        completed
       });
     } catch (error) {
       console.error(error);
@@ -124,11 +120,28 @@ const StaffDashboardPage: React.FC = () => {
 
       <div className="space-y-6">
         <motion.div variants={staggerItem} className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <CounterCard label="Today's Orders" value={stats.todaysOrders} icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={0} />
-            <CounterCard label="Pending" value={stats.pending} icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={1} />
-            <CounterCard label="Completed & delivered" value={stats.completed} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={2} />
-            <CounterCard label="Job Value" value={`₹${stats.earnings}`} icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} delay={3} />
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <CounterCard 
+              label="Today's Orders" 
+              value={stats.todaysOrders} 
+              icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} 
+              delay={0} 
+              onClick={() => navigate('/staff/orders?filter=all')}
+            />
+            <CounterCard 
+              label="Pending" 
+              value={stats.pending} 
+              icon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} 
+              delay={1} 
+              onClick={() => navigate('/staff/orders?filter=active')}
+            />
+            <CounterCard 
+              label="Completed & delivered" 
+              value={stats.completed} 
+              icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} 
+              delay={2} 
+              onClick={() => navigate('/staff/orders?filter=completed')}
+            />
           </div>
 
           <div>

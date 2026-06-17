@@ -168,7 +168,7 @@ const PublicServices = () => {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden w-full max-w-full">
       {/* Hero Section */}
-      <section className="relative h-[220px] sm:h-[300px] flex items-center justify-center overflow-hidden w-full max-w-full">
+      <section className="relative h-[260px] sm:h-[340px] flex items-center justify-center overflow-hidden w-full max-w-full pt-16">
         <div className="absolute inset-0 z-0">
           <img 
             src={isDetailView && displayServices.length > 0 ? (displayServices[0].image || getServiceFallbackImage(displayServices[0].category)) : hero.image}

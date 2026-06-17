@@ -1,4 +1,5 @@
 import Ticket from '../models/Ticket.js';
+import User from '../models/User.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { sendPushToRole, sendPushToUser } from '../utils/pushService.js';
@@ -119,7 +120,7 @@ export const getTicketById = async (req, res) => {
 
     if (ticket) {
       // Check if user is owner or admin/staff
-      if (ticket.user._id.toString() === req.user._id.toString() || req.user.role === 'admin' || req.user.role === 'staff') {
+      if ((ticket.user && ticket.user._id.toString() === req.user._id.toString()) || req.user.role === 'admin' || req.user.role === 'staff') {
          res.json(ticket);
       } else {
         res.status(401).json({ message: 'Not authorized to view this ticket' });
@@ -205,17 +206,21 @@ export const addMessage = async (req, res) => {
         const io = getIO();
         io.to('admin').emit('ticketUpdated', populatedTicket);
         io.to(`ticket_${ticket._id}`).emit('ticketUpdated', populatedTicket);
-        io.to(`user_${ticket.user}`).emit('ticketUpdated', populatedTicket);
+        if (ticket.user) {
+          io.to(`user_${ticket.user}`).emit('ticketUpdated', populatedTicket);
+        }
         
         // Notify customer if admin/staff replied
         if (req.user.role === 'admin' || req.user.role === 'staff') {
-            sendPushToUser(
-                ticket.user,
-                'Support Ticket Update',
-                `A reply has been added to your ticket #${ticket._id.toString().slice(-6)}`,
-                { ticketId: ticket._id.toString(), type: 'support' },
-                'support'
-            ).catch(err => console.error('Push notification error (user):', err));
+            if (ticket.user) {
+                sendPushToUser(
+                    ticket.user,
+                    'Support Ticket Update',
+                    `A reply has been added to your ticket #${ticket._id.toString().slice(-6)}`,
+                    { ticketId: ticket._id.toString(), type: 'support' },
+                    'support'
+                ).catch(err => console.error('Push notification error (user):', err));
+            }
         } else {
             // Notify admins if customer replied
             sendPushToRole(
@@ -236,6 +241,95 @@ export const addMessage = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Create a public ticket from Contact Us page
+// @route   POST /api/tickets/public
+// @access  Public
+export const createPublicTicket = async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  
+  const MAX_NAME_LENGTH = 50;
+  const MAX_SUBJECT_LENGTH = 100;
+  const MAX_MESSAGE_LENGTH = 1000;
+
+  if (!name || name.trim().length < 2) {
+    return res.status(400).json({ message: 'Name must be at least 2 characters' });
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return res.status(400).json({ message: `Name must be at most ${MAX_NAME_LENGTH} characters` });
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: 'Please provide a valid email address' });
+  }
+
+  if (!subject || subject.trim().length < 3) {
+    return res.status(400).json({ message: 'Subject must be at least 3 characters' });
+  }
+  if (subject.length > MAX_SUBJECT_LENGTH) {
+    return res.status(400).json({ message: `Subject must be at most ${MAX_SUBJECT_LENGTH} characters` });
+  }
+  if (hasExcessiveRepeatedChars(subject)) {
+    return res.status(400).json({ message: 'Subject contains excessive repeated characters' });
+  }
+  if (isOnlySpecialCharacters(subject)) {
+    return res.status(400).json({ message: 'Subject cannot contain only special characters' });
+  }
+
+  if (!message || message.trim().length < 10) {
+    return res.status(400).json({ message: 'Message must be at least 10 characters' });
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return res.status(400).json({ message: `Message must be at most ${MAX_MESSAGE_LENGTH} characters` });
+  }
+  if (hasExcessiveRepeatedChars(message)) {
+    return res.status(400).json({ message: 'Message contains excessive repeated characters' });
+  }
+
+  try {
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+
+    const ticket = new Ticket({
+      user: existingUser ? existingUser._id : undefined,
+      guestName: existingUser ? undefined : name,
+      guestEmail: existingUser ? undefined : email.toLowerCase(),
+      subject,
+      category: 'General',
+      priority: 'Medium',
+      messages: [{
+        role: 'customer',
+        message,
+      }],
+    });
+
+    const createdTicket = await ticket.save();
+    const populatedTicket = await Ticket.findById(createdTicket._id).populate('messages.sender', 'name role');
+    
+    // Global Real-time Sync
+    emitEntitySync('ticket', 'created', populatedTicket);
+    
+    // Emit socket event
+    try {
+      const io = getIO();
+      io.to('admin').emit('ticketCreated', populatedTicket);
+      
+      // Save notification and send push to admins
+      sendPushToRole(
+        'admin',
+        'New Support Ticket',
+        `New ticket #${populatedTicket._id.toString().slice(-6)}: ${populatedTicket.subject}`,
+        { ticketId: populatedTicket._id.toString(), type: 'support' },
+        'support'
+      ).catch(err => console.error('Push notification error (admin):', err));
+    } catch (error) {
+      // Ignore
+    }
+
+    res.status(201).json(populatedTicket);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 };
 

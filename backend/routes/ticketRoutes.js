@@ -6,10 +6,13 @@ import {
   getAllTickets,
   updateTicket,
   addMessage,
+  createPublicTicket,
 } from '../controllers/ticketController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.post('/public', createPublicTicket);
 
 router.route('/')
   .post(protect, createTicket)

@@ -196,6 +196,8 @@ class PaymentService {
         paymentStatus: 'paid',
         status: 'CREATED',
         paymentId: paymentId,
+        selectedBrands: tempData.selectedBrands,
+        serviceQuantities: tempData.serviceQuantities,
         carWash: {
           isCarWashService: !!tempData.isCarWashService || !!tempData.isEssentialsService,
           beforeWashPhotos: [],

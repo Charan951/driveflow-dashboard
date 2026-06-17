@@ -285,7 +285,11 @@ const AdminUserDetailPage: React.FC = () => {
                 <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <h3 className="text-lg font-medium">No booking history</h3>
-                  <p className="text-muted-foreground">This user hasn't made any bookings yet.</p>
+                  <p className="text-muted-foreground">
+                    {user.role === 'staff' 
+                      ? "This staff member hasn't been assigned to any bookings yet." 
+                      : "This user hasn't made any bookings yet."}
+                  </p>
                 </div>
               ) : (
                 <div className="bg-card rounded-2xl border border-border overflow-hidden min-w-0 max-w-full">
@@ -328,9 +332,9 @@ const AdminUserDetailPage: React.FC = () => {
                                 {booking.status}
                               </span>
                             </td>
-                            <td className="p-4 text-right font-medium">
-                              ₹{booking.totalAmount}
-                            </td>
+                              <td className="p-4 text-right font-medium">
+                                ₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}
+                              </td>
                           </tr>
                         ))}
                       </tbody>

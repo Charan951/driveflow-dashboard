@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { Activity, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { bookingService, Booking } from '../../services/bookingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
@@ -11,18 +11,12 @@ interface StatusControlPanelProps {
   onUpdate: () => void;
 }
 
-const DELAY_REASONS = [
-  'Waiting for parts',
-  'Customer approval pending',
-  'Other'
-];
+
 
 const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [serviceStartedTransition, setServiceStartedTransition] = useState(false);
-  const [showDelayModal, setShowDelayModal] = useState(false);
-  const [delayReason, setDelayReason] = useState(DELAY_REASONS[0]);
-  const [delayNote, setDelayNote] = useState('');
+
 
   const activeStatusFlow = getFlowForService(booking.services || []);
   const currentStatusIndex = activeStatusFlow.indexOf(booking.status as BookingStatus);
@@ -79,36 +73,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
     }
   };
 
-  const handleDelaySubmit = async () => {
-    setLoading(true);
-    try {
-        // Update status to On Hold or just log the delay?
-        // Requirement says "Merchant can mark order: Waiting for parts... Admin notified instantly."
-        // We can use 'On Hold' status or 'Awaiting Parts' status with delay details.
-        
-        const statusToSet = 'On Hold'; // Or Awaiting Parts?
-        
-        await bookingService.updateBookingDetails(booking._id, {
-            delay: {
-                isDelayed: true,
-                reason: delayReason,
-                note: delayNote,
-                startTime: new Date().toISOString()
-            }
-        });
-        
-        await bookingService.updateBookingStatus(booking._id, statusToSet);
-        
-        toast.success('Order marked as delayed');
-        setShowDelayModal(false);
-        onUpdate();
-    } catch (error: unknown) {
-        console.error(error);
-        toast.error('Failed to mark delay');
-    } finally {
-        setLoading(false);
-    }
-  };
+
 
   const nextActionLabel = getStatusLabel(nextStatus, booking.services || []);
   const isWaitingForPayment = booking.status === 'SERVICE_COMPLETED' && booking.paymentStatus !== 'paid';
@@ -202,20 +167,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
             )
         )}
         
-        {booking.status !== 'COMPLETED' && 
-         booking.status !== 'DELIVERED' && 
-         booking.status !== 'SERVICE_COMPLETED' &&
-         booking.status !== 'OUT_FOR_DELIVERY' &&
-         booking.status !== 'On Hold' && (
-            <button
-                onClick={() => setShowDelayModal(true)}
-                disabled={loading}
-                className="w-full sm:w-auto py-2.5 px-4 border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all text-sm font-bold active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
-            >
-                <Clock className="w-4 h-4" />
-                Mark Delay / Hold
-            </button>
-        )}
+
 
         {booking.status === 'On Hold' && (
             <button
@@ -228,55 +180,7 @@ const StatusControlPanel: React.FC<StatusControlPanelProps> = ({ booking, onUpda
         )}
       </div>
 
-      <Dialog open={showDelayModal} onOpenChange={setShowDelayModal}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Mark Order as Delayed / On Hold</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Reason for Delay (Mandatory)</label>
-                    <select 
-                        value={delayReason} 
-                        onChange={(e) => setDelayReason(e.target.value)}
-                        className="w-full p-2 border border-input rounded-lg"
-                    >
-                        {DELAY_REASONS.map(r => (
-                            <option key={r} value={r}>{r}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Additional Notes</label>
-                    <textarea 
-                        value={delayNote}
-                        onChange={(e) => setDelayNote(e.target.value)}
-                        className="w-full p-2 border border-input rounded-lg"
-                        placeholder="Explain the situation..."
-                    />
-                </div>
-                <div className="bg-yellow-50 p-3 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <p className="text-sm text-yellow-800">Admin will be notified instantly about this delay.</p>
-                </div>
-            </div>
-            <DialogFooter>
-                <button 
-                    onClick={() => setShowDelayModal(false)}
-                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                    Cancel
-                </button>
-                <button 
-                    onClick={handleDelaySubmit}
-                    disabled={loading}
-                    className="px-4 py-2 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg"
-                >
-                    Confirm Delay
-                </button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };

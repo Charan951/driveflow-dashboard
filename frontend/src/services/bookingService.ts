@@ -16,6 +16,8 @@ export interface Booking {
   discountAmount?: number;
   coupon?: any;
   pickupDropPrice?: number;
+  selectedBrands?: Record<string, string>;
+  serviceQuantities?: Record<string, number>;
   notes?: string;
   location?: {
     address: string;
@@ -178,6 +180,8 @@ export const bookingService = {
     serviceIds: string[];
     date: string;
     notes?: string;
+    selectedBrands?: Record<string, string>;
+    serviceQuantities?: Record<string, number>;
     location?: {
       address: string;
       lat?: number;

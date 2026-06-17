@@ -38,6 +38,10 @@ const AdminBookingsPage: React.FC = () => {
       const todayStr = new Date().toLocaleDateString('en-GB');
       setSearchQuery(todayStr);
     }
+    const statusParam = params.get('status');
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
   }, [location.search]);
 
   useEffect(() => {
@@ -298,7 +302,7 @@ const AdminBookingsPage: React.FC = () => {
                       </td>
                       <td className="p-3 font-medium text-right">
                         <div className="flex flex-col items-end gap-1">
-                          <span className="text-sm">₹{booking.totalAmount}</span>
+                          <span className="text-sm">₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}</span>
                           {(() => {
                             // Check if this is a battery/tire service with warranty
                             const isBatteryOrTireService = Array.isArray(booking.services) && 
@@ -380,7 +384,7 @@ const AdminBookingsPage: React.FC = () => {
                         <span>{new Date(booking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                       </div>
                     </div>
-                    <span className="font-bold text-primary shrink-0">₹{booking.totalAmount}</span>
+                    <span className="font-bold text-primary shrink-0">₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}</span>
                   </div>
                 </div>
 

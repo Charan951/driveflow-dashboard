@@ -52,7 +52,7 @@ const AdminServicesPage: React.FC = () => {
       .map((p) => p.trim())
       .filter(Boolean)
       .map((p) => p.replace(/\D/g, ''))
-      .filter((p) => p.length === 6);
+      .filter((p) => p.length === 6 && !/^(\d)\1{5}$/.test(p));
     return Array.from(new Set(parts));
   };
 
@@ -140,7 +140,8 @@ const AdminServicesPage: React.FC = () => {
     try {
       const data = await bookingService.getAvailableServicePincodes();
       const list = Array.isArray(data?.availablePincodes) ? data.availablePincodes : [];
-      setAvailableServicePincodes(list);
+      const filteredList = list.filter(p => !/^(\d)\1{5}$/.test(p));
+      setAvailableServicePincodes(filteredList);
       setAvailableServicePincodeInput('');
     } catch (error) {
       toast.error('Failed to load available service pincodes');
@@ -194,15 +195,17 @@ const AdminServicesPage: React.FC = () => {
       const parts = rawInput.split(/[,\s]+/g).map(p => p.trim()).filter(Boolean);
       const invalidParts = parts.filter(p => {
         const digits = p.replace(/\D/g, '');
-        return digits.length !== 6;
+        return digits.length !== 6 || /^(\d)\1{5}$/.test(digits);
       });
       if (invalidParts.length > 0) {
-        toast.error('Please enter valid 6-digit pincodes only');
+        toast.error('Please enter valid 6-digit pincodes only (avoid repeated values like 111111)');
         return;
       }
     }
+    // Clean existing pincodes list as well
+    const activePincodes = availableServicePincodes.filter(p => !/^(\d)\1{5}$/.test(p));
     // If there are valid pending pincodes, merge them first into a local variable
-    const mergedPincodes = Array.from(new Set([...availableServicePincodes, ...parsed]));
+    const mergedPincodes = Array.from(new Set([...activePincodes, ...parsed]));
     if (parsed.length > 0) {
       setAvailableServicePincodes(mergedPincodes);
       setAvailableServicePincodeInput('');
@@ -226,15 +229,15 @@ const AdminServicesPage: React.FC = () => {
       const parts = rawInput.split(/[,\s]+/g).map(p => p.trim()).filter(Boolean);
       const invalidParts = parts.filter(p => {
         const digits = p.replace(/\D/g, '');
-        return digits.length !== 6;
+        return digits.length !== 6 || /^(\d)\1{5}$/.test(digits);
       });
       if (invalidParts.length > 0) {
-        toast.error('Please enter valid 6-digit pincodes only');
+        toast.error('Please enter valid 6-digit pincodes only (avoid repeated values like 111111)');
         return;
       }
     }
     if (parsed.length === 0) return;
-    setAvailableServicePincodes((prev) => Array.from(new Set([...prev, ...parsed])));
+    setAvailableServicePincodes((prev) => Array.from(new Set([...prev.filter(p => !/^(\d)\1{5}$/.test(p)), ...parsed])));
     setAvailableServicePincodeInput('');
   };
 

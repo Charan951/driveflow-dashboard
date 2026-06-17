@@ -22,6 +22,11 @@ export const ticketService = {
     return response.data;
   },
 
+  createPublicTicket: async (data: { name: string; email: string; subject: string; message: string }) => {
+    const response = await api.post('/tickets/public', data);
+    return response.data;
+  },
+
   updateTicketStatus: async (id: string, status: string) => {
     const response = await api.put(`/tickets/${id}`, { status });
     return response.data;

@@ -98,11 +98,10 @@ const vehicleSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Helper to calculate health (skipped when daily baseline mode is active)
+// Helper to calculate health (skipped for indicators without intervals when daily baseline mode is active)
 vehicleSchema.methods.calculateHealth = function() {
   const vehicle = this;
   if (!vehicle.healthIndicators) return;
-  if (vehicle.healthPercentBaselineAt) return;
 
   const now = new Date();
   const currentKm = vehicle.mileage || 0;
@@ -111,32 +110,39 @@ vehicleSchema.methods.calculateHealth = function() {
   
   keys.forEach(key => {
     const indicator = vehicle.healthIndicators[key];
-    if (indicator && indicator.lastServiceDate) {
-      const lastDate = new Date(indicator.lastServiceDate);
-      // Normalize dates to midnight to get accurate day difference
-      const lastDateMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
-      const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffTime = Math.abs(nowMidnight - lastDateMidnight);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
-      const lastKm = indicator.lastServiceKm || 0;
-      const diffKm = Math.max(0, currentKm - lastKm);
-      const fixedKm = indicator.fixedKm || 0;
-      const fixedDays = indicator.fixedDays || 0;
+    if (indicator) {
+      const hasInterval = (indicator.fixedKm || 0) > 0 || (indicator.fixedDays || 0) > 0;
+      if (vehicle.healthPercentBaselineAt && !hasInterval) {
+        return;
+      }
 
-      // Calculate service progress based on days (if fixedDays > 0)
-      const progressFromDays = fixedDays > 0 ? Math.min(100, (diffDays / fixedDays) * 100) : 0;
-      
-      // Calculate service progress based on KM (if fixedKm > 0)
-      const progressFromKm = fixedKm > 0 ? Math.min(100, (diffKm / fixedKm) * 100) : 0;
+      if (indicator.lastServiceDate) {
+        const lastDate = new Date(indicator.lastServiceDate);
+        // Normalize dates to midnight to get accurate day difference
+        const lastDateMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+        const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffTime = Math.abs(nowMidnight - lastDateMidnight);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        const lastKm = indicator.lastServiceKm || 0;
+        const diffKm = Math.max(0, currentKm - lastKm);
+        const fixedKm = indicator.fixedKm || 0;
+        const fixedDays = indicator.fixedDays || 0;
 
-      // Service progress is the maximum of both (whichever comes first)
-      indicator.value = Math.round(Math.max(progressFromDays, progressFromKm));
-    } else if (indicator) {
-      // If no service date has been set by a merchant, all indicators must be zero
-      indicator.value = 0;
-      indicator.fixedKm = 0;
-      indicator.fixedDays = 0;
+        // Calculate service progress based on days (if fixedDays > 0)
+        const progressFromDays = fixedDays > 0 ? Math.min(100, (diffDays / fixedDays) * 100) : 0;
+        
+        // Calculate service progress based on KM (if fixedKm > 0)
+        const progressFromKm = fixedKm > 0 ? Math.min(100, (diffKm / fixedKm) * 100) : 0;
+
+        // Service progress is the maximum of both (whichever comes first)
+        indicator.value = Math.round(Math.max(progressFromDays, progressFromKm));
+      } else {
+        // If no service date has been set by a merchant, all indicators must be zero
+        indicator.value = 0;
+        indicator.fixedKm = 0;
+        indicator.fixedDays = 0;
+      }
     }
   });
 };

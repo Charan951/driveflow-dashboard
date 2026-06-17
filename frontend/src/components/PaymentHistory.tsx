@@ -17,6 +17,7 @@ import { paymentService, PaymentData, PaymentHistory as PaymentHistoryType } fro
 import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { isValidDate } from '@/lib/formValidation';
+import { useSearchParams } from 'react-router-dom';
 
 interface PaymentHistoryProps {
   userId?: string;
@@ -24,6 +25,7 @@ interface PaymentHistoryProps {
 }
 
 const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false }) => {
+  const [searchParams] = useSearchParams();
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -33,11 +35,18 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ userId, isAdmin = false
     pages: 0
   });
   const [filters, setFilters] = useState({
-    status: '',
+    status: searchParams.get('status') || '',
     startDate: '',
     endDate: ''
   });
   const [resetKey, setResetKey] = useState(0);
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam !== null) {
+      setFilters(prev => ({ ...prev, status: statusParam }));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const isStartValid = !filters.startDate || isValidDate(filters.startDate);

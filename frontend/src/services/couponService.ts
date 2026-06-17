@@ -43,8 +43,8 @@ export const couponService = {
     return response.data;
   },
 
-  validateCoupon: async (code: string, orderAmount: number, serviceType?: string, email?: string, mobile?: string): Promise<ValidatedCoupon> => {
-    const response = await api.post('/coupons/validate', { code, orderAmount, serviceType, email, mobile });
+  validateCoupon: async (code: string, orderAmount: number, serviceType?: string, email?: string, mobile?: string, serviceIds?: string[]): Promise<ValidatedCoupon> => {
+    const response = await api.post('/coupons/validate', { code, orderAmount, serviceType, email, mobile, serviceIds });
     return response.data;
   },
 

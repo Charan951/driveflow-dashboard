@@ -322,7 +322,7 @@ const StaffOrderPage: React.FC = () => {
           }
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERY') {
-          if (!isBatteryNow) {
+          if (!isBatteryOrTireNow) {
             const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
               ? order.serviceExecution.afterPhotos
               : [];
@@ -385,6 +385,16 @@ const StaffOrderPage: React.FC = () => {
       const updated = latestBooking ?? (await bookingService.getBookingById(order._id));
       setOrder(updated);
       toast.success(`Order updated to ${newStatus.replace('_', ' ')}`);
+
+      if (newStatus === 'REACHED_MERCHANT') {
+        toast.info('Vehicle has reached merchant. Redirecting to dashboard.');
+        navigate('/dashboard', { replace: true });
+        return;
+      } else if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
+        toast.success('Order delivered successfully. Returning to dashboard.');
+        navigate('/dashboard', { replace: true });
+        return;
+      }
 
       // Navigation logic
       if (!isCarWashNow) {
@@ -451,7 +461,7 @@ const StaffOrderPage: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
-  }, [order, staffLocation, setActiveBookingId]);
+  }, [order, staffLocation, setActiveBookingId, navigate]);
 
   useEffect(() => {
     // Set active booking ID for tracking context
@@ -461,10 +471,9 @@ const StaffOrderPage: React.FC = () => {
     }
 
     return () => {
-      stopTracking();
       setActiveBookingId(null);
     };
-  }, [id, setActiveBookingId, startTracking, stopTracking]);
+  }, [id, setActiveBookingId, startTracking]);
 
   const fetchOrder = React.useCallback(async () => {
     if (!id) return;
@@ -503,16 +512,6 @@ const StaffOrderPage: React.FC = () => {
         }
     }
   }, [id]);
-
-  useEffect(() => {
-    if (order?.status === 'REACHED_MERCHANT') {
-      toast.info('Vehicle has reached merchant. Redirecting to dashboard.');
-      navigate('/dashboard', { replace: true });
-    } else if (order?.status === 'DELIVERED' || order?.status === 'COMPLETED') {
-      toast.success('Order delivered successfully. Returning to dashboard.');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [order?.status, navigate]);
 
   // Auto-status update when reaching customer or merchant location
   useEffect(() => {
@@ -1125,14 +1124,14 @@ const StaffOrderPage: React.FC = () => {
               const beforePhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
               const afterPhotos = Array.isArray(order.serviceExecution?.afterPhotos) ? order.serviceExecution.afterPhotos : [];
               
-              if (isBattery && order.status === 'INSTALLATION') {
+              if (isBatteryOrTire && order.status === 'INSTALLATION') {
                 return (
                   <>
                     <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
                     <span className="text-green-700">Photos complete ({beforePhotos.length}/{BATTERY_BEFORE_PHOTOS_REQUIRED})</span>
                   </>
                 );
-              } else if (isBattery && ['DELIVERY', 'COMPLETED'].includes(order.status)) {
+              } else if (isBatteryOrTire && ['DELIVERY', 'COMPLETED'].includes(order.status)) {
                 return (
                   <>
                     <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-green-600" />
@@ -1237,7 +1236,11 @@ const StaffOrderPage: React.FC = () => {
             </Button>
 
             {!['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_COMPLETED', 'DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && 
-             !(isBattery && (order.status === 'STAFF_REACHED_MERCHANT' || order.status === 'INSTALLATION')) && (
+             (isBatteryOrTire ? (
+               order.status === 'REACHED_CUSTOMER' && (order.prePickupPhotos?.length || 0) < 2
+             ) : (
+               !(isBattery && (order.status === 'STAFF_REACHED_MERCHANT' || order.status === 'INSTALLATION'))
+             )) && (
               <Button
                 size="lg"
                 variant="secondary"
@@ -1332,7 +1335,7 @@ const StaffOrderPage: React.FC = () => {
           />
 
           {(isPrePickupPhase || (isCarWash && order.status === 'CAR_WASH_STARTED')) && 
-           !(isBattery && order.status === 'STAFF_REACHED_MERCHANT') && (
+           !(isBatteryOrTire && order.status === 'STAFF_REACHED_MERCHANT') && (
             <div className="mt-4 space-y-2">
               {isCarWash ? (
                 order.status === 'REACHED_CUSTOMER' ? (
@@ -1405,7 +1408,7 @@ const StaffOrderPage: React.FC = () => {
                       <p className="text-[11px] text-muted-foreground">No before photos uploaded.</p>
                     )}
                   </div>
-                  {!isBattery && (
+                  {!isBatteryOrTire && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">After service photos</span>
@@ -1716,7 +1719,7 @@ const StaffOrderPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  {isBatteryOrTire && !isBattery && ['INSTALLATION', 'DELIVERY', 'COMPLETED'].includes(order.status) && (
+                  {isBatteryOrTire && !isBatteryOrTire && ['INSTALLATION', 'DELIVERY', 'COMPLETED'].includes(order.status) && (
                     <div className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="space-y-1">

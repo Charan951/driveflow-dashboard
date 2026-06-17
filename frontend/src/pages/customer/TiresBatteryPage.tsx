@@ -385,10 +385,12 @@ const TiresBatteryPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Warranty Value</span>
-                        <span className="text-sm font-semibold">₹{warranty.price}</span>
-                      </div>
+                      {warranty.price !== undefined && warranty.price !== null && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Warranty Value</span>
+                          <span className="text-sm font-semibold">₹{warranty.price}</span>
+                        </div>
+                      )}
                       
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Valid Until</span>

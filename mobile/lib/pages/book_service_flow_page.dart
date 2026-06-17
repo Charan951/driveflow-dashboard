@@ -452,6 +452,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         serviceType: _getSelectedServiceType(),
         email: user?.email,
         mobile: user?.phone,
+        serviceIds: _selectedServiceIds,
       );
       if (mounted) {
         if (result['valid'] == true && result['coupon'] != null) {

@@ -58,10 +58,6 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
       toast.error('Please enter warranty name');
       return;
     }
-    if (!price || parseFloat(price) <= 0) {
-      toast.error('Please enter a valid price');
-      return;
-    }
     if (!warrantyMonths || parseInt(warrantyMonths) <= 0) {
       toast.error('Please enter valid warranty months');
       return;
@@ -71,7 +67,7 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
     try {
       const result = await bookingService.addWarranty(booking._id, {
         name: name.trim(),
-        price: parseFloat(price),
+        price: price ? parseFloat(price) : undefined as any,
         warrantyMonths: parseInt(warrantyMonths),
         image
       });
@@ -121,10 +117,12 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
                 <p className="text-sm font-medium text-green-800 mb-1">Product Name:</p>
                 <p className="text-lg font-semibold text-green-700">{booking.batteryTire.warranty.name}</p>
               </div>
-              <div className="flex items-center gap-2 text-lg font-bold text-green-700">
-                <IndianRupee className="w-5 h-5" />
-                {booking.batteryTire.warranty.price}
-              </div>
+              {booking.batteryTire.warranty.price !== undefined && booking.batteryTire.warranty.price !== null && (
+                <div className="flex items-center gap-2 text-lg font-bold text-green-700">
+                  <IndianRupee className="w-5 h-5" />
+                  {booking.batteryTire.warranty.price}
+                </div>
+              )}
               <div className="flex items-center gap-2 text-green-700">
                 <Calendar className="w-4 h-4" />
                 <span className="font-medium">{booking.batteryTire.warranty.warrantyMonths} months warranty</span>
@@ -167,20 +165,7 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <IndianRupee className="w-4 h-4 text-muted-foreground" /> Price (₹)
-              </label>
-              <Input
-                type="number"
-                placeholder="Enter price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                disabled={loading}
-                min="1"
-                step="0.01"
-              />
-            </div>
+
 
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -265,7 +250,7 @@ const WarrantyPanel: React.FC<WarrantyPanelProps> = ({ booking, onUpdate }) => {
         <div className="flex justify-end pt-4 border-t">
           <Button
             onClick={handleSubmit}
-            disabled={loading || uploading || !name.trim() || !price || !warrantyMonths}
+            disabled={loading || uploading || !name.trim() || !warrantyMonths}
             className="min-w-[120px]"
           >
             {loading ? (

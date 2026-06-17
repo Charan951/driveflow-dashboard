@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Slider } from '@/components/ui/slider';
 import { vehicleService, Vehicle } from '../../services/vehicleService';
 import { Booking } from '../../services/bookingService';
-import { calculateHealthDisplayPercent, dailyDecayPercentFromBaseline } from '@/lib/vehicleHealthRemaining';
+import { calculateHealthDisplayPercent, dailyDecayPercentFromBaseline, calculateRemainingHealthPercentLegacy } from '@/lib/vehicleHealthRemaining';
 
 interface VehicleHealthPanelProps {
   booking: Booking;
@@ -87,8 +87,19 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
     const baselinePct =
       serverPct != null ? serverPct : baselineAt ? dailyDecayPercentFromBaseline(baselineAt) : null;
 
-    const row = (key: keyof typeof health) =>
-      baselinePct != null
+    const row = (key: keyof typeof health) => {
+      const hasInterval = health[key].fixedKm > 0 || health[key].fixedDays > 0;
+      if (hasInterval) {
+        return calculateRemainingHealthPercentLegacy(
+          {
+            ...health[key],
+            lastServiceDate: vehicle?.healthIndicators?.[key]?.lastServiceDate,
+            lastServiceKm: vehicle?.healthIndicators?.[key]?.lastServiceKm,
+          },
+          currentKm
+        );
+      }
+      return baselinePct != null
         ? baselinePct
         : calculateHealthDisplayPercent(
             {
@@ -99,6 +110,7 @@ const VehicleHealthPanel: React.FC<VehicleHealthPanelProps> = ({ booking, onUpda
             currentKm,
             baselineAt
           );
+    };
 
     return {
       generalService: row('generalService'),

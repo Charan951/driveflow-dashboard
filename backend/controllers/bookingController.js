@@ -3,6 +3,7 @@ import Booking from '../models/Booking.js';
 import SlotBlock from '../models/SlotBlock.js';
 import AvailableServicePincode from '../models/AvailableServicePincode.js';
 import { generateOrderNumber, formatOrderReference } from '../utils/orderNumber.js';
+import { mapCategoryToCouponServiceType } from '../utils/orderPricing.js';
 import User from '../models/User.js';
 import { getIO, emitChatMessage } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
@@ -79,7 +80,8 @@ const getCategoryGroup = (serviceCategory) => {
 };
 
 /** Helper to calculate services total with vehicle-specific pricing (like car wash). */
-export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}) => {
+export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}, serviceQuantities = {}) => {
+  console.log('calculateServicesTotal inputs:', { serviceIds, vehicleId, selectedBrands, serviceQuantities });
   try {
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
@@ -111,12 +113,13 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
         service.category === 'Services' ||
         (service.name && service.name.toLowerCase().includes('general service'));
 
+      const qty = Number(serviceQuantities[service._id.toString()] || serviceQuantities[service._id] || 1);
+      let servicePrice = service.price;
+
       if (isGeneral && refMatch) {
         const generalPrice = Number(refMatch.general_service_price);
         if (refMatch.general_service_price && !isNaN(generalPrice) && generalPrice > 0) {
-          total += generalPrice;
-        } else {
-          total += service.price;
+          servicePrice = generalPrice;
         }
       } else if (isWash && refMatch) {
         let washPrice = null;
@@ -137,27 +140,27 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
 
         const priceNum = Number(washPrice);
         if (washPrice && !isNaN(priceNum) && priceNum > 0) {
-          total += priceNum;
-        } else {
-          total += service.price;
+          servicePrice = priceNum;
         }
       } else if (isTire && refMatch) {
-        const selectedBrand = selectedBrands[service._id];
+        const selectedBrand = selectedBrands[service._id.toString()] || selectedBrands[service._id];
+        console.log('Tyre price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands });
         if (selectedBrand) {
           const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
           const brandPrice = refMatch[brandKey];
           const priceNum = Number(brandPrice);
+          console.log('Resolved brand price:', { brandKey, brandPrice, priceNum });
           if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
-            total += priceNum;
+            servicePrice = priceNum;
           } else {
-            total += service.price;
+            console.log('Invalid brand price, falling back to service.price', service.price);
           }
         } else {
-          total += service.price;
+          console.log('No brand selected, falling back to service.price', service.price);
         }
-      } else {
-        total += service.price;
       }
+
+      total += (servicePrice * qty);
     });
 
     return { total, refMatch, services };
@@ -166,7 +169,10 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
     // Fallback to basic calculation
     const Service = (await import('../models/Service.js')).default;
     const services = await Service.find({ _id: { $in: serviceIds } });
-    const total = services.reduce((acc, s) => acc + s.price, 0);
+    const total = services.reduce((acc, s) => {
+      const qty = Number(serviceQuantities[s._id.toString()] || serviceQuantities[s._id] || 1);
+      return acc + (s.price * qty);
+    }, 0);
     return { total, refMatch: null, services };
   }
 };
@@ -471,7 +477,7 @@ Thank you for choosing Carzzi 🙌`;
 // @route   POST /api/bookings
 // @access  Private
 export const createBooking = async (req, res) => {
-  const { vehicleId, serviceIds, date, notes, location, selectedBrands } = req.body;
+  const { vehicleId, serviceIds, date, notes, location, selectedBrands, serviceQuantities } = req.body;
 
   try {
     const parsedDate = new Date(date);
@@ -504,7 +510,7 @@ export const createBooking = async (req, res) => {
 
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
-    const { total: servicesTotal, refMatch, services } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands);
+    const { total: servicesTotal, refMatch, services } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands, serviceQuantities);
 
     // Determine booking categories for slot availability check
     const bookingCategories = new Set();
@@ -564,6 +570,8 @@ export const createBooking = async (req, res) => {
         location,
         totalAmount,
         pickupDropPrice,
+        selectedBrands,
+        serviceQuantities,
         requiresPaymentService: true
       };
 
@@ -607,6 +615,8 @@ export const createBooking = async (req, res) => {
           finalAmount: totalAmount,
           discountAmount: 0,
           coupon: null,
+          selectedBrands,
+          serviceQuantities,
           // Mark as battery/tire service if applicable
           ...(isBatteryTireService && {
             batteryTire: {
@@ -989,7 +999,33 @@ export const getUserBookings = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view these bookings' });
     }
 
-    const bookings = await Booking.find({ user: userId })
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let query = { user: userId };
+
+    if (targetUser.role === 'staff') {
+      // Staff see bookings where they are the pickup driver, technician, OR assigned to car wash
+      query = {
+        $or: [
+          { pickupDriver: userId },
+          { technician: userId },
+          { 'carWash.staffAssigned': userId }
+        ]
+      };
+    } else if (targetUser.role === 'merchant') {
+      // Merchants see bookings assigned to them, and their own personal bookings
+      query = {
+        $or: [
+          { user: userId },
+          { merchant: userId }
+        ]
+      };
+    }
+
+    const bookings = await Booking.find(query)
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('vehicle')
@@ -1495,8 +1531,8 @@ export const updateBookingStatus = async (req, res) => {
       }
 
         if (canonTo === 'DELIVERY') {
-          const isBattery = await isBatteryBooking(booking);
-          if (!isBattery) {
+          const isBatteryTire = await isBatteryOrTireBooking(booking);
+          if (!isBatteryTire) {
             const afterPhotos = Array.isArray(booking.serviceExecution?.afterPhotos)
               ? booking.serviceExecution.afterPhotos
               : [];
@@ -2015,7 +2051,7 @@ export const updateBookingDetails = async (req, res) => {
         Object.assign(booking.billing, billing);
         
         // Recalculate total instead of trusting billing.total from client
-        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle);
+        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle, booking.selectedBrands, booking.serviceQuantities);
         
         const partsTotal = Number(booking.billing.partsTotal || 0);
         const labourCost = Number(booking.billing.labourCost || 0);
@@ -2070,7 +2106,7 @@ export const updateBookingDetails = async (req, res) => {
         // Recalculate total amount
         const partsTotal = parts.reduce((acc, part) => acc + (part.price * part.quantity), 0);
         
-        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle);
+        const { total: servicesTotal } = await calculateServicesTotal(booking.services, booking.vehicle, booking.selectedBrands, booking.serviceQuantities);
         
         const labourCost = Number(booking.billing?.labourCost || 0);
         const gst = Number(booking.billing?.gst || 0);
@@ -2588,18 +2624,24 @@ export const addWarranty = async (req, res) => {
     }
 
     // Validate required fields
-    if (!name || !price || !warrantyMonths) {
-      return res.status(400).json({ message: 'Name, price, and warranty months are required' });
+    if (!name || !warrantyMonths) {
+      return res.status(400).json({ message: 'Name and warranty months are required' });
     }
 
-    if (price <= 0 || warrantyMonths <= 0) {
-      return res.status(400).json({ message: 'Price and warranty months must be positive numbers' });
+    if (warrantyMonths <= 0) {
+      return res.status(400).json({ message: 'Warranty months must be positive numbers' });
+    }
+
+    if (price !== undefined && price !== null && price !== '') {
+      if (parseFloat(price) <= 0) {
+        return res.status(400).json({ message: 'Price must be a positive number' });
+      }
     }
 
     // Add warranty information
     booking.batteryTire.warranty = {
       name,
-      price: parseFloat(price),
+      price: (price !== undefined && price !== null && price !== '') ? parseFloat(price) : undefined,
       warrantyMonths: parseInt(warrantyMonths),
       image,
       addedAt: new Date(),
@@ -2700,17 +2742,31 @@ export const applyCoupon = async (req, res) => {
       return res.status(400).json({ message: 'Coupon usage limit reached' });
     }
 
-    // Check service applicability
-    const bookingCategories = booking.services.map(s => s.category);
-    const isApplicable = coupon.applicableServices.includes('All') || 
-      bookingCategories.some(cat => coupon.applicableServices.includes(cat));
-
-    if (!isApplicable) {
-       return res.status(400).json({ message: 'Coupon not applicable for these services' });
+    // Check service applicability and calculate proportion
+    const isAllApplicable = coupon.applicableServices.includes('All');
+    let applicableAmount = booking.totalAmount;
+    
+    if (!isAllApplicable) {
+      const allServices = booking.services;
+      const totalBasePrice = allServices.reduce((sum, s) => sum + s.price, 0);
+      
+      const applicableServicesList = allServices.filter(service => {
+        const mappedCat = mapCategoryToCouponServiceType(service.category);
+        return coupon.applicableServices.includes(mappedCat);
+      });
+      
+      const applicableBasePrice = applicableServicesList.reduce((sum, s) => sum + s.price, 0);
+      
+      if (applicableBasePrice === 0) {
+        return res.status(400).json({ message: 'Coupon not applicable for these services' });
+      }
+      
+      const prop = totalBasePrice > 0 ? (applicableBasePrice / totalBasePrice) : 0;
+      applicableAmount = booking.totalAmount * prop;
     }
 
     // Calculate discount
-    let discountAmount = (booking.totalAmount * coupon.discountPercentage) / 100;
+    let discountAmount = (applicableAmount * coupon.discountPercentage) / 100;
     if (coupon.maxDiscountAmount) {
       discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
     }

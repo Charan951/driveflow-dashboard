@@ -414,19 +414,31 @@ export const updateVehicleHealth = async (req, res) => {
               const indicator = healthIndicators[key];
               const existing = vehicle.healthIndicators[key] || {};
               
-              // If newValue is 0, we treat it as a service reset
-              // If it's not 0, we update it but maybe it's just a manual adjustment
-              const newValue = typeof indicator === 'object' ? (indicator.value ?? 0) : indicator;
-              const isReset = newValue === 0;
+              const fixedKm = typeof indicator === 'object' ? (indicator.fixedKm ?? existing.fixedKm ?? 0) : (existing.fixedKm ?? 0);
+              const fixedDays = typeof indicator === 'object' ? (indicator.fixedDays ?? existing.fixedDays ?? 0) : (existing.fixedDays ?? 0);
+              const hasInterval = fixedKm > 0 || fixedDays > 0;
+
+              let newValue = typeof indicator === 'object' ? (indicator.value ?? 0) : indicator;
+              let lastServiceDate = existing.lastServiceDate;
+              let lastServiceKm = existing.lastServiceKm || 0;
+
+              if (hasInterval) {
+                newValue = 0; // 0% wear = 100% health
+                lastServiceDate = Date.now();
+                lastServiceKm = vehicle.mileage || 0;
+              } else {
+                const isReset = newValue === 0;
+                lastServiceDate = isReset || !existing.lastServiceDate ? Date.now() : existing.lastServiceDate;
+                lastServiceKm = isReset || !existing.lastServiceDate ? (vehicle.mileage || 0) : (existing.lastServiceKm || 0);
+              }
 
               vehicle.healthIndicators[key] = {
                 value: newValue,
                 lastUpdated: Date.now(),
-                // Only update lastServiceDate/Km if it's a reset or it was never set
-                lastServiceDate: isReset || !existing.lastServiceDate ? Date.now() : existing.lastServiceDate,
-                lastServiceKm: isReset || !existing.lastServiceDate ? (vehicle.mileage || 0) : (existing.lastServiceKm || 0),
-                fixedKm: typeof indicator === 'object' ? (indicator.fixedKm ?? existing.fixedKm ?? 0) : (existing.fixedKm ?? 0),
-                fixedDays: typeof indicator === 'object' ? (indicator.fixedDays ?? existing.fixedDays ?? 0) : (existing.fixedDays ?? 0)
+                lastServiceDate,
+                lastServiceKm,
+                fixedKm,
+                fixedDays
               };
             }
           });

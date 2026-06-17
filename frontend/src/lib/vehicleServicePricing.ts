@@ -90,9 +90,15 @@ export function getServiceUnitPrice(
 export function sumBookingServicesSubtotal(
   services: Service[],
   vehicleRef: VehicleReferenceRecord,
+  selectedBrands?: Record<string, string>,
+  serviceQuantities?: Record<string, number | string>,
 ): number {
   return services.reduce((sum, service) => {
     if (!service || typeof service !== 'object') return sum;
-    return sum + getServiceUnitPrice(service, vehicleRef);
+    const serviceId = service._id?.toString() || '';
+    const selectedBrand = selectedBrands?.[serviceId];
+    const unitPrice = getServiceUnitPrice(service, vehicleRef, selectedBrand);
+    const qty = serviceQuantities?.[serviceId] != null ? Number(serviceQuantities[serviceId]) : 1;
+    return sum + (unitPrice * qty);
   }, 0);
 }

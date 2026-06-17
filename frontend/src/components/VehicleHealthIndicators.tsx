@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Info } from 'lucide-react';
-import { calculateHealthDisplayPercent, dailyDecayPercentFromBaseline } from '@/lib/vehicleHealthRemaining';
+import { calculateHealthDisplayPercent, dailyDecayPercentFromBaseline, calculateRemainingHealthPercentLegacy } from '@/lib/vehicleHealthRemaining';
 
 interface HealthIndicator {
   key: string;
@@ -39,12 +39,22 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
         ? dailyDecayPercentFromBaseline(healthPercentBaselineAt)
         : null;
 
+  const getIndicatorValue = (indicatorKey: keyof NonNullable<VehicleHealthIndicatorsProps['healthIndicators']>) => {
+    const indicator = healthIndicators[indicatorKey];
+    if (!indicator) return 0;
+    const hasInterval = (indicator.fixedKm || 0) > 0 || (indicator.fixedDays || 0) > 0;
+    if (hasInterval) {
+      return calculateRemainingHealthPercentLegacy(indicator, currentKm);
+    }
+    return sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(indicator, currentKm, healthPercentBaselineAt);
+  };
+
   const indicators: HealthIndicator[] = [
     { 
       key: 'generalService', 
       label: 'Engine Oil / Service', 
       icon: '🛢️', 
-      value: sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(healthIndicators.generalService, currentKm, healthPercentBaselineAt),
+      value: getIndicatorValue('generalService'),
       fixedKm: healthIndicators.generalService?.fixedKm,
       fixedDays: healthIndicators.generalService?.fixedDays,
       lifespanDays: 180 
@@ -53,7 +63,7 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
       key: 'brakePads', 
       label: 'Brake Pads', 
       icon: '🛑', 
-      value: sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(healthIndicators.brakePads, currentKm, healthPercentBaselineAt),
+      value: getIndicatorValue('brakePads'),
       fixedKm: healthIndicators.brakePads?.fixedKm,
       fixedDays: healthIndicators.brakePads?.fixedDays,
       lifespanDays: 730 
@@ -62,7 +72,7 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
       key: 'tires', 
       label: 'Tire Condition', 
       icon: '🛞', 
-      value: sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(healthIndicators.tires, currentKm, healthPercentBaselineAt),
+      value: getIndicatorValue('tires'),
       fixedKm: healthIndicators.tires?.fixedKm,
       fixedDays: healthIndicators.tires?.fixedDays,
       lifespanDays: 1095 
@@ -71,7 +81,7 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
       key: 'battery', 
       label: 'Battery Health', 
       icon: '🔋', 
-      value: sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(healthIndicators.battery, currentKm, healthPercentBaselineAt),
+      value: getIndicatorValue('battery'),
       fixedKm: healthIndicators.battery?.fixedKm,
       fixedDays: healthIndicators.battery?.fixedDays,
       lifespanDays: 1460 
@@ -80,7 +90,7 @@ const VehicleHealthIndicators: React.FC<VehicleHealthIndicatorsProps> = ({ healt
       key: 'wiperBlade', 
       label: 'Wiper Blade', 
       icon: '🧹', 
-      value: sharedBaselinePct != null ? sharedBaselinePct : calculateHealthDisplayPercent(healthIndicators.wiperBlade, currentKm, healthPercentBaselineAt),
+      value: getIndicatorValue('wiperBlade'),
       fixedKm: healthIndicators.wiperBlade?.fixedKm,
       fixedDays: healthIndicators.wiperBlade?.fixedDays,
       lifespanDays: 180 

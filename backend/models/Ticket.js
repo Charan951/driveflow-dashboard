@@ -3,8 +3,14 @@ import mongoose from 'mongoose';
 const ticketSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    required: true,
+    required: false,
     ref: 'User',
+  },
+  guestName: {
+    type: String,
+  },
+  guestEmail: {
+    type: String,
   },
   subject: {
     type: String,

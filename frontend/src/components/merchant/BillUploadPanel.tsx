@@ -34,7 +34,7 @@ const getBaseServiceAmount = (b: Booking, vehicleRef: any = null) => {
   if (Array.isArray(b.services) && b.services.length > 0) {
     const serviceList = b.services.filter((s): s is any => typeof s === 'object' && s !== null);
     if (serviceList.length > 0) {
-      return sumBookingServicesSubtotal(serviceList, vehicleRef);
+      return sumBookingServicesSubtotal(serviceList, vehicleRef, b.selectedBrands, b.serviceQuantities);
     }
   }
 

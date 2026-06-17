@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, CheckCircle, Search, MapPin, Navigation } from 'lucide-react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { useAuthStore } from '@/store/authStore';
@@ -22,13 +22,26 @@ const ACTIVE_STATUSES = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get('filter') || 'all';
   const { user } = useAuthStore();
   const { location: trackingLocation, setActiveBookingId, activeBookingId } = useTracking();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(filterParam);
+
+  useEffect(() => {
+    if (filterParam) {
+      setStatusFilter(filterParam);
+    }
+  }, [filterParam]);
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setSearchParams({ filter: value });
+  };
 
   const [etaByBooking, setEtaByBooking] = useState<Record<string, ETAResponse>>({});
   const etaTimeoutRef = useRef<number | null>(null);
@@ -257,7 +270,7 @@ const StaffOrdersPage: React.FC = () => {
               maxLength={30}
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Filter" />
             </SelectTrigger>

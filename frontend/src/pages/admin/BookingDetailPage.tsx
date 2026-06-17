@@ -882,7 +882,7 @@ const BookingDetailPage: React.FC = () => {
                           ? booking.services.filter((s): s is Service => typeof s === 'object' && s !== null)
                           : []) as Service[];
                         const servicesTotal = serviceList.length > 0
-                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef, booking.selectedBrands, booking.serviceQuantities)
                           : 0;
                         return servicesTotal;
                     })()}</span>
@@ -912,7 +912,7 @@ const BookingDetailPage: React.FC = () => {
                           ? booking.services.filter((s): s is Service => typeof s === 'object' && s !== null)
                           : []) as Service[];
                         const servicesTotal = serviceList.length > 0
-                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef, booking.selectedBrands, booking.serviceQuantities)
                           : 0;
                         const parts = booking.billing.partsTotal || 0;
                         const labour = booking.billing.labourCost || 0;
@@ -971,14 +971,16 @@ const BookingDetailPage: React.FC = () => {
                     <p className="text-2xl font-black text-green-700">{booking.batteryTire.warranty.name}</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Price</p>
-                      <span className="text-2xl font-black text-primary flex items-center gap-1">
-                        <IndianRupee className="w-6 h-6" />
-                        {booking.batteryTire.warranty.price}
-                      </span>
-                    </div>
+                  <div className={booking.batteryTire.warranty.price !== undefined && booking.batteryTire.warranty.price !== null ? "grid grid-cols-2 gap-6" : "grid grid-cols-1 gap-6"}>
+                    {booking.batteryTire.warranty.price !== undefined && booking.batteryTire.warranty.price !== null && (
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Price</p>
+                        <span className="text-2xl font-black text-primary flex items-center gap-1">
+                          <IndianRupee className="w-6 h-6" />
+                          {booking.batteryTire.warranty.price}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Warranty Period</p>
                       <span className="text-2xl font-black text-green-700">
@@ -1013,12 +1015,18 @@ const BookingDetailPage: React.FC = () => {
               <div>
                 <label className="text-xs text-muted-foreground uppercase font-medium">Services Requested</label>
                 <div className="mt-2 space-y-1">
-                  {Array.isArray(booking.services) && (booking.services as Service[]).map((s, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <Wrench className="w-4 h-4 text-muted-foreground" />
-                      <span>{s.name}</span>
-                    </div>
-                  ))}
+                  {Array.isArray(booking.services) && (booking.services as Service[]).map((s, i) => {
+                    const qty = booking.serviceQuantities?.[s._id] || booking.serviceQuantities?.[s._id.toString()];
+                    const brand = booking.selectedBrands?.[s._id] || booking.selectedBrands?.[s._id.toString()];
+                    const qtyStr = qty && Number(qty) > 1 ? ` (Qty: ${qty})` : '';
+                    const brandStr = brand ? ` - ${brand}` : '';
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <Wrench className="w-4 h-4 text-muted-foreground" />
+                        <span>{s.name}{brandStr}{qtyStr}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div className="space-y-4">

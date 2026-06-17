@@ -45,3 +45,26 @@ export function calculateOrderTotals(
   const total = round2(discountedSubtotal + tax);
   return { subtotal: sub, discountAmount: disc, discountedSubtotal, tax, total };
 }
+
+export function mapCategoryToCouponServiceType(category: string): string | null {
+  if (!category) return null;
+  const cat = category.toLowerCase();
+  if (cat.includes('wash') || cat.includes('detailing')) return 'Car Wash';
+  if (cat.includes('essential') || cat.includes('accessories')) return 'Essentials';
+  if (cat.includes('tyre') || cat.includes('tire') || cat.includes('battery')) {
+    return 'Tyres and Battery';
+  }
+  if (
+    cat.includes('periodic') ||
+    cat.includes('general') ||
+    cat === 'services' ||
+    cat === 'repair' ||
+    cat === 'ac' ||
+    cat === 'painting' ||
+    cat === 'denting'
+  ) {
+    return 'General Service';
+  }
+  return null;
+}
+

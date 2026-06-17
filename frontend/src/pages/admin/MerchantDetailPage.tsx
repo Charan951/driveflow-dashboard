@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { userService, User } from '@/services/userService';
 import { bookingService, Booking } from '@/services/bookingService';
-import { getMerchantProducts, Product } from '@/services/productService';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, 
@@ -25,20 +24,17 @@ const AdminMerchantDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [merchant, setMerchant] = useState<User | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async (merchantId: string) => {
       try {
-        const [userData, bookingsData, productsData] = await Promise.all([
+        const [userData, bookingsData] = await Promise.all([
           userService.getUserById(merchantId),
-          bookingService.getMerchantBookings(merchantId),
-          getMerchantProducts(merchantId)
+          bookingService.getMerchantBookings(merchantId)
         ]);
         setMerchant(userData);
         setBookings(bookingsData);
-        setProducts(productsData);
       } catch (error) {
         toast.error('Failed to load merchant details');
         navigate('/admin/merchants');
@@ -62,7 +58,7 @@ const AdminMerchantDetailPage: React.FC = () => {
 
   if (!merchant) return null;
 
-  const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+  const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0)) || 0), 0);
   const activeOrders = bookings.filter(b => [
     'CREATED', 
     'ASSIGNED', 
@@ -74,7 +70,6 @@ const AdminMerchantDetailPage: React.FC = () => {
     'SERVICE_COMPLETED',
     'OUT_FOR_DELIVERY'
   ].includes(b.status)).length;
-  const lowStockItems = products.filter(p => p.quantity <= p.threshold).length;
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full min-w-0 max-w-7xl mx-auto overflow-x-hidden pb-6">
@@ -186,7 +181,7 @@ const AdminMerchantDetailPage: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 min-w-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 min-w-0">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -219,71 +214,9 @@ const AdminMerchantDetailPage: React.FC = () => {
             </div>
           </div>
         </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm min-w-0"
-        >
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Low Stock Alerts</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{lowStockItems}</h3>
-            </div>
-            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-              <Package className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-          </div>
-        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 min-w-0">
-        {/* Stock/Products Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden min-w-0 max-w-full">
-          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Stock Overview</h2>
-          </div>
-          <div className="overflow-x-auto max-w-full">
-            <table className="w-full text-sm text-left min-w-[640px] sm:min-w-[800px]">
-              <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
-                <tr>
-                  <th className="px-6 py-3 font-medium">Product</th>
-                  <th className="px-6 py-3 font-medium">Category</th>
-                  <th className="px-6 py-3 font-medium">Price</th>
-                  <th className="px-6 py-3 font-medium">Stock</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {products.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                      No products found
-                    </td>
-                  </tr>
-                ) : (
-                  products.map((product) => (
-                    <tr key={product._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{product.name}</td>
-                      <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{product.category}</td>
-                      <td className="px-6 py-4 text-gray-900 dark:text-white">₹{product.price}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          product.quantity <= product.threshold
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                            : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        }`}>
-                          {product.quantity}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+      <div className="w-full">
         {/* Recent Orders Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden min-w-0 max-w-full">
           <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
@@ -322,7 +255,7 @@ const AdminMerchantDetailPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <span className="capitalize">{booking.status}</span>
                       </td>
-                      <td className="px-6 py-4 text-gray-900 dark:text-white">₹{booking.totalAmount}</td>
+                      <td className="px-6 py-4 text-gray-900 dark:text-white">₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}</td>
                     </tr>
                   ))
                 )}

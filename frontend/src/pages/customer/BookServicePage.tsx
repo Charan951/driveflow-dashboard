@@ -410,7 +410,9 @@ const BookServicePage: React.FC = () => {
             selectedServices.forEach(serviceId => {
               const service = services.find(s => s._id === serviceId);
               const isTireService = service?.name?.toLowerCase()?.includes('change') || 
-                                  service?.name?.toLowerCase()?.includes('size');
+                                  service?.name?.toLowerCase()?.includes('size') ||
+                                  service?.category === 'Tyres' ||
+                                  service?.category === 'Tyre & Battery';
               
               if (isTireService && !newSizes[serviceId]) {
                 newSizes[serviceId] = vehicleTireSize;
@@ -448,7 +450,9 @@ const BookServicePage: React.FC = () => {
     if (isSelecting) {
       const service = services.find(s => s._id === serviceId);
       const isTireService = service?.name?.toLowerCase()?.includes('change') || 
-                          service?.name?.toLowerCase()?.includes('size');
+                          service?.name?.toLowerCase()?.includes('size') ||
+                          service?.category === 'Tyres' ||
+                          service?.category === 'Tyre & Battery';
       
       if (isTireService && selectedVehicleData) {
         let vehicleTireSize = selectedVehicleData.frontTyres || selectedVehicleData.rearTyres;
@@ -669,6 +673,8 @@ const BookServicePage: React.FC = () => {
         serviceIds: selectedServices,
         date: bookingDate.toISOString(),
         location: pickupLocation.address.trim() !== '' ? pickupLocation : undefined,
+        selectedBrands: selectedTireBrands,
+        serviceQuantities: serviceQuantities,
         notes: selectedServicesData.map(service => {
           const size = tireSizes[service._id];
           const brand = selectedTireBrands[service._id];
@@ -686,10 +692,11 @@ const BookServicePage: React.FC = () => {
         // For services requiring payment, store temp booking data and redirect to payment
         const tempBookingData = {
           ...bookingData,
+          services: selectedServicesData,
           totalAmount: newBooking.totalAmount || totalPrice,
           pickupDropPrice: newBooking.pickupDropPrice || pickupDropPrice,
           requiresPaymentService: true,
-          isCarWashService: isCarWash || isEssentialsService,
+          isCarWashService: isCarWash,
           isBatteryTireService: isBatteryTire,
           isEssentialsService
         };
@@ -1075,7 +1082,12 @@ const BookServicePage: React.FC = () => {
 
                         {/* Size Selection for "Customer can opt change" or services with "change" in name */}
                         {selectedServices.includes(service._id) && 
-                          (service.name?.toLowerCase()?.includes('change') || service.name?.toLowerCase()?.includes('size')) && (
+                          (
+                            service.name?.toLowerCase()?.includes('change') || 
+                            service.name?.toLowerCase()?.includes('size') ||
+                            service.category === 'Tyres' ||
+                            service.category === 'Tyre & Battery'
+                          ) && (
                             <motion.div 
                               initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
@@ -1144,22 +1156,21 @@ const BookServicePage: React.FC = () => {
                             {(service.category === 'Tyres' || service.category === 'Tyre & Battery') && (
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
-                                <div className="relative">
-                                  <select
-                                    value={selectedTireBrands[service._id] || ''}
-                                    onChange={(e) => setSelectedTireBrands(prev => ({ ...prev, [service._id]: e.target.value }))}
-                                    className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium appearance-none cursor-pointer"
-                                  >
-                                    <option value="" disabled>Choose a brand</option>
-                                    {ADMIN_TIRE_BRANDS.map(brand => (
-                                      <option key={brand} value={brand}>
-                                        {brand}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-                                    <ChevronRight className="w-5 h-5 rotate-90" />
-                                  </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                  {ADMIN_TIRE_BRANDS.map(brand => (
+                                    <button
+                                      key={brand}
+                                      type="button"
+                                      onClick={() => setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }))}
+                                      className={`p-2.5 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
+                                        selectedTireBrands[service._id] === brand
+                                          ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/5'
+                                          : 'border-border bg-muted/20 hover:border-primary/30 text-foreground'
+                                      }`}
+                                    >
+                                      {brand}
+                                    </button>
+                                  ))}
                                 </div>
                               </div>
                             )}

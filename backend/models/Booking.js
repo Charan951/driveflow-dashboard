@@ -165,6 +165,14 @@ const bookingSchema = mongoose.Schema(
       type: Number,
       required: true
     },
+    selectedBrands: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    serviceQuantities: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     media: [{
       type: String, // URLs to images/videos
     }],

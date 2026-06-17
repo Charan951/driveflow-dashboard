@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
+import { ticketService } from "@/services/ticketService";
 import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
 
 const Contact = () => {
@@ -71,7 +72,7 @@ const Contact = () => {
 
   const whatsappNumber = contactDetails.mobileNumber.replace(/\D/g, "");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = formData.name.trim();
     const email = formData.email;
@@ -121,12 +122,16 @@ const Contact = () => {
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await ticketService.createPublicTicket({ name, email, subject, message });
       toast.success("Message sent successfully! We'll get back to you soon.");
       setFormData({ name: "", email: "", subject: "", message: "" });
-    }, 1500);
+    } catch (error: any) {
+      const errMsg = error?.response?.data?.message || error?.message || "Failed to send message";
+      toast.error(errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

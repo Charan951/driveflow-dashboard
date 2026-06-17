@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, MessageSquare, AlertCircle, CheckCircle, Clock, User } from 'lucide-react';
+import { Search, Filter, MessageSquare, AlertCircle, CheckCircle, Clock, User, Mail } from 'lucide-react';
 import { ticketService } from '../../services/ticketService';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../store/authStore';
@@ -24,10 +24,12 @@ interface Ticket {
   status: string;
   category: string;
   priority: string;
-  user: {
+  user?: {
     _id: string;
     name: string;
-  };
+  } | null;
+  guestName?: string;
+  guestEmail?: string;
   messages: TicketMessage[];
   createdAt: string;
 }
@@ -215,7 +217,7 @@ const AdminSupportPage = () => {
                     <p className="text-sm text-gray-500 truncate">{ticket.messages[0]?.message}</p>
                     <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-gray-500 flex items-center">
-                            <User size={12} className="mr-1"/> {ticket.user?.name}
+                            <User size={12} className="mr-1"/> {ticket.user?.name || ticket.guestName || 'Guest'}
                         </span>
                         <span className={`text-xs font-medium ${
                             ticket.status === 'Open' ? 'text-blue-600' :
@@ -259,7 +261,8 @@ const AdminSupportPage = () => {
                             <span className="shrink-0 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">#{selectedTicket._id.slice(-6)}</span>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2 text-sm text-gray-500">
-                            <span className="flex items-center min-w-0"><User size={16} className="mr-1 shrink-0"/> <span className="truncate">{selectedTicket.user?.name}</span></span>
+                            <span className="flex items-center min-w-0"><User size={16} className="mr-1 shrink-0"/> <span className="truncate">{selectedTicket.user?.name || selectedTicket.guestName || 'Guest'}</span></span>
+                            {selectedTicket.guestEmail && <span className="flex items-center min-w-0"><Mail size={16} className="mr-1 shrink-0"/> <span className="truncate">{selectedTicket.guestEmail}</span></span>}
                             <span className="flex items-center"><Clock size={16} className="mr-1 shrink-0"/> {selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : 'N/A'}</span>
                             <span className="break-words">Category: {selectedTicket.category}</span>
                         </div>

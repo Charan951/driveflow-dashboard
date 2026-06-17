@@ -768,7 +768,14 @@ const TrackServicePage: React.FC = () => {
             {/* Display services as comma separated string */}
             <p className="text-xs sm:text-sm text-primary font-medium mt-1 line-clamp-2">
                 {Array.isArray(order.services) 
-                    ? order.services.map((s) => typeof s === 'string' ? s : s.name).join(', ') 
+                    ? order.services.map((s) => {
+                        if (typeof s === 'string') return s;
+                        const qty = order.serviceQuantities?.[s._id] || order.serviceQuantities?.[s._id.toString()];
+                        const brand = order.selectedBrands?.[s._id] || order.selectedBrands?.[s._id.toString()];
+                        const qtyStr = qty && Number(qty) > 1 ? ` (Qty: ${qty})` : '';
+                        const brandStr = brand ? ` - ${brand}` : '';
+                        return `${s.name}${brandStr}${qtyStr}`;
+                      }).join(', ') 
                     : 'Service'}
             </p>
           </div>
@@ -1137,11 +1144,13 @@ const TrackServicePage: React.FC = () => {
                     <p className="text-sm font-medium text-muted-foreground mb-1">Product Name</p>
                     <p className="text-lg font-semibold text-foreground">{order.batteryTire.warranty.name}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Price</p>
-                      <p className="text-lg font-bold text-primary">₹{order.batteryTire.warranty.price}</p>
-                    </div>
+                  <div className={order.batteryTire.warranty.price !== undefined && order.batteryTire.warranty.price !== null ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
+                    {order.batteryTire.warranty.price !== undefined && order.batteryTire.warranty.price !== null && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Price</p>
+                        <p className="text-lg font-bold text-primary">₹{order.batteryTire.warranty.price}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-1">Warranty Period</p>
                       <p className="text-lg font-semibold text-foreground">{order.batteryTire.warranty.warrantyMonths} months</p>
@@ -1262,7 +1271,7 @@ const TrackServicePage: React.FC = () => {
 
                       const servicesTotal =
                         serviceList.length > 0
-                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef, order.selectedBrands, order.serviceQuantities)
                           : 0;
 
                       const parts = order.billing?.partsTotal || 0;
@@ -1367,7 +1376,7 @@ const TrackServicePage: React.FC = () => {
                         : []) as Service[];
                       const subtotalFromVehicle =
                         serviceList.length > 0
-                          ? sumBookingServicesSubtotal(serviceList, vehicleRef)
+                          ? sumBookingServicesSubtotal(serviceList, vehicleRef, order.selectedBrands, order.serviceQuantities)
                           : order.totalAmount;
                       return (
                         <div className="flex justify-between text-sm text-muted-foreground">

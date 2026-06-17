@@ -8,7 +8,7 @@ import CashfreePayment from '@/components/CashfreePayment';
 import { couponService, ValidatedCoupon, Coupon } from '@/services/couponService';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { bookingService } from '@/services/bookingService';
-import { calculateOrderTotals, isGeneralServiceList } from '@/lib/orderPricing';
+import { calculateOrderTotals, isGeneralServiceList, mapCategoryToCouponServiceType } from '@/lib/orderPricing';
 
 type PaymentLocationState = {
   tempBookingData?: Record<string, unknown>;
@@ -116,19 +116,18 @@ const PaymentPage: React.FC = () => {
     
     if (tempBookingData.isCarWashService) return 'Car Wash';
     if (tempBookingData.isEssentialsService) return 'Essentials';
+    if (tempBookingData.isBatteryTireService) return 'Tyres and Battery';
     
     // Check if services are provided in the booking data
     if (tempBookingData.services && Array.isArray(tempBookingData.services) && tempBookingData.services.length > 0) {
       const firstService = tempBookingData.services[0];
       // Check if firstService is an object with a category property
       const category = (typeof firstService === 'object' && firstService !== null && 'category' in (firstService as any))
-        ? ((firstService as any).category || '').toLowerCase()
+        ? ((firstService as any).category || '')
         : '';
       
-      if (category.includes('periodic') || category.includes('general')) return 'General Service';
-      if (category.includes('wash')) return 'Car Wash';
-      if (category.includes('essential')) return 'Essentials';
-      if (category.includes('tyre') || category.includes('battery')) return 'Tyres and Battery';
+      const mapped = mapCategoryToCouponServiceType(category);
+      if (mapped) return mapped;
     }
     
     return undefined;
@@ -193,16 +192,34 @@ const PaymentPage: React.FC = () => {
     setLoadingCoupons(true);
     try {
       const coupons = await couponService.getCoupons();
-      const serviceType = getSelectedServiceType();
       
+      const bookingServiceTypes: string[] = [];
+      if (tempBookingData) {
+        if (tempBookingData.isCarWashService) bookingServiceTypes.push('Car Wash');
+        if (tempBookingData.isEssentialsService) bookingServiceTypes.push('Essentials');
+        if (tempBookingData.isBatteryTireService) bookingServiceTypes.push('Tyres and Battery');
+        
+        if (tempBookingData.services && Array.isArray(tempBookingData.services)) {
+          tempBookingData.services.forEach((service: any) => {
+            if (service && service.category) {
+              const mapped = mapCategoryToCouponServiceType(service.category);
+              if (mapped && !bookingServiceTypes.includes(mapped)) {
+                bookingServiceTypes.push(mapped);
+              }
+            }
+          });
+        }
+      }
+
       const filteredCoupons = coupons.filter(coupon => {
         if (!coupon.isActive) return false;
         
         // Filter by service applicability
-        if (serviceType && coupon.applicableServices && coupon.applicableServices.length > 0) {
+        if (bookingServiceTypes.length > 0 && coupon.applicableServices && coupon.applicableServices.length > 0) {
           const isAllApplicable = coupon.applicableServices.includes('All');
-          if (!isAllApplicable && !coupon.applicableServices.includes(serviceType)) {
-            return false;
+          if (!isAllApplicable) {
+            const isApplicable = bookingServiceTypes.some(type => coupon.applicableServices.includes(type));
+            if (!isApplicable) return false;
           }
         }
         
@@ -234,7 +251,8 @@ const PaymentPage: React.FC = () => {
         tempBookingData.totalAmount,
         getSelectedServiceType(),
         user?.email,
-        user?.phone
+        user?.phone,
+        tempBookingData.serviceIds
       );
       if (result.valid && result.coupon) {
         setAppliedCoupon(result.coupon);

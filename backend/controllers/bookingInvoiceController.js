@@ -491,7 +491,7 @@ export const getBookingInvoice = async (req, res) => {
     }
 
     (booking.services || []).forEach((service) => {
-      const desc = formatInvoiceServiceDescription(service);
+      let desc = formatInvoiceServiceDescription(service);
       let price = Number(service.price) || 0;
       
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
@@ -499,6 +499,10 @@ export const getBookingInvoice = async (req, res) => {
         service.category === 'Periodic' ||
         service.category === 'Services' ||
         (service.name && String(service.name).toLowerCase().includes('general service'));
+      const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+
+      const serviceIdStr = service._id.toString();
+      const qty = Number(booking.serviceQuantities?.[serviceIdStr] || booking.serviceQuantities?.[service._id] || 1);
 
       if (isGeneral && refMatch?.general_service_price) {
         const generalPrice = Number(refMatch.general_service_price);
@@ -525,10 +529,21 @@ export const getBookingInvoice = async (req, res) => {
         if (!isNaN(washNum) && washNum > 0) {
           price = washNum;
         }
+      } else if (isTire && refMatch) {
+        const selectedBrand = booking.selectedBrands?.[serviceIdStr] || booking.selectedBrands?.[service._id];
+        if (selectedBrand) {
+          desc = `${desc} (${selectedBrand})`;
+          const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
+          const brandPrice = refMatch[brandKey];
+          const priceNum = Number(brandPrice);
+          if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
+            price = priceNum;
+          }
+        }
       }
 
-      drawRow(desc, 1, price, price);
-      subtotal += price;
+      drawRow(desc, qty, price, price * qty);
+      subtotal += (price * qty);
     });
 
     if (isGeneralService && booking.pickupDropPrice && booking.pickupDropPrice > 0) {
