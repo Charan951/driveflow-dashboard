@@ -1300,7 +1300,7 @@ const StaffOrderPage: React.FC = () => {
               <span className="sm:hidden">Navigate</span>
             </Button>
 
-            showUploadButton && !hasUploadedMaxPhotos && (
+            {showUploadButton && !hasUploadedMaxPhotos && (
               <Button
                 size="lg"
                 variant="secondary"
