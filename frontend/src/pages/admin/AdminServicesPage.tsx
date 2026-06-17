@@ -221,25 +221,7 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
-  const addPincodesFromInput = () => {
-    const parsed = parsePincodes(availableServicePincodeInput);
-    const rawInput = availableServicePincodeInput.trim();
-    if (rawInput.length > 0) {
-      // Check if there are any invalid parts in the input
-      const parts = rawInput.split(/[,\s]+/g).map(p => p.trim()).filter(Boolean);
-      const invalidParts = parts.filter(p => {
-        const digits = p.replace(/\D/g, '');
-        return digits.length !== 6 || /^(\d)\1{5}$/.test(digits);
-      });
-      if (invalidParts.length > 0) {
-        toast.error('Please enter valid 6-digit pincodes only (avoid repeated values like 111111)');
-        return;
-      }
-    }
-    if (parsed.length === 0) return;
-    setAvailableServicePincodes((prev) => Array.from(new Set([...prev.filter(p => !/^(\d)\1{5}$/.test(p)), ...parsed])));
-    setAvailableServicePincodeInput('');
-  };
+
 
   const removeAvailablePincode = (pincode: string) => {
     const confirmed = window.confirm(`Are you sure you want to remove pincode ${pincode}?`);
@@ -492,13 +474,6 @@ const AdminServicesPage: React.FC = () => {
                   }
                   setAvailableServicePincodeInput(value);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault();
-                    addPincodesFromInput();
-                  }
-                }}
-                onBlur={addPincodesFromInput}
                 placeholder="e.g. 500032, 500008"
                 maxLength={100}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"

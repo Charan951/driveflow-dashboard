@@ -51,7 +51,7 @@ console.info(
 );
 
 const app = express();
-// Force nodemon restart for review route changes
+// Force nodemon restart for review route changes (triggered restart)
 const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);

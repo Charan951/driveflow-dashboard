@@ -5,6 +5,7 @@ import Service from '../models/Service.js';
 import Product from '../models/Product.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Ticket from '../models/Ticket.js';
+import Payment from '../models/Payment.js';
 import { formatOrderReference } from '../utils/orderNumber.js';
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -166,20 +167,20 @@ export const getDashboardStats = async (req, res) => {
       Vehicle.countDocuments(),
       Booking.countDocuments(dateFilter),
       Booking.countDocuments({ ...dateFilter, createdAt: { $gte: today } }),
-      Booking.countDocuments({ ...dateFilter, status: { $in: ['CREATED', 'ASSIGNED', 'Pending'] } }),
+      Booking.countDocuments({ ...dateFilter, status: 'CREATED' }),
       Booking.aggregate([
         { $match: { ...dateFilter, paymentStatus: 'paid', createdAt: { $gte: today } } },
-        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+        { $group: { _id: null, total: { $sum: '$finalAmount' } } },
       ]),
       Booking.aggregate([
         { $match: { ...dateFilter, paymentStatus: 'paid' } },
-        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+        { $group: { _id: null, total: { $sum: '$finalAmount' } } },
       ]),
       Vehicle.countDocuments({ status: 'On Route' }),
       Vehicle.countDocuments({ status: 'In Service' }),
       Booking.countDocuments({ ...dateFilter, status: { $in: ['CREATED', 'ASSIGNED'] } }),
       Booking.countDocuments({ ...dateFilter, status: 'SERVICE_COMPLETED' }),
-      Booking.countDocuments({ ...dateFilter, paymentStatus: 'pending', status: { $ne: 'CANCELLED' } }),
+      Payment.countDocuments({ ...dateFilter, status: 'pending' }),
       ApprovalRequest.countDocuments({ status: 'Pending', type: { $ne: 'UserRegistration' } }),
       Ticket.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
     ]);
@@ -226,7 +227,7 @@ export const getRevenueAnalytics = async (req, res) => {
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          amount: { $sum: '$totalAmount' },
+          amount: { $sum: '$finalAmount' },
           count: { $sum: 1 },
         },
       },
@@ -247,7 +248,7 @@ export const getTopServices = async (req, res) => {
     const dateFilter = buildDateFilter(req.query);
     const services = await Booking.aggregate([
       { $match: dateFilter },
-      { $group: { _id: '$serviceType', count: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
+      { $group: { _id: '$serviceType', count: { $sum: 1 }, revenue: { $sum: '$finalAmount' } } },
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]);
@@ -269,7 +270,7 @@ export const getMerchantPerformance = async (req, res) => {
         $group: {
           _id: '$merchant',
           totalBookings: { $sum: 1 },
-          totalRevenue: { $sum: '$totalAmount' },
+          totalRevenue: { $sum: '$finalAmount' },
         },
       },
       { $sort: { totalRevenue: -1 } },

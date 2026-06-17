@@ -901,11 +901,23 @@ const StaffOrderPage: React.FC = () => {
           return;
         }
       } else {
-        const res = await uploadService.uploadFiles(files);
+        const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+        const remaining = 4 - currentPhotos.length;
+        if (remaining <= 0) {
+          toast.dismiss(loadingToast);
+          toast.error('You already uploaded 4 pre-pickup photos');
+          return;
+        }
+
+        const filesToUpload = files.slice(0, remaining);
+        if (files.length > remaining) {
+          toast.warning(`Only ${remaining} more pre-pickup photo(s) can be added`);
+        }
+
+        const res = await uploadService.uploadFiles(filesToUpload);
         const newUrls = (res.files || []).map((f: { url: string }) => f.url);
 
         // Regular service pre-pickup photos
-        const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
         const updatedPhotos = [...currentPhotos, ...newUrls].slice(0, 4);
 
         await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
@@ -1022,6 +1034,59 @@ const StaffOrderPage: React.FC = () => {
   const afterWashPhotos = Array.isArray(order?.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos : [];
   const requiredBefore = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
   const requiredAfter = isEssentials ? 4 : CAR_WASH_MIN_PHOTOS;
+
+  const getUploadedPhotoCount = () => {
+    if (isCarWash) {
+      if (order.status === 'REACHED_CUSTOMER') {
+        return Array.isArray(order.carWash?.beforeWashPhotos) ? order.carWash.beforeWashPhotos.length : 0;
+      } else if (order.status === 'CAR_WASH_STARTED') {
+        return Array.isArray(order.carWash?.afterWashPhotos) ? order.carWash.afterWashPhotos.length : 0;
+      }
+      return 0;
+    } else if (isBatteryOrTire) {
+      if (order.status === 'REACHED_CUSTOMER') {
+        return Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos.length : 0;
+      } else if (order.status === 'INSTALLATION') {
+        return Array.isArray(order.serviceExecution?.afterPhotos) ? order.serviceExecution.afterPhotos.length : 0;
+      }
+      return 0;
+    } else {
+      return Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos.length : 0;
+    }
+  };
+
+  const getMaxAllowedPhotos = () => {
+    if (isCarWash) {
+      return CAR_WASH_MAX_PHOTOS;
+    } else if (isBatteryOrTire) {
+      if (order.status === 'REACHED_CUSTOMER') {
+        return BATTERY_BEFORE_PHOTOS_REQUIRED;
+      } else if (order.status === 'INSTALLATION') {
+        return BATTERY_AFTER_PHOTOS_REQUIRED;
+      }
+      return 0;
+    } else {
+      return 4;
+    }
+  };
+
+  const hasUploadedMaxPhotos = getUploadedPhotoCount() >= getMaxAllowedPhotos();
+
+  const showUploadButton = (() => {
+    if (!order) return false;
+    if (isCarWash) {
+      return order.status === 'REACHED_CUSTOMER' || order.status === 'CAR_WASH_STARTED';
+    }
+    if (isBatteryOrTire) {
+      if (order.status === 'REACHED_CUSTOMER') return true;
+      if (order.status === 'INSTALLATION') {
+        return !isBattery;
+      }
+      return false;
+    }
+    // General/regular services: only show in REACHED_CUSTOMER status
+    return order.status === 'REACHED_CUSTOMER';
+  })();
 
   const shouldDisablePrimaryAction =
     isUpdating ||
@@ -1235,12 +1300,7 @@ const StaffOrderPage: React.FC = () => {
               <span className="sm:hidden">Navigate</span>
             </Button>
 
-            {!['SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'CAR_WASH_COMPLETED', 'DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && 
-             (isBatteryOrTire ? (
-               order.status === 'REACHED_CUSTOMER' && (order.prePickupPhotos?.length || 0) < 2
-             ) : (
-               !(isBattery && (order.status === 'STAFF_REACHED_MERCHANT' || order.status === 'INSTALLATION'))
-             )) && (
+            showUploadButton && !hasUploadedMaxPhotos && (
               <Button
                 size="lg"
                 variant="secondary"

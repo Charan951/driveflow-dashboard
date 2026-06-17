@@ -659,7 +659,7 @@ const AdminMerchantsPage: React.FC = () => {
                     </label>
                     <div className="relative">
                       <input
-                        type={showMerchantPassword ? 'password' : 'text'}
+                        type={showMerchantPassword ? 'text' : 'password'}
                         required
                         value={newMerchant.password}
                         onChange={(e) => setNewMerchant({ ...newMerchant, password: e.target.value })}

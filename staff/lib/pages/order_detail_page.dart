@@ -939,16 +939,25 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
     final currentPhotoCount = _currentPhasePhotoCount(booking);
     final hasRequiredPhotos = currentPhotoCount >= requiredPhotos;
-    bool shouldShowUpload =
-        allowedStatuses.contains(normalizedStatus) && !hasRequiredPhotos;
     final isBattery = isBatteryTire &&
         (booking.services?.any((s) =>
                 s['category']?.toString().toLowerCase().contains('battery') ??
                 false) ??
             false);
-    if (isBattery &&
-        (normalizedStatus == 'STAFF_REACHED_MERCHANT' ||
-            normalizedStatus == 'INSTALLATION')) {
+    bool shouldShowUpload = false;
+    if (isCarWash) {
+      shouldShowUpload = (normalizedStatus == 'REACHED_CUSTOMER' || normalizedStatus == 'CAR_WASH_STARTED');
+    } else if (isBatteryTire) {
+      if (normalizedStatus == 'REACHED_CUSTOMER') {
+        shouldShowUpload = true;
+      } else if (normalizedStatus == 'INSTALLATION') {
+        shouldShowUpload = !isBattery;
+      }
+    } else {
+      shouldShowUpload = (normalizedStatus == 'REACHED_CUSTOMER');
+    }
+
+    if (shouldShowUpload && hasRequiredPhotos) {
       shouldShowUpload = false;
     }
     final canShowPrimary = nextAction != null;

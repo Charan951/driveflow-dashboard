@@ -113,7 +113,7 @@ const AdminDashboard: React.FC = () => {
       color: 'bg-orange-500',
       lightColor: 'bg-orange-50',
       textColor: 'text-orange-600',
-      path: '/admin/bookings?status=active',
+      path: '/admin/bookings?status=new',
       count: stats.pendingBookings,
     },
     {

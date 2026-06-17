@@ -277,10 +277,14 @@ const MyBookingsPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span className={booking.discountAmount ? "text-muted-foreground line-through text-xs" : ""}>₹{booking.totalAmount}</span>
                         {booking.discountAmount ? (
-                          <span className="font-bold text-primary">₹{booking.finalAmount}</span>
-                        ) : null}
+                          <>
+                            <span className="text-muted-foreground line-through text-xs">₹{booking.totalAmount}</span>
+                            <span className="font-bold text-primary">₹{booking.finalAmount}</span>
+                          </>
+                        ) : (
+                          <span>₹{booking.billing?.total || booking.finalAmount || booking.totalAmount}</span>
+                        )}
                         {approvedPartsCount > 0 && (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <Wrench className="w-3 h-3" />
@@ -365,7 +369,14 @@ const MyBookingsPage = () => {
                       <div>
                         <p className="text-xs text-muted-foreground">Total Amount</p>
                         <div className="flex flex-col gap-1">
-                          <span className="text-sm font-medium">₹{booking.totalAmount}</span>
+                          {booking.discountAmount ? (
+                            <>
+                              <span className="text-xs text-muted-foreground line-through">₹{booking.totalAmount}</span>
+                              <span className="text-sm font-bold text-primary">₹{booking.finalAmount}</span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-medium">₹{booking.billing?.total || booking.finalAmount || booking.totalAmount}</span>
+                          )}
                           {approvedPartsCount > 0 && (
                             <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                               <Wrench className="w-3 h-3" />

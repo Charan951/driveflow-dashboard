@@ -317,7 +317,7 @@ const ProfilePage: React.FC = () => {
         </h3>
         <div className="space-y-3">
           {myVehicles.length > 0 ? (
-             myVehicles.slice(0, 2).map((v) => (
+             myVehicles.map((v) => (
                 <VehicleCard 
                   key={v._id} 
                   id={v._id} 

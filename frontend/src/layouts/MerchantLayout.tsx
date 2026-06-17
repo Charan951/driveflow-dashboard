@@ -46,6 +46,17 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  React.useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -60,9 +71,9 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
-      {/* Overlay */}
       {sidebarOpen && (
         <motion.div
+          style={{ overscrollBehavior: 'contain' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -71,8 +82,8 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
         />
       )}
 
-      {/* Sidebar */}
       <aside
+        style={{ overscrollBehavior: 'contain' }}
         className={cn(
           'fixed left-0 top-0 h-[100dvh] w-64 max-w-[85vw] bg-card border-r border-border z-50 transition-transform duration-300 flex flex-col overflow-hidden',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -95,7 +106,10 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
         </div>
 
         {/* Menu */}
-        <nav className="p-4 space-y-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <nav 
+          style={{ overscrollBehavior: 'contain' }}
+          className="p-4 space-y-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+        >
           {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -163,7 +177,10 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-full min-w-0">
+        <main className={cn(
+          "flex-1 overflow-x-hidden bg-muted/20 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-full min-w-0",
+          sidebarOpen ? "overflow-y-hidden" : "overflow-y-auto"
+        )}>
           <div className="max-w-full min-w-0 overflow-x-hidden">
             <PageTransition>
               {children || <Outlet />}

@@ -354,7 +354,7 @@ const AdminStaffPage: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Password (max 15 characters)</label>
                 <div className="relative">
                   <input
-                    type={showStaffPassword ? 'password' : 'text'}
+                    type={showStaffPassword ? 'text' : 'password'}
                     required
                     value={newStaff.password}
                     onChange={e => setNewStaff({...newStaff, password: e.target.value})}
@@ -367,7 +367,7 @@ const AdminStaffPage: React.FC = () => {
                     onClick={() => setShowStaffPassword(!showStaffPassword)}
                     className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
                   >
-                    {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showStaffPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
