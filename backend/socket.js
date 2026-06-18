@@ -139,8 +139,8 @@ export const initSocket = (server) => {
       socket.join(room);
 
       // Join role-specific sub-room for chat isolation
-      if (typeof room === 'string' && room.startsWith('booking_') && socket.user) {
-        const userRole = socket.user.role?.toLowerCase();
+      if (typeof room === 'string' && room.startsWith('booking_')) {
+        const userRole = socket.user?.role?.toLowerCase() || 'customer';
         if (userRole === 'customer') {
           socket.join(`${room}_customer`);
         } else if (userRole === 'merchant') {
@@ -371,19 +371,33 @@ export const initSocket = (server) => {
 
     // Handle chat messages
     socket.on('sendMessage', async (data) => {
-      if (!socket.user || !data.bookingId) return;
+      if (!data.bookingId) return;
       if (!data.text && !data.approval) return; // Must have either text or approval
 
       try {
+        let senderId;
+        if (socket.user) {
+          senderId = socket.user._id;
+        } else {
+          // Unauthenticated customer (viewing via tracking link)
+          // Find the customer ID linked to the booking
+          const booking = await Booking.findById(data.bookingId).select('user').lean();
+          if (!booking || !booking.user) {
+            console.error('Cannot send message: booking or booking user not found for ID', data.bookingId);
+            return;
+          }
+          senderId = booking.user;
+        }
+
         const messageData = {
           bookingId: data.bookingId,
-          sender: socket.user._id,
+          sender: senderId,
           text: data.text || (data.approval ? `Approval required for part: ${data.approval.partName}` : ''),
         };
 
         // Default recipientRole to isolate chats if not provided
         if (!data.recipientRole) {
-          const userRole = socket.user.role?.toLowerCase();
+          const userRole = socket.user?.role?.toLowerCase() || 'customer';
           if (userRole === 'customer') {
             // Customer messages should be visible to everyone (merchant, staff, admin)
             messageData.recipientRole = 'all';
@@ -421,26 +435,24 @@ export const initSocket = (server) => {
     });
 
     socket.on('getMessages', async (data) => {
-      if (!socket.user || !data.bookingId) return;
+      if (!data.bookingId) return;
 
       try {
         const query = { bookingId: data.bookingId };
         
         // Filter out messages not meant for the current user's role
-        if (socket.user) {
-          const userRole = socket.user.role?.toLowerCase();
-          if (userRole === 'merchant') {
-            // Merchants see messages to customers AND staff
-            query.recipientRole = { $in: ['all', 'customer', 'merchant', undefined, null] };
-          } else if (userRole === 'staff') {
-            // Drivers only see internal merchant-targeted messages
-            query.recipientRole = { $in: ['all', 'merchant', undefined, null] };
-          } else if (userRole === 'customer') {
-            // Customers only see customer-targeted messages
-            query.recipientRole = { $in: ['all', 'customer', undefined, null] };
-          }
-          // Admin can see everything (default query)
+        const userRole = socket.user?.role?.toLowerCase() || 'customer';
+        if (userRole === 'merchant') {
+          // Merchants see messages to customers AND staff
+          query.recipientRole = { $in: ['all', 'customer', 'merchant', undefined, null] };
+        } else if (userRole === 'staff') {
+          // Drivers only see internal merchant-targeted messages
+          query.recipientRole = { $in: ['all', 'merchant', undefined, null] };
+        } else if (userRole === 'customer') {
+          // Customers only see customer-targeted messages
+          query.recipientRole = { $in: ['all', 'customer', undefined, null] };
         }
+        // Admin can see everything (default query)
 
         const messages = await Message.find(query)
           .populate('sender', 'name role')

@@ -24,8 +24,10 @@ export const getApprovals = async () => {
   return response.data;
 };
 
-export const getMyApprovals = async () => {
-  const response = await api.get('/approvals/my-approvals');
+export const getMyApprovals = async (bookingId?: string) => {
+  const response = await api.get('/approvals/my-approvals', {
+    params: bookingId ? { bookingId } : undefined
+  });
   return response.data;
 };
 

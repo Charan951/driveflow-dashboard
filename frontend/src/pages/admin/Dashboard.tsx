@@ -113,7 +113,7 @@ const AdminDashboard: React.FC = () => {
       color: 'bg-orange-500',
       lightColor: 'bg-orange-50',
       textColor: 'text-orange-600',
-      path: '/admin/bookings?status=new',
+      path: '/admin/bookings?status=active',
       count: stats.pendingBookings,
     },
     {
@@ -280,7 +280,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center gap-4 shrink-0">
                   <div className="text-right">
                     <div className="font-semibold text-primary sm:text-foreground">
-                      ₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}
+                      ₹{booking.finalAmount || booking.billing?.total || (booking.totalAmount + (booking.gstAmount || 0))}
                     </div>
                     <div className="text-xs text-muted-foreground text-right">
                       {Array.isArray(booking.services) ? booking.services.length : 0} Services

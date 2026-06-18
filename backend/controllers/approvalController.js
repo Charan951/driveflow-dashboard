@@ -39,15 +39,35 @@ export const getApprovals = async (req, res) => {
 // @access  Private
 export const getMyApprovals = async (req, res) => {
   try {
-    const BookingModel = (await import('../models/Booking.js')).default;
-    const bookings = await BookingModel.find({ user: req.user._id }).select('_id');
-    const bookingIds = bookings.map(b => b._id);
-    
+    let bookingIds = [];
+    let userId = null;
+
+    if (req.user) {
+      userId = req.user._id;
+      const BookingModel = (await import('../models/Booking.js')).default;
+      const bookings = await BookingModel.find({ user: req.user._id }).select('_id');
+      bookingIds = bookings.map(b => b._id);
+    }
+
+    const { bookingId } = req.query;
+    if (bookingId) {
+      bookingIds.push(bookingId);
+    }
+
+    const queryConditions = [];
+    if (bookingIds.length > 0) {
+      queryConditions.push({ relatedModel: 'Booking', relatedId: { $in: bookingIds } });
+    }
+    if (userId) {
+      queryConditions.push({ relatedModel: 'User', relatedId: userId });
+    }
+
+    if (queryConditions.length === 0) {
+      return res.json([]);
+    }
+
     const approvals = await ApprovalRequest.find({
-      $or: [
-        { relatedModel: 'Booking', relatedId: { $in: bookingIds } },
-        { relatedModel: 'User', relatedId: req.user._id }
-      ]
+      $or: queryConditions
     }).sort({ createdAt: -1 });
 
     res.json(approvals);
@@ -218,24 +238,38 @@ export const updateApprovalStatus = async (req, res) => {
 
     // Check authorization
     let isAuthorized = false;
-    if (req.user.role === 'admin') {
+    let resolvedBy = null;
+
+    if (req.user) {
+      resolvedBy = req.user._id;
+      if (req.user.role === 'admin') {
         isAuthorized = true;
-    } else {
+      } else {
         // Check if user owns the related resource
         if (approval.relatedModel === 'Booking') {
-            const booking = await Booking.findById(approval.relatedId);
-            if (booking && booking.user.toString() === req.user._id.toString()) {
-                isAuthorized = true;
-            }
+          const booking = await Booking.findById(approval.relatedId);
+          if (booking && booking.user.toString() === req.user._id.toString()) {
+            isAuthorized = true;
+          }
         } else if (approval.relatedModel === 'User') {
-             if (approval.relatedId.toString() === req.user._id.toString()) {
-                 isAuthorized = true;
-             }
+          if (approval.relatedId.toString() === req.user._id.toString()) {
+            isAuthorized = true;
+          }
         }
+      }
+    } else {
+      // Unauthenticated request (e.g. guest customer on tracking page)
+      if (approval.relatedModel === 'Booking') {
+        const booking = await Booking.findById(approval.relatedId);
+        if (booking) {
+          isAuthorized = true;
+          resolvedBy = booking.user; // Resolve as the customer of the booking
+        }
+      }
     }
 
     if (!isAuthorized) {
-        return res.status(401).json({ message: 'Not authorized to update this approval' });
+      return res.status(401).json({ message: 'Not authorized to update this approval' });
     }
 
     if (approval.status !== 'Pending') {
@@ -245,7 +279,7 @@ export const updateApprovalStatus = async (req, res) => {
     approval.status = status;
     approval.adminComment = adminComment;
     approval.resolvedAt = Date.now();
-    approval.resolvedBy = req.user._id;
+    approval.resolvedBy = resolvedBy;
 
     // Update corresponding chat message
     try {

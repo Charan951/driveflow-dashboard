@@ -470,6 +470,19 @@ const BookingDetailPage: React.FC = () => {
 
   const handleAssignment = async () => {
     if (!booking) return;
+
+    if (isCarWashService) {
+      if (!selectedCarWashStaff) {
+        toast.error('Please select staff before saving assignments.');
+        return;
+      }
+    } else {
+      if (!selectedMerchant || !selectedDriver) {
+        toast.error('Both merchant and staff must be selected before saving assignments.');
+        return;
+      }
+    }
+
     try {
       let assignmentData = {};
 

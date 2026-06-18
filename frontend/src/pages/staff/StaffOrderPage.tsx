@@ -700,9 +700,10 @@ const StaffOrderPage: React.FC = () => {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0 && order) {
+      let loadingToast: string | number | undefined;
       try {
         const files = Array.from(e.target.files);
-        const loadingToast = toast.loading(`Uploading ${files.length} photo(s)...`);
+        loadingToast = toast.loading(`Uploading ${files.length} photo(s)...`);
         
         const uploadRes = await uploadService.uploadFiles(files);
         const newUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
@@ -716,6 +717,7 @@ const StaffOrderPage: React.FC = () => {
         toast.dismiss(loadingToast);
         toast.success(`${newUrls.length} photo(s) uploaded successfully`);
       } catch (error) {
+        if (loadingToast) toast.dismiss(loadingToast);
         console.error(error);
         toast.error('Failed to upload photo(s)');
       } finally {
@@ -751,9 +753,10 @@ const StaffOrderPage: React.FC = () => {
         )
       );
     
+    let loadingToast: string | number | undefined;
     try {
       setIsUploadingPrePickup(true);
-      const loadingToast = toast.loading(`Uploading ${files.length} photos...`);
+      loadingToast = toast.loading(`Uploading ${files.length} photos...`);
       let uploadedCarWashPhotoCount: number | null = null;
 
       if (isCarWashService) {
@@ -838,17 +841,15 @@ const StaffOrderPage: React.FC = () => {
             toast.error('You already uploaded before installation photos');
             return;
           }
-          const filesToUpload = files.slice(0, remaining);
           if (files.length > remaining) {
-            toast.warning(`Only ${remaining} more before installation photo(s) can be added`);
+            toast.dismiss(loadingToast);
+            toast.error(`You cannot upload more than ${BATTERY_BEFORE_PHOTOS_REQUIRED} before installation photos (Remaining: ${remaining})`);
+            return;
           }
 
-          const uploadRes = await uploadService.uploadFiles(filesToUpload);
+          const uploadRes = await uploadService.uploadFiles(files);
           const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
-          const updatedPhotos = [...existingPhotos, ...uploadedUrls].slice(
-            0,
-            BATTERY_BEFORE_PHOTOS_REQUIRED,
-          );
+          const updatedPhotos = [...existingPhotos, ...uploadedUrls];
           await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
           setOrder({ ...order, prePickupPhotos: updatedPhotos });
           if (updatedPhotos.length < BATTERY_BEFORE_PHOTOS_REQUIRED) {
@@ -866,17 +867,15 @@ const StaffOrderPage: React.FC = () => {
             toast.error('You already uploaded after service photos');
             return;
           }
-          const filesToUpload = files.slice(0, remaining);
           if (files.length > remaining) {
-            toast.warning(`Only ${remaining} more after service photo(s) can be added`);
+            toast.dismiss(loadingToast);
+            toast.error(`You cannot upload more than ${BATTERY_AFTER_PHOTOS_REQUIRED} after service photos (Remaining: ${remaining})`);
+            return;
           }
 
-          const uploadRes = await uploadService.uploadFiles(filesToUpload);
+          const uploadRes = await uploadService.uploadFiles(files);
           const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
-          const updatedPhotos = [...existingPhotos, ...uploadedUrls].slice(
-            0,
-            BATTERY_AFTER_PHOTOS_REQUIRED,
-          );
+          const updatedPhotos = [...existingPhotos, ...uploadedUrls];
           await bookingService.updateBookingDetails(order._id, {
             serviceExecution: {
               ...order.serviceExecution,
@@ -909,16 +908,17 @@ const StaffOrderPage: React.FC = () => {
           return;
         }
 
-        const filesToUpload = files.slice(0, remaining);
         if (files.length > remaining) {
-          toast.warning(`Only ${remaining} more pre-pickup photo(s) can be added`);
+          toast.dismiss(loadingToast);
+          toast.error(`You cannot upload more than 4 pre-pickup photos (Remaining: ${remaining})`);
+          return;
         }
 
-        const res = await uploadService.uploadFiles(filesToUpload);
+        const res = await uploadService.uploadFiles(files);
         const newUrls = (res.files || []).map((f: { url: string }) => f.url);
 
         // Regular service pre-pickup photos
-        const updatedPhotos = [...currentPhotos, ...newUrls].slice(0, 4);
+        const updatedPhotos = [...currentPhotos, ...newUrls];
 
         await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
         setOrder({ ...order, prePickupPhotos: updatedPhotos });
@@ -935,7 +935,8 @@ const StaffOrderPage: React.FC = () => {
           `${INCOMPLETE_CAR_WASH_PHOTOS_MESSAGE} (${uploadedCarWashPhotoCount}/${CAR_WASH_MIN_PHOTOS})`,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (loadingToast) toast.dismiss(loadingToast);
       console.error('Photo upload error:', error);
       toast.error(`Failed to upload photos: ${error.message || 'Unknown error'}`);
     } finally {

@@ -50,7 +50,9 @@ const MyPaymentsPage = () => {
       : 'Vehicle';
 
   const getAmount = (booking: Booking) =>
-    booking.billing?.total || booking.finalAmount || booking.totalAmount;
+    booking.discountAmount && booking.finalAmount !== undefined && booking.finalAmount !== null
+      ? booking.finalAmount
+      : (booking.billing?.total || booking.finalAmount || booking.totalAmount);
 
   if (loading) {
     return (

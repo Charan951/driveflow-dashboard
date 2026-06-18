@@ -58,7 +58,7 @@ const AdminMerchantDetailPage: React.FC = () => {
 
   if (!merchant) return null;
 
-  const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0)) || 0), 0);
+  const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.finalAmount || booking.billing?.total || (booking.totalAmount + (booking.gstAmount || 0)) || 0), 0);
   const activeOrders = bookings.filter(b => [
     'CREATED', 
     'ASSIGNED', 
@@ -255,7 +255,7 @@ const AdminMerchantDetailPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <span className="capitalize">{booking.status}</span>
                       </td>
-                      <td className="px-6 py-4 text-gray-900 dark:text-white">₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}</td>
+                      <td className="px-6 py-4 text-gray-900 dark:text-white">₹{booking.finalAmount || booking.billing?.total || (booking.totalAmount + (booking.gstAmount || 0))}</td>
                     </tr>
                   ))
                 )}

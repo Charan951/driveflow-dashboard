@@ -398,6 +398,24 @@ const isEssentialsBooking = async (booking) => {
   }
 };
 
+// Helper function to check if booking is for car wash or essentials service
+const isCarWashBooking = async (booking) => {
+  try {
+    const Service = (await import('../models/Service.js')).default;
+    const services = await Service.find({ _id: { $in: booking.services } });
+    return services.some(service => 
+      service.category && (
+        service.category.toLowerCase().includes('car wash') ||
+        service.category.toLowerCase() === 'wash' ||
+        service.category.toLowerCase().includes('essentials')
+      )
+    );
+  } catch (error) {
+    return false;
+  }
+};
+
+
 /** Greeting + automated status chat lines — run off the critical path so PUT /status returns quickly. */
 const queueChatAutomationForBookingStatus = (savedBooking, canonTo) => {
   const chatEnabledStatuses = ['SERVICE_STARTED', 'CAR_WASH_STARTED', 'INSTALLATION', 'On Hold'];
@@ -1179,6 +1197,21 @@ export const assignBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Validate assignments selection
+    const isCarWash = await isCarWashBooking(booking);
+    if (isCarWash) {
+      const hasStaff = carWashStaffId || (booking.carWash && booking.carWash.staffAssigned);
+      if (!hasStaff) {
+        return res.status(400).json({ message: 'Staff must be selected' });
+      }
+    } else {
+      const hasMerchant = merchantId || booking.merchant;
+      const hasStaff = driverId || technicianId || booking.pickupDriver || booking.technician;
+      if (!hasMerchant || !hasStaff) {
+        return res.status(400).json({ message: 'Both merchant and staff must be selected' });
+      }
+    }
 
     const updateData = {};
     if (slot) updateData.date = slot;
@@ -2018,9 +2051,16 @@ export const updateBookingDetails = async (req, res) => {
       if (media) booking.media = media;
       if (notes) booking.notes = notes;
       if (prePickupPhotos) {
-        booking.prePickupPhotos = Array.isArray(prePickupPhotos)
-          ? prePickupPhotos.slice(0, 4)
-          : prePickupPhotos;
+        const isBatteryTire = await isBatteryOrTireBooking(booking);
+        const maxPhotos = isBatteryTire ? 2 : 4;
+        if (Array.isArray(prePickupPhotos) && prePickupPhotos.length > maxPhotos) {
+          return res.status(400).json({ 
+            message: isBatteryTire 
+              ? `Cannot accept more than 2 photos for battery/tire services`
+              : `Cannot accept more than 4 photos for general services` 
+          });
+        }
+        booking.prePickupPhotos = prePickupPhotos;
       }
       
       if (inspection) {

@@ -333,7 +333,7 @@ const AdminUserDetailPage: React.FC = () => {
                               </span>
                             </td>
                               <td className="p-4 text-right font-medium">
-                                ₹{booking.billing?.total || booking.finalAmount || (booking.totalAmount + (booking.gstAmount || 0))}
+                                ₹{booking.finalAmount || booking.billing?.total || (booking.totalAmount + (booking.gstAmount || 0))}
                               </td>
                           </tr>
                         ))}

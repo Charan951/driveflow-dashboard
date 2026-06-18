@@ -620,12 +620,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'You can add only $remaining more photo(s) for this booking',
+            'You cannot upload more than $maxPhotos photos. (Remaining: $remaining)',
           ),
         ),
       );
+      return;
     }
-    final files = images.take(remaining).toList();
+    final files = images.toList();
     setState(() {
       _selectedPhotos = files;
     });

@@ -360,7 +360,7 @@ const TrackServicePage: React.FC = () => {
   const fetchPendingApprovals = useCallback(async () => {
     if (!order?._id) return;
     try {
-      const approvals = await getMyApprovals();
+      const approvals = await getMyApprovals(order._id);
       const filtered = approvals.filter((a) => {
         const rawRelated: unknown = a.relatedId as unknown;
         let relatedId = '';
@@ -899,7 +899,7 @@ const TrackServicePage: React.FC = () => {
 
         <div className="w-full space-y-6">
           {/* Car Wash Photos Section */}
-          {isCarWashService && (order.carWash?.beforeWashPhotos?.length || order.carWash?.afterWashPhotos?.length) && (
+          {isCarWashService && (Boolean(order.carWash?.beforeWashPhotos?.length) || Boolean(order.carWash?.afterWashPhotos?.length)) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

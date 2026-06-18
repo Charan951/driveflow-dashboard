@@ -203,7 +203,7 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
       name: '',
       price: 0,
       quantity: 1,
-      needsNewImage: false
+      needsNewImage: true
     }]);
   };
 
@@ -245,6 +245,43 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   };
 
   const handleUpload = async () => {
+    // 1. Validate After Service Photos (mandatory 4 photos for non-battery/tire services)
+    const isBatteryTire = booking?.batteryTire?.isBatteryTireService;
+    if (!isBatteryTire && existingAfter.length < 4) {
+      toast.error('Please upload all 4 after service photos before saving.');
+      return;
+    }
+
+    // 2. Validate new service parts (mandatory name, price, quantity, and after image)
+    for (let i = 0; i < serviceParts.length; i++) {
+      const part = serviceParts[i];
+      if (!part.name.trim()) {
+        toast.error('Please enter the name for all new parts');
+        return;
+      }
+      if (part.price <= 0) {
+        toast.error(`Please enter a valid price for part: ${part.name}`);
+        return;
+      }
+      if (part.quantity <= 0) {
+        toast.error(`Please enter a valid quantity for part: ${part.name}`);
+        return;
+      }
+      if (!part.image) {
+        toast.error(`Please upload the After Image for part: ${part.name}`);
+        return;
+      }
+    }
+
+    // 3. Validate existing service parts (mandatory after image)
+    for (let i = 0; i < existingServiceParts.length; i++) {
+      const part = existingServiceParts[i];
+      if (!part.image && !newImagesForExistingParts[i]) {
+        toast.error(`Please upload the After Image for existing part: ${part.name}`);
+        return;
+      }
+    }
+
     const savedAfterPhotos = booking?.serviceExecution?.afterPhotos ?? [];
     const afterPhotosUnchanged =
       existingAfter.length === savedAfterPhotos.length &&
@@ -263,10 +300,6 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
       }
       toast.info('No changes to save');
       return;
-    }
-
-    if (existingAfter.length < 4) {
-      toast.warning('Upload 4 after service photos, then save to continue to QC Check');
     }
     
     setLoading(true);

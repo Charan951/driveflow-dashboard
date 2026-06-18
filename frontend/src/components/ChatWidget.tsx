@@ -125,7 +125,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
     
     const handleReceiveMessage = (message: any) => {
         // Filter out messages not meant for the current user's role
-        const role = user?.role;
+        const role = user?.role || 'customer';
         const msgRecipientRole = message.recipientRole;
 
         if (msgRecipientRole === 'customer') {
@@ -162,7 +162,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
         }
 
         // Only increment unread if not self and chat is closed or minimized
-        const isSelf = String(message.sender._id) === String(user?._id);
+        const isSelf = user ? (String(message.sender._id) === String(user._id)) : (message.sender.role === 'customer');
         if (!isSelf && (!isOpenRef.current || isMinimizedRef.current)) {
           setUnreadCount(prev => prev + 1);
         }
@@ -172,7 +172,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
     };
 
     const handleLoadMessages = (loadedMessages: any[]) => {
-      const role = user?.role;
+      const role = user?.role || 'customer';
       const filteredMessages = loadedMessages.filter((msg: any) => {
         if (msg.recipientRole === 'customer') {
           return role !== 'merchant' && role !== 'staff';
@@ -241,15 +241,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
       _id: tempId,
       bookingId,
       sender: {
-        _id: user!._id,
-        name: user!.name,
-        role: user!.role,
+        _id: user?._id || 'guest-user',
+        name: user?.name || 'Customer',
+        role: user?.role || 'customer',
       },
       text: trimmedText,
       createdAt: new Date().toISOString(),
-      senderId: user!._id,
-      senderName: user!.name,
-      senderRole: user!.role,
+      senderId: user?._id || 'guest-user',
+      senderName: user?.name || 'Customer',
+      senderRole: user?.role || 'customer',
     };
     setMessages((prev) => [...prev, newMessage]);
 
@@ -347,7 +347,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                       </div>
                     ) : (
                       messages.map((msg) => {
-                        const isSelf = msg.sender._id === user?._id;
+                        const isSelf = user ? (msg.sender._id === user._id) : (msg.sender.role === 'customer');
                         return (
                           <div
                             key={msg._id}
@@ -380,7 +380,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                                 <p className="font-bold text-xs mb-0.5 break-words [overflow-wrap:anywhere]">{msg.approval.partName}</p>
                                   <p className="text-[10px] opacity-70 mb-2.5 font-medium">Amount: ₹{msg.approval.amount}</p>
                                   
-                                  {msg.approval.status === 'pending' && !isSelf && user?.role === 'customer' && (
+                                  {msg.approval.status === 'pending' && !isSelf && (user?.role === 'customer' || !user) && (
                                     <div className="flex gap-1.5">
                                       <button 
                                         onClick={() => handleApprove(msg.approval!.approvalId)}

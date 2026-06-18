@@ -5,17 +5,17 @@ import {
   updateApprovalStatus,
   getMyApprovals,
 } from '../controllers/approvalController.js';
-import { protect, admin } from '../middleware/authMiddleware.js';
+import { protect, admin, optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/my-approvals', protect, getMyApprovals);
+router.get('/my-approvals', optionalAuth, getMyApprovals);
 
 router.route('/')
   .get(protect, admin, getApprovals)
   .post(protect, createApproval);
 
 router.route('/:id')
-  .put(protect, updateApprovalStatus); // Removed 'admin' middleware
+  .put(optionalAuth, updateApprovalStatus); // Removed 'admin' middleware
 
 export default router;
