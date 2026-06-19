@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/hooks/use-tracking';
 import { socketService } from '@/services/socket';
 import { uploadService } from '@/services/uploadService';
-import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft, MessageCircle } from 'lucide-react';
+import { MapPin, Navigation, Phone, Car, Wrench, User, Calendar, Clock, AlertTriangle, Upload, CheckCircle, ArrowLeft, MessageCircle, X } from 'lucide-react';
 
 import * as turf from '@turf/turf';
 import { Button } from '@/components/ui/button';
@@ -730,6 +730,64 @@ const StaffOrderPage: React.FC = () => {
     prePickupInputRef.current?.click();
   };
 
+  const handleDeletePhoto = async (photoType: 'beforeWash' | 'afterWash' | 'prePickup' | 'afterPhotos' | 'media', index: number) => {
+    if (!order) return;
+    const loadingToast = toast.loading('Deleting photo...');
+    try {
+      if (photoType === 'beforeWash') {
+        const photos = [...(order.carWash?.beforeWashPhotos || [])];
+        photos.splice(index, 1);
+        const updatedBooking = await bookingService.updateBookingDetails(order._id, {
+          carWash: {
+            ...order.carWash,
+            beforeWashPhotos: photos
+          }
+        });
+        setOrder(updatedBooking);
+      } else if (photoType === 'afterWash') {
+        const photos = [...(order.carWash?.afterWashPhotos || [])];
+        photos.splice(index, 1);
+        const updatedBooking = await bookingService.updateBookingDetails(order._id, {
+          carWash: {
+            ...order.carWash,
+            afterWashPhotos: photos
+          }
+        });
+        setOrder(updatedBooking);
+      } else if (photoType === 'prePickup') {
+        const photos = [...(order.prePickupPhotos || [])];
+        photos.splice(index, 1);
+        const updatedBooking = await bookingService.updateBookingDetails(order._id, {
+          prePickupPhotos: photos
+        });
+        setOrder(updatedBooking);
+      } else if (photoType === 'afterPhotos') {
+        const photos = [...(order.serviceExecution?.afterPhotos || [])];
+        photos.splice(index, 1);
+        const updatedBooking = await bookingService.updateBookingDetails(order._id, {
+          serviceExecution: {
+            ...order.serviceExecution,
+            afterPhotos: photos
+          }
+        });
+        setOrder(updatedBooking);
+      } else if (photoType === 'media') {
+        const photos = [...(order.media || [])];
+        photos.splice(index, 1);
+        const updatedBooking = await bookingService.updateBookingDetails(order._id, {
+          media: photos
+        });
+        setOrder(updatedBooking);
+      }
+      toast.dismiss(loadingToast);
+      toast.success('Photo deleted successfully');
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      console.error('Failed to delete photo:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete photo');
+    }
+  };
+
   const handlePrePickupFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!order) return;
     if (!e.target.files || e.target.files.length === 0) return;
@@ -753,10 +811,78 @@ const StaffOrderPage: React.FC = () => {
         )
       );
     
+    // 1. Perform validations and slice files if necessary BEFORE showing loading toast
+    let filesToUpload = files;
+
+    if (isCarWashService) {
+      if (order.status === 'REACHED_CUSTOMER') {
+        const existingPhotos = Array.isArray(order.carWash?.beforeWashPhotos)
+          ? order.carWash.beforeWashPhotos
+          : [];
+        const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
+        if (remaining <= 0) {
+          toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} before wash photos`);
+          return;
+        }
+        filesToUpload = files.slice(0, remaining);
+      } else if (order.status === 'CAR_WASH_STARTED') {
+        const existingPhotos = Array.isArray(order.carWash?.afterWashPhotos)
+          ? order.carWash.afterWashPhotos
+          : [];
+        const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
+        if (remaining <= 0) {
+          toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} after wash photos`);
+          return;
+        }
+        filesToUpload = files.slice(0, remaining);
+      }
+    } else if (isBatteryTireService) {
+      if (order.status === 'REACHED_CUSTOMER') {
+        const existingPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+        const remaining = BATTERY_BEFORE_PHOTOS_REQUIRED - existingPhotos.length;
+        if (remaining <= 0) {
+          toast.error('You already uploaded before installation photos');
+          return;
+        }
+        if (files.length > remaining) {
+          toast.error(`You cannot upload more than ${BATTERY_BEFORE_PHOTOS_REQUIRED} before installation photos (Remaining: ${remaining})`);
+          return;
+        }
+      } else if (order.status === 'INSTALLATION') {
+        const existingPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
+          ? order.serviceExecution.afterPhotos
+          : [];
+        const remaining = BATTERY_AFTER_PHOTOS_REQUIRED - existingPhotos.length;
+        if (remaining <= 0) {
+          toast.error('You already uploaded after service photos');
+          return;
+        }
+        if (files.length > remaining) {
+          toast.error(`You cannot upload more than ${BATTERY_AFTER_PHOTOS_REQUIRED} after service photos (Remaining: ${remaining})`);
+          return;
+        }
+      } else {
+        toast.error('Photos cannot be uploaded at this stage');
+        return;
+      }
+    } else {
+      const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
+      const remaining = 4 - currentPhotos.length;
+      if (remaining <= 0) {
+        toast.error('You already uploaded 4 pre-pickup photos');
+        return;
+      }
+
+      if (files.length > remaining) {
+        toast.error(`You cannot upload more than 4 pre-pickup photos (Remaining: ${remaining})`);
+        return;
+      }
+    }
+
     let loadingToast: string | number | undefined;
     try {
       setIsUploadingPrePickup(true);
-      loadingToast = toast.loading(`Uploading ${files.length} photos...`);
+      loadingToast = toast.loading(`Uploading ${filesToUpload.length} photos...`);
       let uploadedCarWashPhotoCount: number | null = null;
 
       if (isCarWashService) {
@@ -766,12 +892,6 @@ const StaffOrderPage: React.FC = () => {
             ? order.carWash.beforeWashPhotos
             : [];
           const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
-          if (remaining <= 0) {
-            toast.dismiss(loadingToast);
-            toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} before wash photos`);
-            return;
-          }
-          const filesToUpload = files.slice(0, remaining);
           if (files.length > remaining) {
             toast.warning(`Only ${remaining} more before wash photo(s) can be added`);
           }
@@ -801,12 +921,6 @@ const StaffOrderPage: React.FC = () => {
             ? order.carWash.afterWashPhotos
             : [];
           const remaining = CAR_WASH_MAX_PHOTOS - existingPhotos.length;
-          if (remaining <= 0) {
-            toast.dismiss(loadingToast);
-            toast.error(`You already uploaded ${CAR_WASH_MAX_PHOTOS} after wash photos`);
-            return;
-          }
-          const filesToUpload = files.slice(0, remaining);
           if (files.length > remaining) {
             toast.warning(`Only ${remaining} more after wash photo(s) can be added`);
           }
@@ -835,19 +949,8 @@ const StaffOrderPage: React.FC = () => {
       } else if (isBatteryTireService) {
         if (order.status === 'REACHED_CUSTOMER') {
           const existingPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-          const remaining = BATTERY_BEFORE_PHOTOS_REQUIRED - existingPhotos.length;
-          if (remaining <= 0) {
-            toast.dismiss(loadingToast);
-            toast.error('You already uploaded before installation photos');
-            return;
-          }
-          if (files.length > remaining) {
-            toast.dismiss(loadingToast);
-            toast.error(`You cannot upload more than ${BATTERY_BEFORE_PHOTOS_REQUIRED} before installation photos (Remaining: ${remaining})`);
-            return;
-          }
 
-          const uploadRes = await uploadService.uploadFiles(files);
+          const uploadRes = await uploadService.uploadFiles(filesToUpload);
           const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
           const updatedPhotos = [...existingPhotos, ...uploadedUrls];
           await bookingService.updateBookingDetails(order._id, { prePickupPhotos: updatedPhotos });
@@ -861,19 +964,8 @@ const StaffOrderPage: React.FC = () => {
           const existingPhotos = Array.isArray(order.serviceExecution?.afterPhotos)
             ? order.serviceExecution.afterPhotos
             : [];
-          const remaining = BATTERY_AFTER_PHOTOS_REQUIRED - existingPhotos.length;
-          if (remaining <= 0) {
-            toast.dismiss(loadingToast);
-            toast.error('You already uploaded after service photos');
-            return;
-          }
-          if (files.length > remaining) {
-            toast.dismiss(loadingToast);
-            toast.error(`You cannot upload more than ${BATTERY_AFTER_PHOTOS_REQUIRED} after service photos (Remaining: ${remaining})`);
-            return;
-          }
 
-          const uploadRes = await uploadService.uploadFiles(files);
+          const uploadRes = await uploadService.uploadFiles(filesToUpload);
           const uploadedUrls = (uploadRes.files || []).map((f: { url: string }) => f.url);
           const updatedPhotos = [...existingPhotos, ...uploadedUrls];
           await bookingService.updateBookingDetails(order._id, {
@@ -894,27 +986,11 @@ const StaffOrderPage: React.FC = () => {
               `${BATTERY_AFTER_PHOTOS_MESSAGE} (${updatedPhotos.length}/${BATTERY_AFTER_PHOTOS_REQUIRED})`,
             );
           }
-        } else {
-          toast.dismiss(loadingToast);
-          toast.error('Photos cannot be uploaded at this stage');
-          return;
         }
       } else {
         const currentPhotos = Array.isArray(order.prePickupPhotos) ? order.prePickupPhotos : [];
-        const remaining = 4 - currentPhotos.length;
-        if (remaining <= 0) {
-          toast.dismiss(loadingToast);
-          toast.error('You already uploaded 4 pre-pickup photos');
-          return;
-        }
 
-        if (files.length > remaining) {
-          toast.dismiss(loadingToast);
-          toast.error(`You cannot upload more than 4 pre-pickup photos (Remaining: ${remaining})`);
-          return;
-        }
-
-        const res = await uploadService.uploadFiles(files);
+        const res = await uploadService.uploadFiles(filesToUpload);
         const newUrls = (res.files || []).map((f: { url: string }) => f.url);
 
         // Regular service pre-pickup photos
@@ -925,7 +1001,7 @@ const StaffOrderPage: React.FC = () => {
       }
       
       toast.dismiss(loadingToast);
-      toast.success(`${files.length} photo(s) uploaded successfully`);
+      toast.success(`${filesToUpload.length} photo(s) uploaded successfully`);
 
       if (
         uploadedCarWashPhotoCount !== null &&
@@ -1412,8 +1488,19 @@ const StaffOrderPage: React.FC = () => {
                     {beforeWashPhotos.length > 0 ? (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                         {beforeWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
-                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Before ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('beforeWash', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -1436,8 +1523,19 @@ const StaffOrderPage: React.FC = () => {
                     {afterWashPhotos.length > 0 ? (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                         {afterWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
-                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('afterWash', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -1460,8 +1558,19 @@ const StaffOrderPage: React.FC = () => {
                     {order.prePickupPhotos && order.prePickupPhotos.length > 0 ? (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                         {order.prePickupPhotos.slice(0, BATTERY_BEFORE_PHOTOS_REQUIRED).map((url, index) => (
-                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Before ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('prePickup', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -1480,8 +1589,19 @@ const StaffOrderPage: React.FC = () => {
                       {order.serviceExecution?.afterPhotos && order.serviceExecution.afterPhotos.length > 0 ? (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                           {order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
-                            <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                            <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted group">
                               <img src={url} alt={`After ${index + 1}`} className="w-full h-12 sm:h-16 object-cover" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto('afterPhotos', index);
+                                }}
+                                className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                                title="Delete photo"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1508,13 +1628,24 @@ const StaffOrderPage: React.FC = () => {
                   {order.prePickupPhotos.slice(0, isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4).map((url, index) => (
                     <div
                       key={index}
-                      className="relative rounded-lg overflow-hidden border border-border bg-muted"
+                      className="relative rounded-lg overflow-hidden border border-border bg-muted group"
                     >
                       <img
                         src={url}
                         alt={`Pre-pickup ${index + 1}`}
                         className="w-full h-12 sm:h-16 object-cover"
                       />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePhoto('prePickup', index);
+                        }}
+                        className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                        title="Delete photo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1666,8 +1797,19 @@ const StaffOrderPage: React.FC = () => {
                     <div className="grid grid-cols-4 gap-2">
                       {order.carWash?.beforeWashPhotos && order.carWash.beforeWashPhotos.length > 0 ? (
                         order.carWash.beforeWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
-                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Before ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('beforeWash', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         ))
                       ) : (
@@ -1705,8 +1847,19 @@ const StaffOrderPage: React.FC = () => {
                     <div className="grid grid-cols-4 gap-2">
                       {order.carWash?.afterWashPhotos && order.carWash.afterWashPhotos.length > 0 ? (
                         order.carWash.afterWashPhotos.slice(0, CAR_WASH_MAX_PHOTOS).map((url, index) => (
-                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`After ${isEssentials ? 'service' : 'wash'} ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('afterWash', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         ))
                       ) : (
@@ -1766,6 +1919,17 @@ const StaffOrderPage: React.FC = () => {
                         order.prePickupPhotos.slice(0, isBatteryOrTire ? BATTERY_BEFORE_PHOTOS_REQUIRED : 4).map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('prePickup', index);
+                              }}
+                              className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                             {isBatteryOrTire && (
                               <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
                                 {getBatteryBeforePhotoLabel(index)}
@@ -1809,6 +1973,17 @@ const StaffOrderPage: React.FC = () => {
                           order.serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED).map((url, index) => (
                             <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group">
                               <img src={url} alt={`After service ${index + 1}`} className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto('afterPhotos', index);
+                                }}
+                                className="absolute top-1 right-1 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors"
+                                title="Delete photo"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
                               <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] text-center py-0.5">
                                 {getBatteryAfterPhotoLabel(index)}
                               </div>
@@ -1827,8 +2002,19 @@ const StaffOrderPage: React.FC = () => {
                     {order.media && order.media.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3">
                         {order.media.map((url, index) => (
-                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                          <div key={index} className="relative rounded-lg overflow-hidden border border-border bg-muted group">
                             <img src={url} alt={`Order media ${index + 1}`} className="w-full h-32 object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePhoto('media', index);
+                              }}
+                              className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md transition-colors"
+                              title="Delete photo"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         ))}
                       </div>

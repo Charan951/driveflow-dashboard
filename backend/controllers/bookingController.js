@@ -2050,6 +2050,16 @@ export const updateBookingDetails = async (req, res) => {
 
       if (media) booking.media = media;
       if (notes) booking.notes = notes;
+      if (req.body.carWash) {
+        if (!booking.carWash) booking.carWash = { isCarWashService: true };
+        if (Array.isArray(req.body.carWash.beforeWashPhotos)) {
+          booking.carWash.beforeWashPhotos = req.body.carWash.beforeWashPhotos;
+        }
+        if (Array.isArray(req.body.carWash.afterWashPhotos)) {
+          booking.carWash.afterWashPhotos = req.body.carWash.afterWashPhotos;
+        }
+        booking.markModified('carWash');
+      }
       if (prePickupPhotos) {
         const isBatteryTire = await isBatteryOrTireBooking(booking);
         const maxPhotos = isBatteryTire ? 2 : 4;

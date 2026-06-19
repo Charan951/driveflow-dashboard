@@ -164,6 +164,7 @@ export interface BookingDetailsUpdate {
   billing?: Booking['billing'];
   revisit?: Booking['revisit'];
   prePickupPhotos?: Booking['prePickupPhotos'];
+  carWash?: Booking['carWash'];
 }
 
 export interface SlotAvailabilityResponse {
