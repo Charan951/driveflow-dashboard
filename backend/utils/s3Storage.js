@@ -48,8 +48,36 @@ export const saveDataToS3 = async (fileKey, data) => {
   }
 };
 
-export const getVehicleDataFromS3 = () => getDataFromS3('vehicle_reference_data.json').then(res => res || []);
-export const saveVehicleDataToS3 = (data) => saveDataToS3('vehicle_reference_data.json', data);
+let vehicleDataCache = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL
+
+export const getVehicleDataFromS3 = async () => {
+  const now = Date.now();
+  if (vehicleDataCache && (now - lastFetchTime < CACHE_TTL)) {
+    return vehicleDataCache;
+  }
+
+  try {
+    const res = await getDataFromS3('vehicle_reference_data.json');
+    vehicleDataCache = res || [];
+    lastFetchTime = now;
+    return vehicleDataCache;
+  } catch (error) {
+    if (vehicleDataCache) {
+      console.warn('Error fetching from S3, using expired cache:', error);
+      return vehicleDataCache;
+    }
+    throw error;
+  }
+};
+
+export const saveVehicleDataToS3 = async (data) => {
+  await saveDataToS3('vehicle_reference_data.json', data);
+  vehicleDataCache = data;
+  lastFetchTime = Date.now();
+};
+
 
 const streamToString = (stream) =>
   new Promise((resolve, reject) => {

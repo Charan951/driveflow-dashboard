@@ -286,9 +286,45 @@ export const updateApprovalStatus = async (req, res) => {
         const chatMessage = await Message.findOne({ 'approval.approvalId': approval._id });
         if (chatMessage) {
             chatMessage.approval.status = status.toLowerCase();
+            if (status === 'Rejected' && adminComment) {
+                chatMessage.text = `${chatMessage.text}\nRejection Reason: ${adminComment}`;
+            }
             await chatMessage.save();
             const populated = await chatMessage.populate('sender', '_id name role');
             emitChatMessage(approval.relatedId, populated);
+        }
+
+        // Post a new message in the chat box to reflect the outcome and rejection reason
+        const booking = await Booking.findById(approval.relatedId);
+        const partName = approval.data?.name || 'Additional Part';
+        const senderId = resolvedBy || (booking ? booking.user : null) || req.user?._id;
+
+        if (senderId) {
+            if (status === 'Rejected') {
+                const rejectionText = `❌ Rejected part request: ${partName}${adminComment ? ` - Reason: ${adminComment}` : ''}`;
+                const rejectionMessage = new Message({
+                    bookingId: approval.relatedId,
+                    sender: senderId,
+                    text: rejectionText,
+                    type: 'text',
+                    recipientRole: 'all'
+                });
+                await rejectionMessage.save();
+                const populatedRejection = await rejectionMessage.populate('sender', '_id name role');
+                emitChatMessage(approval.relatedId, populatedRejection);
+            } else if (status === 'Approved') {
+                const approvalText = `✅ Approved part request: ${partName}`;
+                const approvalMessage = new Message({
+                    bookingId: approval.relatedId,
+                    sender: senderId,
+                    text: approvalText,
+                    type: 'text',
+                    recipientRole: 'all'
+                });
+                await approvalMessage.save();
+                const populatedApproval = await approvalMessage.populate('sender', '_id name role');
+                emitChatMessage(approval.relatedId, populatedApproval);
+            }
         }
     } catch (err) {
         console.error('Error updating chat message for approval:', err);

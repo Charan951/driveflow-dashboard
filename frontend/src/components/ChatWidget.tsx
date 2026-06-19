@@ -17,7 +17,7 @@ If you have any questions, need assistance, or want to follow up on a request, f
 Thank you for choosing Carzzi 🙌`;
 
 // This should ideally come from a config or backend, but for now, we'll use a placeholder
-const CARZZI_SENDER_ID = 'carzzi-system-user'; 
+const CARZZI_SENDER_ID = 'carzzi-system-user';
 const CARZZI_SENDER_NAME = 'Carzzi';
 const CARZZI_SENDER_ROLE = 'system';
 
@@ -63,6 +63,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
   const [inputText, setInputText] = useState('');
   const [isConnected, setIsConnected] = useState(socketService.isConnected());
   const [hasSentGreeting, setHasSentGreeting] = useState(false);
+  const [processingApprovalId, setProcessingApprovalId] = useState<string | null>(null);
   const { user } = useAuthStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,7 +75,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
   useEffect(() => {
     isOpenRef.current = isOpen;
     isMinimizedRef.current = isMinimized;
-    
+
     // Reset unread count when chat is opened and not minimized
     if (isOpen && !isMinimized) {
       setUnreadCount(0);
@@ -87,7 +88,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
     socketService.on('disconnect', handleStatus);
     // Initial check
     handleStatus();
-    
+
     return () => {
       socketService.off('connect', handleStatus);
       socketService.off('disconnect', handleStatus);
@@ -122,23 +123,23 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
 
     socketService.connect();
     socketService.joinRoom(`booking_${bookingId}`);
-    
+
     const handleReceiveMessage = (message: any) => {
-        // Filter out messages not meant for the current user's role
-        const role = user?.role || 'customer';
-        const msgRecipientRole = message.recipientRole;
+      // Filter out messages not meant for the current user's role
+      const role = user?.role || 'customer';
+      const msgRecipientRole = message.recipientRole;
 
-        if (msgRecipientRole === 'customer') {
-          if (role === 'merchant' || role === 'staff') {
-            return;
-          }
-        } else if (msgRecipientRole === 'merchant') {
-          if (role === 'customer') {
-            return;
-          }
+      if (msgRecipientRole === 'customer') {
+        if (role === 'merchant' || role === 'staff') {
+          return;
         }
+      } else if (msgRecipientRole === 'merchant') {
+        if (role === 'customer') {
+          return;
+        }
+      }
 
-        setMessages((prev) => {
+      setMessages((prev) => {
         // 1. Check if we already have this message (by real ID)
         const existingIndex = prev.findIndex(m => m._id === message._id);
         if (existingIndex !== -1) {
@@ -190,8 +191,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
       }
     };
 
+    const handleSyncMessages = () => {
+      socketService.emit('getMessages', { bookingId });
+    };
+
     socketService.on('receiveMessage', handleReceiveMessage);
     socketService.on('loadMessages', handleLoadMessages);
+    socketService.on('bookingUpdated', handleSyncMessages);
+    socketService.on('newApproval', handleSyncMessages);
 
     // Emit after listeners are attached
     socketService.emit('getMessages', { bookingId });
@@ -199,6 +206,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
     return () => {
       socketService.off('receiveMessage', handleReceiveMessage);
       socketService.off('loadMessages', handleLoadMessages);
+      socketService.off('bookingUpdated', handleSyncMessages);
+      socketService.off('newApproval', handleSyncMessages);
       socketService.leaveRoom(`booking_${bookingId}`);
     };
   }, [bookingId, chatActive]);
@@ -209,7 +218,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
       const timer1 = setTimeout(scrollToBottom, 100);
       const timer2 = setTimeout(scrollToBottom, 300);
       const timer3 = setTimeout(scrollToBottom, 600);
-      
+
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
@@ -257,33 +266,41 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
   };
 
   const handleApprove = async (approvalId: string) => {
+    if (processingApprovalId) return;
+    setProcessingApprovalId(approvalId);
     try {
       await updateApprovalStatus(approvalId, 'Approved');
       toast.success('Part approved');
       if (onUpdate) onUpdate();
     } catch (err) {
       toast.error('Failed to approve part');
+    } finally {
+      setProcessingApprovalId(null);
     }
   };
 
   const handleReject = async (approvalId: string) => {
+    if (processingApprovalId) return;
     const reason = window.prompt('Please provide a reason for rejection (optional):');
     if (reason === null) return;
+    setProcessingApprovalId(approvalId);
     try {
       await updateApprovalStatus(approvalId, 'Rejected', reason || undefined);
       toast.success('Part rejected');
       if (onUpdate) onUpdate();
     } catch (err) {
       toast.error('Failed to reject part');
+    } finally {
+      setProcessingApprovalId(null);
     }
   };
 
   return (
     <>
       {isPartModalOpen && (
-        <AddPartModal 
-          bookingId={bookingId} 
-          onClose={() => setIsPartModalOpen(false)} 
+        <AddPartModal
+          bookingId={bookingId}
+          onClose={() => setIsPartModalOpen(false)}
           onUpdate={() => {
             if (onUpdate) onUpdate();
           }}
@@ -295,8 +312,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{
-                opacity: 1, 
-                scale: 1, 
+                opacity: 1,
+                scale: 1,
                 y: 0,
                 height: isMinimized ? '44px' : '400px'
               }}
@@ -334,7 +351,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
               {!isMinimized && (
                 <>
                   {/* Messages */}
-                  <div 
+                  <div
                     ref={scrollRef}
                     className="flex-1 w-full overflow-y-auto p-2.5 space-y-2.5 bg-muted/20"
                   >
@@ -368,29 +385,31 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                               {msg.type === 'approval' && msg.approval && (
                                 <div className={cn(
                                   "mt-2 p-2.5 rounded-lg border transition-all",
-                                  msg.approval.status === 'pending' 
-                                    ? "bg-yellow-500/5 border-yellow-500/20" 
+                                  msg.approval.status === 'pending'
+                                    ? "bg-yellow-500/5 border-yellow-500/20"
                                     : msg.approval.status === 'approved'
                                       ? "bg-green-500/5 border-green-500/20"
                                       : "bg-red-500/5 border-red-500/20"
                                 )}>
                                   {msg.approval.image && (
-                                  <img src={msg.approval.image} alt={msg.approval.partName} className="rounded-md my-1.5 w-full object-cover max-h-32" />
-                                )}
-                                <p className="font-bold text-xs mb-0.5 break-words [overflow-wrap:anywhere]">{msg.approval.partName}</p>
+                                    <img src={msg.approval.image} alt={msg.approval.partName} className="rounded-md my-1.5 w-full object-cover max-h-32" />
+                                  )}
+                                  <p className="font-bold text-xs mb-0.5 break-words [overflow-wrap:anywhere]">{msg.approval.partName}</p>
                                   <p className="text-[10px] opacity-70 mb-2.5 font-medium">Amount: ₹{msg.approval.amount}</p>
-                                  
+
                                   {msg.approval.status === 'pending' && !isSelf && (user?.role === 'customer' || !user) && (
                                     <div className="flex gap-1.5">
-                                      <button 
+                                      <button
+                                        disabled={processingApprovalId === msg.approval!.approvalId}
                                         onClick={() => handleApprove(msg.approval!.approvalId)}
-                                        className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-[10px] font-bold transition-colors shadow-sm"
+                                        className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-[10px] font-bold transition-colors shadow-sm disabled:opacity-50"
                                       >
-                                        Approve
+                                        {processingApprovalId === msg.approval!.approvalId ? '...' : 'Approve'}
                                       </button>
-                                      <button 
+                                      <button
+                                        disabled={processingApprovalId === msg.approval!.approvalId}
                                         onClick={() => handleReject(msg.approval!.approvalId)}
-                                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-[10px] font-bold transition-colors shadow-sm"
+                                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-[10px] font-bold transition-colors shadow-sm disabled:opacity-50"
                                       >
                                         Reject
                                       </button>
@@ -420,12 +439,12 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                   </div>
 
                   {/* Input */}
-                  <form 
+                  <form
                     onSubmit={handleSendMessage}
                     className="w-full p-2 bg-card border-t border-border flex items-center gap-1.5"
                   >
                     {user?.role === 'merchant' && (
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setIsPartModalOpen(true)}
                         className="p-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
@@ -433,15 +452,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
                         <Plus className="w-3 h-3" />
                       </button>
                     )}
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       placeholder="Type message..."
                       maxLength={MAX_CHAT_MESSAGE_LENGTH}
                       className="flex-1 bg-muted/50 border-none rounded-lg px-2.5 py-1.5 text-[11px] focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                     />
-                    <button 
+                    <button
                       type="submit"
                       disabled={!inputText.trim()}
                       className="p-1.5 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20"

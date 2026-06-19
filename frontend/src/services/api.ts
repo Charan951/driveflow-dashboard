@@ -33,7 +33,9 @@ api.interceptors.request.use((config) => {
       '/careers',
       '/upload/public',
       '/upload/presigned-url/public',
-      '/tickets/public'
+      '/tickets/public',
+      '/bookings/',
+      '/approvals/'
     ];
     
     const isPublicRequest = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
