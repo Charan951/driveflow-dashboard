@@ -280,11 +280,12 @@ const StaffOrderPage: React.FC = () => {
         } else if (newStatus === 'DELIVERED') {
           // For car wash services, generate OTP first (only if not already generated), then ask for verification
           try {
-            // Check if OTP already exists
-            if (!order.deliveryOtp?.code) {
+            // Check if OTP already exists and is still valid
+            const hasValidOtp = order.deliveryOtp?.expiresAt && new Date(order.deliveryOtp.expiresAt) > new Date();
+            if (!hasValidOtp) {
               await bookingService.generateDeliveryOtp(order._id);
               
-              // Refresh order to get the OTP
+              // Refresh order to get the updated status and expiry
               const refreshedOrder = await bookingService.getBookingById(order._id);
               latestBooking = refreshedOrder;
               setOrder(refreshedOrder);
@@ -334,8 +335,9 @@ const StaffOrderPage: React.FC = () => {
           }
           // For battery/tire delivery, generate OTP first
           try {
-            // Check if OTP already exists
-            if (!order.deliveryOtp?.code) {
+            // Check if OTP already exists and is still valid
+            const hasValidOtp = order.deliveryOtp?.expiresAt && new Date(order.deliveryOtp.expiresAt) > new Date();
+            if (!hasValidOtp) {
               await bookingService.generateDeliveryOtp(order._id);
             }
             

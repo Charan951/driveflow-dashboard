@@ -221,7 +221,7 @@ const bookingSchema = mongoose.Schema(
       type: Date,
     },
     deliveryOtp: {
-      code: { type: String },
+      code: { type: String, select: false },
       expiresAt: { type: Date },
       attempts: { type: Number, default: 0 },
       verifiedAt: { type: Date },

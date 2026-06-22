@@ -9,6 +9,7 @@ import {
 } from '../utils/orderPricing.js';
 import { logAudit } from './auditController.js';
 import { isValidDate } from '../utils/validation.js';
+import { sanitizeBooking } from './bookingController.js';
 
 export const createOrder = async (req, res) => {
   try {
@@ -78,6 +79,9 @@ export const verifyPayment = async (req, res) => {
       },
       ipAddress: req.ip
     });
+    if (result && result.booking) {
+      result.booking = sanitizeBooking(result.booking, req.user);
+    }
     res.json({ success: true, message: 'Payment status synced', data: result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message || 'Payment verification failed' });

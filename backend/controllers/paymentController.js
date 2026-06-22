@@ -2,7 +2,7 @@ import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import Payment from '../models/Payment.js';
 import crypto from 'crypto';
-import { emitBookingUpdate } from './bookingController.js';
+import { emitBookingUpdate, sanitizeBooking } from './bookingController.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import paymentService from '../services/paymentService.js';
 import { logAudit } from './auditController.js';
@@ -109,6 +109,7 @@ export const verifyPayment = async (req, res) => {
 
     if (booking) {
       const populated = await Booking.findById(booking._id)
+        .select('+deliveryOtp.code')
         .populate('user', 'id name email phone')
         .populate('vehicle')
         .populate('services')
@@ -137,7 +138,7 @@ export const verifyPayment = async (req, res) => {
       message: 'Payment verification synced successfully',
       data: {
         payment,
-        booking,
+        booking: sanitizeBooking(booking, req.user),
         orderId,
         status: payment?.status || 'pending',
       },

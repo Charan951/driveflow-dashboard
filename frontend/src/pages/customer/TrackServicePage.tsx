@@ -71,6 +71,15 @@ const mergePhotoUrlLists = (previous: string[] = [], incoming: string[] = []): s
 };
 
 const mergeBookingCarWashPhotos = (previous: Booking | null, incoming: Booking): Booking => {
+  if (previous && previous._id === incoming._id) {
+    if (previous.deliveryOtp?.code && !incoming.deliveryOtp?.code) {
+      incoming.deliveryOtp = {
+        ...incoming.deliveryOtp,
+        code: previous.deliveryOtp.code
+      };
+    }
+  }
+
   if (!previous?.carWash || !incoming.carWash || previous._id !== incoming._id) {
     return incoming;
   }

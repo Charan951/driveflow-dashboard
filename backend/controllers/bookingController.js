@@ -19,6 +19,36 @@ import crypto from 'crypto';
 import Message from '../models/Message.js';
 import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDisplay.js';
 
+export const sanitizeBooking = (booking, currentUser) => {
+  if (!booking) return booking;
+
+  // Convert mongoose document to plain object if it is one
+  const bookingObj = typeof booking.toObject === 'function'
+    ? booking.toObject({ virtuals: true })
+    : (booking.toJSON ? booking.toJSON() : { ...booking });
+
+  if (bookingObj.deliveryOtp) {
+    const bookingUser = bookingObj.user;
+    const bookingUserId = bookingUser && typeof bookingUser === 'object' && bookingUser._id
+      ? bookingUser._id
+      : bookingUser;
+
+    const currentUserId = currentUser && typeof currentUser === 'object' && currentUser._id
+      ? currentUser._id
+      : currentUser;
+
+    const isOwner = bookingUserId && currentUserId && bookingUserId.toString() === currentUserId.toString();
+
+    if (!isOwner) {
+      bookingObj.deliveryOtp = {
+        ...bookingObj.deliveryOtp,
+        code: undefined
+      };
+    }
+  }
+  return bookingObj;
+};
+
 const SLOT_INTERVAL_MINUTES = 30;
 const SLOT_START_HOUR = 8;
 const SLOT_END_HOUR = 19;
@@ -285,13 +315,16 @@ export const emitBookingUpdate = (booking) => {
     const io = getIO();
     const bookingId = booking._id.toString();
     const payload = attachHealthPercentToBookingPayload(booking);
+    
+    // Clean payload for shared / non-owner rooms (e.g. staff/merchant/public)
+    const cleanPayload = sanitizeBooking(payload, null);
 
     // Notify admin
-    io.to('admin').emit('bookingUpdated', payload);
+    io.to('admin').emit('bookingUpdated', cleanPayload);
 
     // Also notify admin specifically about new bookings
     if (booking.status === 'CREATED') {
-      io.to('admin').emit('bookingCreated', payload);
+      io.to('admin').emit('bookingCreated', cleanPayload);
 
       // Save notification to history and send push to admins
       sendPushToRole(
@@ -302,7 +335,7 @@ export const emitBookingUpdate = (booking) => {
         'order'
       );
     } else if (booking.status === 'CANCELLED') {
-      io.to('admin').emit('bookingCancelled', payload);
+      io.to('admin').emit('bookingCancelled', cleanPayload);
 
       sendPushToRole(
         'admin',
@@ -314,7 +347,7 @@ export const emitBookingUpdate = (booking) => {
     }
 
     // Notify specific booking room
-    io.to(`booking_${bookingId}`).emit('bookingUpdated', payload);
+    io.to(`booking_${bookingId}`).emit('bookingUpdated', cleanPayload);
 
     // Notify relevant users
     const usersToNotify = [
@@ -327,16 +360,18 @@ export const emitBookingUpdate = (booking) => {
 
     usersToNotify.forEach(userId => {
       const room = `user_${userId.toString()}`;
-      io.to(room).emit('bookingUpdated', payload);
+      // Sanitize specifically for this user! If this user is the customer/owner, they get the code.
+      const userPayload = sanitizeBooking(payload, { _id: userId });
+      io.to(room).emit('bookingUpdated', userPayload);
       // Only emit bookingCreated for a true new booking — not on every status sync
       // (was causing duplicate "New Booking" client notifications per update).
       if (booking.status === 'CREATED') {
-        io.to(room).emit('bookingCreated', payload);
+        io.to(room).emit('bookingCreated', userPayload);
       }
     });
 
     // Global Real-time Sync
-    emitEntitySync('booking', booking.status === 'CREATED' ? 'created' : 'updated', payload);
+    emitEntitySync('booking', booking.status === 'CREATED' ? 'created' : 'updated', cleanPayload);
   } catch (err) {
     // Error handling
   }
@@ -985,6 +1020,7 @@ export const getMyBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
+      .select('+deliveryOtp.code')
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('vehicle')
@@ -995,7 +1031,9 @@ export const getMyBookings = async (req, res) => {
       .populate('carWash.staffAssigned', 'name email phone')
       .populate('coupon')
       .lean();
-    res.json(bookings);
+    
+    const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
+    res.json(sanitizedBookings);
   } catch (error) {
     
     res.status(500).json({ message: error.message });
@@ -1044,12 +1082,15 @@ export const getUserBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
+      .select('+deliveryOtp.code')
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('vehicle')
       .populate('services')
       .lean();
-    res.json(bookings);
+    
+    const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
+    res.json(sanitizedBookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1075,12 +1116,15 @@ export const getVehicleBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find({ vehicle: vehicleId })
+      .select('+deliveryOtp.code')
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('user', 'id name email')
       .populate('services')
       .lean();
-    res.json(bookings);
+    
+    const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
+    res.json(sanitizedBookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1097,13 +1141,16 @@ export const getMerchantBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find({ merchant: req.params.merchantId })
+      .select('+deliveryOtp.code')
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('user', 'id name email')
       .populate('vehicle', 'make model licensePlate')
       .populate('services')
       .lean();
-    res.json(bookings);
+    
+    const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
+    res.json(sanitizedBookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1122,6 +1169,7 @@ export const getAllBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
+      .select('+deliveryOtp.code')
       .sort({ createdAt: -1 })
       .limit(200)
       .populate('user', 'id name email phone')
@@ -1131,7 +1179,9 @@ export const getAllBookings = async (req, res) => {
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
       .lean();
-    res.json(bookings);
+    
+    const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
+    res.json(sanitizedBookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1143,6 +1193,7 @@ export const getAllBookings = async (req, res) => {
 export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
+      .select('+deliveryOtp.code')
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')
@@ -1164,15 +1215,20 @@ export const getBookingById = async (req, res) => {
           (booking.carWash?.staffAssigned && booking.carWash.staffAssigned._id.toString() === req.user._id.toString())
         );
         
+        let payload = attachHealthPercentToBookingPayload(booking);
+        payload = sanitizeBooking(payload, req.user);
+        
         if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
-          res.json(attachHealthPercentToBookingPayload(booking));
+          res.json(payload);
         } else {
           // If authenticated but not authorized, still allow public access (for tracking)
-          res.json(attachHealthPercentToBookingPayload(booking));
+          res.json(payload);
         }
       } else {
         // Public access - allow anyone to view the booking via the tracking link
-        res.json(attachHealthPercentToBookingPayload(booking));
+        let payload = attachHealthPercentToBookingPayload(booking);
+        payload = sanitizeBooking(payload, null);
+        res.json(payload);
       }
     } else {
       res.status(404).json({ message: 'Booking not found' });
@@ -1261,6 +1317,7 @@ export const assignBooking = async (req, res) => {
       { $set: updateData },
       { new: true, runValidators: true }
     )
+    .select('+deliveryOtp.code')
     .populate('user', 'id name email phone')
     .populate('vehicle')
     .populate('services')
@@ -1361,7 +1418,7 @@ export const assignBooking = async (req, res) => {
       
     }
 
-    res.json(updatedBooking);
+    res.json(sanitizeBooking(updatedBooking, req.user));
   } catch (error) {
     
     res.status(400).json({ message: error.message });
@@ -1375,7 +1432,7 @@ export const updateBookingStatus = async (req, res) => {
   const { status } = req.body;
 
   try {
-    const booking = await Booking.findById(req.params.id).populate('user');
+    const booking = await Booking.findById(req.params.id).select('+deliveryOtp.code').populate('user');
 
     if (booking) {
       const isOwner = booking.user && booking.user._id.toString() === req.user._id.toString();
@@ -1662,6 +1719,7 @@ export const updateBookingStatus = async (req, res) => {
 
       // Populate fields before returning to frontend
       const updatedBooking = await Booking.findById(savedBooking._id)
+        .select('+deliveryOtp.code')
         .populate('user', 'id name email phone')
         .populate('vehicle')
         .populate('services')
@@ -1817,7 +1875,7 @@ export const updateBookingStatus = async (req, res) => {
         ).catch(() => {});
       }
 
-      res.json(updatedBooking);
+      res.json(sanitizeBooking(updatedBooking, req.user));
     } else {
       res.status(404).json({ message: 'Booking not found' });
     }
@@ -1831,7 +1889,7 @@ export const updateBookingStatus = async (req, res) => {
 // @access  Private/Staff/Admin
 export const generateDeliveryOtp = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('user');
+    const booking = await Booking.findById(req.params.id).select('+deliveryOtp.code').populate('user');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     const isAdmin = req.user.role === 'admin';
@@ -1849,8 +1907,7 @@ export const generateDeliveryOtp = async (req, res) => {
     const now = new Date();
     
     if (existingOtp && existingOtp.code && existingOtp.expiresAt && new Date(existingOtp.expiresAt) > now) {
-      
-      return res.json({ message: 'OTP already exists', code: existingOtp.code });
+      return res.json({ message: 'OTP already exists' });
     }
 
     // Generate new OTP only if none exists or expired
@@ -1875,13 +1932,14 @@ export const generateDeliveryOtp = async (req, res) => {
 
     // Emit socket update so customer sees the OTP immediately
     const populated = await Booking.findById(booking._id)
+      .select('+deliveryOtp.code')
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')
       .populate('carWash.staffAssigned', 'name email phone');
     emitBookingUpdate(populated);
     
-    res.json({ message: 'OTP generated', code });
+    res.json({ message: 'OTP generated' });
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -1913,11 +1971,10 @@ export const updateMessageApprovalStatus = async (req, res) => {
 
 // @desc    Verify delivery OTP
 // @route   POST /api/bookings/:id/verify-otp
-// @access  Private/Staff/Admin/Customer
-export const verifyDeliveryOtp = async (req, res) => {
+// @access export const verifyDeliveryOtp = async (req, res) => {
   const { otp } = req.body;
   try {
-    const booking = await Booking.findById(req.params.id).populate('user');
+    const booking = await Booking.findById(req.params.id).select('+deliveryOtp.code').populate('user');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     if (!booking.deliveryOtp || !booking.deliveryOtp.code) return res.status(400).json({ message: 'No OTP generated' });
 
@@ -1947,6 +2004,7 @@ export const verifyDeliveryOtp = async (req, res) => {
     
     // Populate for real-time consumers
     const populated = await Booking.findById(booking._id)
+      .select('+deliveryOtp.code')
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')
@@ -2008,10 +2066,12 @@ export const verifyDeliveryOtp = async (req, res) => {
       }
     });
     
-    res.json({ message: 'OTP verified and delivery completed', booking: populated });
+    res.json({ message: 'OTP verified and delivery completed', booking: sanitizeBooking(populated, req.user) });
   } catch (e) {
     
     res.status(500).json({ message: e.message });
+  }
+};n({ message: e.message });
   }
 };
 
@@ -2196,6 +2256,7 @@ export const updateBookingDetails = async (req, res) => {
       
       // Populate fields before returning to frontend
       const populated = await Booking.findById(updatedBooking._id)
+        .select('+deliveryOtp.code')
         .populate('user', 'id name email phone')
         .populate('vehicle')
         .populate('services')
@@ -2219,7 +2280,7 @@ export const updateBookingDetails = async (req, res) => {
         );
       }
 
-      res.json(populated);
+      res.json(sanitizeBooking(populated, req.user));
     } else {
       res.status(404).json({ message: 'Booking not found' });
     }
