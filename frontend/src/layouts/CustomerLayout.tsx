@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { logoutUser } from '@/lib/logout';
 import PageTransition from '@/components/PageTransition';
 import BottomNav from '@/components/BottomNav';
 
@@ -45,7 +46,7 @@ interface CustomerLayoutProps {
 export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   // Close sidebar when location changes
@@ -65,8 +66,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   }, [sidebarOpen]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    void logoutUser().then(() => navigate('/login', { replace: true }));
   };
 
   return (

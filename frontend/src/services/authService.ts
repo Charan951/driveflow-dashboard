@@ -2,6 +2,10 @@ import api from './api';
 import { UserRole } from '@/store/authStore';
 import { auth, googleProvider } from '../config/firebase';
 import { signInWithPopup } from 'firebase/auth';
+import {
+  clearMemoryAccessToken,
+  setMemoryAccessToken,
+} from '@/lib/authToken';
 
 export interface RegisterData {
     name: string;
@@ -52,18 +56,20 @@ export interface ResetPasswordData {
     password: string;
 }
 
-const setSessionToken = (token: string) => {
-    sessionStorage.setItem('token', token);
-    localStorage.removeItem('token');
-    localStorage.removeItem('auth-storage');
+const storeAuthToken = (data: { token?: string }) => {
+  if (data.token) {
+    setMemoryAccessToken(data.token);
+  }
 };
 
 export const authService = {
+    getSession: async () => {
+        const response = await api.get('/auth/session');
+        return response.data;
+    },
     prepareSignup: async (data: PrepareSignupData) => {
         const response = await api.post('/auth/signup/prepare', data);
-        if (response.data.token) {
-            setSessionToken(response.data.token);
-        }
+        storeAuthToken(response.data);
         return response.data;
     },
     sendSignupOtp: async (data: SendSignupOtpData) => {
@@ -72,6 +78,7 @@ export const authService = {
     },
     prepareLogin: async (data: PrepareLoginData) => {
         const response = await api.post('/auth/login/prepare', data);
+        storeAuthToken(response.data);
         return response.data;
     },
     sendLoginOtp: async (data: SendLoginOtpData) => {
@@ -80,45 +87,35 @@ export const authService = {
     },
     verifyLoginOtp: async (data: VerifyLoginOtpData) => {
         const response = await api.post('/auth/login/verify-otp', data);
-        if (response.data.token) {
-            setSessionToken(response.data.token);
-        }
+        storeAuthToken(response.data);
         return response.data;
     },
     verifySignupOtp: async (data: VerifySignupOtpData) => {
         const response = await api.post('/auth/signup/verify-otp', data);
-        if (response.data.token) {
-            setSessionToken(response.data.token);
-        }
+        storeAuthToken(response.data);
         return response.data;
     },
     register: async (data: RegisterData) => {
         const response = await api.post('/auth/register', data);
-        if (response.data.token) {
-            setSessionToken(response.data.token);
-        }
+        storeAuthToken(response.data);
         return response.data;
     },
     login: async (data: LoginData) => {
         const response = await api.post('/auth/login', data);
-        if (response.data.token) {
-            setSessionToken(response.data.token);
-        }
+        storeAuthToken(response.data);
         return response.data;
     },
     googleLogin: async (options?: { signupIfMissing?: boolean }) => {
         try {
             const result = await signInWithPopup(auth, googleProvider);
             const idToken = await result.user.getIdToken();
-            
+
             const response = await api.post('/auth/google', {
                 idToken,
                 signupIfMissing: options?.signupIfMissing ?? false,
             });
-            
-            if (response.data.token) {
-                setSessionToken(response.data.token);
-            }
+
+            storeAuthToken(response.data);
             return response.data;
         } catch (error) {
             console.error('Google login error:', error);
@@ -133,10 +130,12 @@ export const authService = {
         const response = await api.post('/auth/reset-password', data);
         return response.data;
     },
-    logout: () => {
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('auth-storage');
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth-storage');
+    logout: async () => {
+        clearMemoryAccessToken();
+        try {
+            await api.post('/auth/logout');
+        } catch {
+            // Cookie may already be cleared or session expired
+        }
     },
 };

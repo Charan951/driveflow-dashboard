@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { notificationService, UserNotification } from '../services/notificationService';
+import { useAuthStore } from '@/store/authStore';
 
 interface Notification {
   id: string;
@@ -107,9 +108,7 @@ export const useAppStore = create<AppState>((set) => ({
         // Don't clear session for pending approval
         throw error;
       } else if (error?.response?.status === 401) {
-        // Clear session for other 401 errors
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('auth-storage');
+        useAuthStore.getState().logout();
       }
       
       throw error;

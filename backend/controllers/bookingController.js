@@ -18,35 +18,44 @@ import { normalizeIndianMobile, sendWhatsAppMessage, resolveAssignedWhatsAppTemp
 import crypto from 'crypto';
 import Message from '../models/Message.js';
 import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDisplay.js';
+import { verifyTrackingToken, createTrackingToken } from '../utils/trackingToken.js';
+import { validateAssignees } from '../utils/assignmentValidation.js';
+import { canAccessBooking } from '../utils/bookingAccess.js';
 
-export const sanitizeBooking = (booking, currentUser) => {
+export const toPublicTrackingDto = (booking) => {
+  const bookingObj = typeof booking.toObject === 'function' ? booking.toObject({ virtuals: true }) : { ...booking };
+  const phone = bookingObj.user?.phone || '';
+  const maskedPhone = phone ? `******${String(phone).slice(-4)}` : undefined;
+  return {
+    _id: bookingObj._id,
+    orderNumber: bookingObj.orderNumber,
+    status: bookingObj.status,
+    date: bookingObj.date,
+    assignedAt: bookingObj.assignedAt,
+    maskedPhone,
+    services: (bookingObj.services || []).map((s) => ({
+      _id: s._id,
+      name: s.name,
+      category: s.category,
+    })),
+    vehicle: bookingObj.vehicle
+      ? {
+          make: bookingObj.vehicle.make,
+          model: bookingObj.vehicle.model,
+          registrationNumber: bookingObj.vehicle.registrationNumber,
+        }
+      : undefined,
+  };
+};
+
+export { createTrackingToken };
+
+export const sanitizeBooking = (booking, _currentUser) => {
   if (!booking) return booking;
 
-  // Convert mongoose document to plain object if it is one
-  const bookingObj = typeof booking.toObject === 'function'
+  return typeof booking.toObject === 'function'
     ? booking.toObject({ virtuals: true })
     : (booking.toJSON ? booking.toJSON() : { ...booking });
-
-  if (bookingObj.deliveryOtp) {
-    const bookingUser = bookingObj.user;
-    const bookingUserId = bookingUser && typeof bookingUser === 'object' && bookingUser._id
-      ? bookingUser._id
-      : bookingUser;
-
-    const currentUserId = currentUser && typeof currentUser === 'object' && currentUser._id
-      ? currentUser._id
-      : currentUser;
-
-    const isOwner = bookingUserId && currentUserId && bookingUserId.toString() === currentUserId.toString();
-
-    if (!isOwner) {
-      bookingObj.deliveryOtp = {
-        ...bookingObj.deliveryOtp,
-        code: undefined
-      };
-    }
-  }
-  return bookingObj;
 };
 
 const SLOT_INTERVAL_MINUTES = 30;
@@ -360,7 +369,6 @@ export const emitBookingUpdate = (booking) => {
 
     usersToNotify.forEach(userId => {
       const room = `user_${userId.toString()}`;
-      // Sanitize specifically for this user! If this user is the customer/owner, they get the code.
       const userPayload = sanitizeBooking(payload, { _id: userId });
       io.to(room).emit('bookingUpdated', userPayload);
       // Only emit bookingCreated for a true new booking — not on every status sync
@@ -731,7 +739,11 @@ export const createBooking = async (req, res) => {
       ).catch(() => {});
     }
 
-    res.status(201).json(createdBooking);
+    const payload = sanitizeBooking(attachHealthPercentToBookingPayload(createdBooking), req.user);
+    res.status(201).json({
+      ...payload,
+      trackingToken: createTrackingToken(createdBooking._id),
+    });
 
     // Send push to customer
     try {
@@ -1189,11 +1201,10 @@ export const getAllBookings = async (req, res) => {
 
 // @desc    Get booking by ID
 // @route   GET /api/bookings/:id
-// @access  Public (for tracking page)
+// @access  Private
 export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .select('+deliveryOtp.code')
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')
@@ -1202,43 +1213,49 @@ export const getBookingById = async (req, res) => {
       .populate('technician', 'name email phone')
       .populate('carWash.staffAssigned', 'name email phone')
       .populate('coupon');
-    
-    if (booking) {
-      // If user is authenticated, check authorization as before
-      if (req.user) {
-        const isOwner = booking.user && booking.user._id.toString() === req.user._id.toString();
-        const isAdmin = req.user.role === 'admin';
-        const isAssignedMerchant = req.user.role === 'merchant' && booking.merchant && booking.merchant._id.toString() === req.user._id.toString();
-        const isAssignedStaff = req.user.role === 'staff' && (
-          (booking.pickupDriver && booking.pickupDriver._id.toString() === req.user._id.toString()) ||
-          (booking.technician && booking.technician._id.toString() === req.user._id.toString()) ||
-          (booking.carWash?.staffAssigned && booking.carWash.staffAssigned._id.toString() === req.user._id.toString())
-        );
-        
-        let payload = attachHealthPercentToBookingPayload(booking);
-        payload = sanitizeBooking(payload, req.user);
-        
-        if (isOwner || isAdmin || isAssignedMerchant || isAssignedStaff) {
-          res.json(payload);
-        } else {
-          // If authenticated but not authorized, still allow public access (for tracking)
-          res.json(payload);
-        }
-      } else {
-        // Public access - allow anyone to view the booking via the tracking link
-        let payload = attachHealthPercentToBookingPayload(booking);
-        payload = sanitizeBooking(payload, null);
-        res.json(payload);
-      }
-    } else {
-      res.status(404).json({ message: 'Booking not found' });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
     }
+
+    if (!canAccessBooking(booking, req.user)) {
+      return res.status(403).json({ message: 'Not authorized to view this booking' });
+    }
+
+    let payload = attachHealthPercentToBookingPayload(booking);
+    payload = sanitizeBooking(payload, req.user);
+    res.json(payload);
   } catch (error) {
     console.error('Error in getBookingById:', error);
     if (error.name === 'ValidationError') {
-        const messages = Object.values(error.errors).map(val => val.message);
-        return res.status(400).json({ message: messages.join(', ') });
+      const messages = Object.values(error.errors).map((val) => val.message);
+      return res.status(400).json({ message: messages.join(', ') });
     }
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Public booking tracking via signed token
+// @route   GET /api/bookings/track/:token
+// @access  Public
+export const getBookingByTrackingToken = async (req, res) => {
+  try {
+    const verified = verifyTrackingToken(req.params.token);
+    if (!verified) {
+      return res.status(400).json({ message: 'Invalid or expired tracking link' });
+    }
+
+    const booking = await Booking.findById(verified.bookingId)
+      .populate('vehicle')
+      .populate('services', 'name category')
+      .populate('user', 'phone');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    res.json(toPublicTrackingDto(booking));
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
@@ -1267,6 +1284,16 @@ export const assignBooking = async (req, res) => {
       if (!hasMerchant || !hasStaff) {
         return res.status(400).json({ message: 'Both merchant and staff must be selected' });
       }
+    }
+
+    const assigneeErrors = await validateAssignees(booking, {
+      merchantId,
+      driverId,
+      technicianId,
+      carWashStaffId,
+    });
+    if (assigneeErrors.length > 0) {
+      return res.status(400).json({ message: assigneeErrors.join('; ') });
     }
 
     const updateData = {};
@@ -1971,7 +1998,8 @@ export const updateMessageApprovalStatus = async (req, res) => {
 
 // @desc    Verify delivery OTP
 // @route   POST /api/bookings/:id/verify-otp
-// @access export const verifyDeliveryOtp = async (req, res) => {
+// @access  Private
+export const verifyDeliveryOtp = async (req, res) => {
   const { otp } = req.body;
   try {
     const booking = await Booking.findById(req.params.id).select('+deliveryOtp.code').populate('user');
@@ -2068,10 +2096,7 @@ export const updateMessageApprovalStatus = async (req, res) => {
     
     res.json({ message: 'OTP verified and delivery completed', booking: sanitizeBooking(populated, req.user) });
   } catch (e) {
-    
     res.status(500).json({ message: e.message });
-  }
-};n({ message: e.message });
   }
 };
 
@@ -2565,8 +2590,7 @@ export const completeCarWash = async (req, res) => {
 
     res.json({
       message: isEssentials ? 'Service completed successfully' : 'Car wash completed successfully',
-      booking: populated,
-      deliveryOtp: otpCode
+      booking: sanitizeBooking(populated, req.user),
     });
   } catch (error) {
     

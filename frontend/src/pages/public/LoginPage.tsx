@@ -58,9 +58,6 @@ const LoginPage: React.FC = () => {
     try {
       const result = await authService.prepareLogin({ email, password });
       if (result.skipOtp) {
-        if (result.token) {
-          sessionStorage.setItem('token', result.token);
-        }
         login({
           _id: result._id,
           name: result.name,

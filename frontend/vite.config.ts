@@ -9,6 +9,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   const env = loadEnv(mode, process.cwd(), '');
+  const proxyTarget = env.VITE_API_URL || env.VITE_API_URL || 'http://127.0.0.1:5001';
+
+  const proxyCommon = {
+    target: proxyTarget,
+    changeOrigin: true,
+    secure: false,
+    cookieDomainRewrite: '',
+    cookiePathRewrite: '/',
+  };
   
   return {
     base: '/',
@@ -20,20 +29,14 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/uploads': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
-          changeOrigin: true,
-          secure: false,
+          ...proxyCommon,
         },
         '/api': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
-          changeOrigin: true,
-          secure: false,
+          ...proxyCommon,
         },
         '/socket.io': {
-          target: env.VITE_API_URL || 'http://127.0.0.1:5001',
+          ...proxyCommon,
           ws: true,
-          changeOrigin: true,
-          secure: false,
         }
       },
       hmr: {

@@ -1,93 +1,63 @@
 import axios from 'axios';
+import { useAuthStore } from '@/store/authStore';
+import { getApiBaseUrl } from '@/lib/apiBase';
+import { clearMemoryAccessToken, getMemoryAccessToken } from '@/lib/authToken';
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
-  timeout: 10000, // 10 second timeout
+  baseURL: getApiBaseUrl(),
+  timeout: 10000,
+  withCredentials: true,
 });
 
+let handlingUnauthorized = false;
+
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('token');
-  
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    // List of public endpoints that don't need a token
-    const publicEndpoints = [
-      '/auth/login',
-      '/auth/register',
-      '/auth/signup/prepare',
-      '/auth/signup/send-otp',
-      '/auth/signup/verify-otp',
-      '/auth/login/prepare',
-      '/auth/login/send-otp',
-      '/auth/login/verify-otp',
-      '/auth/google',
-      '/auth/forgot-password',
-      '/auth/reset-password',
-      '/services',
-      '/reviews',
-      '/products',
-      '/settings/public',
-      '/hero',
-      '/blogs',
-      '/careers',
-      '/upload/public',
-      '/upload/presigned-url/public',
-      '/tickets/public',
-      '/bookings/',
-      '/approvals/'
-    ];
-    
-    const isPublicRequest = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
-    
-    if (!isPublicRequest) {
-      // Return a rejected promise to stop the request
-      return Promise.reject({
-        message: 'Authentication required',
-        code: 'NO_TOKEN',
-        config
-      });
-    }
+  config.headers['X-Client-Platform'] = 'web';
+
+  const memoryToken = getMemoryAccessToken();
+  if (memoryToken) {
+    config.headers.Authorization = `Bearer ${memoryToken}`;
   }
+
   return config;
 });
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only log errors in development
     if (import.meta.env.DEV) {
       console.error('API Error:', {
         url: error.config?.url,
         status: error.response?.status,
-        message: error.response?.data?.message || error.message
+        message: error.response?.data?.message || error.message,
       });
     }
 
-    if (error.response && error.response.status === 401) {
+    if (error.response?.status === 401) {
       const errorCode = error.response.data?.code;
-      const isAuthRequest = error.config?.url?.includes('/auth/');
-      
-      // Handle different types of 401 errors
+      const url = String(error.config?.url || '');
+      const isAuthRequest = url.includes('/auth/');
+      const { isAuthenticated, authHydrated } = useAuthStore.getState();
+
       if (errorCode === 'PENDING_APPROVAL') {
-        // Don't auto-logout for pending approval - let component handle it
         return Promise.reject(error);
       }
-      
-      if (!isAuthRequest) {
-        // Clear session and redirect for other 401 errors
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('auth-storage');
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth-storage');
-        
-        // Only redirect if not already on login page
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
-        }
+
+      if (
+        !isAuthRequest &&
+        authHydrated &&
+        isAuthenticated &&
+        !handlingUnauthorized
+      ) {
+        handlingUnauthorized = true;
+        clearMemoryAccessToken();
+        useAuthStore.getState().logout();
+        window.setTimeout(() => {
+          handlingUnauthorized = false;
+        }, 1000);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

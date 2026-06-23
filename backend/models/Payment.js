@@ -42,6 +42,10 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  expectedAmount: {
+    type: Number,
+    min: 0
+  },
   currency: {
     type: String,
     default: 'INR'

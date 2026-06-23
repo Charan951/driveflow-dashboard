@@ -25,40 +25,42 @@ export const validateCreateOrder = [
     .optional({ values: 'falsy' })
     .isIn(['INR', 'USD'])
     .withMessage('Currency must be INR or USD'),
+  body('bookingId')
+    .optional({ values: 'falsy' })
+    .custom((value) => !value || mongoose.Types.ObjectId.isValid(value))
+    .withMessage('Invalid booking ID'),
   body('tempBookingData')
     .optional({ values: 'falsy' })
     .isObject()
     .withMessage('Temp booking data must be an object'),
   (req, res, next) => {
-    console.log('validateCreateOrder req.body:', req.body);
-    
-    // Custom validation: check that either amount or tempBookingData.totalAmount is valid
-    const { amount, tempBookingData } = req.body;
-    const hasValidAmount = amount !== undefined && amount !== null && Number(amount) >= 1;
-    const hasValidTempAmount = tempBookingData?.totalAmount !== undefined && tempBookingData?.totalAmount !== null && Number(tempBookingData.totalAmount) >= 1;
-    
-    console.log('validateCreateOrder: hasValidAmount:', hasValidAmount, 'hasValidTempAmount:', hasValidTempAmount);
-    
-    if (!hasValidAmount && !hasValidTempAmount) {
+    const { bookingId, tempBookingData } = req.body;
+
+    if (!bookingId && !tempBookingData) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed: Either amount or tempBookingData.totalAmount must be a positive number',
-        errors: [{ path: 'amount', msg: 'Amount or tempBookingData.totalAmount is required' }]
+        message: 'Validation failed: bookingId or tempBookingData is required',
       });
     }
-    
+
+    if (req.body.amount !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Client-supplied amount is not accepted. Amount is calculated server-side.',
+      });
+    }
+
     const errors = validationResult(req);
-    console.log('validateCreateOrder express-validator errors:', errors.array());
     if (!errors.isEmpty()) {
-      const errorDetails = errors.array().map(err => `${err.path}: ${err.msg}`).join(', ');
+      const errorDetails = errors.array().map((err) => `${err.path}: ${err.msg}`).join(', ');
       return res.status(400).json({
         success: false,
         message: `Validation failed: ${errorDetails}`,
-        errors: errors.array()
+        errors: errors.array(),
       });
     }
     next();
-  }
+  },
 ];
 
 // Validation middleware for verify payment

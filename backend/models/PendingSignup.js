@@ -58,6 +58,13 @@ const pendingSignupSchema = new mongoose.Schema(
       required: true,
       index: { expires: 0 },
     },
+    lastOtpSentAt: {
+      type: Date,
+    },
+    otpVerifyAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

@@ -1,7 +1,7 @@
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 const PHONE_10_REGEX = /^\d{10}$/;
 const MAX_CONSECUTIVE_CHARS = 25;
-const MAX_EMAIL_LENGTH = 30;
+const MAX_EMAIL_LENGTH = 254;
 
 // List of common disposable email domains to block
 const DISPOSABLE_EMAIL_DOMAINS = new Set([

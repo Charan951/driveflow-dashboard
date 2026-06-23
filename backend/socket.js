@@ -2,6 +2,8 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import User from './models/User.js';
 import Booking from './models/Booking.js';
+import { canAccessBooking } from './utils/bookingAccess.js';
+import { getTokenFromSocketHandshake } from './utils/authCookie.js';
 import Message from './models/Message.js';
 import { sendPushToUser, sendPushToRole } from './utils/pushService.js';
 
@@ -79,7 +81,7 @@ export const initSocket = (server) => {
   // Authentication Middleware
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+      const token = getTokenFromSocketHandshake(socket.handshake);
       
       if (token) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -123,94 +125,109 @@ export const initSocket = (server) => {
     }
 
     // Join a specific room
-    socket.on('join', (room) => {
+    socket.on('join', async (room) => {
       if (!room) return;
-      // console.log(`[Socket] ${socket.id} (User: ${socket.user?._id || 'unauthenticated'}) joining room: ${room}`);
-      
-      // Security check for admin room
+
       if (room === 'admin') {
         if (socket.user?.role?.toLowerCase() !== 'admin') {
-          console.warn(`Unauthorized admin room join attempt from user ${socket.user?._id} with role ${socket.user?.role}`);
+          console.warn(`Unauthorized admin room join attempt from user ${socket.user?._id}`);
           return;
         }
-        // console.log(`Admin user ${socket.user?._id} joined admin room`);
+        socket.join(room);
+        try {
+          const staffList = await User.find({
+            $or: [
+              { role: 'staff' },
+              { role: 'admin', isOnline: true },
+            ],
+            status: { $ne: 'Inactive' },
+            'location.lat': { $exists: true },
+          }).select('name role subRole location isOnline lastSeen').lean();
+          for (const s of staffList) {
+            const lat = s?.location?.lat;
+            const lng = s?.location?.lng;
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              socket.emit('liveLocation', {
+                userId: s._id,
+                role: s.role || 'staff',
+                subRole: s.subRole,
+                name: s.name,
+                lat,
+                lng,
+                isOnline: s.isOnline !== false,
+                lastSeen: s.lastSeen,
+                updatedAt: s?.location?.updatedAt || new Date(),
+                timestamp: s?.location?.updatedAt || new Date().toISOString(),
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error seeding admin live locations:', error);
+        }
+        return;
       }
-      
-      socket.join(room);
 
-      // Join role-specific sub-room for chat isolation
       if (typeof room === 'string' && room.startsWith('booking_')) {
-        const userRole = socket.user?.role?.toLowerCase() || 'customer';
+        if (!socket.user) {
+          console.warn(`Unauthorized booking room join attempt from ${socket.id}`);
+          return;
+        }
+
+        const bookingId = room.replace('booking_', '');
+        const booking = await Booking.findById(bookingId)
+          .populate('user', '_id')
+          .populate('merchant', '_id')
+          .populate('pickupDriver', '_id')
+          .populate('technician', '_id')
+          .populate('carWash.staffAssigned', '_id');
+
+        if (!booking || !canAccessBooking(booking, socket.user)) {
+          console.warn(`Forbidden booking room join for user ${socket.user._id} booking ${bookingId}`);
+          return;
+        }
+
+        socket.join(room);
+
+        const userRole = socket.user.role?.toLowerCase() || 'customer';
         if (userRole === 'customer') {
           socket.join(`${room}_customer`);
         } else if (userRole === 'merchant') {
-          // Merchants join both rooms to talk to customers and staff
           socket.join(`${room}_customer`);
           socket.join(`${room}_merchant`);
         } else if (userRole === 'staff') {
-          // Drivers/technicians join both internal merchant room and general booking room
           socket.join(`${room}_merchant`);
-          socket.join(`${room}_customer`); // Allow staff to see customer chat too
+          socket.join(`${room}_customer`);
         } else if (userRole === 'admin') {
           socket.join(`${room}_customer`);
           socket.join(`${room}_merchant`);
         }
-      }
-      
-      (async () => {
+
         try {
-          if (typeof room === 'string' && room.startsWith('booking_')) {
-            const bookingId = room.replace('booking_', '');
-            const booking = await Booking.findById(bookingId).select('pickupDriver technician status').lean();
-            const staffId = booking?.pickupDriver || booking?.technician;
-            if (staffId) {
-              const staff = await User.findById(staffId).select('name role location').lean();
-              const lat = staff?.location?.lat;
-              const lng = staff?.location?.lng;
-              if (typeof lat === 'number' && typeof lng === 'number') {
-                socket.emit('liveLocation', {
-                  bookingId: bookingId,
-                  userId: staffId,
-                  role: staff?.role || 'staff',
-                  name: staff?.name,
-                  lat,
-                  lng,
-                  updatedAt: staff?.location?.updatedAt || new Date()
-                });
-              }
-            }
-          } else if (room === 'admin') {
-            const staffList = await User.find({
-              $or: [
-                { role: 'staff' },
-                { role: 'admin', isOnline: true }
-              ],
-              status: { $ne: 'Inactive' },
-              'location.lat': { $exists: true }
-            }).select('name role subRole location isOnline lastSeen').lean();
-            for (const s of staffList) {
-              const lat = s?.location?.lat;
-              const lng = s?.location?.lng;
-              if (typeof lat === 'number' && typeof lng === 'number') {
-                socket.emit('liveLocation', {
-                  userId: s._id,
-                  role: s.role || 'staff',
-                  subRole: s.subRole,
-                  name: s.name,
-                  lat,
-                  lng,
-                  isOnline: s.isOnline !== false,
-                  lastSeen: s.lastSeen,
-                  updatedAt: s?.location?.updatedAt || new Date(),
-                  timestamp: s?.location?.updatedAt || new Date().toISOString() // Both for compatibility
-                });
-              }
+          const leanBooking = await Booking.findById(bookingId).select('pickupDriver technician status').lean();
+          const staffId = leanBooking?.pickupDriver || leanBooking?.technician;
+          if (staffId) {
+            const staff = await User.findById(staffId).select('name role location').lean();
+            const lat = staff?.location?.lat;
+            const lng = staff?.location?.lng;
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              socket.emit('liveLocation', {
+                bookingId,
+                userId: staffId,
+                role: staff?.role || 'staff',
+                name: staff?.name,
+                lat,
+                lng,
+                updatedAt: staff?.location?.updatedAt || new Date(),
+              });
             }
           }
-        } catch (e) {
-          
+        } catch (error) {
+          console.error('Error seeding live location on booking join:', error);
         }
-      })();
+        return;
+      }
+
+      socket.join(room);
     });
 
     // Leave a room
@@ -372,23 +389,11 @@ export const initSocket = (server) => {
     // Handle chat messages
     socket.on('sendMessage', async (data) => {
       if (!data.bookingId) return;
-      if (!data.text && !data.approval) return; // Must have either text or approval
+      if (!socket.user) return;
+      if (!data.text && !data.approval) return;
 
       try {
-        let senderId;
-        if (socket.user) {
-          senderId = socket.user._id;
-        } else {
-          // Unauthenticated customer (viewing via tracking link)
-          // Find the customer ID linked to the booking
-          const booking = await Booking.findById(data.bookingId).select('user').lean();
-          if (!booking || !booking.user) {
-            console.error('Cannot send message: booking or booking user not found for ID', data.bookingId);
-            return;
-          }
-          senderId = booking.user;
-        }
-
+        const senderId = socket.user._id;
         const messageData = {
           bookingId: data.bookingId,
           sender: senderId,
@@ -436,6 +441,7 @@ export const initSocket = (server) => {
 
     socket.on('getMessages', async (data) => {
       if (!data.bookingId) return;
+      if (!socket.user) return;
 
       try {
         const query = { bookingId: data.bookingId };

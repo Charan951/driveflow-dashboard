@@ -12,6 +12,10 @@ import {
   calculateOrderTotals,
   shouldApplyCheckoutGst,
 } from '../utils/orderPricing.js';
+import {
+  extractGatewayPaidAmount,
+  amountsMatch,
+} from '../utils/resolvePaymentAmount.js';
 
 const extractPincodeFromAddress = (address) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
@@ -101,6 +105,7 @@ class PaymentService {
         cashfreeOrderId: cfOrderId,
         cfPaymentSessionId: paymentSessionId,
         amount,
+        expectedAmount: amount,
         currency,
         status: 'created',
         coupon: tempBookingData?.coupon || null,
@@ -166,18 +171,7 @@ class PaymentService {
       const subtotal = Number(tempData.subtotal ?? tempData.totalAmount) || 0;
       const discountAmount = Number(tempData.discountAmount) || 0;
       const applyTax = await shouldApplyCheckoutGst(tempData);
-      const pricing =
-        tempData.gstAmount != null && tempData.finalAmount != null
-          ? {
-              subtotal,
-              discountAmount,
-              discountedSubtotal: Math.max(0, subtotal - discountAmount),
-              tax: applyTax ? Number(tempData.gstAmount) || 0 : 0,
-              total: applyTax
-                ? Number(tempData.finalAmount) || subtotal
-                : Math.max(0, subtotal - discountAmount),
-            }
-          : calculateOrderTotals(subtotal, discountAmount, applyTax);
+      const pricing = calculateOrderTotals(subtotal, discountAmount, applyTax);
 
       const booking = new Booking({
         user: userId,
@@ -284,6 +278,17 @@ class PaymentService {
     if (status === 'FAILED') mappedStatus = 'failed';
     if (status === 'USER_DROPPED') mappedStatus = 'user_dropped';
 
+    const expectedAmount = payment.expectedAmount ?? payment.amount;
+    const gatewayAmount = extractGatewayPaidAmount(verify.finalAttempt);
+
+    if (mappedStatus === 'paid' && gatewayAmount != null && !amountsMatch(expectedAmount, gatewayAmount)) {
+      console.error(
+        `Payment amount mismatch for order ${orderId}: expected ${expectedAmount}, gateway ${gatewayAmount}`
+      );
+      mappedStatus = 'failed';
+      payment.failureReason = `Amount mismatch: expected ${expectedAmount}, received ${gatewayAmount}`;
+    }
+
     payment.status = mappedStatus;
     payment.gatewayResponse = { ...(payment.gatewayResponse || {}), verification: verify };
     payment.cashfreePaymentId = verify.finalAttempt?.cf_payment_id || payment.cashfreePaymentId;
@@ -327,8 +332,9 @@ class PaymentService {
           }
 
           const commissionRate = 0.1;
-          booking.platformFee = payment.amount * commissionRate;
-          booking.merchantEarnings = payment.amount - booking.platformFee;
+          const verifiedAmount = gatewayAmount ?? expectedAmount;
+          booking.platformFee = verifiedAmount * commissionRate;
+          booking.merchantEarnings = verifiedAmount - booking.platformFee;
           await booking.save();
           const populated = await Booking.findById(booking._id)
             .populate('user', 'id name email phone')

@@ -25,6 +25,7 @@ import {
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { logoutUser } from '@/lib/logout';
 import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const adminMenuItems = [
@@ -61,7 +62,7 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuthStore();
+  const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -76,8 +77,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   }, [sidebarOpen]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    void logoutUser().then(() => navigate('/login', { replace: true }));
   };
 
   const currentMenuItem = adminMenuItems.find(item => item.path === location.pathname);

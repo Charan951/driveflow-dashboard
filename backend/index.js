@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -121,7 +122,7 @@ const corsOptions = {
     'Accept', 
     'Origin', 
     'Access-Control-Allow-Headers',
-    'x-auth-token'
+    'X-Client-Platform',
   ],
   preflightContinue: false,
   optionsSuccessStatus: 204
@@ -133,6 +134,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 app.use(compression());
+app.use(cookieParser());
 app.use(cors(corsOptions));
 // Handle preflight for all routes
 app.options(/(.*)/, cors(corsOptions));

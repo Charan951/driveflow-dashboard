@@ -4,6 +4,7 @@ import { Menu, Bell, User, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
+import { logoutUser } from '@/lib/logout';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   transparent = false 
 }) => {
   const { toggleSidebar, notifications, fetchNotifications } = useAppStore();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -37,8 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [user, fetchNotifications]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    void logoutUser().then(() => navigate('/login', { replace: true }));
   };
 
   return (

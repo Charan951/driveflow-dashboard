@@ -185,6 +185,20 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: {
     type: Date,
   },
+  passwordResetSentAt: {
+    type: Date,
+  },
+  failedLoginAttempts: {
+    type: Number,
+    default: 0,
+  },
+  lockUntil: {
+    type: Date,
+  },
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
   location: {
     lat: { type: Number },
     lng: { type: Number },

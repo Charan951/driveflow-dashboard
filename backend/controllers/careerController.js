@@ -2,6 +2,7 @@ import Career from '../models/Career.js';
 import CareerApplication from '../models/CareerApplication.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { validateCareer, isValidEmail } from '../utils/validation.js';
+import { isAllowedResumeUrl } from '../controllers/uploadController.js';
 
 const sanitizeCareerInput = (body = {}) => ({
   title: String(body.title || '').trim(),
@@ -175,6 +176,10 @@ export const applyForCareer = async (req, res) => {
 
     if (!name || !email || !mobileNumber || !resumeUrl) {
       return res.status(400).json({ message: 'name, email, mobileNumber and resumeUrl are required' });
+    }
+
+    if (!isAllowedResumeUrl(resumeUrl)) {
+      return res.status(400).json({ message: 'Invalid resume URL. Please upload a PDF resume through the careers form.' });
     }
 
     // Validate name

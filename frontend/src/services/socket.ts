@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
+import { getMemoryAccessToken } from '@/lib/authToken';
 
-// Ensure this matches your backend URL
 const getSocketUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || '';
   if (!apiUrl || apiUrl.startsWith('/')) return window.location.origin;
@@ -15,15 +15,8 @@ class SocketService {
   private globalListeners: Set<(data: any) => void> = new Set();
 
   connect() {
-    const token = sessionStorage.getItem('token');
     if (this.socket) {
-      const currentToken = (this.socket as any).auth?.token;
-      if (currentToken !== token) {
-        // Token has changed (e.g. login or logout) - reconnect with new token
-        this.socket.disconnect();
-        (this.socket as any).auth = { token };
-        this.socket.connect();
-      } else if (!this.socket.connected) {
+      if (!this.socket.connected) {
         this.socket.connect();
       }
       return;
@@ -32,8 +25,9 @@ class SocketService {
     this.socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      withCredentials: true,
       auth: {
-        token
+        token: getMemoryAccessToken() || undefined,
       },
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -41,11 +35,6 @@ class SocketService {
     });
 
     this.socket.on('connect', () => {
-      // Keep auth token in sync on reconnect
-      const latestToken = sessionStorage.getItem('token');
-      (this.socket as any).auth = { token: latestToken };
-      
-      // Rejoin all currently tracked rooms
       this.currentRooms.forEach((room) => {
         this.socket?.emit('join', room);
       });
@@ -54,7 +43,6 @@ class SocketService {
     this.socket.on('disconnect', () => {
     });
 
-    // Disconnect socket when page unloads to allow back/forward cache
     window.addEventListener('beforeunload', this.handleBeforeUnload);
     window.addEventListener('pagehide', this.handleBeforeUnload);
   }
@@ -105,7 +93,6 @@ class SocketService {
       this.globalListeners.delete(callback);
       this.socket.off(event, callback);
     } else {
-      // If no callback is specified, only remove non-global listeners
       const callbacks = this.listeners.get(event);
       if (callbacks) {
         for (const cb of Array.from(callbacks)) {

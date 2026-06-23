@@ -9,10 +9,11 @@ import {
   createPublicTicket,
 } from '../controllers/ticketController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
+import { publicFormLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
-router.post('/public', createPublicTicket);
+router.post('/public', publicFormLimiter, createPublicTicket);
 
 router.route('/')
   .post(protect, createTicket)

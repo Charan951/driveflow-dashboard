@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { logoutUser } from '@/lib/logout';
 import PageTransition from '@/components/PageTransition';
 import LiveTracker from '@/components/LiveTracker';
 
@@ -38,7 +39,7 @@ interface StaffLayoutProps {
 export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuthStore();
+  const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -53,8 +54,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   }, [sidebarOpen]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    void logoutUser().then(() => navigate('/login', { replace: true }));
   };
 
   return (

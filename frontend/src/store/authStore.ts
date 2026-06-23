@@ -1,24 +1,17 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { clearMemoryAccessToken } from '@/lib/authToken';
 
-const AUTH_PERSIST_KEY = 'auth-storage';
+const LEGACY_AUTH_PERSIST_KEY = 'auth-storage';
 
-/** One-time: move auth from localStorage so existing tabs keep login after this change. */
-const migrateAuthToSessionStorage = () => {
-  try {
-    if (!sessionStorage.getItem(AUTH_PERSIST_KEY) && localStorage.getItem(AUTH_PERSIST_KEY)) {
-      sessionStorage.setItem(AUTH_PERSIST_KEY, localStorage.getItem(AUTH_PERSIST_KEY)!);
-      localStorage.removeItem(AUTH_PERSIST_KEY);
-    }
-    if (!sessionStorage.getItem('token') && localStorage.getItem('token')) {
-      sessionStorage.setItem('token', localStorage.getItem('token')!);
-      localStorage.removeItem('token');
-    }
-  } catch {
-    /* private mode / quota */
-  }
-};
-migrateAuthToSessionStorage();
+// Drop stale persisted auth flags that caused login/dashboard redirect loops.
+try {
+  sessionStorage.removeItem(LEGACY_AUTH_PERSIST_KEY);
+  sessionStorage.removeItem('token');
+  localStorage.removeItem('token');
+  localStorage.removeItem(LEGACY_AUTH_PERSIST_KEY);
+} catch {
+  /* private mode */
+}
 
 export type UserRole = 'customer' | 'staff' | 'merchant' | 'admin' | null;
 export type UserSubRole = 'Driver' | 'Support' | 'Manager' | null;
@@ -59,39 +52,32 @@ interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  authHydrated: boolean;
   role: UserRole;
   login: (user: User) => void;
   logout: () => void;
+  setAuthHydrated: (hydrated: boolean) => void;
   updateUser: (data: Partial<User>) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      role: null,
-      login: (user) => set({ user, isAuthenticated: true, role: user.role }),
-      logout: () => {
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('hasSeenNoVehicleModal');
-        sessionStorage.removeItem(AUTH_PERSIST_KEY);
-        localStorage.removeItem('token');
-        localStorage.removeItem(AUTH_PERSIST_KEY);
-        set({ user: null, isAuthenticated: false, role: null });
-      },
-      updateUser: (data) =>
-        set((state) => {
-          const updatedUser = state.user ? { ...state.user, ...data } : null;
-          return {
-            user: updatedUser,
-            role: data.role !== undefined ? data.role : state.role,
-          };
-        }),
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  authHydrated: false,
+  role: null,
+  login: (user) => set({ user, isAuthenticated: true, role: user.role }),
+  logout: () => {
+    clearMemoryAccessToken();
+    sessionStorage.removeItem('hasSeenNoVehicleModal');
+    set({ user: null, isAuthenticated: false, role: null, authHydrated: true });
+  },
+  setAuthHydrated: (hydrated) => set({ authHydrated: hydrated }),
+  updateUser: (data) =>
+    set((state) => {
+      const updatedUser = state.user ? { ...state.user, ...data } : null;
+      return {
+        user: updatedUser,
+        role: data.role !== undefined ? data.role : state.role,
+      };
     }),
-    {
-      name: AUTH_PERSIST_KEY,
-      storage: createJSONStorage(() => sessionStorage),
-    }
-  )
-);
+}));

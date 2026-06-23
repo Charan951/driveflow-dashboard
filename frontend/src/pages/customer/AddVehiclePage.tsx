@@ -139,6 +139,11 @@ const AddVehiclePage: React.FC = () => {
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const plate = formData.licensePlate.trim().toUpperCase();
+    if (!isValidLicensePlate(plate)) {
+      toast.error('Please enter a valid registration number (e.g. MH 02 AB 1234)');
+      return;
+    }
     const year = Number.parseInt(formData.year, 10);
     const currentYear = new Date().getFullYear();
     if (!formData.make.trim() || !formData.model.trim()) {
@@ -153,7 +158,7 @@ const AddVehiclePage: React.FC = () => {
     
     try {
       await vehicleService.addVehicle({ 
-        licensePlate: formData.licensePlate,
+        licensePlate: plate,
         make: formData.make.trim(),
         model: formData.model.trim(),
         variant: formData.variant.trim(),
@@ -169,9 +174,15 @@ const AddVehiclePage: React.FC = () => {
       setStep(1);
       setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '', frontTyres: '', rearTyres: '' });
       fetchVehicles(); // Refresh list
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to add vehicle:', error);
-      toast.error('Failed to add vehicle. Please try again.');
+      const err = error as { response?: { data?: { message?: string } }; message?: string; code?: string };
+      const message =
+        err.response?.data?.message ||
+        (err.code === 'NO_TOKEN' ? 'Please log in again to add a vehicle.' : undefined) ||
+        err.message ||
+        'Failed to add vehicle. Please try again.';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -243,6 +254,18 @@ const AddVehiclePage: React.FC = () => {
             </form>
           ) : (
             <form onSubmit={handleFinalSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Vehicle Registration Number</label>
+                <input
+                  type="text"
+                  name="licensePlate"
+                  value={formData.licensePlate}
+                  onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
+                  placeholder="e.g. MH 02 AB 1234"
+                  required
+                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Brand</label>

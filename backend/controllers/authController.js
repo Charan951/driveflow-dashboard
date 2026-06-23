@@ -7,6 +7,10 @@ import { sendEmail } from '../utils/emailService.js';
 import admin from '../config/firebase.js';
 import generateToken from '../utils/generateToken.js';
 import {
+  clearAuthCookie,
+  setAuthCookie,
+} from '../utils/authCookie.js';
+import {
   normalizeIndianMobile,
   sendAuthOtp as msg91SendAuthOtp,
   verifySignupOtp as msg91VerifySignupOtp,
@@ -29,8 +33,30 @@ const isNameTooLong = (value) => {
 };
 
 const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_TIME_MS = 30 * 60 * 1000;
+const MAX_OTP_VERIFY_ATTEMPTS = 5;
+const FORGOT_PASSWORD_COOLDOWN_MS = 5 * 60 * 1000;
 
-const buildAuthUserPayload = (user, extras = {}) => ({
+const isAccountLocked = (user) => user?.lockUntil && user.lockUntil > new Date();
+
+const recordFailedLogin = async (user) => {
+  user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+  if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
+    user.lockUntil = new Date(Date.now() + LOCK_TIME_MS);
+    user.failedLoginAttempts = 0;
+  }
+  await user.save({ validateBeforeSave: false });
+};
+
+const clearLoginFailures = async (user) => {
+  user.failedLoginAttempts = 0;
+  user.lockUntil = undefined;
+  await user.save({ validateBeforeSave: false });
+};
+
+const userAuthFields = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
@@ -42,7 +68,24 @@ const buildAuthUserPayload = (user, extras = {}) => ({
   addresses: user.addresses || [],
   address: user.location?.address || '',
   isOnline: user.isOnline,
-  token: generateToken(user._id),
+});
+
+const sendAuthResponse = (req, res, user, extras = {}, statusCode = 200) => {
+  const token = generateToken(user._id, user.tokenVersion || 0);
+  setAuthCookie(res, token);
+
+  const payload = {
+    ...userAuthFields(user),
+    token,
+    ...extras,
+  };
+
+  return res.status(statusCode).json(payload);
+};
+
+const buildAuthUserPayload = (user, extras = {}) => ({
+  ...userAuthFields(user),
+  token: generateToken(user._id, user.tokenVersion || 0),
   ...extras,
 });
 
@@ -138,12 +181,10 @@ export const prepareSignup = async (req, res) => {
     if (isTestingEnv()) {
       const pending = await PendingSignup.findOne({ mobile });
       const user = await createUserFromPendingSignup(pending, mobile);
-      return res.status(201).json(
-        buildAuthUserPayload(user, {
-          skipOtp: true,
-          message: 'Account created (testing — OTP skipped).',
-        })
-      );
+      return sendAuthResponse(req, res, user, {
+        skipOtp: true,
+        message: 'Account created (testing — OTP skipped).',
+      }, 201);
     }
 
     res.json({
@@ -181,8 +222,17 @@ export const sendSignupOtp = async (req, res) => {
       return res.status(400).json({ message: 'Session expired. Please start signup again.' });
     }
 
+    if (
+      pending.lastOtpSentAt &&
+      Date.now() - pending.lastOtpSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(429).json({ message: 'Please wait before requesting another OTP.' });
+    }
+
     const sendResult = await msg91SendAuthOtp(mobile);
     pending.otpHash = sendResult.otpHash || null;
+    pending.lastOtpSentAt = new Date();
+    pending.otpVerifyAttempts = 0;
     await pending.save();
 
     const channels = sendResult.channels || ['whatsapp'];
@@ -228,12 +278,18 @@ export const verifySignupOtp = async (req, res) => {
     }
 
     if (!isTestingEnv()) {
+      pending.otpVerifyAttempts = (pending.otpVerifyAttempts || 0) + 1;
+      if (pending.otpVerifyAttempts > MAX_OTP_VERIFY_ATTEMPTS) {
+        await PendingSignup.deleteOne({ mobile });
+        return res.status(429).json({ message: 'Too many OTP attempts. Please start signup again.' });
+      }
+      await pending.save();
       await msg91VerifySignupOtp(mobile, otp, pending);
     }
 
     const user = await createUserFromPendingSignup(pending, mobile);
 
-    res.status(201).json(buildAuthUserPayload(user));
+    return sendAuthResponse(req, res, user, {}, 201);
   } catch (error) {
     console.error('verifySignupOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
@@ -263,18 +319,7 @@ export const registerUser = async (req, res) => {
     });
 
     if (user) {
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        subRole: user.subRole,
-        phone: user.phone,
-        addresses: user.addresses || [],
-        location: user.location,
-        address: user.location?.address || '',
-        token: generateToken(user._id),
-      });
+      return sendAuthResponse(req, res, user, {}, 201);
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
@@ -308,17 +353,24 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    if (isAccountLocked(user)) {
+      return res.status(429).json({ message: 'Account temporarily locked. Please try again later.' });
+    }
+
     const isPasswordCorrect = await user.matchPassword(password);
     if (!isPasswordCorrect) {
-      return res.status(401).json({ message: 'Wrong password' });
+      await recordFailedLogin(user);
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
+
+    await clearLoginFailures(user);
 
     if (!user.isApproved) {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
     if (user.role === 'admin' || isTestingEnv()) {
-      return res.json(buildAuthUserPayload(user, { skipOtp: true }));
+      return sendAuthResponse(req, res, user, { skipOtp: true });
     }
 
     const mobile = resolveUserMobile(user);
@@ -373,8 +425,17 @@ export const sendLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'Session expired. Please sign in again.' });
     }
 
+    if (
+      pending.lastOtpSentAt &&
+      Date.now() - pending.lastOtpSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(429).json({ message: 'Please wait before requesting another OTP.' });
+    }
+
     const sendResult = await msg91SendAuthOtp(pending.mobile);
     pending.otpHash = sendResult.otpHash || null;
+    pending.lastOtpSentAt = new Date();
+    pending.otpVerifyAttempts = 0;
     await pending.save();
 
     const channels = sendResult.channels || ['whatsapp'];
@@ -416,6 +477,12 @@ export const verifyLoginOtp = async (req, res) => {
     }
 
     if (!isTestingEnv()) {
+      pending.otpVerifyAttempts = (pending.otpVerifyAttempts || 0) + 1;
+      if (pending.otpVerifyAttempts > MAX_OTP_VERIFY_ATTEMPTS) {
+        await PendingLogin.deleteOne({ email: normalizedEmail });
+        return res.status(429).json({ message: 'Too many OTP attempts. Please sign in again.' });
+      }
+      await pending.save();
       await msg91VerifySignupOtp(pending.mobile, otp, pending);
     }
 
@@ -427,7 +494,7 @@ export const verifyLoginOtp = async (req, res) => {
 
     await PendingLogin.deleteOne({ email: normalizedEmail });
 
-    res.json(buildAuthUserPayload(user));
+    return sendAuthResponse(req, res, user);
   } catch (error) {
     console.error('verifyLoginOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
@@ -447,20 +514,7 @@ export const loginUser = async (req, res) => {
         return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
       }
 
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        subRole: user.subRole,
-        phone: user.phone,
-        isShopOpen: user.isShopOpen,
-        location: user.location,
-        addresses: user.addresses || [],
-        address: user.location?.address || '',
-        isOnline: user.isOnline,
-        token: generateToken(user._id),
-      });
+      return sendAuthResponse(req, res, user);
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -507,24 +561,20 @@ export const googleLogin = async (req, res) => {
       });
     }
 
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      subRole: user.subRole,
-      phone: user.phone,
-      isShopOpen: user.isShopOpen,
-      location: user.location,
-      addresses: user.addresses || [],
-      address: user.location?.address || '',
-      isOnline: user.isOnline,
-      token: generateToken(user._id),
-    });
+    return sendAuthResponse(req, res, user);
   } catch (error) {
     console.error('Google login verification error:', error);
     res.status(401).json({ message: 'Invalid Google token' });
   }
+};
+
+export const logoutUser = async (req, res) => {
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out successfully' });
+};
+
+export const getSession = async (req, res) => {
+  res.json(userAuthFields(req.user));
 };
 
 export const forgotPassword = async (req, res) => {
@@ -537,11 +587,19 @@ export const forgotPassword = async (req, res) => {
       return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
     }
 
+    if (
+      user.passwordResetSentAt &&
+      Date.now() - user.passwordResetSentAt.getTime() < FORGOT_PASSWORD_COOLDOWN_MS
+    ) {
+      return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+    }
+
     const resetToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     user.passwordResetToken = hashedToken;
     user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+    user.passwordResetSentAt = new Date();
     await user.save({ validateBeforeSave: false });
 
     let baseUrl = req.get('origin');
@@ -585,9 +643,17 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Reset link is invalid or has expired.' });
     }
 
+    if (await user.matchPassword(password)) {
+      return res.status(400).json({ message: 'New password must be different from the current password.' });
+    }
+
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.passwordResetSentAt = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = undefined;
     await user.save();
 
     res.json({ message: 'Password has been reset successfully.' });

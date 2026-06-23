@@ -155,7 +155,7 @@ const RegisterPage: React.FC = () => {
         password: formData.password,
         phone: formData.phone,
       });
-      if (result.skipOtp && result.token) {
+      if (result.skipOtp) {
         completeLoginAndRedirect(result);
         toast.success('Account created');
         return;

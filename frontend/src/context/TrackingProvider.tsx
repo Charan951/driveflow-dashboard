@@ -19,7 +19,7 @@ interface LocationPayload {
 }
 
 export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [isTracking, setIsTracking] = useState(() => {
     return localStorage.getItem('isTracking') === 'true';
   });
@@ -80,8 +80,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Also update via REST for persistence (Throttle to every 2 minutes)
-      const token = sessionStorage.getItem('token');
-      if (token && now - lastRestUpdate.current > 120000) { // 2 minutes
+      if (isAuthenticated && now - lastRestUpdate.current > 120000) { // 2 minutes
         await updateMyLocation(latitude, longitude, undefined, activeBookingIdRef.current || undefined);
         lastRestUpdate.current = now;
         setLastServerSync(new Date());
@@ -140,8 +139,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
             getSocket().then(s => s.emit('location', payload));
             
-            const token = sessionStorage.getItem('token');
-            if (token) {
+            if (isAuthenticated) {
               try {
                 await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
                 setLastServerSync(new Date());
@@ -216,8 +214,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               if (activeBookingIdRef.current) payload.bookingId = activeBookingIdRef.current;
               getSocket().then(s => s.emit('location', payload));
               
-              const token = sessionStorage.getItem('token');
-              if (token) {
+              if (isAuthenticated) {
                 try {
                   await updateMyLocation(lat, lng, undefined, activeBookingIdRef.current || undefined);
                   setLastServerSync(new Date());
@@ -270,8 +267,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         bgRef.current = null;
       }
       
-      const token = sessionStorage.getItem('token');
-      if (token && user) {
+      if (isAuthenticated && user) {
         updateOnlineStatus(false).catch(err => console.error('Failed to set offline status', err));
       }
       return;
@@ -304,8 +300,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
     
-    const token = sessionStorage.getItem('token');
-    if (token) {
+    if (isAuthenticated) {
       updateOnlineStatus(true).catch(err => console.error('Failed to set online status', err));
     }
     
@@ -426,8 +421,7 @@ export const TrackingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!user?._id || user.role !== 'staff') return;
       if (!isTracking) return;
       
-      const token = sessionStorage.getItem('token');
-      if (!token) return;
+      if (!isAuthenticated) return;
 
       try {
         const bookings = (await bookingService.getMyBookings()) as Booking[];
