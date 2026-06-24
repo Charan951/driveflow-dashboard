@@ -102,22 +102,16 @@ export const uploadService = {
       fileToUpload = await compressImage(file);
     }
 
-    // 1. Get Presigned URL
-    const response = await api.get('/upload/presigned-url/public', {
-      params: { filename: fileToUpload.name, fileType: fileToUpload.type }
-    });
-    const { presignedUrl, fileUrl, filename, originalName } = response.data;
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
 
-    // 2. Upload directly to S3
-    await fetch(presignedUrl, {
-      method: 'PUT',
-      body: fileToUpload,
+    const response = await api.post('/upload/public', formData, {
       headers: {
-        'Content-Type': fileToUpload.type,
+        'Content-Type': 'multipart/form-data',
       },
     });
 
-    return { url: fileUrl, filename, originalName, mimetype: fileToUpload.type, size: fileToUpload.size };
+    return response.data;
   },
 
   uploadFiles: async (files: File[]) => {
@@ -145,5 +139,12 @@ export const uploadService = {
 
     const uploadedFiles = await Promise.all(uploadPromises);
     return { files: uploadedFiles };
+  },
+
+  getResumeSignedUrl: async (url: string) => {
+    const response = await api.get('/upload/resume/signed-url', {
+      params: { url }
+    });
+    return response.data.url;
   }
 };

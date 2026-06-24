@@ -89,6 +89,24 @@ const PAGES = [
 
 const AdminHeroImagesPage = () => {
   const navigate = useNavigate();
+
+  const handleViewResume = async (resumeUrl: string) => {
+    try {
+      toast.loading('Generating secure link...', { id: 'resume-link' });
+      const signedUrl = await uploadService.getResumeSignedUrl(resumeUrl);
+      toast.dismiss('resume-link');
+      
+      const link = document.createElement('a');
+      link.href = signedUrl;
+      link.setAttribute('download', '');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      toast.dismiss('resume-link');
+      toast.error(error?.response?.data?.message || 'Failed to retrieve secure resume link');
+    }
+  };
   const [homeSlides, setHomeSlides] = useState<HeroSlide[]>([]);
   const [pageHeroes, setPageHeroes] = useState<Record<string, PageHero>>({});
   const [showGetStarted, setShowGetStarted] = useState<boolean>(true);
@@ -1781,15 +1799,13 @@ const AdminHeroImagesPage = () => {
                           </p>
                         ) : null}
                         <div className="mt-3 flex items-center justify-between gap-3">
-                          <a
-                            href={application.resumeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                          <button
+                            onClick={() => handleViewResume(application.resumeUrl)}
+                            className="text-sm text-primary hover:underline inline-flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
                           >
                             <FileText className="w-4 h-4" />
                             View Resume
-                          </a>
+                          </button>
                           <span className="text-xs text-muted-foreground">
                             {application.createdAt ? new Date(application.createdAt).toLocaleString() : ''}
                           </span>

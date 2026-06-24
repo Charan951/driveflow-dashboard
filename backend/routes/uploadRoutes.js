@@ -12,7 +12,6 @@ import { publicUploadLimiter } from '../middleware/rateLimiters.js';
 const router = express.Router();
 
 router.get('/presigned-url', protect, generatePresignedUrl);
-router.get('/presigned-url/public', publicUploadLimiter, generatePresignedUrl);
 router.get('/resume/signed-url', protect, admin, getResumeSignedUrl);
 
 router.post('/', protect, (req, res, next) => {

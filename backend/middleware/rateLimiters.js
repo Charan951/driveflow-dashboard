@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import { getAppEnv } from '../utils/appEnvironment.js';
 
 const standardHandler = (message) => ({
   windowMs: 15 * 60 * 1000,
@@ -6,6 +7,7 @@ const standardHandler = (message) => ({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message },
+  skip: () => getAppEnv() !== 'production',
 });
 
 export const signupPrepareLimiter = rateLimit({
@@ -34,6 +36,7 @@ export const forgotPasswordLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many password reset requests. Please try again later.' },
+  skip: () => getAppEnv() !== 'production',
 });
 
 export const publicFormLimiter = rateLimit({
@@ -42,6 +45,7 @@ export const publicFormLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many submissions. Please try again later.' },
+  skip: () => getAppEnv() !== 'production',
 });
 
 export const publicUploadLimiter = rateLimit({
@@ -50,4 +54,5 @@ export const publicUploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many upload requests. Please try again later.' },
+  skip: () => getAppEnv() !== 'production',
 });

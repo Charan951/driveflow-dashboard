@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import mongoose from 'mongoose';
+import { getAppEnv } from '../utils/appEnvironment.js';
 
 // Rate limiting for payment endpoints
 export const paymentRateLimit = rateLimit({
@@ -11,6 +12,7 @@ export const paymentRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => getAppEnv() !== 'production',
 });
 
 // Helper to check if a string is a valid MongoDB ObjectId
@@ -43,11 +45,9 @@ export const validateCreateOrder = [
       });
     }
 
+    // Delete client-supplied amount so it's ignored, ensuring the amount is calculated server-side.
     if (req.body.amount !== undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'Client-supplied amount is not accepted. Amount is calculated server-side.',
-      });
+      delete req.body.amount;
     }
 
     const errors = validationResult(req);

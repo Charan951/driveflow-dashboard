@@ -50,12 +50,30 @@ export const toPublicTrackingDto = (booking) => {
 
 export { createTrackingToken };
 
-export const sanitizeBooking = (booking, _currentUser) => {
+export const sanitizeBooking = (booking, currentUser) => {
   if (!booking) return booking;
 
-  return typeof booking.toObject === 'function'
+  const obj = typeof booking.toObject === 'function'
     ? booking.toObject({ virtuals: true })
     : (booking.toJSON ? booking.toJSON() : { ...booking });
+
+  if (obj.deliveryOtp) {
+    const bookingUserId = obj.user && typeof obj.user === 'object' && obj.user._id
+      ? obj.user._id.toString()
+      : (obj.user ? obj.user.toString() : null);
+
+    const currentUserId = currentUser && currentUser._id ? currentUser._id.toString() : null;
+    const currentUserRole = currentUser && currentUser.role ? currentUser.role.toLowerCase() : null;
+
+    // Only allow the booking owner (customer) or an admin to see the OTP code
+    if (!currentUserId || (bookingUserId !== currentUserId && currentUserRole !== 'admin')) {
+      if (obj.deliveryOtp.code) {
+        delete obj.deliveryOtp.code;
+      }
+    }
+  }
+
+  return obj;
 };
 
 const SLOT_INTERVAL_MINUTES = 30;

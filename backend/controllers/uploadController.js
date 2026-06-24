@@ -71,14 +71,62 @@ const upload = multer({
   }
 });
 
+const validateBufferSignature = (buffer, isPublicResume) => {
+  if (!buffer || buffer.length < 4) {
+    const err = new Error('File is too small to be valid');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Check PDF signature: %PDF- (25 50 44 46)
+  const isPDF = buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
+
+  if (isPublicResume) {
+    if (!isPDF) {
+      const err = new Error('Only PDF resumes are allowed and file content must match PDF format.');
+      err.statusCode = 400;
+      throw err;
+    }
+    return;
+  }
+
+  // For other uploads, allow PDF or JPEG/PNG/GIF/WEBP
+  if (isPDF) return;
+
+  // JPEG: FF D8 FF
+  const isJPEG = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+  if (isJPEG) return;
+
+  // PNG: 89 50 4E 47
+  const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+  if (isPNG) return;
+
+  // GIF: 47 49 46 38 ("GIF8")
+  const isGIF = buffer.length > 4 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38;
+  if (isGIF) return;
+
+  // WEBP: RIFF (52 49 46 46) at 0, WEBP (57 45 42 50) at 8
+  const isWEBP = buffer.length > 12 &&
+                 buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+                 buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
+  if (isWEBP) return;
+
+  const err = new Error('Invalid file signature. Only images and PDF files are allowed.');
+  err.statusCode = 400;
+  throw err;
+};
+
 // Helper to process and upload a single file
-const processAndUpload = async (file) => {
-  const folder = 'carzzi_uploads/';
+const processAndUpload = async (file, isPublic = false) => {
+  const folder = isPublic ? RESUME_PREFIX : 'carzzi_uploads/';
   const fileName = `${Date.now().toString()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
   const key = folder + fileName;
   
   let buffer = file.buffer;
   let mimetype = file.mimetype;
+
+  // Validate the actual content signature
+  validateBufferSignature(buffer, isPublic);
 
   // Process images with sharp
   if (file.mimetype.startsWith('image/')) {
@@ -99,7 +147,8 @@ const processAndUpload = async (file) => {
     Key: key,
     Body: buffer,
     ContentType: mimetype,
-    CacheControl: 'max-age=31536000, public',
+    CacheControl: isPublic ? 'private, max-age=3600' : 'max-age=31536000, public',
+    ContentDisposition: isPublic ? 'attachment' : undefined,
   };
 
   await s3.send(new PutObjectCommand(uploadParams));
@@ -122,7 +171,8 @@ export const uploadFile = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'No file uploaded' });
   }
   
-  const result = await processAndUpload(req.file);
+  const isPublic = req.path.includes('/public');
+  const result = await processAndUpload(req.file, isPublic);
   res.json(result);
 });
 
@@ -132,7 +182,8 @@ export const uploadFiles = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'No files uploaded' });
   }
 
-  const uploadPromises = req.files.map(file => processAndUpload(file));
+  const isPublic = req.path.includes('/public');
+  const uploadPromises = req.files.map(file => processAndUpload(file, isPublic));
   const files = await Promise.all(uploadPromises);
   res.json({ files });
 });
