@@ -10,8 +10,7 @@ const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const token = searchParams.get('token') || '';
-  const email = searchParams.get('email') || '';
+  const [token] = useState(() => searchParams.get('token') || '');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,15 +20,21 @@ const ResetPasswordPage: React.FC = () => {
   const [isValidLink, setIsValidLink] = useState(true);
 
   useEffect(() => {
-    if (!token || !email) {
+    if (searchParams.get('token')) {
+      navigate('/reset-password', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    if (!token) {
       setIsValidLink(false);
     }
-  }, [token, email]);
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!token || !email) {
+    if (!token) {
       toast.error('Reset link is invalid.');
       return;
     }
@@ -46,7 +51,7 @@ const ResetPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await authService.resetPassword({ token, email, password });
+      const response = await authService.resetPassword({ token, password });
       toast.success(response.message || 'Password has been reset successfully.');
       navigate('/login', { replace: true });
     } catch (error) {

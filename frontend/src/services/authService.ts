@@ -52,7 +52,7 @@ export interface LoginData {
 
 export interface ResetPasswordData {
     token: string;
-    email: string;
+    email?: string;
     password: string;
 }
 

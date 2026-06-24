@@ -613,7 +613,7 @@ export const forgotPassword = async (req, res) => {
     if (!baseUrl) {
       baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
     }
-    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
     const subject = 'Password Reset Request';
     const text = `You requested a password reset. Visit this link to set a new password: ${resetUrl}. If you did not request this, you can ignore this email.`;
@@ -628,13 +628,12 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const resetPassword = async (req, res) => {
-  const { token, email, password } = req.body;
+  const { token, password } = req.body;
 
   try {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await User.findOne({
-      email,
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     });
