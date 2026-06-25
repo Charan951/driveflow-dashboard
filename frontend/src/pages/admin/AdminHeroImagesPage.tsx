@@ -1615,14 +1615,19 @@ const AdminHeroImagesPage = () => {
 
                 <div className="sticky bottom-[5.5rem] lg:static z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 bg-card/95 backdrop-blur-md border border-border rounded-xl lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:py-0 lg:mx-0 lg:px-0 lg:bg-transparent lg:backdrop-blur-none shadow-sm lg:shadow-none">
                   <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 min-w-0">
-                    <button onClick={() => triggerUpload('blog')} className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium">
+                    <button onClick={() => triggerUpload('blog')} className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium h-10 flex items-center justify-center">
                       Upload Image
                     </button>
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-                      <input type="checkbox" checked={blogForm.isPublished} onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} />
-                      Published
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground px-2 cursor-pointer select-none h-10 shrink-0">
+                      <input 
+                        type="checkbox" 
+                        checked={blogForm.isPublished} 
+                        onChange={(e) => setBlogForm((prev) => ({ ...prev, isPublished: e.target.checked }))} 
+                        className="rounded border-border text-primary focus:ring-primary/50 h-4 w-4 cursor-pointer m-0"
+                      />
+                      <span>Published</span>
                     </label>
-                    <button onClick={handleSaveBlog} className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm">
+                    <button onClick={handleSaveBlog} className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm h-10 flex items-center justify-center">
                       {blogForm._id ? 'Update Blog' : 'Create Blog'}
                     </button>
                   </div>
@@ -1744,17 +1749,15 @@ const AdminHeroImagesPage = () => {
                 </div>
               </div>
 
-              <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-lg">Career Applications</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedCareerForApps
-                        ? `Showing applications for ${careers.find((career) => career._id === selectedCareerForApps)?.title || 'selected role'}`
-                        : 'Select a posted career to view submitted applications'}
-                    </p>
-                  </div>
-                  {selectedCareerForApps ? (
+              {selectedCareerForApps && (
+                <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-lg">Career Applications</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Showing applications for {careers.find((career) => career._id === selectedCareerForApps)?.title || 'selected role'}
+                      </p>
+                    </div>
                     <button
                       onClick={() => navigate(`/admin/careers/${selectedCareerForApps}`)}
                       className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
@@ -1762,59 +1765,55 @@ const AdminHeroImagesPage = () => {
                       Open full page
                       <ExternalLink className="w-4 h-4" />
                     </button>
-                  ) : null}
-                </div>
+                  </div>
 
-                {!selectedCareerForApps ? (
-                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Applications submitted from the public Careers page will appear here.
-                  </div>
-                ) : loadingCareerApplications ? (
-                  <div className="flex items-center justify-center py-10 text-muted-foreground">
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                    Loading applications...
-                  </div>
-                ) : careerApplications.length === 0 ? (
-                  <div className="rounded-xl border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                    No applications yet for this role.
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                    {careerApplications.map((application) => (
-                      <div key={application._id} className="rounded-xl border border-border p-4 bg-muted/20">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{application.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {application.email} • {application.mobileNumber}
-                            </p>
+                  {loadingCareerApplications ? (
+                    <div className="flex items-center justify-center py-10 text-muted-foreground">
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Loading applications...
+                    </div>
+                  ) : careerApplications.length === 0 ? (
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                      No applications yet for this role.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                      {careerApplications.map((application) => (
+                        <div key={application._id} className="rounded-xl border border-border p-4 bg-muted/20">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold">{application.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {application.email} • {application.mobileNumber}
+                              </p>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded-full bg-muted border border-border capitalize">
+                              {application.status}
+                            </span>
                           </div>
-                          <span className="text-xs px-2 py-1 rounded-full bg-muted border border-border capitalize">
-                            {application.status}
-                          </span>
+                          {application.additionalMessage ? (
+                            <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap">
+                              {application.additionalMessage}
+                            </p>
+                          ) : null}
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <button
+                              onClick={() => handleViewResume(application.resumeUrl)}
+                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Resume
+                            </button>
+                            <span className="text-xs text-muted-foreground">
+                              {application.createdAt ? new Date(application.createdAt).toLocaleString() : ''}
+                            </span>
+                          </div>
                         </div>
-                        {application.additionalMessage ? (
-                          <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap">
-                            {application.additionalMessage}
-                          </p>
-                        ) : null}
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <button
-                            onClick={() => handleViewResume(application.resumeUrl)}
-                            className="text-sm text-primary hover:underline inline-flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
-                          >
-                            <FileText className="w-4 h-4" />
-                            View Resume
-                          </button>
-                          <span className="text-xs text-muted-foreground">
-                            {application.createdAt ? new Date(application.createdAt).toLocaleString() : ''}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>

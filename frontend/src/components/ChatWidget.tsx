@@ -102,7 +102,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ bookingId, status, onUpdate, fo
     'CANCELLED'
   ].includes(status);
   const isAdminOrStaffDashboard =
-    location.pathname === '/dashboard' &&
+    (location.pathname === '/admin/dashboard' || location.pathname === '/staff/dashboard' || location.pathname === '/dashboard') &&
     (user?.role === 'admin' || user?.role === 'staff');
 
   const scrollToBottom = () => {

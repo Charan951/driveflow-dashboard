@@ -9,7 +9,32 @@ import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
-import { STATUS_LABELS } from '@/lib/statusFlow';
+import { STATUS_LABELS, getStatusLabel } from '@/lib/statusFlow';
+
+const ACTIVE_STATUSES = [
+  'CREATED',
+  'ASSIGNED',
+  'ACCEPTED',
+  'REACHED_CUSTOMER',
+  'VEHICLE_PICKED',
+  'REACHED_MERCHANT',
+  'SERVICE_STARTED',
+  'SERVICE_COMPLETED',
+  'OUT_FOR_DELIVERY',
+  'QC_PENDING',
+  'CAR_WASH_STARTED',
+  'CAR_WASH_COMPLETED',
+  'STAFF_REACHED_MERCHANT',
+  'PICKUP_BATTERY_TIRE',
+  'DELIVERY'
+];
+
+const COMPLETED_STATUSES = [
+  'Completed',
+  'COMPLETED',
+  'DELIVERED',
+  'Delivered'
+];
 
 const StaffDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,21 +77,10 @@ const StaffDashboardPage: React.FC = () => {
 
       // Calculate stats
       const today = new Date().toISOString().split('T')[0];
-      
-      const activeStatuses = [
-        'ASSIGNED',
-        'ACCEPTED',
-        'REACHED_CUSTOMER',
-        'VEHICLE_PICKED',
-        'REACHED_MERCHANT',
-        'SERVICE_STARTED',
-        'SERVICE_COMPLETED',
-        'OUT_FOR_DELIVERY'
-      ];
 
       const todaysOrders = data.filter(b => b.date && b.date.startsWith(today)).length;
-      const pending = data.filter(b => activeStatuses.includes(b.status)).length;
-      const completed = data.filter(b => ['SERVICE_COMPLETED', 'DELIVERED', 'COMPLETED'].includes(b.status)).length;
+      const pending = data.filter(b => ACTIVE_STATUSES.includes(b.status)).length;
+      const completed = data.filter(b => COMPLETED_STATUSES.includes(b.status)).length;
 
       setStats({
         todaysOrders,
@@ -81,19 +95,7 @@ const StaffDashboardPage: React.FC = () => {
     }
   };
 
-  // Filter active orders to display (excluding completed/cancelled for the active list)
-  const activeStatuses = [
-    'ASSIGNED',
-    'ACCEPTED',
-    'REACHED_CUSTOMER',
-    'VEHICLE_PICKED',
-    'REACHED_MERCHANT',
-    'SERVICE_STARTED',
-    'SERVICE_COMPLETED',
-    'OUT_FOR_DELIVERY'
-  ];
-
-  const activeOrders = bookings.filter(b => activeStatuses.includes(b.status));
+  const activeOrders = bookings.filter(b => ACTIVE_STATUSES.includes(b.status));
 
   return (
     <GlobalSyncRefresh entities={['booking', 'user', 'notification']} onSync={fetchData}>
@@ -126,7 +128,7 @@ const StaffDashboardPage: React.FC = () => {
               value={stats.todaysOrders} 
               icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />} 
               delay={0} 
-              onClick={() => navigate('/staff/orders?filter=all')}
+              onClick={() => navigate('/staff/orders?filter=today')}
             />
             <CounterCard 
               label="Pending" 
@@ -170,7 +172,7 @@ const StaffDashboardPage: React.FC = () => {
                             {typeof order.user === 'object' && order.user !== null ? order.user.name : 'Customer'}
                           </p>
                         </div>
-                        <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{STATUS_LABELS[order.status] || order.status}</span>
+                        <span className="px-2 sm:px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium whitespace-nowrap">{getStatusLabel(order.status, order.services)}</span>
                       </div>
 
 

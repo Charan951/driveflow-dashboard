@@ -732,7 +732,7 @@ const TrackServicePage: React.FC = () => {
       <div className="flex items-center gap-3 sm:gap-4">
         {user && (
           <Link
-            to="/dashboard"
+            to="/customer/dashboard"
             className="p-2 hover:bg-muted rounded-xl transition-colors flex-shrink-0"
           >
             <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />

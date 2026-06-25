@@ -14,7 +14,7 @@ async function computeCouponDiscount(couponRef, totalAmount, services) {
   if (!couponRef) return { discountAmount: 0, couponId: null };
 
   const coupon =
-    typeof couponRef === 'object' && couponRef._id
+    typeof couponRef === 'object' && couponRef._id && typeof couponRef.code === 'string'
       ? couponRef
       : await Coupon.findById(couponRef);
 
@@ -71,13 +71,33 @@ export async function resolvePaymentAmount({ bookingId, userId, tempBookingData 
     bookingId && mongoose.Types.ObjectId.isValid(bookingId) ? bookingId : null;
 
   if (normalizedBookingId) {
-    const booking = await Booking.findById(normalizedBookingId);
+    const booking = await Booking.findById(normalizedBookingId).populate('services');
     if (!booking) throw new Error('Booking not found');
     if (booking.user.toString() !== userId.toString()) {
       throw new Error('Unauthorized access to booking');
     }
     if (booking.paymentStatus === 'paid') {
       throw new Error('Payment already completed for this booking');
+    }
+
+    // Apply or remove coupon if present in tempBookingData
+    if (tempBookingData && 'coupon' in tempBookingData) {
+      const couponRef = tempBookingData.coupon;
+      if (couponRef) {
+        const { discountAmount, couponId } = await computeCouponDiscount(
+          couponRef,
+          booking.totalAmount,
+          booking.services
+        );
+        booking.coupon = couponId;
+        booking.discountAmount = discountAmount;
+        booking.finalAmount = Math.max(0, booking.totalAmount - discountAmount);
+      } else {
+        booking.coupon = null;
+        booking.discountAmount = 0;
+        booking.finalAmount = booking.totalAmount;
+      }
+      await booking.save();
     }
 
     const amount = round2(

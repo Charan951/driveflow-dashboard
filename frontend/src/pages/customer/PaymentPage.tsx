@@ -280,7 +280,7 @@ const PaymentPage: React.FC = () => {
       return;
     }
     toast.success('Payment successful! Your service booking has been created.');
-    navigate('/dashboard', {
+    navigate('/customer/dashboard', {
       replace: true,
       state: {
         showAssignmentToast: true

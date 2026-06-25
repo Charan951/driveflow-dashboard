@@ -193,6 +193,7 @@ const App = () => (
           {/* Customer Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['customer']} />}>
             <Route element={<ErrorBoundary><CustomerLayout /></ErrorBoundary>}>
+              <Route path="/customer/dashboard" element={<DashboardPage />} />
               <Route path="/notifications" element={<MyNotificationsPage />} />
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
@@ -213,6 +214,7 @@ const App = () => (
           {/* Staff Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['staff']} />}>
             <Route element={<ErrorBoundary><StaffLayout /></ErrorBoundary>}>
+              <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
               <Route path="/staff/notifications" element={<MyNotificationsPage />} />
               <Route path="/staff/order/:id" element={<StaffOrderPage />} />
               <Route path="/staff/orders" element={<StaffOrdersPage />} />
@@ -224,6 +226,7 @@ const App = () => (
           {/* Admin Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['admin']} />}>
             <Route element={<ErrorBoundary><AdminLayout /></ErrorBoundary>}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/my-notifications" element={<MyNotificationsPage />} />
               <Route path="/admin/customers" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
@@ -256,6 +259,7 @@ const App = () => (
           {/* Merchant Routes - Protected */}
           <Route element={<PrivateRoute allowedRoles={['merchant', 'admin']} />}>
             <Route element={<ErrorBoundary><MerchantLayout /></ErrorBoundary>}>
+              <Route path="/merchant/dashboard" element={<MerchantDashboard />} />
               <Route path="/merchant/notifications" element={<MyNotificationsPage />} />
               <Route path="/merchant/orders" element={<MerchantOrders />} />
               <Route path="/merchant/order/:id" element={<MerchantOrderDetail />} />

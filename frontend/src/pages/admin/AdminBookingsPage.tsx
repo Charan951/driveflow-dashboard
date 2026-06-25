@@ -279,15 +279,15 @@ const AdminBookingsPage: React.FC = () => {
                       <td className="p-3 text-sm">
                         <div className="max-w-[100px] truncate">
                           {(() => {
-                            // Check if this is a car wash or essentials service
-                            const isCarWashService = Array.isArray(booking.services) && 
+                            const isCarWashService = (booking.carWash?.isCarWashService === true) || 
+                              (Array.isArray(booking.services) && 
                               booking.services.some(service => 
-                                typeof service === 'object' && (
-                                  service.category === 'Car Wash' || 
-                                  service.category === 'Wash' ||
-                                  service.category === 'Essentials'
+                                typeof service === 'object' && service.category && (
+                                  service.category.toLowerCase().includes('car wash') || 
+                                  service.category.toLowerCase() === 'wash' ||
+                                  service.category.toLowerCase().includes('essentials')
                                 )
-                              );
+                              ));
                             
                             if (isCarWashService) {
                               return booking.carWash?.staffAssigned?.name || <span className="text-muted-foreground italic">Unassigned</span>;
@@ -413,14 +413,15 @@ const AdminBookingsPage: React.FC = () => {
                     </div>
                     <span className="text-xs text-muted-foreground truncate">
                       {(() => {
-                        const isCarWashService = Array.isArray(booking.services) && 
+                        const isCarWashService = (booking.carWash?.isCarWashService === true) || 
+                          (Array.isArray(booking.services) && 
                           booking.services.some(service => 
-                            typeof service === 'object' && (
-                              service.category === 'Car Wash' || 
-                              service.category === 'Wash' ||
-                              service.category === 'Essentials'
+                            typeof service === 'object' && service.category && (
+                              service.category.toLowerCase().includes('car wash') || 
+                              service.category.toLowerCase() === 'wash' ||
+                              service.category.toLowerCase().includes('essentials')
                             )
-                          );
+                          ));
                         
                         if (isCarWashService) {
                           return booking.carWash?.staffAssigned?.name || 'Unassigned';

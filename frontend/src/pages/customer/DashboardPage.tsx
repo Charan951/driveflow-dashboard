@@ -43,7 +43,7 @@ import { Star, Loader2 } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { STATUS_LABELS } from '@/lib/statusFlow';
+import { STATUS_LABELS, getStatusLabel } from '@/lib/statusFlow';
 import { canCustomerSeeDeliveryOtp } from '@/lib/bookingGeneralServiceChat';
 
 const DashboardSkeleton = () => (
@@ -219,17 +219,26 @@ const DashboardPage: React.FC = () => {
     return map[status] || 'bg-gray-100 text-gray-700';
   };
 
-  const mapStatusToCardStatus = (status: string) => {
+  const mapStatusToCardStatus = (status: string, paymentStatus?: string) => {
+    const isPaid = paymentStatus === 'paid';
     const map: Record<string, string> = {
       'CREATED': 'pending',
       'Booked': 'pending',
+      'PENDING_APPROVAL': 'pending',
       'ASSIGNED': 'in_transit',
       'ACCEPTED': 'in_transit',
       'REACHED_CUSTOMER': 'in_transit',
       'VEHICLE_PICKED': 'in_progress',
       'REACHED_MERCHANT': 'in_progress',
       'SERVICE_STARTED': 'in_progress',
-      'SERVICE_COMPLETED': 'awaiting_payment',
+      'CAR_WASH_STARTED': 'in_progress',
+      'MERCHANT_INSPECTION': 'in_progress',
+      'PICKUP_BATTERY_TIRE': 'in_progress',
+      'INSTALLATION': 'in_progress',
+      'STAFF_REACHED_MERCHANT': 'in_transit',
+      'DELIVERY': 'in_transit',
+      'SERVICE_COMPLETED': isPaid ? 'completed' : 'awaiting_payment',
+      'CAR_WASH_COMPLETED': isPaid ? 'completed' : 'awaiting_payment',
       'OUT_FOR_DELIVERY': 'in_transit',
       'DELIVERED': 'completed',
       'COMPLETED': 'completed',
@@ -413,7 +422,7 @@ const DashboardPage: React.FC = () => {
             <span className={`px-3 py-1 rounded-full text-xs font-medium bg-white/20 flex-shrink-0 self-start`}>
               {upcomingBooking.status === 'SERVICE_COMPLETED'
                 ? 'Payment awaiting to dispatch vehicle'
-                : STATUS_LABELS[upcomingBooking.status as keyof typeof STATUS_LABELS] || upcomingBooking.status}
+                : getStatusLabel(upcomingBooking.status, upcomingBooking.services)}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
@@ -545,7 +554,8 @@ const DashboardPage: React.FC = () => {
                     licensePlate: (booking.vehicle as Vehicle)?.licensePlate || 'N/A',
                     variant: (booking.vehicle as Vehicle)?.variant || '',
                   }}
-                  status={mapStatusToCardStatus(booking.status)}
+                  status={mapStatusToCardStatus(booking.status, booking.paymentStatus)}
+                  statusLabel={getStatusLabel(booking.status, booking.services)}
                   scheduledDate={new Date(booking.date).toLocaleDateString()}
                   scheduledTime={new Date(booking.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   price={booking.finalAmount || booking.totalAmount}

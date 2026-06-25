@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAppStore } from '@/store/appStore';
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -21,14 +22,14 @@ import LiveTracker from '@/components/LiveTracker';
 import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const staffMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
   { icon: User, label: 'Profile', path: '/staff/profile' },
 ];
 
 const staffBottomNavItems: NavItem[] = [
   { icon: ClipboardList, label: 'Orders', path: '/staff/orders' },
-  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
+  { icon: Home, label: 'Home', path: '/staff/dashboard', isMain: true },
   { icon: User, label: 'Profile', path: '/staff/profile' },
 ];
 
@@ -41,6 +42,14 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const { notifications, fetchNotifications } = useAppStore();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  React.useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user, fetchNotifications]);
 
   React.useEffect(() => {
     if (sidebarOpen) {
@@ -171,7 +180,18 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
                 className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
               >
                 <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-card" />
+                <AnimatePresence>
+                  {unreadCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
+                    >
+                      {unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </Link>
             </div>
           </header>

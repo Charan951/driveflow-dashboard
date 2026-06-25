@@ -719,7 +719,7 @@ const BookServicePage: React.FC = () => {
         });
       } else {
         toast.success('Booking confirmed! We have scheduled your service.');
-        navigate('/dashboard', {
+        navigate('/customer/dashboard', {
           state: {
             showAssignmentToast: true
           }

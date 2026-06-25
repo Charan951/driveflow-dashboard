@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { bookingService, Booking } from '@/services/bookingService';
 import { useAuthStore } from '@/store/authStore';
 import { useTracking } from '@/hooks/use-tracking';
@@ -69,6 +70,33 @@ const StaffOrderPage: React.FC = () => {
   const [eta, setEta] = useState<ETAResponse | null>(null);
   const etaTimerRef = React.useRef<number | null>(null);
   const [isUploadingPrePickup, setIsUploadingPrePickup] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false);
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpValue || otpValue.length !== 4) {
+      setOtpError('Please enter a valid 4-digit OTP');
+      return;
+    }
+    setIsOtpVerifying(true);
+    setOtpError(null);
+    try {
+      const verifyRes = (await bookingService.verifyDeliveryOtp(order!._id, otpValue)) as { booking?: Booking };
+      const updated = verifyRes.booking ?? (await bookingService.getBookingById(order!._id));
+      setOrder(updated);
+      toast.success(`OTP verified successfully! Order completed.`);
+      setShowOtpModal(false);
+      setOtpValue('');
+    } catch (err: any) {
+      console.error('OTP verification error:', err);
+      setOtpError(err.response?.data?.message || 'Invalid OTP. Please try again.');
+    } finally {
+      setIsOtpVerifying(false);
+    }
+  };
 
   const handleStatusUpdate = React.useCallback(async (newStatus: string) => {
     if (!order) return;
@@ -291,16 +319,12 @@ const StaffOrderPage: React.FC = () => {
               setOrder(refreshedOrder);
             }
             
-            // Ask for customer's OTP (no alert needed)
-            const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
-            if (!otp) {
-              setIsUpdating(false);
-              return;
-            }
-            
-            // Verify OTP (backend will automatically update status to DELIVERED)
-            const cwVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
-            latestBooking = cwVerify.booking ?? latestBooking;
+            // Open modal to verify customer's OTP
+            setShowOtpModal(true);
+            setOtpValue('');
+            setOtpError(null);
+            setIsUpdating(false);
+            return;
           } catch (error) {
             console.error('Car wash delivery completion error:', error);
             toast.error('Failed to complete delivery');
@@ -350,14 +374,12 @@ const StaffOrderPage: React.FC = () => {
             return;
           }
         } else if (newStatus === 'COMPLETED') {
-          // For battery/tire completion, verify OTP
-          const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
-          if (!otp) {
-            setIsUpdating(false);
-            return;
-          }
-          const btVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
-          latestBooking = btVerify.booking ?? latestBooking;
+          // Open modal to verify customer's OTP
+          setShowOtpModal(true);
+          setOtpValue('');
+          setOtpError(null);
+          setIsUpdating(false);
+          return;
         } else {
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         }
@@ -372,13 +394,12 @@ const StaffOrderPage: React.FC = () => {
           }
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         } else if (newStatus === 'DELIVERED') {
-          const otp = window.prompt('Enter the 4-digit delivery OTP from customer');
-          if (!otp) {
-            setIsUpdating(false);
-            return;
-          }
-          const regVerify = (await bookingService.verifyDeliveryOtp(order._id, otp)) as { booking?: Booking };
-          latestBooking = regVerify.booking ?? latestBooking;
+          // Open modal to verify customer's OTP
+          setShowOtpModal(true);
+          setOtpValue('');
+          setOtpError(null);
+          setIsUpdating(false);
+          return;
         } else {
           latestBooking = await bookingService.updateBookingStatus(order._id, newStatus);
         }
@@ -390,11 +411,11 @@ const StaffOrderPage: React.FC = () => {
 
       if (newStatus === 'REACHED_MERCHANT') {
         toast.info('Vehicle has reached merchant. Redirecting to dashboard.');
-        navigate('/dashboard', { replace: true });
+        navigate('/staff/dashboard', { replace: true });
         return;
       } else if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
         toast.success('Order delivered successfully. Returning to dashboard.');
-        navigate('/dashboard', { replace: true });
+        navigate('/staff/dashboard', { replace: true });
         return;
       }
 
@@ -2030,6 +2051,87 @@ const StaffOrderPage: React.FC = () => {
           })()}
         </TabsContent>
       </Tabs>
+
+      <AnimatePresence>
+        {showOtpModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  Verify Delivery
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowOtpModal(false)}
+                  className="p-1 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleOtpSubmit} className="p-6 space-y-4">
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Enter the 4-digit delivery OTP
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Ask the customer for the OTP sent to their mobile/email.
+                  </p>
+                </div>
+
+                <div className="flex justify-center">
+                  <input
+                    type="text"
+                    maxLength={4}
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    placeholder="••••"
+                    value={otpValue}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, '');
+                      setOtpValue(clean);
+                      if (otpError) setOtpError(null);
+                    }}
+                    className="w-36 text-center text-2xl font-bold tracking-[0.75em] pl-3 py-2.5 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-foreground"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                {otpError && (
+                  <p className="text-xs text-red-500 text-center font-medium">
+                    ⚠️ {otpError}
+                  </p>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowOtpModal(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isOtpVerifying || otpValue.length !== 4}
+                    className="flex-1 text-white bg-green-600 hover:bg-green-700"
+                  >
+                    {isOtpVerifying ? 'Verifying...' : 'Verify & Complete'}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

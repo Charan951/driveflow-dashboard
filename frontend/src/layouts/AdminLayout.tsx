@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAppStore } from '@/store/appStore';
 import { 
   LayoutDashboard, 
   Users, 
@@ -29,7 +30,7 @@ import { logoutUser } from '@/lib/logout';
 import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const adminMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
   { icon: DollarSign, label: 'Payments', path: '/admin/payments' },
   { icon: Map, label: 'Mapping', path: '/admin/tracking' },
@@ -50,7 +51,7 @@ const adminMenuItems = [
 const adminBottomNavItems: NavItem[] = [
   { icon: Users, label: 'Customers', path: '/admin/customers' },
   { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
-  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
+  { icon: Home, label: 'Home', path: '/admin/dashboard', isMain: true },
   { icon: Store, label: 'Merchants', path: '/admin/merchants' },
   { icon: UserCog, label: 'Staff', path: '/admin/staff' },
 ];
@@ -64,6 +65,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const { notifications, fetchNotifications } = useAppStore();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  React.useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user, fetchNotifications]);
 
   React.useEffect(() => {
     if (sidebarOpen) {
@@ -189,7 +198,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
             >
               <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-card" />
+              <AnimatePresence>
+                {unreadCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
+                  >
+                    {unreadCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </Link>
           </div>
         </header>

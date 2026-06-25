@@ -14,7 +14,7 @@ export interface NavItem {
 const defaultNavItems: NavItem[] = [
   { icon: Settings, label: 'Services', path: '/book-service?category=Periodic' },
   { icon: Shield, label: 'Essentials', path: '/book-service?category=Essentials' },
-  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
+  { icon: Home, label: 'Home', path: '/customer/dashboard', isMain: true },
   { icon: Droplets, label: 'Car Wash', path: '/book-service?category=Wash' },
   { icon: Battery, label: 'Battery/Tyres', path: '/book-service?category=Tyres' },
 ];
@@ -27,8 +27,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ items = defaultNavItems })
   const location = useLocation();
 
   const isItemActive = (path: string) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
+    if (path === '/dashboard' || path.endsWith('/dashboard')) {
+      return location.pathname === path || (path === '/customer/dashboard' && location.pathname === '/dashboard');
     }
 
     const [basePath, query] = path.split('?');

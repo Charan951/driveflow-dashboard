@@ -1,48 +1,21 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import AdminDashboard from '@/pages/admin/Dashboard';
-import MerchantDashboard from '@/pages/merchant/Dashboard';
-import StaffDashboardPage from '@/pages/staff/StaffDashboardPage';
-import DashboardPage from '@/pages/customer/DashboardPage';
-import AdminLayout from '@/layouts/AdminLayout';
-import MerchantLayout from '@/layouts/MerchantLayout';
-import StaffLayout from '@/layouts/StaffLayout';
-import CustomerLayout from '@/layouts/CustomerLayout';
 
 const DashboardDispatcher: React.FC = () => {
   const { role } = useAuthStore();
 
   switch (role) {
     case 'admin':
-      return (
-        <AdminLayout>
-          <AdminDashboard />
-        </AdminLayout>
-      );
+      return <Navigate to="/admin/dashboard" replace />;
     case 'merchant':
-      return (
-        <MerchantLayout>
-          <MerchantDashboard />
-        </MerchantLayout>
-      );
+      return <Navigate to="/merchant/dashboard" replace />;
     case 'staff':
-      return (
-        <StaffLayout>
-          <StaffDashboardPage />
-        </StaffLayout>
-      );
+      return <Navigate to="/staff/dashboard" replace />;
     case 'customer':
-      return (
-        <CustomerLayout>
-          <DashboardPage />
-        </CustomerLayout>
-      );
+      return <Navigate to="/customer/dashboard" replace />;
     default:
-      return (
-        <CustomerLayout>
-          <DashboardPage />
-        </CustomerLayout>
-      );
+      return <Navigate to="/login" replace />;
   }
 };
 

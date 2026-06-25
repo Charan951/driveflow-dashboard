@@ -386,7 +386,7 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
         setIsUploaded(true);
         onUploadComplete();
         toast.success('Bill uploaded and service marked as completed');
-        navigate('/dashboard');
+        navigate('/merchant/dashboard');
     } catch (error) {
         console.error(error);
         toast.error('Failed to save bill details');

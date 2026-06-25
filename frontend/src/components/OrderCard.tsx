@@ -15,6 +15,7 @@ interface OrderCardProps {
     variant?: string;
   };
   status: string;
+  statusLabel?: string;
   scheduledDate: string;
   scheduledTime?: string;
   price?: number;
@@ -40,6 +41,7 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
   service,
   vehicle,
   status,
+  statusLabel,
   scheduledDate,
   scheduledTime,
   price,
@@ -78,7 +80,7 @@ export const OrderCard: React.FC<OrderCardProps> = memo(({
           <h3 className="font-semibold text-foreground">{service}</h3>
         </div>
         <span className={cn('px-2.5 py-1 rounded-full text-xs font-medium', statusStyle.bg, statusStyle.text)}>
-          {statusStyle.label}
+          {statusLabel || statusStyle.label}
         </span>
       </div>
 

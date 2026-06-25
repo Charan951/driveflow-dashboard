@@ -73,26 +73,12 @@ const Dashboard: React.FC = () => {
     try {
       const bookingsData = await bookingService.getAllBookings();
 
-      const activeStatuses: Booking['status'][] = [
-        'CREATED',
-        'ASSIGNED',
-        'ACCEPTED',
-        'REACHED_CUSTOMER',
-        'VEHICLE_PICKED',
-        'REACHED_MERCHANT',
-        'SERVICE_STARTED',
-        'SERVICE_COMPLETED',
-        'OUT_FOR_DELIVERY',
-      ];
-
-      const completedStatuses: Booking['status'][] = ['COMPLETED'];
-
       const active = bookingsData.filter((b: Booking) =>
-        activeStatuses.includes(b.status)
+        !['CANCELLED', 'DELIVERED', 'COMPLETED'].includes(b.status)
       ).length;
       
       const completed = bookingsData.filter((b: Booking) =>
-        completedStatuses.includes(b.status)
+        ['DELIVERED', 'COMPLETED'].includes(b.status)
       ).length;
 
       const pendingBills = bookingsData.filter((b: Booking) =>

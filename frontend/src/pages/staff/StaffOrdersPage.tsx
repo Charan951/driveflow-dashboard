@@ -19,6 +19,7 @@ import { useTracking } from '@/hooks/use-tracking';
 import { getETA, ETAResponse } from '@/services/trackingService';
 
 const ACTIVE_STATUSES = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'REACHED_CUSTOMER', 'VEHICLE_PICKED', 'REACHED_MERCHANT', 'SERVICE_STARTED', 'SERVICE_COMPLETED', 'OUT_FOR_DELIVERY', 'QC_PENDING', 'CAR_WASH_STARTED', 'CAR_WASH_COMPLETED', 'STAFF_REACHED_MERCHANT', 'PICKUP_BATTERY_TIRE', 'DELIVERY'];
+const COMPLETED_STATUSES = ['Completed', 'COMPLETED', 'DELIVERED', 'Delivered'];
 
 const StaffOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -121,10 +122,13 @@ const StaffOrdersPage: React.FC = () => {
     }
 
     if (statusFilter !== 'all') {
-      if (statusFilter === 'active') {
+      if (statusFilter === 'today') {
+        const today = new Date().toISOString().split('T')[0];
+        result = result.filter(b => b.date && b.date.startsWith(today));
+      } else if (statusFilter === 'active') {
         result = result.filter(b => ACTIVE_STATUSES.includes(b.status));
       } else if (statusFilter === 'completed') {
-        result = result.filter(b => ['Completed', 'COMPLETED'].includes(b.status));
+        result = result.filter(b => COMPLETED_STATUSES.includes(b.status));
       } else if (statusFilter === 'delivered') {
         result = result.filter(b => ['Delivered', 'DELIVERED'].includes(b.status));
       } else {
@@ -276,6 +280,7 @@ const StaffOrdersPage: React.FC = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Orders</SelectItem>
+              <SelectItem value="today">Today's Orders</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="delivered">Delivered</SelectItem>

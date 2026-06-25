@@ -31,7 +31,7 @@ import { Loader2, Star, Wrench, Shield, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { STATUS_LABELS } from '@/lib/statusFlow';
+import { STATUS_LABELS, getStatusLabel } from '@/lib/statusFlow';
 
 const BookingsSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-8">
@@ -272,7 +272,7 @@ const MyBookingsPage = () => {
                     <TableCell>
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       <Badge variant={getStatusColor(booking.status) as any}>
-                        {STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS] || booking.status}
+                        {getStatusLabel(booking.status, booking.services)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -350,7 +350,7 @@ const MyBookingsPage = () => {
                     </div>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Badge variant={getStatusColor(booking.status) as any} className="flex-shrink-0">
-                      {STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS] || booking.status}
+                      {getStatusLabel(booking.status, booking.services)}
                     </Badge>
                   </div>
                   

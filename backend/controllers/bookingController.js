@@ -58,9 +58,14 @@ export const sanitizeBooking = (booking, currentUser) => {
     : (booking.toJSON ? booking.toJSON() : { ...booking });
 
   if (obj.deliveryOtp) {
-    const bookingUserId = obj.user && typeof obj.user === 'object' && obj.user._id
-      ? obj.user._id.toString()
-      : (obj.user ? obj.user.toString() : null);
+    let bookingUserId = null;
+    if (obj.user) {
+      if (typeof obj.user === 'object') {
+        bookingUserId = obj.user._id?.toString() || obj.user.id?.toString() || null;
+      } else {
+        bookingUserId = obj.user.toString();
+      }
+    }
 
     const currentUserId = currentUser && currentUser._id ? currentUser._id.toString() : null;
     const currentUserRole = currentUser && currentUser.role ? currentUser.role.toLowerCase() : null;
@@ -286,12 +291,13 @@ const getAllSlotsForDate = (dateInput) => {
 
 const getBlockedSlotsForDate = async (dateInput, category = 'All') => {
   const { start, end } = getDayBounds(dateInput);
+  const normalizedCategory = category === 'Tyre & Battery' ? 'Tyres & Battery' : category;
   
   const query = {
     date: { $gte: start, $lte: end },
     $or: [
       { category: 'All' },
-      { category: category }
+      { category: normalizedCategory }
     ]
   };
 
@@ -804,7 +810,10 @@ export const createBooking = async (req, res) => {
 // @access  Private
 export const getAvailableSlots = async (req, res) => {
   try {
-    const { date, category = 'All' } = req.query;
+    let { date, category = 'All' } = req.query;
+    if (category === 'Tyre & Battery') {
+      category = 'Tyres & Battery';
+    }
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -859,7 +868,10 @@ export const getAvailableSlots = async (req, res) => {
 // @access  Private/Admin
 export const getAdminSlotsForDate = async (req, res) => {
   try {
-    const { date, category = 'All' } = req.query;
+    let { date, category = 'All' } = req.query;
+    if (category === 'Tyre & Battery') {
+      category = 'Tyres & Battery';
+    }
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -918,7 +930,10 @@ export const getAdminSlotsForDate = async (req, res) => {
 // @access  Private/Admin
 export const updateAdminSlotBlocks = async (req, res) => {
   try {
-    const { date, category = 'All', blockedSlots = [] } = req.body || {};
+    let { date, category = 'All', blockedSlots = [] } = req.body || {};
+    if (category === 'Tyre & Battery') {
+      category = 'Tyres & Battery';
+    }
     if (!date) {
       return res.status(400).json({ message: 'date is required' });
     }
@@ -1208,6 +1223,7 @@ export const getAllBookings = async (req, res) => {
       .populate('merchant', 'name email phone')
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
+      .populate('carWash.staffAssigned', 'name email phone')
       .lean();
     
     const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
@@ -1223,6 +1239,7 @@ export const getAllBookings = async (req, res) => {
 export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
+      .select('+deliveryOtp.code')
       .populate('user', 'id name email phone')
       .populate('vehicle')
       .populate('services')

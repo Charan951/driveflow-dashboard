@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAppStore } from '@/store/appStore';
 import { 
   LayoutDashboard, 
   Bell,
@@ -27,7 +28,7 @@ import BottomNav from '@/components/BottomNav';
 
 
 const customerMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/customer/dashboard' },
   { icon: Calendar, label: 'My Bookings', path: '/bookings' },
   { icon: CreditCard, label: 'Payments', path: '/payments' },
   { icon: Car, label: 'Add Vehicle', path: '/add-vehicle' },
@@ -48,6 +49,14 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const { notifications, fetchNotifications } = useAppStore();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  React.useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user, fetchNotifications]);
 
   // Close sidebar when location changes
   React.useEffect(() => {
@@ -110,7 +119,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
           >
             {customerMenuItems.map((item) => {
               const isActive = location.pathname + location.search === item.path || 
-                              (item.path === '/dashboard' && location.pathname === '/dashboard');
+                              (item.path === '/customer/dashboard' && location.pathname === '/customer/dashboard');
               return (
                 <Link
                   key={item.path}
@@ -173,6 +182,18 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
                 className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
               >
                 <Bell className="w-5 h-5" />
+                <AnimatePresence>
+                  {unreadCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
+                    >
+                      {unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </Link>
 
             </div>

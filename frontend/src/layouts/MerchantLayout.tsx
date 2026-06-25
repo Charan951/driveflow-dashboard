@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Package, 
@@ -15,8 +15,10 @@ import {
   MessageSquare,
   Car,
   User,
-  Home
+  Home,
+  Bell
 } from 'lucide-react';
+import { useAppStore } from '@/store/appStore';
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -25,7 +27,7 @@ import PageTransition from '@/components/PageTransition';
 import BottomNav, { NavItem } from '@/components/BottomNav';
 
 const merchantMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/merchant/dashboard' },
   { icon: ClipboardList, label: 'Orders', path: '/merchant/orders' },
   { icon: MessageSquare, label: 'Feedback', path: '/merchant/feedback' },
   { icon: User, label: 'Profile', path: '/merchant/profile' },
@@ -33,7 +35,7 @@ const merchantMenuItems = [
 
 const merchantBottomNavItems: NavItem[] = [
   { icon: ClipboardList, label: 'Orders', path: '/merchant/orders' },
-  { icon: Home, label: 'Home', path: '/dashboard', isMain: true },
+  { icon: Home, label: 'Home', path: '/merchant/dashboard', isMain: true },
   { icon: User, label: 'Profile', path: '/merchant/profile' },
 ];
 
@@ -46,6 +48,14 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const { notifications, fetchNotifications } = useAppStore();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  React.useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user, fetchNotifications]);
 
   React.useEffect(() => {
     if (sidebarOpen) {
@@ -64,7 +74,7 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
 
   const filteredMenuItems = merchantMenuItems.map(item => {
     if (item.label === 'Dashboard' && user?.role === 'admin') {
-      return { ...item, path: '/dashboard' };
+      return { ...item, path: '/admin/dashboard' };
     }
     return item;
   });
@@ -171,6 +181,24 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              to="/merchant/notifications"
+              className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
+            >
+              <Bell className="w-5 h-5" />
+              <AnimatePresence>
+                {unreadCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
+                  >
+                    {unreadCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Link>
             <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center">
               <Store className="w-5 h-5 text-primary-foreground" />
             </div>

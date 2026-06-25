@@ -228,7 +228,7 @@ const SocketNotificationListener = () => {
         } else if (data.role === 'staff') {
           navigate('/staff/dashboard');
         } else if (data.role === 'customer') {
-          navigate('/dashboard');
+          navigate('/customer/dashboard');
         }
       }
     };

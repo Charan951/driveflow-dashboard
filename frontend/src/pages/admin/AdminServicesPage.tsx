@@ -352,7 +352,7 @@ const AdminServicesPage: React.FC = () => {
                   <option value="All">All Services</option>
                   <option value="General Services">General Services</option>
                   <option value="Car Wash">Car Wash</option>
-                  <option value="Tyre & Battery">Tyre & Battery</option>
+                  <option value="Tyres & Battery">Tyre & Battery</option>
                   <option value="Essentials">Essentials</option>
                 </select>
                 <input
