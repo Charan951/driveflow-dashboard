@@ -6,6 +6,7 @@ const auditLogSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  //CHARA
   action: {
     type: String,
     required: true,
