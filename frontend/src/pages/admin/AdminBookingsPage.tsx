@@ -94,7 +94,13 @@ const AdminBookingsPage: React.FC = () => {
           'SERVICE_COMPLETED',
           'OUT_FOR_DELIVERY',
           'CAR_WASH_STARTED',
-          'CAR_WASH_COMPLETED'
+          'CAR_WASH_COMPLETED',
+          'STAFF_REACHED_MERCHANT',
+          'PICKUP_BATTERY_TIRE',
+          'INSTALLATION',
+          'DELIVERY',
+          'MERCHANT_INSPECTION',
+          'PENDING_APPROVAL'
         ].includes(b.status));
       } else if (statusFilter === 'completed') {
         result = result.filter(b => b.status === 'COMPLETED');

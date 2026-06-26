@@ -1,6 +1,6 @@
 import Coupon from '../models/Coupon.js';
 import { emitEntitySync } from '../utils/syncService.js';
-import { isValidEmail, isValidPhone10 } from '../utils/validation.js';
+import { isValidEmail, isValidPhone10, isCouponDateValid } from '../utils/validation.js';
 import { mapCategoryToCouponServiceType } from '../utils/orderPricing.js';
 
 export const getCoupons = async (req, res) => {
@@ -42,8 +42,7 @@ export const validateCoupon = async (req, res) => {
       return res.status(400).json({ valid: false, message: 'Coupon is not active' });
     }
 
-    const now = new Date();
-    if (now < coupon.validFrom || now > coupon.validUntil) {
+    if (!isCouponDateValid(coupon.validFrom, coupon.validUntil)) {
       return res.status(400).json({ valid: false, message: 'Coupon has expired' });
     }
 

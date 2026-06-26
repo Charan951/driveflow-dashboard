@@ -83,7 +83,9 @@ const AdminCouponsPage: React.FC = () => {
   };
 
   const isCouponExpired = (coupon: Coupon) => {
-    return new Date(coupon.validUntil) < new Date();
+    const todayStr = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const validUntilStr = new Date(coupon.validUntil).toISOString().split('T')[0];
+    return todayStr > validUntilStr;
   };
 
   return (

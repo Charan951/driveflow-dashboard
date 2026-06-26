@@ -108,7 +108,7 @@ const AdminDashboard: React.FC = () => {
     },
     {
       title: 'Pending Bookings',
-      description: 'Review new service requests',
+      description: 'Manage active service requests',
       icon: <Calendar className="w-6 h-6" />,
       color: 'bg-orange-500',
       lightColor: 'bg-orange-50',

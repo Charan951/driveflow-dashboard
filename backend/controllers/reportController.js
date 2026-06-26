@@ -167,7 +167,29 @@ export const getDashboardStats = async (req, res) => {
       Vehicle.countDocuments(),
       Booking.countDocuments(dateFilter),
       Booking.countDocuments({ ...dateFilter, createdAt: { $gte: today } }),
-      Booking.countDocuments({ ...dateFilter, status: 'CREATED' }),
+      Booking.countDocuments({
+        ...dateFilter,
+        status: {
+          $in: [
+            'ASSIGNED',
+            'ACCEPTED',
+            'REACHED_CUSTOMER',
+            'VEHICLE_PICKED',
+            'REACHED_MERCHANT',
+            'SERVICE_STARTED',
+            'SERVICE_COMPLETED',
+            'OUT_FOR_DELIVERY',
+            'CAR_WASH_STARTED',
+            'CAR_WASH_COMPLETED',
+            'STAFF_REACHED_MERCHANT',
+            'PICKUP_BATTERY_TIRE',
+            'INSTALLATION',
+            'DELIVERY',
+            'MERCHANT_INSPECTION',
+            'PENDING_APPROVAL'
+          ]
+        }
+      }),
       Booking.aggregate([
         { $match: { ...dateFilter, paymentStatus: 'paid', createdAt: { $gte: today } } },
         { $group: { _id: null, total: { $sum: '$finalAmount' } } },

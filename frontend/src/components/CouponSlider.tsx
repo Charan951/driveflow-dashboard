@@ -10,12 +10,16 @@ const MIN_CARD_WIDTH = 168;
 const MAX_CARD_WIDTH = 220;
 
 function filterCoupons(coupons: Coupon[], user: ReturnType<typeof useAuthStore.getState>['user']) {
-  const now = Date.now();
+  const todayStr = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
   return coupons.filter((c) => {
     if (!c.isActive) return false;
+    if (c.validFrom) {
+      const validFromStr = new Date(c.validFrom).toISOString().split('T')[0];
+      if (todayStr < validFromStr) return false;
+    }
     if (c.validUntil) {
-      const until = new Date(c.validUntil).getTime();
-      if (!Number.isNaN(until) && until < now) return false;
+      const validUntilStr = new Date(c.validUntil).toISOString().split('T')[0];
+      if (todayStr > validUntilStr) return false;
     }
     if (c.targetUsers && c.targetUsers.length > 0) {
       const isTargeted = c.targetUsers.some(

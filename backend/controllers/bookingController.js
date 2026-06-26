@@ -21,6 +21,7 @@ import { attachHealthPercentToBookingPayload } from '../utils/vehicleHealthDispl
 import { verifyTrackingToken, createTrackingToken } from '../utils/trackingToken.js';
 import { validateAssignees } from '../utils/assignmentValidation.js';
 import { canAccessBooking } from '../utils/bookingAccess.js';
+import { isCouponDateValid } from '../utils/validation.js';
 
 export const toPublicTrackingDto = (booking) => {
   const bookingObj = typeof booking.toObject === 'function' ? booking.toObject({ virtuals: true }) : { ...booking };
@@ -139,6 +140,21 @@ const getCategoryGroup = (serviceCategory) => {
   } else {
     return 'General Services';
   }
+};
+
+const normalizeCategoryGroup = (category) => {
+  const cat = (category || 'All').trim();
+  if (cat === 'All') return 'All';
+  if (cat === 'Car Wash' || cat === 'Wash') {
+    return 'Car Wash';
+  }
+  if (cat === 'Tyres & Battery' || cat === 'Tyre & Battery' || cat === 'Tyres' || cat === 'Battery') {
+    return 'Tyres & Battery';
+  }
+  if (cat === 'Essentials') {
+    return 'Essentials';
+  }
+  return 'General Services';
 };
 
 /** Helper to calculate services total with vehicle-specific pricing (like car wash). */
@@ -291,7 +307,7 @@ const getAllSlotsForDate = (dateInput) => {
 
 const getBlockedSlotsForDate = async (dateInput, category = 'All') => {
   const { start, end } = getDayBounds(dateInput);
-  const normalizedCategory = category === 'Tyre & Battery' ? 'Tyres & Battery' : category;
+  const normalizedCategory = normalizeCategoryGroup(category);
   
   const query = {
     date: { $gte: start, $lte: end },
@@ -811,9 +827,7 @@ export const createBooking = async (req, res) => {
 export const getAvailableSlots = async (req, res) => {
   try {
     let { date, category = 'All' } = req.query;
-    if (category === 'Tyre & Battery') {
-      category = 'Tyres & Battery';
-    }
+    category = normalizeCategoryGroup(category);
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -869,9 +883,7 @@ export const getAvailableSlots = async (req, res) => {
 export const getAdminSlotsForDate = async (req, res) => {
   try {
     let { date, category = 'All' } = req.query;
-    if (category === 'Tyre & Battery') {
-      category = 'Tyres & Battery';
-    }
+    category = normalizeCategoryGroup(category);
     if (!date) {
       return res.status(400).json({ message: 'date query param is required' });
     }
@@ -931,9 +943,7 @@ export const getAdminSlotsForDate = async (req, res) => {
 export const updateAdminSlotBlocks = async (req, res) => {
   try {
     let { date, category = 'All', blockedSlots = [] } = req.body || {};
-    if (category === 'Tyre & Battery') {
-      category = 'Tyres & Battery';
-    }
+    category = normalizeCategoryGroup(category);
     if (!date) {
       return res.status(400).json({ message: 'date is required' });
     }
@@ -2898,8 +2908,7 @@ export const applyCoupon = async (req, res) => {
     }
 
     // Validate coupon
-    const now = new Date();
-    if (now < coupon.validFrom || now > coupon.validUntil) {
+    if (!isCouponDateValid(coupon.validFrom, coupon.validUntil)) {
       return res.status(400).json({ message: 'Coupon expired' });
     }
 

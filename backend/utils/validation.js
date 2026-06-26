@@ -579,6 +579,34 @@ const validateCareer = (data) => {
   return { valid: true };
 };
 
+const isCouponDateValid = (validFrom, validUntil) => {
+  if (!validFrom || !validUntil) return false;
+  
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: 'Asia/Kolkata', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  });
+  const nowStr = formatter.format(now); // "YYYY-MM-DD"
+  
+  const validFromFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  try {
+    const fromStr = validFromFormatter.format(new Date(validFrom));
+    const untilStr = validFromFormatter.format(new Date(validUntil));
+    return nowStr >= fromStr && nowStr <= untilStr;
+  } catch (e) {
+    return false;
+  }
+};
+
 export {
   validateHeroSettings,
   validateBlogPost,
@@ -589,5 +617,6 @@ export {
   isValidPhone10,
   hasExcessiveRepeatedChars,
   isValidName,
-  isOnlySpecialCharacters
+  isOnlySpecialCharacters,
+  isCouponDateValid
 };

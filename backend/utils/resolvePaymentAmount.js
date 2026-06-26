@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import Coupon from '../models/Coupon.js';
 import { calculateServicesTotal } from '../controllers/bookingController.js';
+import { isCouponDateValid } from './validation.js';
 import {
   calculateOrderTotals,
   shouldApplyCheckoutGst,
@@ -22,8 +23,7 @@ async function computeCouponDiscount(couponRef, totalAmount, services) {
     throw new Error('Invalid or inactive coupon');
   }
 
-  const now = new Date();
-  if (now < coupon.validFrom || now > coupon.validUntil) {
+  if (!isCouponDateValid(coupon.validFrom, coupon.validUntil)) {
     throw new Error('Coupon expired');
   }
 

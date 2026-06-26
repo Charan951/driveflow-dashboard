@@ -82,18 +82,23 @@ bool couponMatchesTargetUser(Map<String, dynamic> coupon, User? user) {
 
 bool isCouponWithinValidity(Map<String, dynamic> coupon, [DateTime? now]) {
   final current = now ?? DateTime.now();
+  final currentDateOnly = DateTime(current.year, current.month, current.day);
 
   final validFromStr = coupon['validFrom']?.toString();
   if (validFromStr != null && validFromStr.isNotEmpty) {
     try {
-      if (current.isBefore(DateTime.parse(validFromStr))) return false;
+      final validFrom = DateTime.parse(validFromStr).toLocal();
+      final validFromDateOnly = DateTime(validFrom.year, validFrom.month, validFrom.day);
+      if (currentDateOnly.isBefore(validFromDateOnly)) return false;
     } catch (_) {}
   }
 
   final validUntilStr = coupon['validUntil']?.toString();
   if (validUntilStr != null && validUntilStr.isNotEmpty) {
     try {
-      if (current.isAfter(DateTime.parse(validUntilStr))) return false;
+      final validUntil = DateTime.parse(validUntilStr).toLocal();
+      final validUntilDateOnly = DateTime(validUntil.year, validUntil.month, validUntil.day);
+      if (currentDateOnly.isAfter(validUntilDateOnly)) return false;
     } catch (_) {}
   }
 
