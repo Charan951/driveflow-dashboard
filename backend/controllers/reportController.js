@@ -142,6 +142,8 @@ export const getDashboardStats = async (req, res) => {
     const dateFilter = buildDateFilter(req.query);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const [
       activeCustomers,
@@ -166,7 +168,7 @@ export const getDashboardStats = async (req, res) => {
       ]),
       Vehicle.countDocuments(),
       Booking.countDocuments(dateFilter),
-      Booking.countDocuments({ ...dateFilter, createdAt: { $gte: today } }),
+      Booking.countDocuments({ ...dateFilter, date: { $gte: today, $lt: tomorrow } }),
       Booking.countDocuments({
         ...dateFilter,
         status: {
@@ -191,7 +193,7 @@ export const getDashboardStats = async (req, res) => {
         }
       }),
       Booking.aggregate([
-        { $match: { ...dateFilter, paymentStatus: 'paid', createdAt: { $gte: today } } },
+        { $match: { ...dateFilter, paymentStatus: 'paid', date: { $gte: today, $lt: tomorrow } } },
         { $group: { _id: null, total: { $sum: '$finalAmount' } } },
       ]),
       Booking.aggregate([

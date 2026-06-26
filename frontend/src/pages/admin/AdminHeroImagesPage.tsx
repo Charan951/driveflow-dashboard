@@ -1611,13 +1611,41 @@ const AdminHeroImagesPage = () => {
                 <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((prev) => ({ ...prev, excerpt: e.target.value }))} placeholder="Short excerpt *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[70px] resize-none break-all" />
                 <textarea value={blogForm.content} onChange={(e) => setBlogForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="Blog content *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all min-h-[120px] sm:min-h-[150px] resize-y break-all" />
                 <input type="text" value={blogForm.tags} onChange={(e) => setBlogForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="Tags (comma-separated) *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
-                <input type="text" value={blogForm.image} onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL *" className="w-full min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" />
-
-                <div className="sticky bottom-[5.5rem] lg:static z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 bg-card/95 backdrop-blur-md border border-border rounded-xl lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:py-0 lg:mx-0 lg:px-0 lg:bg-transparent lg:backdrop-blur-none shadow-sm lg:shadow-none">
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 min-w-0">
-                    <button onClick={() => triggerUpload('blog')} className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium h-10 flex items-center justify-center">
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex gap-2 w-full">
+                    <input 
+                      type="text" 
+                      value={blogForm.image} 
+                      onChange={(e) => setBlogForm((prev) => ({ ...prev, image: e.target.value }))} 
+                      placeholder="Image URL *" 
+                      className="flex-1 min-w-0 box-border px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all break-all" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => triggerUpload('blog')} 
+                      className="px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors font-medium h-10 flex items-center justify-center gap-2 text-sm bg-card shrink-0"
+                    >
+                      <Upload className="w-4 h-4" />
                       Upload Image
                     </button>
+                  </div>
+                  {blogForm.image && (
+                    <div className="relative rounded-lg overflow-hidden border border-border h-40 w-full bg-muted mt-2">
+                      <img src={blogForm.image} alt="Blog preview" className="w-full h-full object-cover" />
+                      <button 
+                        type="button"
+                        onClick={() => setBlogForm((prev) => ({ ...prev, image: '' }))}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-md"
+                        title="Remove image"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="sticky bottom-[5.5rem] lg:static z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 bg-card/95 backdrop-blur-md border border-border rounded-xl lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:pt-4 lg:pb-0 lg:mx-0 lg:px-0 lg:bg-transparent lg:backdrop-blur-none shadow-sm lg:shadow-none">
+                  <div className="flex items-center justify-between gap-3 min-w-0">
                     <label className="flex items-center gap-2 text-sm text-muted-foreground px-2 cursor-pointer select-none h-10 shrink-0">
                       <input 
                         type="checkbox" 
@@ -1627,7 +1655,7 @@ const AdminHeroImagesPage = () => {
                       />
                       <span>Published</span>
                     </label>
-                    <button onClick={handleSaveBlog} className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm h-10 flex items-center justify-center">
+                    <button onClick={handleSaveBlog} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm h-10 flex items-center justify-center">
                       {blogForm._id ? 'Update Blog' : 'Create Blog'}
                     </button>
                   </div>

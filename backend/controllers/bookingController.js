@@ -159,7 +159,9 @@ const normalizeCategoryGroup = (category) => {
 
 /** Helper to calculate services total with vehicle-specific pricing (like car wash). */
 export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBrands = {}, serviceQuantities = {}) => {
-  console.log('calculateServicesTotal inputs:', { serviceIds, vehicleId, selectedBrands, serviceQuantities });
+  const normalizedBrands = selectedBrands || {};
+  const normalizedQuantities = serviceQuantities || {};
+  console.log('calculateServicesTotal inputs:', { serviceIds, vehicleId, selectedBrands: normalizedBrands, serviceQuantities: normalizedQuantities });
   try {
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
@@ -185,13 +187,20 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
     let total = 0;
     services.forEach(service => {
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
-      const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+      const isBattery =
+        service.category === 'Battery' ||
+        (service.name && service.name.toLowerCase().includes('battery'));
+      const isTire =
+        !isBattery &&
+        (service.category === 'Tyres' ||
+          service.category === 'Tyre & Battery' ||
+          (service.name && service.name.toLowerCase().includes('tyre')));
       const isGeneral =
         service.category === 'Periodic' ||
         service.category === 'Services' ||
         (service.name && service.name.toLowerCase().includes('general service'));
 
-      const qty = Number(serviceQuantities[service._id.toString()] || serviceQuantities[service._id] || 1);
+      const qty = Number(normalizedQuantities[service._id.toString()] || normalizedQuantities[service._id] || 1);
       let servicePrice = service.price;
 
       if (isGeneral && refMatch) {
@@ -220,9 +229,30 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
         if (washPrice && !isNaN(priceNum) && priceNum > 0) {
           servicePrice = priceNum;
         }
+      } else if (isBattery && refMatch) {
+        let selectedBrand = normalizedBrands[service._id.toString()] || normalizedBrands[service._id];
+        if (!selectedBrand && service.name) {
+          const nameLower = service.name.toLowerCase();
+          if (nameLower.includes('amaron')) selectedBrand = 'Amaron';
+          else if (nameLower.includes('exide')) selectedBrand = 'Exide';
+        }
+        console.log('Battery price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands: normalizedBrands });
+        if (selectedBrand) {
+          const brandKey = `battery_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
+          const brandPrice = refMatch[brandKey];
+          const priceNum = Number(brandPrice);
+          console.log('Resolved battery brand price:', { brandKey, brandPrice, priceNum });
+          if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
+            servicePrice = priceNum;
+          } else {
+            console.log('Invalid battery brand price, falling back to service.price', service.price);
+          }
+        } else {
+          console.log('No battery brand selected or matched, falling back to service.price', service.price);
+        }
       } else if (isTire && refMatch) {
-        const selectedBrand = selectedBrands[service._id.toString()] || selectedBrands[service._id];
-        console.log('Tyre price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands });
+        const selectedBrand = normalizedBrands[service._id.toString()] || normalizedBrands[service._id];
+        console.log('Tyre price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands: normalizedBrands });
         if (selectedBrand) {
           const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
           const brandPrice = refMatch[brandKey];
@@ -248,7 +278,7 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
     const Service = (await import('../models/Service.js')).default;
     const services = await Service.find({ _id: { $in: serviceIds } });
     const total = services.reduce((acc, s) => {
-      const qty = Number(serviceQuantities[s._id.toString()] || serviceQuantities[s._id] || 1);
+      const qty = Number(normalizedQuantities[s._id.toString()] || normalizedQuantities[s._id] || 1);
       return acc + (s.price * qty);
     }, 0);
     return { total, refMatch: null, services };
@@ -256,50 +286,54 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
 };
 
 const formatTo12HourSlot = (date) => {
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours24 >= 12 ? 'PM' : 'AM';
-  const hours12 = hours24 % 12 || 12;
-  return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  return formatter.format(date).replace(/[\u202f\u00a0]/g, ' ');
 };
 
 const getDayBounds = (dateInput) => {
-  let date;
   if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
-    // Force local midnight for YYYY-MM-DD strings to avoid UTC shifts
     const [y, m, d] = dateInput.split('T')[0].split('-').map(Number);
-    date = new Date(y, m - 1, d);
-  } else if (dateInput instanceof Date) {
-    date = dateInput;
-  } else {
-    date = new Date(dateInput);
+    const start = new Date(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000+05:30`);
+    const end = new Date(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T23:59:59.999+05:30`);
+    return { start, end };
   }
 
-  if (isNaN(date.getTime())) {
+  const dObj = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+  if (isNaN(dObj.getTime())) {
     return { 
       start: new Date(1970, 0, 1), 
       end: new Date(1970, 0, 1) 
     };
   }
 
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const d = date.getDate();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(dObj);
+  const mm = parts.find(p => p.type === 'month').value;
+  const dd = parts.find(p => p.type === 'day').value;
+  const yyyy = parts.find(p => p.type === 'year').value;
 
-  const start = new Date(y, m, d, 0, 0, 0, 0);
-  const end = new Date(y, m, d, 23, 59, 59, 999);
+  const start = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000+05:30`);
+  const end = new Date(`${yyyy}-${mm}-${dd}T23:59:59.999+05:30`);
   return { start, end };
 };
 
 const getAllSlotsForDate = (dateInput) => {
   const { start } = getDayBounds(dateInput);
   const slots = [];
-  const base = new Date(start);
-  base.setHours(SLOT_START_HOUR, 0, 0, 0);
-  const endLimit = new Date(start);
-  endLimit.setHours(SLOT_END_HOUR, 0, 0, 0);
+  const base = new Date(start.getTime() + SLOT_START_HOUR * 60 * 60 * 1000);
+  const endLimit = new Date(start.getTime() + SLOT_END_HOUR * 60 * 60 * 1000);
 
-  for (let current = new Date(base); current < endLimit; current.setMinutes(current.getMinutes() + SLOT_INTERVAL_MINUTES)) {
+  for (let current = new Date(base); current < endLimit; current.setTime(current.getTime() + SLOT_INTERVAL_MINUTES * 60 * 1000)) {
     slots.push(formatTo12HourSlot(new Date(current)));
   }
   return slots;
@@ -1085,6 +1119,7 @@ export const getMyBookings = async (req, res) => {
       .populate('pickupDriver', 'name email phone')
       .populate('carWash.staffAssigned', 'name email phone')
       .populate('coupon')
+      .populate('batteryTire.warranty.addedBy', 'name email')
       .lean();
     
     const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
@@ -1234,6 +1269,7 @@ export const getAllBookings = async (req, res) => {
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
       .populate('carWash.staffAssigned', 'name email phone')
+      .populate('batteryTire.warranty.addedBy', 'name email')
       .lean();
     
     const sanitizedBookings = bookings.map((b) => sanitizeBooking(b, req.user));
@@ -1257,7 +1293,8 @@ export const getBookingById = async (req, res) => {
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
       .populate('carWash.staffAssigned', 'name email phone')
-      .populate('coupon');
+      .populate('coupon')
+      .populate('batteryTire.warranty.addedBy', 'name email');
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
@@ -1396,7 +1433,8 @@ export const assignBooking = async (req, res) => {
     .populate('merchant', 'name email phone location')
     .populate('pickupDriver', 'name email phone')
     .populate('technician', 'name email phone')
-    .populate('carWash.staffAssigned', 'name email phone');
+    .populate('carWash.staffAssigned', 'name email phone')
+    .populate('batteryTire.warranty.addedBy', 'name email');
 
     if (!updatedBooking) throw new Error('Failed to retrieve updated booking');
 
@@ -1798,7 +1836,8 @@ export const updateBookingStatus = async (req, res) => {
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
         .populate('technician', 'name email phone')
-        .populate('carWash.staffAssigned', 'name email phone');
+        .populate('carWash.staffAssigned', 'name email phone')
+        .populate('batteryTire.warranty.addedBy', 'name email');
 
       // Emit socket event for real-time updates
       emitBookingUpdate(updatedBooking);
@@ -2084,7 +2123,8 @@ export const verifyDeliveryOtp = async (req, res) => {
       .populate('merchant', 'name email phone location')
       .populate('pickupDriver', 'name email phone')
       .populate('technician', 'name email phone')
-      .populate('carWash.staffAssigned', 'name email phone');
+      .populate('carWash.staffAssigned', 'name email phone')
+      .populate('batteryTire.warranty.addedBy', 'name email');
 
     // Emit socket event for real-time updates
     emitBookingUpdate(populated);
@@ -2333,7 +2373,8 @@ export const updateBookingDetails = async (req, res) => {
         .populate('merchant', 'name email phone location')
         .populate('pickupDriver', 'name email phone')
         .populate('technician', 'name email phone')
-        .populate('carWash.staffAssigned', 'name email phone');
+        .populate('carWash.staffAssigned', 'name email phone')
+        .populate('batteryTire.warranty.addedBy', 'name email');
 
       // Emit socket event for real-time updates
       emitBookingUpdate(populated);
@@ -2722,7 +2763,8 @@ export const batteryTireApproval = async (req, res) => {
       .populate('vehicle')
       .populate('services')
       .populate('merchant', 'name email phone location')
-      .populate('pickupDriver', 'name email phone');
+      .populate('pickupDriver', 'name email phone')
+      .populate('batteryTire.warranty.addedBy', 'name email');
 
     // Emit socket event for real-time updates
     emitBookingUpdate(populated);

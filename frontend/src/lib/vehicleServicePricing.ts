@@ -14,8 +14,20 @@ function isCarWashService(service: Service): boolean {
   return service.category === 'Car Wash' || service.category === 'Wash';
 }
 
+function isBatteryService(service: Service): boolean {
+  return (
+    service.category === 'Battery' ||
+    (service.name?.toLowerCase().includes('battery') ?? false)
+  );
+}
+
 function isTireService(service: Service): boolean {
-  return service.category === 'Tyres' || service.category === 'Tyre & Battery';
+  return (
+    !isBatteryService(service) &&
+    (service.category === 'Tyres' ||
+      service.category === 'Tyre & Battery' ||
+      (service.name?.toLowerCase().includes('tyre') ?? false))
+  );
 }
 
 function carWashPricesFromRef(ref: VehicleReferenceRecord) {
@@ -44,11 +56,29 @@ export function getServiceUnitPrice(
 ): number {
   const isGeneral = isGeneralServiceItem(service);
   const isWash = isCarWashService(service);
+  const isBattery = isBatteryService(service);
   const isTire = isTireService(service);
 
   if (isGeneral && vehicleRef?.general_service_price != null) {
     const refPrice = Number(vehicleRef.general_service_price);
     if (!Number.isNaN(refPrice) && refPrice > 0) return refPrice;
+  }
+
+  if (isBattery && vehicleRef) {
+    let brand = selectedTireBrand;
+    if (!brand && service.name) {
+      const nameLower = service.name.toLowerCase();
+      if (nameLower.includes('amaron')) brand = 'Amaron';
+      else if (nameLower.includes('exide')) brand = 'Exide';
+    }
+    if (brand) {
+      const brandKey = `battery_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
+      const price = vehicleRef[brandKey];
+      if (price != null) {
+        const n = Number(price);
+        if (!Number.isNaN(n) && n > 0) return n;
+      }
+    }
   }
 
   if (isTire && selectedTireBrand && vehicleRef) {

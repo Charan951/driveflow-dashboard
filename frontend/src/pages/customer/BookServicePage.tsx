@@ -141,7 +141,12 @@ const BookServicePage: React.FC = () => {
 
   const getPackagePrice = (service: Service) => {
     const isWash = service.category === 'Car Wash' || service.category === 'Wash';
-    const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+    const isBattery =
+      service.category === 'Battery' ||
+      service.name.toLowerCase().includes('battery');
+    const isTire =
+      !isBattery &&
+      (service.category === 'Tyres' || service.category === 'Tyre & Battery' || service.name.toLowerCase().includes('tyre'));
     const isGeneral =
       service.category === 'Periodic' ||
       service.category === 'Services' ||
@@ -152,6 +157,21 @@ const BookServicePage: React.FC = () => {
       if (!Number.isNaN(refPrice) && refPrice > 0) {
         return refPrice;
       }
+    }
+
+    if (isBattery && selectedVehicleReference) {
+      let brand = selectedTireBrands[service._id];
+      if (!brand && service.name) {
+        const nameLower = service.name.toLowerCase();
+        if (nameLower.includes('amaron')) brand = 'Amaron';
+        else if (nameLower.includes('exide')) brand = 'Exide';
+      }
+      if (brand) {
+        const brandKey = `battery_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
+        const price = selectedVehicleReference[brandKey];
+        if (price) return Number(price);
+      }
+      return Number(service.price || 0);
     }
 
     if (isTire) {
@@ -523,6 +543,19 @@ const BookServicePage: React.FC = () => {
     } else {
       setActiveSubCategory('All');
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    setCurrentStep(0);
+    setSelectedVehicle(null);
+    setSelectedServices([]);
+    setTireSizes({});
+    setSelectedTireBrands({});
+    setServiceQuantities({});
+    setIsManualSize({});
+    setSelectedDate(startOfLocalDay());
+    setSelectedTime(null);
+    setError(null);
   }, [searchParams]);
 
   useEffect(() => {
