@@ -194,7 +194,7 @@ const AdminDashboard: React.FC = () => {
               />
               <CounterCard
                 label="Revenue Today"
-                value={`₹${stats.revenueToday}`}
+                value={`₹${Math.round(stats.revenueToday * 100) / 100}`}
                 icon={<IndianRupee className="w-4 h-4 text-emerald-600" />}
                 delay={0.2}
               />

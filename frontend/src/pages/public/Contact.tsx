@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Phone, Mail, Send, MessageSquare, Clock } from "lucide-react";
+import { MapPin, Phone, Mail, Send, MessageSquare, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
 import { ticketService } from "@/services/ticketService";
+import { captchaService, CaptchaData } from "@/services/captchaService";
 import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
 
 const Contact = () => {
@@ -24,6 +25,9 @@ const Contact = () => {
     mobileNumber: "+91 9849964945",
     email: "info@carzzi.com"
   });
+  const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
 
   const MAX_NAME_LENGTH = SHARED_MAX_NAME_LENGTH;
   const MAX_SUBJECT_LENGTH = 100;
@@ -45,7 +49,22 @@ const Contact = () => {
 
   useEffect(() => {
     fetchHero();
+    loadCaptcha();
   }, []);
+
+  const loadCaptcha = async () => {
+    try {
+      setCaptchaLoading(true);
+      const data = await captchaService.getCaptcha();
+      setCaptchaData(data);
+      setCaptchaInput("");
+    } catch (err) {
+      toast.error("Failed to load CAPTCHA");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
 
   const fetchHero = async () => {
     try {
@@ -121,17 +140,33 @@ const Contact = () => {
       return;
     }
 
+    if (!captchaInput || !captchaData) {
+      toast.error("Please enter the CAPTCHA code");
+      return;
+    }
+
     setLoading(true);
     try {
-      await ticketService.createPublicTicket({ name, email, subject, message });
+      await ticketService.createPublicTicket({
+        name,
+        email,
+        subject,
+        message,
+        captchaInput,
+        captchaSignature: captchaData.signature,
+        captchaExpiry: captchaData.expiry,
+      });
       toast.success("Message sent successfully! We'll get back to you soon.");
       setFormData({ name: "", email: "", subject: "", message: "" });
+      loadCaptcha();
     } catch (error: any) {
       const errMsg = error?.response?.data?.message || error?.message || "Failed to send message";
       toast.error(errMsg);
+      loadCaptcha();
     } finally {
       setLoading(false);
     }
+
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -347,8 +382,41 @@ const Contact = () => {
                   ></textarea>
                 </div>
 
+                {captchaData && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground/80">Security Verification</label>
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: captchaData.svg }} 
+                          className="flex-shrink-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadCaptcha}
+                          disabled={captchaLoading}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground disabled:opacity-50"
+                          title="Refresh CAPTCHA"
+                        >
+                          <RefreshCw className={`w-5 h-5 ${captchaLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={captchaInput}
+                        onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
+                        placeholder="Enter code"
+                        className="w-full sm:w-40 px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"
+                        maxLength={6}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <motion.button
                   whileHover={{ scale: 1.02 }}
+
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}

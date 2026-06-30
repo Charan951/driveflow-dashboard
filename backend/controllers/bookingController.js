@@ -49,6 +49,19 @@ export const toPublicTrackingDto = (booking) => {
   };
 };
 
+const validateImageUrls = (urls) => {
+  if (!urls) return;
+  const urlList = Array.isArray(urls) ? urls : [urls];
+  for (const url of urlList) {
+    if (typeof url === 'string' && url.trim() !== '') {
+      const cleanUrl = url.split('?')[0];
+      if (/\.pdf$/i.test(cleanUrl)) {
+        throw new Error('Only image formats (JPEG, PNG, WEBP, etc.) are allowed for vehicle and service photos.');
+      }
+    }
+  }
+};
+
 export { createTrackingToken };
 
 export const sanitizeBooking = (booking, currentUser) => {
@@ -646,6 +659,10 @@ export const createBooking = async (req, res) => {
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
     const { total: servicesTotal, refMatch, services } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands, serviceQuantities);
+
+    if (!services || services.length === 0) {
+      return res.status(400).json({ message: 'At least one valid service is required to create a booking' });
+    }
 
     // Determine booking categories for slot availability check
     const bookingCategories = new Set();
@@ -2218,14 +2235,19 @@ export const updateBookingDetails = async (req, res) => {
         return res.status(401).json({ message: 'Not authorized to update this booking' });
       }
 
-      if (media) booking.media = media;
+      if (media) {
+        validateImageUrls(media);
+        booking.media = media;
+      }
       if (notes) booking.notes = notes;
       if (req.body.carWash) {
         if (!booking.carWash) booking.carWash = { isCarWashService: true };
         if (Array.isArray(req.body.carWash.beforeWashPhotos)) {
+          validateImageUrls(req.body.carWash.beforeWashPhotos);
           booking.carWash.beforeWashPhotos = req.body.carWash.beforeWashPhotos;
         }
         if (Array.isArray(req.body.carWash.afterWashPhotos)) {
+          validateImageUrls(req.body.carWash.afterWashPhotos);
           booking.carWash.afterWashPhotos = req.body.carWash.afterWashPhotos;
         }
         booking.markModified('carWash');
@@ -2240,11 +2262,25 @@ export const updateBookingDetails = async (req, res) => {
               : `Cannot accept more than 4 photos for general services` 
           });
         }
+        validateImageUrls(prePickupPhotos);
         booking.prePickupPhotos = prePickupPhotos;
       }
       
       if (inspection) {
         if (!booking.inspection) booking.inspection = {};
+        validateImageUrls(inspection.frontPhoto);
+        validateImageUrls(inspection.backPhoto);
+        validateImageUrls(inspection.leftPhoto);
+        validateImageUrls(inspection.rightPhoto);
+        if (Array.isArray(inspection.photos)) {
+          validateImageUrls(inspection.photos);
+        }
+        if (Array.isArray(inspection.additionalParts)) {
+          for (const part of inspection.additionalParts) {
+            validateImageUrls(part.image);
+            validateImageUrls(part.oldImage);
+          }
+        }
         Object.assign(booking.inspection, inspection);
         booking.markModified('inspection');
       }
@@ -2257,6 +2293,15 @@ export const updateBookingDetails = async (req, res) => {
         if (!booking.serviceExecution) booking.serviceExecution = {};
         if (Array.isArray(serviceExecution.afterPhotos)) {
           serviceExecution.afterPhotos = serviceExecution.afterPhotos.slice(0, BATTERY_AFTER_PHOTOS_REQUIRED);
+        }
+        validateImageUrls(serviceExecution.beforePhotos);
+        validateImageUrls(serviceExecution.duringPhotos);
+        validateImageUrls(serviceExecution.afterPhotos);
+        if (Array.isArray(serviceExecution.serviceParts)) {
+          for (const part of serviceExecution.serviceParts) {
+            validateImageUrls(part.image);
+            validateImageUrls(part.oldImage);
+          }
         }
         Object.assign(booking.serviceExecution, serviceExecution);
         booking.markModified('serviceExecution');
@@ -2424,6 +2469,8 @@ export const uploadCarWashBeforePhotos = async (req, res) => {
       return res.status(400).json({ message: 'At least one photo is required' });
     }
 
+    validateImageUrls(photos);
+
     // Ensure carWash object exists
     if (!booking.carWash) {
       booking.carWash = { isCarWashService: true };
@@ -2555,6 +2602,8 @@ export const uploadCarWashAfterPhotos = async (req, res) => {
     if (!Array.isArray(photos) || photos.length === 0) {
       return res.status(400).json({ message: 'At least one photo is required' });
     }
+
+    validateImageUrls(photos);
 
     // Ensure carWash object exists
     if (!booking.carWash) {

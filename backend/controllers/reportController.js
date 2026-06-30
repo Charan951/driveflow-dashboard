@@ -209,14 +209,16 @@ export const getDashboardStats = async (req, res) => {
       Ticket.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
     ]);
 
+    const roundToTwoDecimals = (num) => Math.round((num || 0) * 100) / 100;
+
     res.json({
       totalCustomers: activeCustomers[0]?.count || 0,
       totalVehicles,
       totalBookings,
-      totalRevenue: totalRevenue[0]?.total || 0,
+      totalRevenue: roundToTwoDecimals(totalRevenue[0]?.total),
       todaysBookings,
       pendingBookings,
-      revenueToday: revenueToday[0]?.total || 0,
+      revenueToday: roundToTwoDecimals(revenueToday[0]?.total),
       vehiclesOnRoad,
       vehiclesInService,
       waitingPickup,
@@ -258,7 +260,11 @@ export const getRevenueAnalytics = async (req, res) => {
       { $sort: { _id: 1 } },
     ]);
 
-    res.json(revenue);
+    const formattedRevenue = revenue.map(item => ({
+      ...item,
+      amount: Math.round((item.amount || 0) * 100) / 100
+    }));
+    res.json(formattedRevenue);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -276,7 +282,11 @@ export const getTopServices = async (req, res) => {
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]);
-    res.json(services);
+    const formattedServices = services.map(item => ({
+      ...item,
+      revenue: Math.round((item.revenue || 0) * 100) / 100
+    }));
+    res.json(formattedServices);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -318,7 +328,11 @@ export const getMerchantPerformance = async (req, res) => {
         },
       },
     ]);
-    res.json(merchants);
+    const formattedMerchants = merchants.map(item => ({
+      ...item,
+      totalRevenue: Math.round((item.totalRevenue || 0) * 100) / 100
+    }));
+    res.json(formattedMerchants);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

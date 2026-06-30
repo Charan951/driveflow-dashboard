@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, MapPin, Clock, Upload, ArrowLeft } from 'lucide-react';
+import { Briefcase, MapPin, Clock, Upload, ArrowLeft, RefreshCw } from 'lucide-react';
 import { careerService, Career } from '@/services/careerService';
 import { uploadService } from '@/services/uploadService';
+import { captchaService, CaptchaData } from '@/services/captchaService';
 import { toast } from 'sonner';
 import { isValidEmail, isValidPhone10, isValidName, hasExcessiveRepeatedChars } from "@/lib/formValidation";
 
@@ -16,6 +17,9 @@ const CareerDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -23,6 +27,7 @@ const CareerDetail: React.FC = () => {
     resumeUrl: '',
     additionalMessage: '',
   });
+
 
   useEffect(() => {
     const fetchCareer = async () => {
@@ -37,7 +42,22 @@ const CareerDetail: React.FC = () => {
       }
     };
     fetchCareer();
+    loadCaptcha();
   }, [id]);
+
+  const loadCaptcha = async () => {
+    try {
+      setCaptchaLoading(true);
+      const data = await captchaService.getCaptcha();
+      setCaptchaData(data);
+      setCaptchaInput("");
+    } catch (err) {
+      toast.error("Failed to load CAPTCHA");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
 
   const onUploadResume = async (file?: File, event?: React.ChangeEvent<HTMLInputElement>) => {
     if (!file) return;
@@ -123,6 +143,11 @@ const CareerDetail: React.FC = () => {
       toast.error('Additional message is too long');
       return;
     }
+    if (!captchaInput || !captchaData) {
+      toast.error('Please enter the CAPTCHA code');
+      return;
+    }
+
     try {
       setSubmitting(true);
       await careerService.applyForCareer(id, {
@@ -131,6 +156,9 @@ const CareerDetail: React.FC = () => {
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.replace(/\D/g, ''),
         additionalMessage: form.additionalMessage.trim(),
+        captchaInput,
+        captchaSignature: captchaData.signature,
+        captchaExpiry: captchaData.expiry,
       });
       toast.success('Application submitted successfully');
       setForm({
@@ -140,11 +168,14 @@ const CareerDetail: React.FC = () => {
         resumeUrl: '',
         additionalMessage: '',
       });
+      loadCaptcha();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to submit application');
+      loadCaptcha();
     } finally {
       setSubmitting(false);
     }
+
   };
 
   if (loading) {
@@ -256,9 +287,42 @@ const CareerDetail: React.FC = () => {
 
             <textarea value={form.additionalMessage} onChange={(e) => setForm((prev) => ({ ...prev, additionalMessage: e.target.value }))} placeholder="Additional message (optional)" className="w-full px-4 py-2 min-h-[100px] bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none" />
 
+            {captchaData && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Security Verification</label>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: captchaData.svg }} 
+                      className="flex-shrink-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={loadCaptcha}
+                      disabled={captchaLoading}
+                      className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground disabled:opacity-50"
+                      title="Refresh CAPTCHA"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${captchaLoading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
+                    placeholder="Enter code"
+                    className="w-full sm:w-40 px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                    maxLength={6}
+                  />
+                </div>
+              </div>
+            )}
+
             <button type="submit" disabled={submitting || uploadingResume || !career.isActive} className="w-full px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 font-semibold">
               {submitting ? 'Submitting...' : 'Submit Application'}
             </button>
+
           </motion.form>
         </div>
       </div>

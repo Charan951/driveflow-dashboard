@@ -22,7 +22,15 @@ export const ticketService = {
     return response.data;
   },
 
-  createPublicTicket: async (data: { name: string; email: string; subject: string; message: string }) => {
+  createPublicTicket: async (data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    captchaInput: string;
+    captchaSignature: string;
+    captchaExpiry: number;
+  }) => {
     const response = await api.post('/tickets/public', data);
     return response.data;
   },

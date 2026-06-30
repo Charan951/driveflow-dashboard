@@ -28,6 +28,12 @@ const InspectionPanel: React.FC<InspectionPanelProps> = ({ booking, onUpdate }) 
     const file = e.target.files?.[0];
     if (!file) return;
     
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed for vehicle photos.');
+      e.target.value = '';
+      return;
+    }
+    
     setUploadingSides(prev => ({ ...prev, [side]: true }));
     try {
       const res = await uploadService.uploadFile(file);

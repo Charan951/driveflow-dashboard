@@ -56,3 +56,13 @@ export const publicUploadLimiter = rateLimit({
   message: { message: 'Too many upload requests. Please try again later.' },
   skip: () => getAppEnv() !== 'production',
 });
+
+export const captchaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // Limit each IP to 30 captcha generations per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many CAPTCHA requests. Please try again later.' },
+  skip: () => getAppEnv() !== 'production',
+});
+

@@ -166,6 +166,11 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
     const files = input.files ? Array.from(input.files) : [];
     input.value = '';
     if (files.length > 0) {
+      const nonImages = files.filter(file => !file.type.startsWith('image/'));
+      if (nonImages.length > 0) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed for service photos.');
+        return;
+      }
       await uploadAfterPhotos(files);
     }
   };
@@ -224,6 +229,11 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   const handleServicePartImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed.');
+        e.target.value = '';
+        return;
+      }
       updateServicePart(index, 'image', file);
       // Mark that new image has been uploaded
       updateServicePart(index, 'needsNewImage', false);
@@ -235,6 +245,11 @@ const MediaUploadPanel: React.FC<MediaUploadPanelProps> = ({ bookingId, booking,
   const handleExistingPartImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed.');
+        e.target.value = '';
+        return;
+      }
       setNewImagesForExistingParts(prev => ({
         ...prev,
         [index]: file

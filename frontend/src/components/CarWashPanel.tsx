@@ -33,6 +33,16 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   const handleBeforeImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
+      const nonImages = files.filter(file => !file.type.startsWith('image/'));
+      if (nonImages.length > 0) {
+        toast({
+          title: "Invalid File Type",
+          description: "Only image files (JPEG, PNG, WEBP, etc.) are allowed for service photos.",
+          variant: "destructive"
+        });
+        e.target.value = '';
+        return;
+      }
       const slotsLeft = Math.max(0, CAR_WASH_REQUIRED_PHOTOS - existingBeforeCount - beforeImages.length);
       const limitedFiles = files.slice(0, slotsLeft);
       setBeforeImages(prev => [...prev, ...limitedFiles].slice(0, CAR_WASH_REQUIRED_PHOTOS - existingBeforeCount));
@@ -51,6 +61,16 @@ export const CarWashPanel: React.FC<CarWashPanelProps> = ({ booking, onUpdate })
   const handleAfterImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
+      const nonImages = files.filter(file => !file.type.startsWith('image/'));
+      if (nonImages.length > 0) {
+        toast({
+          title: "Invalid File Type",
+          description: "Only image files (JPEG, PNG, WEBP, etc.) are allowed for service photos.",
+          variant: "destructive"
+        });
+        e.target.value = '';
+        return;
+      }
       const slotsLeft = Math.max(0, CAR_WASH_REQUIRED_PHOTOS - existingAfterCount - afterImages.length);
       const limitedFiles = files.slice(0, slotsLeft);
       setAfterImages(prev => [...prev, ...limitedFiles].slice(0, CAR_WASH_REQUIRED_PHOTOS - existingAfterCount));

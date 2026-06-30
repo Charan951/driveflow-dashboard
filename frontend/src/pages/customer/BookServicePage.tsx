@@ -681,8 +681,13 @@ const BookServicePage: React.FC = () => {
       if (modifier === 'PM' && hours < 12) hours += 12;
       if (modifier === 'AM' && hours === 12) hours = 0;
       
-      const bookingDate = new Date(selectedDate);
-      bookingDate.setHours(hours, minutes, 0, 0);
+      const y = selectedDate.getFullYear();
+      const m = selectedDate.getMonth() + 1;
+      const d = selectedDate.getDate();
+      const hh = String(hours).padStart(2, '0');
+      const min = String(minutes).padStart(2, '0');
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${hh}:${min}:00.000+05:30`;
+      const bookingDate = new Date(dateStr);
 
       // Check if this is a service that requires payment first (Car Wash, Battery/Tires, or Essentials)
       const isCarWash = selectedServicesData.some(service => 

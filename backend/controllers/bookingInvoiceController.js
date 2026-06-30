@@ -248,10 +248,11 @@ export const getBookingInvoice = async (req, res) => {
       (payment?.updatedAt ? new Date(payment.updatedAt) : null) ||
       new Date();
     const invoiceDateStr = invoiceDate.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       day: 'numeric',
       month: 'short',
       year: 'numeric',
-    });
+    }).replace(/[\u202f\u00a0]/g, ' ');
     const orderLabel = String(booking.orderNumber ?? booking._id.toString().slice(-8).toUpperCase());
 
     // ----- Header band -----
@@ -386,7 +387,7 @@ export const getBookingInvoice = async (req, res) => {
         py,
         'Paid on',
         paidAt
-          ? new Date(paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+          ? new Date(paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }).replace(/[\u202f\u00a0]/g, ' ')
           : '—',
         colW
       );

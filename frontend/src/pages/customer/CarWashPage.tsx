@@ -11,6 +11,7 @@ import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { bookingService } from '@/services/bookingService';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { formatLocalYmd, isSameLocalCalendarDay, isSlotStartInPast } from '@/lib/utils';
 
 const extractPincodeFromAddress = (address?: string) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
@@ -26,6 +27,10 @@ const CarWashPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
+  const [allSlotsForDate, setAllSlotsForDate] = useState<string[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [pickupLocation, setPickupLocation] = useState<LocationValue>({ address: '' });
   const [showCustomLocation, setShowCustomLocation] = useState(false);
@@ -129,6 +134,44 @@ const CarWashPage: React.FC = () => {
     }
   };
 
+  const refreshSlotsForDate = async (date: Date): Promise<string[]> => {
+    try {
+      const dateStr = formatLocalYmd(date);
+      const data = await bookingService.getAvailableSlots(dateStr, 'Car Wash');
+      const raw = Array.isArray(data?.availableSlots) ? data.availableSlots : [];
+      const filtered = raw.filter(
+        (slot: string) =>
+          !isSameLocalCalendarDay(date) || !isSlotStartInPast(date, slot)
+      );
+      setAvailableSlots(filtered);
+      setBookedSlots(Array.isArray(data?.bookedSlots) ? data.bookedSlots : []);
+      setBlockedSlots(Array.isArray(data?.blockedSlots) ? data.blockedSlots : []);
+      setAllSlotsForDate(Array.isArray(data?.allSlots) ? data.allSlots : []);
+      if (selectedTime && !filtered.includes(selectedTime)) {
+        setSelectedTime(null);
+        toast.info('Previously selected slot is no longer available. Please select another slot.');
+      }
+      return filtered;
+    } catch {
+      setAvailableSlots([]);
+      setBookedSlots([]);
+      setBlockedSlots([]);
+      setAllSlotsForDate([]);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDate) {
+      refreshSlotsForDate(selectedDate);
+    } else {
+      setAvailableSlots([]);
+      setBookedSlots([]);
+      setBlockedSlots([]);
+      setAllSlotsForDate([]);
+    }
+  }, [selectedDate]);
+
   const handleBookNow = (packageId: string) => {
     if (vehicles.length === 0) {
       toast.error('Please add a vehicle to your profile first');
@@ -164,8 +207,13 @@ const CarWashPage: React.FC = () => {
       if (modifier === 'PM' && hours < 12) hours += 12;
       if (modifier === 'AM' && hours === 12) hours = 0;
       
-      const bookingDate = new Date(selectedDate);
-      bookingDate.setHours(hours, minutes, 0, 0);
+      const y = selectedDate.getFullYear();
+      const m = selectedDate.getMonth() + 1;
+      const d = selectedDate.getDate();
+      const hh = String(hours).padStart(2, '0');
+      const min = String(minutes).padStart(2, '0');
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${hh}:${min}:00.000+05:30`;
+      const bookingDate = new Date(dateStr);
 
       const bookingData = {
         vehicleId: selectedVehicle,
@@ -175,7 +223,28 @@ const CarWashPage: React.FC = () => {
         notes: "Booked via Car Wash Page"
       };
 
-      await bookingService.createBooking(bookingData);
+      const newBooking = await bookingService.createBooking(bookingData);
+      
+      if (newBooking && newBooking.requiresPayment) {
+        const selectedPkg = services.find(s => s._id === selectedPackage);
+        const tempBookingData = {
+          ...bookingData,
+          services: selectedPkg ? [selectedPkg] : [],
+          totalAmount: newBooking.totalAmount || (selectedPkg ? getPackagePrice(selectedPkg) : 0),
+          pickupDropPrice: newBooking.pickupDropPrice || 0,
+          requiresPaymentService: true,
+          isCarWashService: true
+        };
+        toast.success('Car wash service prepared! Please complete payment.');
+        navigate('/payment', { 
+          state: { 
+            tempBookingData,
+            tempBookingId: newBooking.tempBookingId 
+          } 
+        });
+        return;
+      }
+
       toast.success('Car wash booked successfully!');
       setShowModal(false);
       setSelectedDate(null);
@@ -348,6 +417,10 @@ const CarWashPage: React.FC = () => {
                   selectedTime={selectedTime}
                   onDateChange={setSelectedDate}
                   onTimeChange={setSelectedTime}
+                  availableSlots={availableSlots}
+                  bookedSlots={bookedSlots}
+                  blockedSlots={blockedSlots}
+                  allSlotsFromApi={allSlotsForDate}
                 />
 
                 {/* Pickup Location Selection */}

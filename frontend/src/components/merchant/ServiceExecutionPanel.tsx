@@ -61,9 +61,15 @@ const ServiceExecutionPanel: React.FC<ServiceExecutionPanelProps> = ({ booking, 
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'during' | 'after') => {
     if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      const nonImages = files.filter(file => !file.type.startsWith('image/'));
+      if (nonImages.length > 0) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed for service photos.');
+        e.target.value = '';
+        return;
+      }
       setLoading(true);
       try {
-        const files = Array.from(e.target.files);
         const res: { files: { url: string }[] } = await uploadService.uploadFiles(files);
         const newPhotos = res.files.map((f) => f.url);
         

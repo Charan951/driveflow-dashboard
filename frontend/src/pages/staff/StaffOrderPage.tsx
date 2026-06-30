@@ -723,9 +723,15 @@ const StaffOrderPage: React.FC = () => {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0 && order) {
+      const files = Array.from(e.target.files);
+      const nonImages = files.filter(file => !file.type.startsWith('image/'));
+      if (nonImages.length > 0) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed.');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
       let loadingToast: string | number | undefined;
       try {
-        const files = Array.from(e.target.files);
         loadingToast = toast.loading(`Uploading ${files.length} photo(s)...`);
         
         const uploadRes = await uploadService.uploadFiles(files);
@@ -815,6 +821,13 @@ const StaffOrderPage: React.FC = () => {
     if (!order) return;
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
+    
+    const nonImages = files.filter(file => !file.type.startsWith('image/'));
+    if (nonImages.length > 0) {
+      toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed.');
+      e.target.value = '';
+      return;
+    }
     
     // Check if this is a car wash or essentials service
     const isCarWashService = Array.isArray(order.services) && 

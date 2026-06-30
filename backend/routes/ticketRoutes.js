@@ -10,10 +10,11 @@ import {
 } from '../controllers/ticketController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { publicFormLimiter } from '../middleware/rateLimiters.js';
+import { verifyCaptcha } from '../middleware/captchaMiddleware.js';
 
 const router = express.Router();
 
-router.post('/public', publicFormLimiter, createPublicTicket);
+router.post('/public', publicFormLimiter, verifyCaptcha, createPublicTicket);
 
 router.route('/')
   .post(protect, createTicket)

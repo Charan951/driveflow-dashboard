@@ -59,7 +59,16 @@ export const careerService = {
   },
   applyForCareer: async (
     id: string,
-    data: { name: string; email: string; mobileNumber: string; resumeUrl: string; additionalMessage?: string }
+    data: {
+      name: string;
+      email: string;
+      mobileNumber: string;
+      resumeUrl: string;
+      additionalMessage?: string;
+      captchaInput: string;
+      captchaSignature: string;
+      captchaExpiry: number;
+    }
   ) => {
     const response = await api.post(`/careers/${id}/apply`, data);
     return response.data;

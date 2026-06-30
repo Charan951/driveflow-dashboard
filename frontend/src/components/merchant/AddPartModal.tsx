@@ -21,6 +21,11 @@ const AddPartModal: React.FC<AddPartModalProps> = ({ bookingId, onClose, onUpdat
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Only image files (JPEG, PNG, WEBP, etc.) are allowed for part photos.');
+        e.target.value = '';
+        return;
+      }
       setImageFile(file);
     }
     e.target.value = '';
