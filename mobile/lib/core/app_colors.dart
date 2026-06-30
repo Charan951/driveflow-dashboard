@@ -28,7 +28,7 @@ class AppColors {
     0xFFF1F5F9,
   ); // Very subtle border for white backgrounds
 
-  // Text Colors
+  // Text Colorsnkjn jjnkk
   static const Color textPrimary = Color(0xFFFFFFFF); // (Dark)
   static const Color textSecondary = Color(0xFFB3B3B3); // (Dark)
   static const Color textMuted = Color(0xFF808080); // (Dark)
