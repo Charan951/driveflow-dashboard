@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
 
-const generateToken = (id, tokenVersion = 0) => {
+const generateToken = (id, role, tokenVersion = 0) => {
   const payload = { id };
+  if (role) {
+    payload.role = role;
+  }
   if (tokenVersion) {
     payload.tokenVersion = tokenVersion;
   }

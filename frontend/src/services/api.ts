@@ -33,7 +33,7 @@ api.interceptors.response.use(
       });
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       const errorCode = error.response.data?.code;
       const url = String(error.config?.url || '');
       const isAuthRequest = url.includes('/auth/');

@@ -71,7 +71,7 @@ const userAuthFields = (user) => ({
 });
 
 const sendAuthResponse = (req, res, user, extras = {}, statusCode = 200) => {
-  const token = generateToken(user._id, user.tokenVersion || 0);
+  const token = generateToken(user._id, user.role, user.tokenVersion || 0);
   setAuthCookie(res, token);
 
   const payload = {
@@ -85,7 +85,7 @@ const sendAuthResponse = (req, res, user, extras = {}, statusCode = 200) => {
 
 const buildAuthUserPayload = (user, extras = {}) => ({
   ...userAuthFields(user),
-  token: generateToken(user._id, user.tokenVersion || 0),
+  token: generateToken(user._id, user.role, user.tokenVersion || 0),
   ...extras,
 });
 
