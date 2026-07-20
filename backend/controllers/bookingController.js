@@ -381,28 +381,6 @@ const isSlotAvailable = async (date, categories = ['All']) => {
       return false;
     }
   }
-
-  // Check for conflicting bookings using slot labels (aligned with getAvailableSlots)
-  const bookings = await Booking.find({
-    status: BLOCKING_STATUSES,
-    date: { $gte: start, $lte: end },
-  }).populate('services', 'category');
-
-  for (const booking of bookings) {
-    const bookingSlot = formatTo12HourSlot(new Date(booking.date)).trim();
-    if (bookingSlot !== slotLabel) continue;
-
-    const bookingCategories = new Set();
-    booking.services.forEach((s) => {
-      bookingCategories.add(getCategoryGroup(s.category));
-    });
-
-    const hasIntersection = categoriesToCheck.some((cat) => bookingCategories.has(cat));
-    if (hasIntersection) {
-      return false;
-    }
-  }
-
   return true;
 };
 
@@ -912,7 +890,7 @@ export const getAvailableSlots = async (req, res) => {
 
     const blockedSlots = await getBlockedSlotsForDate(date, category);
     const allSlots = getAllSlotsForDate(date);
-    const unavailableSlots = new Set([...bookedSlots, ...blockedSlots]);
+    const unavailableSlots = new Set([...blockedSlots]);
     const availableSlots = allSlots.filter((slot) => !unavailableSlots.has(slot));
 
     res.json({

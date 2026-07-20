@@ -327,7 +327,8 @@ class _LoginPageState extends State<LoginPage>
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(
-                                    _showOtpStep ? 'Verify OTP' : '',
+                                    _showOtpStep ? 'Verify OTP' : 'Login',
+                                    key: const Key('login_title'),
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
@@ -372,14 +373,31 @@ class _LoginPageState extends State<LoginPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
                                           color: Colors.white38,
                                           size: 20,
                                         ),
                                       ),
                                       onChanged: (_) => _clearError(),
                                       onSubmitted: (_) => _handleCredentials(),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        key: const Key('forgot_password_button'),
+                                        onPressed: () =>
+                                            Navigator.pushNamed(context, '/forgot-password'),
+                                        child: const Text(
+                                          'Forgot Password?',
+                                          style: TextStyle(
+                                            color: AppColors.cinematicOrange,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ] else ...[
                                     _GlassField(
@@ -514,14 +532,16 @@ class _LoginPageState extends State<LoginPage>
                                     ),
                                   ],
                                   const SizedBox(height: 24),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
                                       const Text(
                                         "Don't have an account? ",
                                         style: TextStyle(color: Colors.white60),
                                       ),
                                       TextButton(
+                                        key: const Key('login_to_register'),
                                         onPressed: () =>
                                             Navigator.pushReplacementNamed(
                                               context,

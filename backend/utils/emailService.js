@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import { logger } from '../middleware/errorHandler.js';
 
 dotenv.config();
 
@@ -29,6 +30,11 @@ export const sendEmail = async (to, subject, text, html) => {
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    // Error sending email
+    logger.error({
+      message: 'SMTP email send failed',
+      error: error.message || error,
+      to,
+      subject
+    });
   }
 };

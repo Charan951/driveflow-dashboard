@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:app/core/app_spacing.dart';
-import 'package:app/widgets/quick_service_card.dart';
+import 'package:carzzi/core/app_spacing.dart';
+import 'package:carzzi/widgets/quick_service_card.dart';
 
 class QuickServicesGrid extends StatelessWidget {
   const QuickServicesGrid({super.key});

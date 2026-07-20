@@ -346,8 +346,8 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
                                           color: Colors.white38,
                                           size: 20,
                                         ),
@@ -368,8 +368,8 @@ class _RegisterPageState extends State<RegisterPage>
                                         ),
                                         icon: Icon(
                                           _showPassword
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
                                           color: Colors.white38,
                                           size: 20,
                                         ),
@@ -515,14 +515,16 @@ class _RegisterPageState extends State<RegisterPage>
                                     ),
                                   ],
                                   const SizedBox(height: 24),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
                                       const Text(
                                         "Already have an account? ",
                                         style: TextStyle(color: Colors.white60),
                                       ),
                                       TextButton(
+                                        key: const Key('register_to_login'),
                                         onPressed: () =>
                                             Navigator.pushReplacementNamed(
                                               context,

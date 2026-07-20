@@ -55,6 +55,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   int _unreadNotificationsCount = 0;
   Booking? _upcomingBookingCached;
   List<Booking> _recentBookings = [];
+  int _currentOngoingPage = 0;
+  late PageController _ongoingPageController;
 
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color.fromARGB(255, 105, 115, 226);
@@ -63,6 +65,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   @override
   void initState() {
     super.initState();
+    _ongoingPageController = PageController();
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -77,6 +80,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
   @override
   void dispose() {
+    _ongoingPageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     final socket = SocketService();
     socket.off('bookingUpdated', _onExternalUpdate);
@@ -773,11 +777,24 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return '\u20B9 ${value.toStringAsFixed(2)}';
   }
 
-  Booking? _upcomingBooking() {
-    if (_upcomingBookingCached != null) return _upcomingBookingCached;
-    final computed = _computeUpcomingBooking(_bookings);
-    _upcomingBookingCached = computed;
-    return computed;
+
+  List<Booking> _getOngoingBookings() {
+    final active = _bookings
+        .where(
+          (b) =>
+              b.status != 'DELIVERED' &&
+              b.status != 'CANCELLED' &&
+              b.status != 'COMPLETED',
+        )
+        .toList();
+    active.sort((a, b) {
+      final ca = _parseDate(a.createdAt ?? '') ?? DateTime(1900);
+      final cb = _parseDate(b.createdAt ?? '') ?? DateTime(1900);
+      final byDate = cb.compareTo(ca);
+      if (byDate != 0) return byDate;
+      return (b.orderNumber ?? '').compareTo(a.orderNumber ?? '');
+    });
+    return active;
   }
 
   Future<void> _refreshIfStale() async {
@@ -1125,6 +1142,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: isDark ? Colors.white : AppColors.textPrimaryLight,
                   fontWeight: FontWeight.w800,
+                  fontSize: 18,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1218,45 +1236,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return CouponSlider(initialCoupons: _coupons);
   }
 
-  Widget _buildUpcomingServiceCard() {
-    final booking = _upcomingBooking();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (booking == null) {
-      return _NeonBorderCard(
-        neonColor: _neonBlue,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'No upcoming service',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            AppSpacing.verticalSmall,
-            Text(
-              'Book a service to keep your vehicle in top condition.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white : AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _NeonButton(
-                label: 'Book Service',
-                purple: _accentPurple,
-                blue: _accentBlue,
-                onTap: _showBookServiceDialog,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+  Widget _buildSingleOngoingCard(Booking booking, bool isDark) {
     final primaryService = booking.services.isNotEmpty
         ? booking.services.first.name
         : 'Service';
@@ -1308,7 +1288,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 ),
                 child: Text(
                   statusBadgeLabel,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF4A90E2),
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
@@ -1447,6 +1427,92 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildUpcomingServiceCard() {
+    final ongoing = _getOngoingBookings();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (ongoing.isEmpty) {
+      return _NeonBorderCard(
+        neonColor: _neonBlue,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'No upcoming service',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            AppSpacing.verticalSmall,
+            Text(
+              'Book a service to keep your vehicle in top condition.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.white : AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _NeonButton(
+                label: 'Book Service',
+                purple: _accentPurple,
+                blue: _accentBlue,
+                onTap: _showBookServiceDialog,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (ongoing.length == 1) {
+      return _buildSingleOngoingCard(ongoing.first, isDark);
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: ongoing.any((b) => b.shouldShowCustomerDeliveryOtp) ? 330 : 255,
+          child: PageView.builder(
+            controller: _ongoingPageController,
+            itemCount: ongoing.length,
+            onPageChanged: (idx) {
+              setState(() {
+                _currentOngoingPage = idx;
+              });
+            },
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: _buildSingleOngoingCard(ongoing[index], isDark),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            ongoing.length,
+            (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: _currentOngoingPage == index ? 16 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: _currentOngoingPage == index
+                    ? const Color(0xFF4A90E2)
+                    : Colors.grey.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

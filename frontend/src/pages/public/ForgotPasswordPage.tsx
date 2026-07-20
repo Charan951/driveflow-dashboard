@@ -23,12 +23,11 @@ const ForgotPasswordPage: React.FC = () => {
 
     try {
       const response = await authService.forgotPassword(email);
-      toast.success(response.message || 'If an account exists, a reset link has been sent.');
-      const state = location.state as unknown as { from?: string };
-      const from = state?.from || '/login';
-      navigate(from, { replace: true });
-    } catch (error) {
-      toast.error('Failed to send reset link. Please try again.');
+      toast.success(response.message || 'If an account exists, a reset OTP has been sent.');
+      navigate(`/reset-password?email=${encodeURIComponent(email)}`, { replace: true });
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to send reset OTP. Please try again.';
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -44,7 +43,7 @@ const ForgotPasswordPage: React.FC = () => {
         <div className="text-center mb-5 md:mb-6">
           <h1 className="text-xl md:text-2xl font-bold text-foreground mb-1">Forgot Password</h1>
           <p className="text-xs text-muted-foreground">
-            Enter your email to receive a reset link.
+            Enter your email to receive a reset OTP.
           </p>
         </div>
 

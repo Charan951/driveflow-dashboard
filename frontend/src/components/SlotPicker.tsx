@@ -43,7 +43,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
       ? slotCatalog.filter((slot) => !isSlotStartInPast(selectedDate, slot))
       : slotCatalog;
 
-  const unavailableSet = new Set([...bookedSlots, ...blockedSlots]);
+  const unavailableSet = new Set([...blockedSlots]);
 
   const isSlotSelectable = (slot: string) => {
     if (unavailableSet.has(slot)) return false;
@@ -56,7 +56,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
   };
 
   const selectableSlots = visibleSlots.filter((slot) => isSlotSelectable(slot));
-  const bookedVisibleCount = visibleSlots.filter((slot) => unavailableSet.has(slot)).length;
+  const bookedVisibleCount = visibleSlots.filter((slot) => bookedSlots.includes(slot) || blockedSlots.includes(slot)).length;
   const displayAvailable = selectableSlots.length;
   const displayBooked = bookedVisibleCount;
 

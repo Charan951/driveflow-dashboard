@@ -181,6 +181,24 @@ class AuthService {
     await AppStorage().clearUser();
   }
 
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    return _api.postJson(
+      ApiEndpoints.authForgotPassword,
+      body: {'email': email},
+    );
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) async {
+    return _api.postJson(
+      ApiEndpoints.authResetPassword,
+      body: {'email': email, 'otp': otp, 'password': password},
+    );
+  }
+
   User? _userFromAuthResponse(Map<String, dynamic> res) {
     final userCandidate = res['user'];
     if (userCandidate is Map<String, dynamic>) {

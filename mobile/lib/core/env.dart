@@ -5,11 +5,19 @@ import 'package:flutter/foundation.dart';
 class Env {
   static const bool useProduction = true;  
    // MUST stay false for testing with rzp_test keys
+  
+  static bool isPhysicalDevice = false;
+
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5001';
-    return 'http://localhost:5001';
+    if (!kIsWeb && Platform.isAndroid) {
+      if (isPhysicalDevice) {
+        return 'http://localhost:5000'; // Redirects via adb reverse tcp:5000 tcp:5000
+      }
+      return 'http://10.0.2.2:5000';
+    }
+    return 'http://localhost:5000';
   }
 
   static String get productionBaseUrl {
@@ -29,6 +37,8 @@ class Env {
 }
 
 class ApiEndpoints {
+  static const String authForgotPassword = '/auth/forgot-password';
+  static const String authResetPassword = '/auth/reset-password';
   static const String authRegister = '/auth/register';
   static const String authSignupPrepare = '/auth/signup/prepare';
   static const String authSignupSendOtp = '/auth/signup/send-otp';

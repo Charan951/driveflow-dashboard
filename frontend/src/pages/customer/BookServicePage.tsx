@@ -24,7 +24,7 @@ import api from '@/services/api';
 import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
-import { calculateOrderTotals } from '@/lib/orderPricing';
+import { calculateOrderTotals, isGeneralServiceItem } from '@/lib/orderPricing';
 import { searchVehicleReference } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
@@ -1017,17 +1017,6 @@ const BookServicePage: React.FC = () => {
                   {searchParams.get('category') !== 'Tyres' && (
                     <div className="flex items-center gap-4">
                       <h2 className="text-lg font-semibold text-foreground">Select Services</h2>
-                      {location.state?.service && (
-                        <button 
-                          onClick={() => {
-                            // Clear the state by navigating to the same path without state
-                            navigate(location.pathname + location.search, { replace: true, state: {} });
-                          }}
-                          className="text-xs font-bold text-primary uppercase tracking-tight hover:underline"
-                        >
-                          Show all services
-                        </button>
-                      )}
                     </div>
                   )}
                   
@@ -1108,7 +1097,9 @@ const BookServicePage: React.FC = () => {
                             <span className="font-bold text-base sm:text-lg text-foreground block line-clamp-2">{service.name}</span>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span>Price: ₹{service.price}</span>
-                              <span>Time: {service.duration} mins</span>
+                              {!isGeneralServiceItem(service) && (
+                                <span>Time: {service.duration} mins</span>
+                              )}
                             </div>
                           </div>
                           {selectedServices.includes(service._id) && (
@@ -1478,7 +1469,9 @@ const BookServicePage: React.FC = () => {
                           </div>
                           <div className="flex-1">
                             <p className="font-semibold text-foreground">{service.name}</p>
-                            <p className="text-sm text-muted-foreground">{service.duration} mins • Qty: {qty}</p>
+                             <p className="text-sm text-muted-foreground">
+                               {isGeneralServiceItem(service) ? `Qty: ${qty}` : `${service.duration} mins • Qty: ${qty}`}
+                             </p>
                             <div className="flex gap-2">
                               {size && (
                                 <p className="text-xs font-bold text-primary mt-1 uppercase tracking-wider">
@@ -1557,8 +1550,8 @@ const BookServicePage: React.FC = () => {
           </motion.div>
 
           {/* Navigation Buttons */}
-          <div className="sticky bottom-0 z-20 -mx-4 sm:mx-0 px-4 sm:px-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background/95 backdrop-blur-sm border-t border-border mt-4">
-            <div className={cn('flex flex-col sm:flex-row gap-3 w-full', currentStep > 0 ? 'sm:grid sm:grid-cols-2' : '')}>
+          <div className="fixed bottom-0 left-0 right-0 sm:sticky z-20 px-4 py-3 sm:py-4 bg-background/95 backdrop-blur-sm border-t border-border sm:-mx-4 sm:px-4 sm:mt-4">
+            <div className={cn('grid gap-3 w-full', currentStep > 0 ? 'grid-cols-[1fr_2fr] sm:grid-cols-2' : 'grid-cols-1')}>
             {currentStep > 0 && (
               <button
                 onClick={() => {

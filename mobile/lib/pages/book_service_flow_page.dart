@@ -29,6 +29,7 @@ import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import '../services/coupon_service.dart';
 import '../utils/coupon_utils.dart';
+import '../utils/location_helper.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../services/socket_service.dart';
@@ -134,21 +135,20 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final catalog = _allSlotsForDate.isNotEmpty
         ? _allSlotsForDate
         : _availableSlots;
-    final unavailable = {..._bookedSlots, ..._blockedSlots};
     final visible = catalog
         .where((slot) => !_isSlotInPastForToday(slot))
         .toList();
-    final serverBooked = visible.where(unavailable.contains).length;
+    final serverBooked = visible.where((slot) => _bookedSlots.contains(slot) || _blockedSlots.contains(slot)).length;
     final serverAvailable = visible
         .where(
           (slot) =>
-              _availableSlots.contains(slot) && !unavailable.contains(slot),
+              _availableSlots.contains(slot) && !_blockedSlots.contains(slot),
         )
         .length;
     final holdsSelection =
         _selectedTimeSlot != null &&
         _availableSlots.contains(_selectedTimeSlot!) &&
-        !unavailable.contains(_selectedTimeSlot!);
+        !_blockedSlots.contains(_selectedTimeSlot!);
     return (
       available: holdsSelection ? serverAvailable - 1 : serverAvailable,
       booked: holdsSelection ? serverBooked + 1 : serverBooked,
@@ -1377,14 +1377,39 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               ? AppColors.backgroundPrimary
               : AppStyles.softBackground,
           appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              onPressed: () {
+                if (_currentStep > 0) {
+                  _handleBack();
+                } else {
+                  context.read<NavigationProvider>().setTab(2);
+                }
+              },
+            ),
             title: Text(
-              widget.initialCategory == 'Tyres' ||
-                      widget.initialCategory == 'Tyre & Battery'
-                  ? 'Book Tyre & Battery'
-                  : widget.initialCategory != null &&
-                        widget.initialCategory != 'Services'
-                  ? 'Book ${widget.initialCategory}'
-                  : 'Book a Service',
+              () {
+                final cat = widget.initialCategory;
+                if (cat == 'Tyres' || cat == 'Tyre & Battery') {
+                  return 'Book a Tires & Battery Service';
+                }
+                if (cat == 'Periodic') {
+                  return 'Book a Periodic Service';
+                }
+                if (cat == 'Services') {
+                  return 'Book a General Service';
+                }
+                if (cat == 'Wash' || cat == 'Car Wash') {
+                  return 'Book a Car Wash Service';
+                }
+                if (cat == 'Essentials') {
+                  return 'Book an Essentials Service';
+                }
+                if (cat != null && cat.isNotEmpty) {
+                  return 'Book a $cat Service';
+                }
+                return 'Book a Service';
+              }(),
               style: AppStyles.headingStyle.copyWith(
                 color: isDark ? AppColors.textPrimary : const Color(0xFF222222),
               ),
@@ -1402,7 +1427,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   children: [
                     Positioned.fill(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 200),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1445,7 +1470,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       ),
                     ),
                     Positioned(
-                      bottom: 120, // Adjusted for the new PillBottomBar height
+                      bottom: 20,
                       left: 20,
                       right: 20,
                       child: RepaintBoundary(child: _buildBottomButtons()),
@@ -1582,7 +1607,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
     final requiresCheckoutGst =
         !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
-    final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0).toDouble();
+    final requiresPrepaid = isCarWash || isBatteryTire || isEssentials;
+    final couponDiscount = requiresPrepaid
+        ? (_appliedCoupon?['discountAmount'] ?? 0).toDouble()
+        : 0.0;
     final checkoutTotals = calculateOrderTotals(
       total,
       couponDiscount,
@@ -1593,6 +1621,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       _cachedSelectedServices = selectedServices;
       _cachedTotal = total;
       _cachedCheckoutTotals = checkoutTotals;
+      if (!requiresPrepaid && _appliedCoupon != null) {
+        _appliedCoupon = null;
+      }
     });
   }
 
@@ -1765,22 +1796,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         if (_initialServiceId != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Service Selection',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.textMuted : Colors.grey.shade600,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _initialServiceId = null),
-                  child: const Text('Show all services'),
-                ),
-              ],
+            child: Text(
+              'Service Selection',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.textMuted : Colors.grey.shade600,
+              ),
             ),
           ),
 
@@ -2107,17 +2129,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                         .textSecondaryLight,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '• Time: ${service.estimatedMinutes} mins',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark
-                                                  ? AppColors.textSecondary
-                                                  : AppColors
-                                                        .textSecondaryLight,
+                                          if (!isGeneralServiceItem(service)) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '• Time: ${service.estimatedMinutes} mins',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark
+                                                    ? AppColors.textSecondary
+                                                    : AppColors
+                                                          .textSecondaryLight,
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ],
                                       ),
                                     ],
@@ -2512,16 +2536,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                 : AppColors.textSecondaryLight,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '• Time: ${service.estimatedMinutes} mins',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: isDark
-                                                ? AppColors.textSecondary
-                                                : AppColors.textSecondaryLight,
+                                        if (!isGeneralServiceItem(service)) ...[
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '• Time: ${service.estimatedMinutes} mins',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? AppColors.textSecondary
+                                                  : AppColors.textSecondaryLight,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ],
@@ -3192,8 +3218,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           );
           final requiresCheckoutGst =
               !isGeneralService && (isCarWash || isBatteryTire || isEssentials);
-          final couponDiscount = (_appliedCoupon?['discountAmount'] ?? 0)
-              .toDouble();
+          final requiresPrepaid = isCarWash || isBatteryTire || isEssentials;
+          final couponDiscount = requiresPrepaid
+              ? (_appliedCoupon?['discountAmount'] ?? 0).toDouble()
+              : 0.0;
           return calculateOrderTotals(
             total,
             couponDiscount,
@@ -3208,11 +3236,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           cat == 'Services' ||
           name.contains('general service');
     });
-
-    final totalTime = selectedServices.fold<num>(
-      0,
-      (sum, item) => sum + (item.estimatedMinutes ?? 0),
-    );
 
     final isCarWash = selectedServices.any((s) {
       final cat = s.category;
@@ -3352,21 +3375,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Subtotal',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        'Estimated Time: $totalTime mins',
-                        style: AppStyles.captionStyle,
-                      ),
-                    ],
+                  const Text(
+                    'Subtotal',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   Text(
                     '₹${formatInrAmount(checkoutTotals.subtotal)}',
@@ -3437,10 +3451,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ),
         ),
 
-        const SizedBox(height: 24),
+        if (isCarWash || isBatteryTire || isEssentials) ...[
+          const SizedBox(height: 24),
 
-        // Coupon Section
-        ...[
+          // Coupon Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3748,27 +3762,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Future<void> _useCurrentLocation() async {
     setState(() => _locating = true);
     try {
-      final enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enable location services')),
-          );
-        }
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied')),
-          );
-        }
+      final granted = await LocationHelper.ensureLocationAccess(context);
+      if (!granted) {
         return;
       }
 
@@ -3779,7 +3774,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           debugPrint(
             'MobileApp: Reduced accuracy granted, requesting precise location',
           );
-          permission = await Geolocator.requestPermission();
+          final permission = await Geolocator.requestPermission();
           if (permission == LocationPermission.denied ||
               permission == LocationPermission.deniedForever) {
             return;

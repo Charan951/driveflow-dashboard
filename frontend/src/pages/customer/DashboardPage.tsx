@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Car, 
   Calendar, 
@@ -11,7 +11,8 @@ import {
   Wrench,
   Droplets,
   Battery,
-  Package
+  Package,
+  MapPin
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import VehicleCard from '@/components/VehicleCard';
@@ -92,6 +93,7 @@ const DashboardPage: React.FC = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [currentOngoingIndex, setCurrentOngoingIndex] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -177,7 +179,7 @@ const DashboardPage: React.FC = () => {
     }
   }, [user?._id]);
 
-  const upcomingBooking = bookings
+  const ongoingBookings = bookings
     .filter(b => !['DELIVERED', 'Delivered', 'CANCELLED', 'Cancelled', 'COMPLETED', 'Completed'].includes(b.status))
     .sort((a, b) => {
       // Prioritize statuses that are actually "in progress"
@@ -192,10 +194,18 @@ const DashboardPage: React.FC = () => {
       
       // Sort by date descending (most recent first)
       return new Date(b.date).getTime() - new Date(a.date).getTime();
-    })[0];
+    });
+
+  useEffect(() => {
+    if (currentOngoingIndex >= ongoingBookings.length) {
+      setCurrentOngoingIndex(Math.max(0, ongoingBookings.length - 1));
+    }
+  }, [ongoingBookings.length, currentOngoingIndex]);
+
+  const upcomingBooking = ongoingBookings[currentOngoingIndex];
 
   const pastServices = bookings
-    .filter(b => !upcomingBooking || b._id !== upcomingBooking._id)
+    .filter(b => !ongoingBookings.some(ob => ob._id === b._id))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
@@ -322,78 +332,80 @@ const DashboardPage: React.FC = () => {
           <p className="text-sm sm:text-base text-muted-foreground">Manage your vehicles and services</p>
         </div>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <button
-              className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              Book Service
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] rounded-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Select Service Category</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Link
-                to="/book-service?category=Periodic"
-                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all"
+        {ongoingBookings.length === 0 && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <button
+                className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0 whitespace-nowrap"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Wrench className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">services</p>
-                  <p className="text-sm text-muted-foreground">General maintenance & repairs</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </Link>
+                <Plus className="w-4 h-4" />
+                Book Service
+              </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold">Select Service Category</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Link
+                  to="/book-service?category=Periodic"
+                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Wrench className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">services</p>
+                    <p className="text-sm text-muted-foreground">General maintenance & repairs</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </Link>
 
-              <Link
-                to="/book-service?category=Wash"
-                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-blue-500 hover:bg-blue-50 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                  <Droplets className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">Car Wash</p>
-                  <p className="text-sm text-muted-foreground">Premium cleaning services</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-              </Link>
+                <Link
+                  to="/book-service?category=Wash"
+                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <Droplets className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Car Wash</p>
+                    <p className="text-sm text-muted-foreground">Premium cleaning services</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                </Link>
 
-              <Link
-                to="/book-service?category=Tyres"
-                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-orange-500 hover:bg-orange-50 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                  <Battery className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">Battery/tyres</p>
-                  <p className="text-sm text-muted-foreground">Replacement & maintenance</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors" />
-              </Link>
+                <Link
+                  to="/book-service?category=Tyres"
+                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-orange-500 hover:bg-orange-50 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <Battery className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Battery/tyres</p>
+                    <p className="text-sm text-muted-foreground">Replacement & maintenance</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors" />
+                </Link>
 
-              <Link
-                to="/book-service?category=Essentials"
-                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-purple-500 hover:bg-purple-50 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                  <Package className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">Essentials</p>
-                  <p className="text-sm text-muted-foreground">Quick utility & care services</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-purple-500 transition-colors" />
-              </Link>
-            </div>
-          </DialogContent>
-        </Dialog>
+                <Link
+                  to="/book-service?category=Essentials"
+                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-purple-500 hover:bg-purple-50 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <Package className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">Essentials</p>
+                    <p className="text-sm text-muted-foreground">Quick utility & care services</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-purple-500 transition-colors" />
+                </Link>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </motion.div>
 
 
@@ -401,60 +413,105 @@ const DashboardPage: React.FC = () => {
       {/* Coupon Banner */}
       <CouponSlider />
 
-      {/* Upcoming Booking */}
-      {upcomingBooking && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gradient-primary rounded-2xl p-4 sm:p-5 text-primary-foreground"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-primary-foreground mb-1">Ongoing Service</p>
-              <h3 className="text-base sm:text-lg font-semibold break-words">
+      {/* Upcoming Booking Carousel */}
+      {ongoingBookings.length > 0 && upcomingBooking && (
+        <div className="space-y-3">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={upcomingBooking._id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-card rounded-2xl p-4 sm:p-5 border border-primary/20 text-card-foreground shadow-sm transition-all duration-300"
+            >
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground">Ongoing Service</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/25">
+                  {upcomingBooking.status === 'SERVICE_COMPLETED'
+                    ? 'Payment awaiting to dispatch vehicle'
+                    : getStatusLabel(upcomingBooking.status, upcomingBooking.services)}
+                </span>
+              </div>
+
+              <h3 className="text-lg font-bold text-foreground mb-1 uppercase">
                 {Array.isArray(upcomingBooking.services) 
                   ? (upcomingBooking.services[0] as Service)?.name || 'Service' 
                   : 'Service'}
-                 {upcomingBooking.services.length > 1 && ` +${upcomingBooking.services.length - 1} more`}
+                {upcomingBooking.services.length > 1 && ` +${upcomingBooking.services.length - 1} more`}
               </h3>
-            </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium bg-white/20 flex-shrink-0 self-start`}>
-              {upcomingBooking.status === 'SERVICE_COMPLETED'
-                ? 'Payment awaiting to dispatch vehicle'
-                : getStatusLabel(upcomingBooking.status, upcomingBooking.services)}
-            </span>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">{new Date(upcomingBooking.date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">{new Date(upcomingBooking.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-            </div>
-          </div>
 
-          {upcomingBooking.deliveryOtp?.code && canCustomerSeeDeliveryOtp(upcomingBooking) && (
-            <div className="mb-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-white/40 bg-white/10 px-4 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-white">
-                  Delivery OTP
+              {upcomingBooking.vehicle && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  {(upcomingBooking.vehicle as any).make} {(upcomingBooking.vehicle as any).model}
+                  {(upcomingBooking.vehicle as any).variant ? ` ${(upcomingBooking.vehicle as any).variant}` : ''}
+                  {' • '}
+                  <span className="uppercase font-mono">{(upcomingBooking.vehicle as any).licensePlate}</span>
                 </p>
-              <p className="text-xl font-mono font-bold text-white">
-                {upcomingBooking.deliveryOtp.code}
-              </p>
+              )}
+
+              {upcomingBooking.deliveryOtp?.code && canCustomerSeeDeliveryOtp(upcomingBooking) && (
+                <div className="mb-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-primary font-semibold">
+                    Delivery OTP
+                  </p>
+                  <p className="text-xl font-mono font-bold text-primary">
+                    {upcomingBooking.deliveryOtp.code}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4 pt-4 border-t border-border/50">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 text-blue-500 shrink-0" />
+                    <span>
+                      {new Date(upcomingBooking.date).toLocaleDateString(undefined, {
+                        month: 'numeric', day: 'numeric', year: 'numeric'
+                      })}
+                      {' • '}
+                      {new Date(upcomingBooking.date).toLocaleTimeString('en-IN', {
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                      })}
+                    </span>
+                  </div>
+                  {upcomingBooking.location?.address && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                      <span className="line-clamp-1">{upcomingBooking.location.address}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Link
+                  to={`/track/${upcomingBooking._id}`}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors w-full sm:w-auto shadow-md shadow-primary/10 shrink-0"
+                >
+                  Track Service
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Dot Indicators */}
+          {ongoingBookings.length > 1 && (
+            <div className="flex justify-center gap-1.5 mt-2">
+              {ongoingBookings.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentOngoingIndex(idx)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    currentOngoingIndex === idx 
+                      ? 'bg-primary w-4' 
+                      : 'bg-muted hover:bg-muted-foreground/30'
+                  }`}
+                  aria-label={`Go to ongoing service ${idx + 1}`}
+                />
+              ))}
             </div>
           )}
-
-          <Link
-            to={`/track/${upcomingBooking._id}`}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary-foreground text-primary rounded-xl text-sm font-medium hover:bg-primary-foreground/90 transition-colors w-full sm:w-auto"
-          >
-            Track Service
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </motion.div>
+        </div>
       )}
 
       {/* Vehicle Detail Modal */}

@@ -132,7 +132,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         }
       },
       child: Scaffold(
-        extendBody: true,
+        extendBody: selectedIndex == 2,
         drawer: const CustomerDrawer(currentRouteName: '/customer'),
         body: PageView(
           controller: _pageController,
@@ -144,20 +144,22 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           },
           children: _pages,
         ),
-        bottomNavigationBar: Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
-          child: PillBottomBar(
-            selectedIndex: selectedIndex,
-            onTap: (index) {
-              _navProvider?.setTab(index);
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeInOutCubic,
-              );
-            },
-          ),
-        ),
+        bottomNavigationBar: selectedIndex == 2
+            ? Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
+                child: PillBottomBar(
+                  selectedIndex: selectedIndex,
+                  onTap: (index) {
+                    _navProvider?.setTab(index);
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeInOutCubic,
+                    );
+                  },
+                ),
+              )
+            : null,
       ),
     ),
     );

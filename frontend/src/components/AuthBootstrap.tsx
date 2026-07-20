@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { authService } from '@/services/authService';
-import { getMemoryAccessToken } from '@/lib/authToken';
+import { getMemoryAccessToken, clearMemoryAccessToken } from '@/lib/authToken';
 import { useAuthStore } from '@/store/authStore';
 
 const AuthBootstrap: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -10,6 +10,11 @@ const AuthBootstrap: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     let cancelled = false;
 
     const hydrate = async () => {
+      if (useAuthStore.getState().isAuthenticated) {
+        setAuthHydrated(true);
+        return;
+      }
+
       try {
         const session = await authService.getSession();
         if (cancelled) return;
@@ -26,11 +31,8 @@ const AuthBootstrap: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         });
       } catch {
         if (cancelled) return;
-        // A failed bootstrap check must not wipe a login that just completed.
-        if (getMemoryAccessToken()) return;
-        if (useAuthStore.getState().isAuthenticated) {
-          logout();
-        }
+        clearMemoryAccessToken();
+        logout();
       } finally {
         if (!cancelled) {
           setAuthHydrated(true);

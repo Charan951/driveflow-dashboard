@@ -20,6 +20,7 @@ import '../state/theme_provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
+import '../utils/location_helper.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -682,26 +683,8 @@ class _ProfilePageState extends State<ProfilePage> {
             if (locating) return;
             setModalState(() => locating = true);
             try {
-              final enabled = await Geolocator.isLocationServiceEnabled();
-              if (!enabled) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Enable location services to continue'),
-                  ),
-                );
-                return;
-              }
-              var permission = await Geolocator.checkPermission();
-              if (permission == LocationPermission.denied) {
-                permission = await Geolocator.requestPermission();
-              }
-              if (permission == LocationPermission.denied ||
-                  permission == LocationPermission.deniedForever) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Location permission is required'),
-                  ),
-                );
+              final granted = await LocationHelper.ensureLocationAccess(context);
+              if (!granted) {
                 return;
               }
 
@@ -712,7 +695,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   debugPrint(
                     'MobileApp: Reduced accuracy granted, requesting precise location',
                   );
-                  permission = await Geolocator.requestPermission();
+                  final permission = await Geolocator.requestPermission();
                   if (permission == LocationPermission.denied ||
                       permission == LocationPermission.deniedForever) {
                     return;

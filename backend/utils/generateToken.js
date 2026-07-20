@@ -9,7 +9,7 @@ const generateToken = (id, role, tokenVersion = 0) => {
     payload.tokenVersion = tokenVersion;
   }
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '30m',
   });
 };
 

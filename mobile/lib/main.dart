@@ -11,6 +11,8 @@ import 'firebase_options.dart';
 import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
+import 'pages/forgot_password_page.dart';
+import 'pages/reset_password_page.dart';
 import 'pages/track_booking_page.dart';
 import 'pages/my_payments_page.dart';
 import 'pages/support_page.dart';
@@ -33,6 +35,8 @@ import 'state/navigation_provider.dart';
 import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
 import 'core/app_colors.dart';
+import 'core/env.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -90,6 +94,16 @@ void onStart(ServiceInstance service) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      Env.isPhysicalDevice = androidInfo.isPhysicalDevice;
+    } catch (e) {
+      debugPrint('Failed to detect physical device: $e');
+    }
+  }
 
   FlutterError.onError = (FlutterErrorDetails details) {
     final exception = details.exception.toString();
@@ -366,6 +380,28 @@ class MyApp extends StatelessWidget {
                 ),
                 iconTheme: IconThemeData(color: Colors.black),
               ),
+              textTheme: const TextTheme(
+                titleLarge: TextStyle(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                titleMedium: TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                bodyLarge: TextStyle(
+                  color: AppColors.textSecondaryLight,
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                ),
+                bodyMedium: TextStyle(
+                  color: AppColors.textMutedLight,
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
               pageTransitionsTheme: const PageTransitionsTheme(
                 builders: {
                   TargetPlatform.android: SmoothPageTransitionsBuilder(),
@@ -483,6 +519,8 @@ class MyApp extends StatelessWidget {
               '/splash': (_) => const SplashPage(),
               '/login': (_) => const LoginPage(),
               '/register': (_) => const RegisterPage(),
+              '/forgot-password': (_) => const ForgotPasswordPage(),
+              '/reset-password': (_) => const ResetPasswordPage(),
               '/services': (_) => const _TabRedirect(index: 0),
               '/customer': (_) => const MainNavigationPage(),
               '/bookings': (_) => const MyBookingsPage(),

@@ -584,62 +584,55 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+      return res.status(404).json({ message: 'No account found with this email address.' });
     }
 
     if (
       user.passwordResetSentAt &&
       Date.now() - user.passwordResetSentAt.getTime() < FORGOT_PASSWORD_COOLDOWN_MS
     ) {
-      return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+      return res.status(400).json({ message: 'Please wait before requesting another OTP.' });
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
 
-    user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+    user.passwordResetToken = hashedOtp;
+    user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     user.passwordResetSentAt = new Date();
     await user.save({ validateBeforeSave: false });
 
-    let baseUrl = req.get('origin');
-    if (!baseUrl && req.get('referer')) {
-      try {
-        baseUrl = new URL(req.get('referer')).origin;
-      } catch (e) {
-        // ignore error
-      }
-    }
-    if (!baseUrl) {
-      baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
-    }
-    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
-
-    const subject = 'Password Reset Request';
-    const text = `You requested a password reset. Visit this link to set a new password: ${resetUrl}. If you did not request this, you can ignore this email.`;
-    const html = `<p>You requested a password reset for your Vehicle Management System account.</p><p><a href="${resetUrl}">Click here to reset your password</a></p><p>If you did not request this, you can ignore this email.</p>`;
+    const subject = 'Password Reset OTP';
+    const text = `Your password reset OTP is ${otp}. It is valid for 10 minutes. If you did not request this, you can ignore this email.`;
+    const html = `<p>You requested a password reset for your Vehicle Management System account.</p><p>Your password reset OTP is: <strong>${otp}</strong></p><p>This OTP is valid for 10 minutes.</p><p>If you did not request this, you can ignore this email.</p>`;
 
     await sendEmail(email, subject, text, html);
 
-    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+    res.json({ message: 'If an account with that email exists, a reset OTP has been sent.' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 export const resetPassword = async (req, res) => {
-  const { token, password } = req.body;
+  const { email, otp, password } = req.body;
 
   try {
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    if (!email || !otp || !password) {
+      return res.status(400).json({ message: 'Email, OTP, and password are required.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const hashedToken = crypto.createHash('sha256').update(otp.trim()).digest('hex');
 
     const user = await User.findOne({
+      email: normalizedEmail,
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Reset link is invalid or has expired.' });
+      return res.status(400).json({ message: 'Reset OTP is invalid or has expired.' });
     }
 
     if (await user.matchPassword(password)) {

@@ -70,7 +70,7 @@
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<false/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>This app requires camera access to upload vehicle photos during service booking.</string>
@@ -108,6 +108,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>location</string>
 		<string>audio</string>
 		<string>processing</string>
 	</array>

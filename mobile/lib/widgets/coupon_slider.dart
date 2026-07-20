@@ -232,77 +232,73 @@ class _CouponSliderState extends State<CouponSlider> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.local_offer_rounded,
-                              size: 8,
-                              color: palette.offerAccent,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'OFFER',
-                              style: TextStyle(
-                                color: palette.secondaryText,
-                                fontSize: 7,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ],
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_offer_rounded,
+                        size: 9,
+                        color: palette.offerAccent,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'OFFER',
+                        style: TextStyle(
+                          color: palette.secondaryText,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
                         ),
-                        const SizedBox(height: 2),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    coupon['code']?.toString().toUpperCase() ?? '',
+                    style: TextStyle(
+                      color: palette.primaryText,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        '${coupon['discountPercentage']}% OFF',
+                        style: TextStyle(
+                          color: palette.primaryText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      if (coupon['minOrderAmount'] != null) ...[
+                        const SizedBox(width: 6),
                         Text(
-                          coupon['code']?.toString().toUpperCase() ?? '',
+                          '•',
                           style: TextStyle(
-                            color: palette.primaryText,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
+                            color: palette.secondaryText.withValues(alpha: 0.6),
+                            fontSize: 8,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Min. ₹${coupon['minOrderAmount']}',
+                          style: TextStyle(
+                            color: palette.secondaryText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 30,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: palette.divider.withValues(alpha: 0.35),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${coupon['discountPercentage']}% OFF',
-                          style: TextStyle(
-                            color: palette.primaryText,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        if (coupon['minOrderAmount'] != null)
-                          Text(
-                            'Min. ₹${coupon['minOrderAmount']}',
-                            style: TextStyle(
-                              color: palette.secondaryText,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                 ],
               ),

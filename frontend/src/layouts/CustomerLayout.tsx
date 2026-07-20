@@ -8,7 +8,6 @@ import {
   CreditCard,
   Car,
   Calendar,
-  FileText,
   User,
   HeadphonesIcon,
   LogOut,
@@ -17,8 +16,8 @@ import {
   Wrench,
   Droplets,
   Shield,
-  UserCircle,
-  Battery
+  Battery,
+  ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -100,10 +99,17 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         >
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <UserCircle className="w-6 h-6 text-primary" />
-              <span className="font-semibold text-lg">Customer Portal</span>
-            </div>
+            <Link to="/customer/dashboard" className="flex items-center gap-2">
+              <img
+                src="/carzzilogo-original.png"
+                alt="Carzzi Logo"
+                width={112}
+                height={32}
+                loading="lazy"
+                className="h-8 w-auto object-contain brightness-0"
+              />
+              <span className="font-semibold text-sm text-muted-foreground ml-1">Portal</span>
+            </Link>
             <button
               onClick={() => setSidebarOpen(false)}
               className="p-2 hover:bg-muted rounded-lg"
@@ -166,47 +172,75 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-h-screen min-w-0 max-w-full">
           {/* Header */}
-          <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-6 bg-card/95 backdrop-blur-xl border-b border-border">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 hover:bg-muted rounded-xl"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <img src="/footer.png" alt="Carzzi Logo" width={144} height={40} loading="lazy" className="h-10 w-auto object-contain" />
+          <header className="relative sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-6 bg-card/95 backdrop-blur-xl border-b border-border">
+            <div className="flex items-center min-w-10">
+              {location.pathname === '/customer/dashboard' ? (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 hover:bg-muted rounded-xl transition-colors"
+                  aria-label="Open menu"
+                >
+                  <Menu className="w-6 h-6" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate(-1)}
+                  className="p-2 hover:bg-muted rounded-xl transition-colors"
+                  aria-label="Go back"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to="/notifications"
-                className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
-              >
-                <Bell className="w-5 h-5" />
-                <AnimatePresence>
-                  {unreadCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
-                    >
-                      {unreadCount}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Link>
 
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+              <Link to="/customer/dashboard" className="flex items-center">
+                <img
+                  src="/carzzilogo-original.png"
+                  alt="Carzzi Logo"
+                  width={180}
+                  height={50}
+                  loading="lazy"
+                  className="h-12 w-auto object-contain brightness-0"
+                />
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-end min-w-10">
+              {location.pathname === '/customer/dashboard' ? (
+                <Link
+                  to="/notifications"
+                  className="p-2 text-muted-foreground hover:text-foreground relative transition-colors rounded-lg hover:bg-muted"
+                >
+                  <Bell className="w-5 h-5" />
+                  <AnimatePresence>
+                    {unreadCount > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-card"
+                      >
+                        {unreadCount}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              ) : (
+                /* Empty spacer to keep logo centered perfectly on other pages */
+                <div className="w-10 h-10" />
+              )}
             </div>
           </header>
 
-          <main className="flex-1 pb-20 lg:pb-6 min-w-0 overflow-x-hidden">
+          <main className={cn("flex-1 min-w-0 overflow-x-hidden", location.pathname === '/book-service' ? "pb-6" : "pb-20 lg:pb-6")}>
             <div className="w-full h-full min-w-0 max-w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
               <PageTransition>
                 {children || <Outlet />}
               </PageTransition>
             </div>
           </main>
-          {!sidebarOpen && <BottomNav />}
+          {!sidebarOpen && location.pathname !== '/book-service' && <BottomNav />}
         </div>
       </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, Key } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
 import { isStrongPassword } from '@/lib/formValidation';
@@ -10,8 +10,8 @@ const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [token] = useState(() => searchParams.get('token') || '');
-
+  const [email] = useState(() => searchParams.get('email') || '');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,22 +20,21 @@ const ResetPasswordPage: React.FC = () => {
   const [isValidLink, setIsValidLink] = useState(true);
 
   useEffect(() => {
-    if (searchParams.get('token')) {
-      navigate('/reset-password', { replace: true });
-    }
-  }, [searchParams, navigate]);
-
-  useEffect(() => {
-    if (!token) {
+    if (!email) {
       setIsValidLink(false);
     }
-  }, [token]);
+  }, [email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!token) {
-      toast.error('Reset link is invalid.');
+    if (!email) {
+      toast.error('Email is missing.');
+      return;
+    }
+
+    if (otp.length !== 6) {
+      toast.error('Please enter the 6-digit OTP code.');
       return;
     }
 
@@ -51,11 +50,11 @@ const ResetPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await authService.resetPassword({ token, password });
+      const response = await authService.resetPassword({ email, otp, password });
       toast.success(response.message || 'Password has been reset successfully.');
       navigate('/login', { replace: true });
     } catch (error) {
-      toast.error('Failed to reset password. The link may have expired.');
+      toast.error('Failed to reset password. The OTP may be invalid or expired.');
     } finally {
       setIsSubmitting(false);
     }
@@ -70,7 +69,7 @@ const ResetPasswordPage: React.FC = () => {
             This password reset link is invalid or missing required information.
           </p>
           <Link to="/forgot-password" className="text-primary font-medium hover:underline">
-            Request a new reset link
+            Request a new reset OTP
           </Link>
         </div>
       </div>
@@ -87,11 +86,24 @@ const ResetPasswordPage: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">Reset Password</h1>
           <p className="text-muted-foreground">
-            Choose a new password for your account.
+            Enter the 6-digit OTP sent to {email} and choose a new password.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="relative">
+            <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6-digit OTP"
+              required
+              maxLength={6}
+              className="w-full pl-12 pr-4 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            />
+          </div>
+
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
@@ -102,12 +114,12 @@ const ResetPasswordPage: React.FC = () => {
               required
               className="w-full pl-12 pr-12 py-4 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
             />
-            <button
+             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
             </button>
           </div>
 
@@ -126,7 +138,7 @@ const ResetPasswordPage: React.FC = () => {
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showConfirmPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
             </button>
           </div>
 
@@ -152,4 +164,3 @@ const ResetPasswordPage: React.FC = () => {
 };
 
 export default ResetPasswordPage;
-
