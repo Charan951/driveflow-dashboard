@@ -323,9 +323,12 @@ const CarWashPage: React.FC = () => {
                 </ul>
               )}
 
-              <div className="flex items-center justify-between mb-4 mt-auto">
+              <div className="flex flex-col mb-4 mt-auto">
                 <span className="text-2xl sm:text-3xl font-bold text-primary">
                   ₹{getPackagePrice(pkg)}
+                </span>
+                <span className="text-xs text-muted-foreground mt-1 font-medium">
+                  Displayed prices are indicative only. The final amount will be as per the generated invoice.
                 </span>
               </div>
 

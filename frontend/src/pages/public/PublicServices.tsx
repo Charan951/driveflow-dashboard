@@ -277,29 +277,34 @@ const PublicServices = () => {
                   )}
 
                   {/* Row 3: Bottom details row */}
-                  <div className="mx-4 sm:mx-8 lg:mx-10 mb-6 sm:mb-8 lg:mb-10 pt-6 sm:pt-8 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 sm:gap-8">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Service Price</p>
-                        <p className="text-3xl sm:text-4xl font-black text-primary">₹{service.price}</p>
-                      </div>
-                      <div className="h-px sm:h-10 w-full sm:w-px bg-border" />
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Duration</p>
-                        <div className="flex items-center gap-2 text-foreground/80 font-bold">
-                          <Clock className="w-4 h-4 text-primary shrink-0" />
-                          {service.duration} mins
+                  <div className="mx-4 sm:mx-8 lg:mx-10 mb-6 sm:mb-8 lg:mb-10 pt-6 sm:pt-8 border-t border-border flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 sm:gap-8">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Service Price</p>
+                          <p className="text-3xl sm:text-4xl font-black text-primary">₹{service.price}</p>
+                        </div>
+                        <div className="h-px sm:h-10 w-full sm:w-px bg-border" />
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Duration</p>
+                          <div className="flex items-center gap-2 text-foreground/80 font-bold">
+                            <Clock className="w-4 h-4 text-primary shrink-0" />
+                            {service.duration} mins
+                          </div>
                         </div>
                       </div>
+                      
+                      <button 
+                        onClick={() => handleBookNow(service)}
+                        className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 bg-primary text-primary-foreground rounded-2xl font-black text-base sm:text-lg hover:bg-primary/90 transition-all hover:scale-[1.02] shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+                      >
+                        Book Now
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
                     </div>
-                    
-                    <button 
-                      onClick={() => handleBookNow(service)}
-                      className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 bg-primary text-primary-foreground rounded-2xl font-black text-base sm:text-lg hover:bg-primary/90 transition-all hover:scale-[1.02] shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
-                    >
-                      Book Now
-                      <ArrowRight className="w-5 h-5" />
-                    </button>
+                    <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+                      Displayed prices are indicative only. The final amount will be as per the generated invoice.
+                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -369,6 +374,9 @@ const PublicServices = () => {
                   <p className="text-2xl sm:text-3xl font-bold text-primary">₹{service.price}</p>
                   <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" /> {service.duration} mins
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1.5 font-medium">
+                    Displayed prices are indicative only. The final amount will be as per the generated invoice.
                   </p>
                 </div>
                 <button 

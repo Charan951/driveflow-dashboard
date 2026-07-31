@@ -921,21 +921,6 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
     final nextAction = _getNextStatusAction(booking);
     final normalizedStatus = _normalizeStatus(booking.status);
-    final allowedStatuses = <String>{
-      'ASSIGNED',
-      'ACCEPTED',
-      'REACHED_CUSTOMER',
-      'VEHICLE_PICKED',
-      'REACHED_MERCHANT',
-      'SERVICE_COMPLETED',
-      'OUT_FOR_DELIVERY',
-      'CAR_WASH_STARTED',
-      'CAR_WASH_COMPLETED',
-      'STAFF_REACHED_MERCHANT',
-      'PICKUP_BATTERY_TIRE',
-      'INSTALLATION',
-      'DELIVERY',
-    };
 
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
     final currentPhotoCount = _currentPhasePhotoCount(booking);
