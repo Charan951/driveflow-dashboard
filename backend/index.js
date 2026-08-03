@@ -42,6 +42,8 @@ import blogRoutes from './routes/blogRoutes.js';
 import careerRoutes from './routes/careerRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
 import captchaRoutes from './routes/captchaRoutes.js';
+import faqRoutes from './routes/faqRoutes.js';
+
 
 
 dotenv.config();
@@ -191,6 +193,10 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/vehicle-reference', vehicleReferenceRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/captcha', captchaRoutes);
+// FAQ routes
+app.use('/api/faqs', faqRoutes);
+
+
 
 
 // API health check

@@ -30,6 +30,8 @@ import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { blogService, BlogPost, BlogCategory } from '@/services/blogService';
 import { careerService, Career, CareerApplication } from '@/services/careerService';
+import AdminFaqsPage from './AdminFaqsPage';
+
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -131,7 +133,8 @@ const AdminHeroImagesPage = () => {
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
   const [blogCategories, setBlogCategories] = useState<BlogCategory[]>([]);
   const [careers, setCareers] = useState<Career[]>([]);
-  const [activeManagerTab, setActiveManagerTab] = useState<'blog' | 'careers'>('blog');
+  const [activeManagerTab, setActiveManagerTab] = useState<'blog' | 'careers' | 'faqs'>('blog');
+
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [previewBlog, setPreviewBlog] = useState<BlogPost | null>(null);
@@ -1528,7 +1531,14 @@ const AdminHeroImagesPage = () => {
             >
               Careers
             </button>
+            <button
+              onClick={() => setActiveManagerTab('faqs')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeManagerTab === 'faqs' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            >
+              FAQ Management
+            </button>
           </div>
+
 
           {activeManagerTab === 'blog' ? (
             <div className="grid lg:grid-cols-3 gap-6 min-w-0 overflow-x-hidden">
@@ -1681,8 +1691,9 @@ const AdminHeroImagesPage = () => {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeManagerTab === 'careers' ? (
             <div className="grid lg:grid-cols-3 gap-6">
+
               <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">{careerForm._id ? 'Edit Career' : 'Create Career'}</h3>
@@ -1843,8 +1854,13 @@ const AdminHeroImagesPage = () => {
                 </div>
               )}
             </div>
-          )}
+          ) : activeManagerTab === 'faqs' ? (
+            <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm min-w-0 overflow-hidden">
+              <AdminFaqsPage />
+            </div>
+          ) : null}
         </section>
+
       </div>
 
       {previewBlog && (

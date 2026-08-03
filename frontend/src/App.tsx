@@ -127,6 +127,8 @@ const AdminUserDetailPage = lazyRetry(() => import("./pages/admin/UserDetailPage
 const AdminVehiclesPage = lazyRetry(() => import("./pages/admin/AdminVehiclesPage"));
 const AdminVehicleDetailPage = lazyRetry(() => import("./pages/admin/VehicleDetailPage"));
 const AdminCareerDetailPage = lazyRetry(() => import("./pages/admin/AdminCareerDetailPage"));
+const AdminFaqsPage = lazyRetry(() => import("./pages/admin/AdminFaqsPage"));
+
 
 // Merchant Pages
 const MerchantDashboard = lazyRetry(() => import("./pages/merchant/Dashboard"));
@@ -251,7 +253,9 @@ const App = () => (
               <Route path="/admin/reports" element={<AdminReportsPage />} />
               <Route path="/admin/roles" element={<AdminRolesPage />} />
               <Route path="/admin/hero-images" element={<AdminHeroImagesPage />} />
+              <Route path="/admin/faqs" element={<AdminFaqsPage />} />
               <Route path="/admin/careers/:id" element={<AdminCareerDetailPage />} />
+
               <Route path="/admin/audit" element={<AdminAuditPage />} />
             </Route>
           </Route>

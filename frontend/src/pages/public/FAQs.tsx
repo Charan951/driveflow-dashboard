@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { HelpCircle, Search, MessageCircle, ChevronRight } from 'lucide-react';
+import { HelpCircle, Search, MessageCircle, ChevronRight, Loader2 } from 'lucide-react';
 import { heroService } from "@/services/heroService";
+import { faqService, PublicFaqCategory } from "@/services/faqService";
 import { useNavigate } from "react-router-dom";
 import {
   Accordion,
@@ -11,63 +12,13 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const faqs = [
-  {
-    category: "Booking & Services",
-    questions: [
-      {
-        q: "How do I make a booking?",
-        a: "Booking a service is easy! Simply log in to your account, click on 'Book Service', choose your vehicle type, select the desired service package, pick a convenient date and time, and confirm your booking."
-      },
-      {
-        q: "What are your workshop timings?",
-        a: "Our workshops are open from 8:00 AM to 8:00 PM, Monday through Saturday. On Sundays, we operate from 9:00 AM to 5:00 PM for limited services."
-      },
-      {
-        q: "Do you offer pick-up and drop-off?",
-        a: "Yes, we offer complimentary pick-up and drop-off services for all major service packages within a 10km radius of our service centers."
-      },
-      {
-        q: "How long does a general service take?",
-        a: "A standard periodic maintenance service usually takes 4-6 hours. However, this may vary depending on the vehicle condition and any additional repairs required."
-      }
-    ]
-  },
-  {
-    category: "Payments & Pricing",
-    questions: [
-      {
-        q: "Do you accept credit cards?",
-        a: "Yes, we accept all major credit cards, debit cards, UPI, and net banking. You can pay online through our secure portal or at the time of delivery."
-      },
-      {
-        q: "Is there any hidden cost?",
-        a: "No, we believe in complete transparency. All costs are estimated upfront. If any additional parts or repairs are needed during the service, we will seek your approval before proceeding."
-      },
-      {
-        q: "Do you provide GST bills?",
-        a: "Absolutely. All our invoices are GST compliant and detailed with part numbers and labor charges."
-      }
-    ]
-  },
-  {
-    category: "Warranty & Parts",
-    questions: [
-      {
-        q: "Do you use genuine parts?",
-        a: "Yes, we use 100% genuine OES (Original Equipment Spares) or OEM (Original Equipment Manufacturer) parts recommended for your specific vehicle brand and model."
-      },
-      {
-        q: "Is there a warranty on the service?",
-        a: "We offer a 1000km or 1-month warranty (whichever comes first) on all our service workmanship and parts replaced."
-      }
-    ]
-  }
-];
+import { Skeleton } from "@/components/ui/skeleton";
 
 const FAQs = () => {
   const navigate = useNavigate();
+  const [faqs, setFaqs] = useState<PublicFaqCategory[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [hero, setHero] = useState({
     image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=2000",
     title: "Frequently Asked Questions",
@@ -76,6 +27,7 @@ const FAQs = () => {
 
   useEffect(() => {
     fetchHero();
+    fetchFaqs();
   }, []);
 
   const fetchHero = async () => {
@@ -93,6 +45,31 @@ const FAQs = () => {
       console.error('Failed to fetch faqs hero from S3', error);
     }
   };
+
+  const fetchFaqs = async () => {
+    setLoading(true);
+    try {
+      const data = await faqService.getPublicFaqs();
+      setFaqs(data);
+    } catch (error) {
+      console.error('Failed to fetch FAQs from API', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredFaqs = faqs.map(cat => {
+    const matchesCat = cat.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchingQuestions = cat.questions.filter(
+      q => q.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           q.a.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    if (matchesCat) return cat;
+    return {
+      ...cat,
+      questions: matchingQuestions
+    };
+  }).filter(cat => cat.questions.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,6 +115,23 @@ const FAQs = () => {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="sticky top-24 space-y-6"
             >
+              {/* Search Box */}
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-xl backdrop-blur-sm space-y-3">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <Search className="w-4 h-4 text-primary" />
+                  Search FAQs
+                </h3>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Search keywords..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-background border-border"
+                  />
+                </div>
+              </div>
+
               <div className="bg-card border border-border rounded-2xl p-6 shadow-xl backdrop-blur-sm">
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-primary" />
@@ -170,32 +164,52 @@ const FAQs = () => {
               transition={{ delay: 0.4, duration: 0.5 }}
               className="bg-card/50 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-sm border border-border/50"
             >
-              {faqs.map((category, idx) => (
-                <div key={idx} className="mb-10 last:mb-0">
-                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
-                      {idx + 1}
-                    </span>
-                    {category.category}
-                  </h2>
-                  <Accordion type="single" collapsible className="w-full space-y-4">
-                    {category.questions.map((faq, i) => (
-                      <AccordionItem 
-                        key={i} 
-                        value={`item-${idx}-${i}`}
-                        className="border border-border/50 rounded-xl px-4 bg-card hover:bg-accent/5 transition-colors"
-                      >
-                        <AccordionTrigger className="text-left font-medium text-lg py-4 hover:no-underline hover:text-primary transition-colors">
-                          {faq.q}
-                        </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-4">
-                          {faq.a}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
+              {loading ? (
+                <div className="space-y-8 py-4">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="h-8 w-1/3 rounded-lg" />
+                      <Skeleton className="h-16 w-full rounded-xl" />
+                      <Skeleton className="h-16 w-full rounded-xl" />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : filteredFaqs.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <HelpCircle className="w-12 h-12 text-muted-foreground mx-auto" />
+                  <h3 className="text-lg font-medium">No FAQs Found</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery ? `No answers match "${searchQuery}".` : 'No FAQs are available at this time.'}
+                  </p>
+                </div>
+              ) : (
+                filteredFaqs.map((category, idx) => (
+                  <div key={category._id || idx} className="mb-10 last:mb-0">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
+                        {idx + 1}
+                      </span>
+                      {category.category}
+                    </h2>
+                    <Accordion type="single" collapsible className="w-full space-y-4">
+                      {category.questions.map((faq, i) => (
+                        <AccordionItem 
+                          key={faq._id || i} 
+                          value={`item-${idx}-${i}`}
+                          className="border border-border/50 rounded-xl px-4 bg-card hover:bg-accent/5 transition-colors"
+                        >
+                          <AccordionTrigger className="text-left font-medium text-lg py-4 hover:no-underline hover:text-primary transition-colors">
+                            {faq.q}
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-4">
+                            {faq.a}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </div>
+                ))
+              )}
             </motion.div>
           </div>
 

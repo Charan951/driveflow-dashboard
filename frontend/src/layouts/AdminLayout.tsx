@@ -21,8 +21,10 @@ import {
   Bell,
   Home,
   Layout,
-  Tag
+  Tag,
+  HelpCircle
 } from 'lucide-react';
+
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -42,11 +44,13 @@ const adminMenuItems = [
   { icon: Package, label: 'Services', path: '/admin/services' },
   { icon: Tag, label: 'Coupons', path: '/admin/coupons' },
   { icon: BarChart, label: 'Reports', path: '/admin/reports' },
+
   { icon: Layout, label: 'Edit website', path: '/admin/hero-images' },
   { icon: Package, label: 'Vehicle Data', path: '/admin/stock' },
   // { icon: FileText, label: 'Documents', path: '/admin/documents' },
   { icon: FileClock, label: 'Audit Logs', path: '/admin/audit' },
 ];
+
 
 const adminBottomNavItems: NavItem[] = [
   { icon: Users, label: 'Customers', path: '/admin/customers' },
