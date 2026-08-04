@@ -43,8 +43,6 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _bootstrap() async {
-    NotificationService().requestPermissions();
-
     // Wipe Keychain session left over from a previous install (iOS).
     await AppStorage().ensureStorageMatchesInstall();
 
@@ -53,6 +51,8 @@ class _SplashPageState extends State<SplashPage>
     if (!mounted || _navigated) return;
 
     if (user != null) {
+      // User already logged in from a previous session; safe to ask now.
+      NotificationService().requestPermissions();
       // Small delay to allow logo animation to feel natural
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {

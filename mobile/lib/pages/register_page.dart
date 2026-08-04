@@ -1,10 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
+import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -30,6 +31,8 @@ class _RegisterPageState extends State<RegisterPage>
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
 
   @override
   void initState() {
@@ -52,6 +55,8 @@ class _RegisterPageState extends State<RegisterPage>
           CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
         );
     _animationController.forward();
+    _termsRecognizer = TapGestureRecognizer()..onTap = _openTermsAndConditions;
+    _privacyRecognizer = TapGestureRecognizer()..onTap = _openPrivacyPolicy;
   }
 
   @override
@@ -63,6 +68,8 @@ class _RegisterPageState extends State<RegisterPage>
     _phoneController.dispose();
     _otpController.dispose();
     _animationController.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
   }
 
@@ -150,6 +157,7 @@ class _RegisterPageState extends State<RegisterPage>
         });
       } else if (auth.isAuthenticated) {
         if (!mounted) return;
+        NotificationService().requestPermissions();
         Navigator.of(context).pushReplacementNamed(auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Failed to send OTP');
@@ -184,6 +192,7 @@ class _RegisterPageState extends State<RegisterPage>
       final ok = await auth.verifySignupOtp(phone: phone, otp: otp);
       if (!mounted) return;
       if (ok) {
+        NotificationService().requestPermissions();
         Navigator.of(context).pushReplacementNamed(auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
@@ -201,12 +210,12 @@ class _RegisterPageState extends State<RegisterPage>
     await _handleSendOtp();
   }
 
-  Future<void> _openPrivacyPolicy() async {
-    const url = 'https://carzzi.com/privacy';
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _openPrivacyPolicy() {
+    Navigator.of(context).pushNamed('/privacy');
+  }
+
+  void _openTermsAndConditions() {
+    Navigator.of(context).pushNamed('/terms');
   }
 
   @override
@@ -217,31 +226,7 @@ class _RegisterPageState extends State<RegisterPage>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.splashDeepBlack, AppColors.splashDarkGray],
-              ),
-            ),
-          ),
-          Center(
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.cinematicOrange.withValues(alpha: 0.15),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.7],
-                ),
-              ),
-            ),
-          ),
+          Container(color: AppColors.splashDeepBlack),
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -267,271 +252,229 @@ class _RegisterPageState extends State<RegisterPage>
                             fit: BoxFit.contain,
                           ),
                           const SizedBox(height: 24),
-                          Card(
-                            color: AppColors.backgroundSecondary.withValues(alpha: 0.9),
-                            elevation: 8,
-                            shadowColor: Colors.black.withValues(alpha: 0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.05),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                32,
-                                24,
-                                24,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 32, 8, 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  _showOtpStep
+                                      ? 'Verify WhatsApp OTP'
+                                      : 'Create Account',
+                                  key: const Key('register_title'),
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                ),
+                                if (_showOtpStep) ...[
+                                  const SizedBox(height: 8),
                                   Text(
-                                    _showOtpStep
-                                        ? 'Verify WhatsApp OTP'
-                                        : 'Create Account',
-                                    key: const Key('register_title'),
+                                    'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
                                     textAlign: TextAlign.center,
-                                    style: theme.textTheme.headlineSmall
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
-                                        ),
-                                  ),
-                                  if (_showOtpStep) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 32),
-                                  if (!_showOtpStep) ...[
-                                    _GlassField(
-                                      controller: _nameController,
-                                      hintText: 'Full Name',
-                                      textInputAction: TextInputAction.next,
-                                      prefixIcon: Icons.person_outline,
-                                      maxLength: FormValidation.maxNameLength,
-                                      onChanged: (_) => _clearError(),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _GlassField(
-                                      controller: _emailController,
-                                      hintText: 'Email',
-                                      keyboardType: TextInputType.emailAddress,
-                                      textInputAction: TextInputAction.next,
-                                      prefixIcon: Icons.mail_outline,
-                                      maxLength: FormValidation.maxEmailLength,
-                                      onChanged: (_) => _clearError(),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _GlassField(
-                                      controller: _passwordController,
-                                      hintText: 'Password',
-                                      textInputAction: TextInputAction.next,
-                                      prefixIcon: Icons.lock_outline,
-                                      obscureText: !_showPassword,
-                                      maxLength: 15,
-                                      suffix: IconButton(
-                                        onPressed: () => setState(
-                                          () => _showPassword = !_showPassword,
-                                        ),
-                                        icon: Icon(
-                                          _showPassword
-                                              ? Icons.visibility
-                                              : Icons.visibility_off,
-                                          color: Colors.white38,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      onChanged: (_) => _clearError(),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _GlassField(
-                                      controller: _confirmController,
-                                      hintText: 'Confirm Password',
-                                      textInputAction: TextInputAction.next,
-                                      prefixIcon: Icons.lock_outline,
-                                      obscureText: !_showPassword,
-                                      maxLength: 15,
-                                      suffix: IconButton(
-                                        onPressed: () => setState(
-                                          () => _showPassword = !_showPassword,
-                                        ),
-                                        icon: Icon(
-                                          _showPassword
-                                              ? Icons.visibility
-                                              : Icons.visibility_off,
-                                          color: Colors.white38,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      onChanged: (_) => _clearError(),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _GlassField(
-                                      controller: _phoneController,
-                                      hintText: 'Mobile number',
-                                      keyboardType: TextInputType.phone,
-                                      textInputAction: TextInputAction.done,
-                                      prefixIcon: Icons.phone_outlined,
-                                      onChanged: (_) => _clearError(),
-                                      onSubmitted: (_) => _handleSendOtp(),
-                                    ),
-                                  ] else ...[
-                                    _GlassField(
-                                      controller: _otpController,
-                                      hintText: '6-digit OTP',
-                                      keyboardType: TextInputType.number,
-                                      textInputAction: TextInputAction.done,
-                                      prefixIcon: Icons.sms_outlined,
-                                      onChanged: (_) => _clearError(),
-                                      onSubmitted: (_) => _handleVerifyOtp(),
-                                    ),
-                                  ],
-                                  if (_error != null) ...[
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.error.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.error_outline,
-                                            color: AppColors.error,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              _error!,
-                                              style: const TextStyle(
-                                                color: AppColors.error,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 32),
-                                  SizedBox(
-                                    height: 56,
-                                    child: ElevatedButton(
-                                      onPressed: _submitting
-                                          ? null
-                                          : (_showOtpStep
-                                                ? _handleVerifyOtp
-                                                : _handleSendOtp),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.cinematicOrange,
-                                        foregroundColor: Colors.white,
-                                        elevation: 4,
-                                        shadowColor: AppColors.cinematicOrange
-                                            .withValues(alpha: 0.4),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        disabledBackgroundColor: AppColors
-                                            .cinematicOrange
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                      child: _submitting
-                                          ? const SizedBox(
-                                              width: 24,
-                                              height: 24,
-                                              child:
-                                                  CircularProgressIndicator.adaptive(
-                                                    strokeWidth: 2.5,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                          Color
-                                                        >(Colors.white),
-                                                  ),
-                                            )
-                                          : Text(
-                                              _showOtpStep
-                                                  ? 'Verify & Register'
-                                                  : 'Verify',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 1,
-                                              ),
-                                            ),
+                                    style: const TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  if (_showOtpStep) ...[
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                ],
+                                const SizedBox(height: 32),
+                                if (!_showOtpStep) ...[
+                                  _GlassField(
+                                    controller: _nameController,
+                                    hintText: 'Full Name',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.person_outline,
+                                    maxLength: FormValidation.maxNameLength,
+                                    onChanged: (_) => _clearError(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _emailController,
+                                    hintText: 'Email',
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.mail_outline,
+                                    maxLength: FormValidation.maxEmailLength,
+                                    onChanged: (_) => _clearError(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _passwordController,
+                                    hintText: 'Password',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.lock_outline,
+                                    obscureText: !_showPassword,
+                                    maxLength: 15,
+                                    suffix: IconButton(
+                                      onPressed: () => setState(
+                                        () => _showPassword = !_showPassword,
+                                      ),
+                                      icon: Icon(
+                                        _showPassword
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                        color: Colors.white38,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    onChanged: (_) => _clearError(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _confirmController,
+                                    hintText: 'Confirm Password',
+                                    textInputAction: TextInputAction.next,
+                                    prefixIcon: Icons.lock_outline,
+                                    obscureText: !_showPassword,
+                                    maxLength: 15,
+                                    suffix: IconButton(
+                                      onPressed: () => setState(
+                                        () => _showPassword = !_showPassword,
+                                      ),
+                                      icon: Icon(
+                                        _showPassword
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                        color: Colors.white38,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    onChanged: (_) => _clearError(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _GlassField(
+                                    controller: _phoneController,
+                                    hintText: 'Mobile number',
+                                    keyboardType: TextInputType.phone,
+                                    textInputAction: TextInputAction.done,
+                                    prefixIcon: Icons.phone_outlined,
+                                    onChanged: (_) => _clearError(),
+                                    onSubmitted: (_) => _handleSendOtp(),
+                                  ),
+                                ] else ...[
+                                  _GlassField(
+                                    controller: _otpController,
+                                    hintText: '6-digit OTP',
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.done,
+                                    prefixIcon: Icons.sms_outlined,
+                                    onChanged: (_) => _clearError(),
+                                    onSubmitted: (_) => _handleVerifyOtp(),
+                                  ),
+                                ],
+                                if (_error != null) ...[
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
                                       children: [
-                                        TextButton(
-                                          onPressed: _submitting
-                                              ? null
-                                              : () => setState(() {
-                                                  _showOtpStep = false;
-                                                  _otpController.clear();
-                                                }),
-                                          child: const Text(
-                                            'Back',
-                                            style: TextStyle(
-                                              color: Colors.white60,
-                                            ),
-                                          ),
+                                        const Icon(
+                                          Icons.error_outline,
+                                          color: AppColors.error,
+                                          size: 18,
                                         ),
-                                        TextButton(
-                                          onPressed: _submitting
-                                              ? null
-                                              : _handleResendOtp,
-                                          child: const Text(
-                                            'Resend OTP',
-                                            style: TextStyle(
-                                              color: AppColors.cinematicOrange,
-                                              fontWeight: FontWeight.bold,
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _error!,
+                                            style: const TextStyle(
+                                              color: AppColors.error,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                  const SizedBox(height: 24),
-                                  Wrap(
-                                    alignment: WrapAlignment.center,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                  ),
+                                ],
+                                const SizedBox(height: 32),
+                                SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: _submitting
+                                        ? null
+                                        : (_showOtpStep
+                                              ? _handleVerifyOtp
+                                              : _handleSendOtp),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          AppColors.cinematicOrange,
+                                      foregroundColor: Colors.white,
+                                      elevation: 4,
+                                      shadowColor: AppColors.cinematicOrange
+                                          .withValues(alpha: 0.4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      disabledBackgroundColor: AppColors
+                                          .cinematicOrange
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                    child: _submitting
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child:
+                                                CircularProgressIndicator.adaptive(
+                                                  strokeWidth: 2.5,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(Colors.white),
+                                                ),
+                                          )
+                                        : Text(
+                                            _showOtpStep
+                                                ? 'Verify & Register'
+                                                : 'Verify',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                if (_showOtpStep) ...[
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text(
-                                        "Already have an account? ",
-                                        style: TextStyle(color: Colors.white60),
+                                      TextButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () => setState(() {
+                                                _showOtpStep = false;
+                                                _otpController.clear();
+                                              }),
+                                        child: const Text(
+                                          'Back',
+                                          style: TextStyle(
+                                            color: Colors.white60,
+                                          ),
+                                        ),
                                       ),
                                       TextButton(
-                                        key: const Key('register_to_login'),
-                                        onPressed: () =>
-                                            Navigator.pushReplacementNamed(
-                                              context,
-                                              '/login',
-                                            ),
+                                        onPressed: _submitting
+                                            ? null
+                                            : _handleResendOtp,
                                         child: const Text(
-                                          'Login',
+                                          'Resend OTP',
                                           style: TextStyle(
                                             color: AppColors.cinematicOrange,
                                             fontWeight: FontWeight.bold,
@@ -540,21 +483,69 @@ class _RegisterPageState extends State<RegisterPage>
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
-                                  GestureDetector(
-                                    onTap: _openPrivacyPolicy,
-                                    child: const Text(
-                                      'By registering, you agree to our Privacy Policy',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 11,
-                                        decoration: TextDecoration.underline,
+                                ],
+                                const SizedBox(height: 24),
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    const Text(
+                                      "Already have an account? ",
+                                      style: TextStyle(color: Colors.white60),
+                                    ),
+                                    TextButton(
+                                      key: const Key('register_to_login'),
+                                      onPressed: () =>
+                                          Navigator.pushReplacementNamed(
+                                            context,
+                                            '/login',
+                                          ),
+                                      child: const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          color: AppColors.cinematicOrange,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                RichText(
+                                  textAlign: TextAlign.center,
+                                  text: TextSpan(
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 11,
+                                    ),
+                                    children: [
+                                      const TextSpan(
+                                        text:
+                                            'By registering you agree to our ',
+                                      ),
+                                      TextSpan(
+                                        text: 'Terms & conditions',
+                                        recognizer: _termsRecognizer,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                      const TextSpan(text: ' and '),
+                                      TextSpan(
+                                        text: 'privacy policies',
+                                        recognizer: _privacyRecognizer,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -627,7 +618,7 @@ class _GlassField extends StatelessWidget {
         suffixIcon: suffix,
         counterText: '',
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.03),
+        fillColor: AppColors.backgroundSecondary.withValues(alpha: 0.9),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,

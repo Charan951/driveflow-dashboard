@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.speshway.app"
+    namespace = "com.carzzi.user"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.speshway.app"
+        applicationId = "com.carzzi.user"
         // Initial Play Store Release: 1.0.0 (Build 1)
         minSdk = flutter.minSdkVersion
         targetSdk = 34

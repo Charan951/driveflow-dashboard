@@ -130,14 +130,38 @@ const sanitizeAndValidateServiceData = (data, isUpdate = false) => {
     sanitized.isQuickService = Boolean(data.isQuickService);
   }
 
+  // Validate isPremiumService
+  if (data.isPremiumService !== undefined) {
+    sanitized.isPremiumService = Boolean(data.isPremiumService);
+  }
+
   return { sanitized, errors };
+};
+
+const MAX_TOGGLED_SERVICES = 4;
+
+// Ensures at most MAX_TOGGLED_SERVICES services have `field` set to true,
+// counting only services other than `excludeId` (the one being updated).
+const assertToggleLimit = async (field, excludeId, incomingValue) => {
+  if (!incomingValue) return; // turning off, or not touching the field
+  const query = { [field]: true };
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+  const count = await Service.countDocuments(query);
+  if (count >= MAX_TOGGLED_SERVICES) {
+    const label = field === 'isPremiumService' ? 'premium services' : 'quick services';
+    const error = new Error(`Only ${MAX_TOGGLED_SERVICES} ${label} can be enabled at a time`);
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 // @desc    Get all services
 // @route   GET /api/services
 // @access  Public
 export const getServices = async (req, res) => {
-  const { vehicleType, category, service, isQuickService } = req.query;
+  const { vehicleType, category, service, isQuickService, isPremiumService } = req.query;
   try {
     const query = {};
 
@@ -157,6 +181,11 @@ export const getServices = async (req, res) => {
     // Handle isQuickService filter
     if (isQuickService !== undefined) {
       query.isQuickService = isQuickService === 'true';
+    }
+
+    // Handle isPremiumService filter
+    if (isPremiumService !== undefined) {
+      query.isPremiumService = isPremiumService === 'true';
     }
 
     const services = await Service.find(query);
@@ -182,29 +211,33 @@ export const createService = async (req, res) => {
       });
     }
 
+    await assertToggleLimit('isQuickService', null, sanitized.isQuickService);
+    await assertToggleLimit('isPremiumService', null, sanitized.isPremiumService);
+
     // Create and save the service
     const service = new Service({
       ...sanitized,
       features: sanitized.features || [],
       isQuickService: sanitized.isQuickService || false,
+      isPremiumService: sanitized.isPremiumService || false,
     });
 
     const createdService = await service.save();
-    
+
     // Global Real-time Sync
     emitEntitySync('service', 'created', createdService);
-    
+
     res.status(201).json(createdService);
   } catch (error) {
     // Handle Mongoose validation errors
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: validationErrors 
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: validationErrors
       });
     }
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -223,11 +256,14 @@ export const updateService = async (req, res) => {
     const { sanitized, errors } = sanitizeAndValidateServiceData(req.body, true);
 
     if (errors.length > 0) {
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: errors 
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors
       });
     }
+
+    await assertToggleLimit('isQuickService', service._id, sanitized.isQuickService);
+    await assertToggleLimit('isPremiumService', service._id, sanitized.isPremiumService);
 
     // Update service fields
     Object.keys(sanitized).forEach(key => {
@@ -235,17 +271,17 @@ export const updateService = async (req, res) => {
     });
 
     const updatedService = await service.save();
-    
+
     // Global Real-time Sync
     emitEntitySync('service', 'updated', updatedService);
-    
+
     res.json(updatedService);
   } catch (error) {
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: validationErrors 
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: validationErrors
       });
     }
     if (error.name === 'CastError') {

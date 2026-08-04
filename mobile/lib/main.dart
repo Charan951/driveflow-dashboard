@@ -11,6 +11,7 @@ import 'firebase_options.dart';
 import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
+import 'pages/legal_webview_page.dart';
 import 'pages/forgot_password_page.dart';
 import 'pages/reset_password_page.dart';
 import 'pages/track_booking_page.dart';
@@ -200,12 +201,16 @@ Future<void> _bootstrapApp({
 
   // Do not block app startup on notification initialization.
   // Some devices/environments can take longer than expected here.
+  // Permission is only requested here if the user already has a session
+  // from a previous login; first-time users are asked right after login.
   unawaited(() async {
     try {
       await notificationService.initialize().timeout(
         const Duration(seconds: 20),
       );
-      await notificationService.requestPermissions();
+      if (authProvider.isAuthenticated) {
+        await notificationService.requestPermissions();
+      }
       await notificationService.syncToken();
     } catch (e) {
       debugPrint('Notification init skipped at startup: $e');
@@ -519,6 +524,14 @@ class MyApp extends StatelessWidget {
               '/splash': (_) => const SplashPage(),
               '/login': (_) => const LoginPage(),
               '/register': (_) => const RegisterPage(),
+              '/terms': (_) => const LegalWebViewPage(
+                title: 'Terms & Conditions',
+                url: 'https://carzzi.com/terms',
+              ),
+              '/privacy': (_) => const LegalWebViewPage(
+                title: 'Privacy Policy',
+                url: 'https://carzzi.com/privacy',
+              ),
               '/forgot-password': (_) => const ForgotPasswordPage(),
               '/reset-password': (_) => const ResetPasswordPage(),
               '/services': (_) => const _TabRedirect(index: 0),

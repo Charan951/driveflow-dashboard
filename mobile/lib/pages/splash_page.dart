@@ -43,13 +43,13 @@ class _SplashPageState extends State<SplashPage>
 
   Future<void> _bootstrap() async {
     final auth = context.read<AuthProvider>();
-    final loadMeFuture = auth.loadMe();
-    NotificationService().requestPermissions();
-    await loadMeFuture;
+    await auth.loadMe();
 
     if (!mounted) return;
 
     if (auth.isAuthenticated) {
+      // User already logged in from a previous session; safe to ask now.
+      NotificationService().requestPermissions();
       // Small delay to allow logo animation to feel natural
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {

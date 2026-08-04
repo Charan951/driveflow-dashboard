@@ -137,8 +137,8 @@ const HomePage: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [services, setServices] = useState<any[]>(staticServices);
   const { data: servicesData, isLoading: isServicesLoading } = useQuery({
-    queryKey: ['services'],
-    queryFn: () => serviceService.getServices(),
+    queryKey: ['services', 'premium'],
+    queryFn: () => serviceService.getServices(undefined, undefined, undefined, true),
     staleTime: 1000 * 60 * 5,
   });
 

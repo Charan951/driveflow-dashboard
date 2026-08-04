@@ -138,6 +138,11 @@ const serviceSchema = mongoose.Schema(
       default: false,
       index: true,
     },
+    isPremiumService: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,

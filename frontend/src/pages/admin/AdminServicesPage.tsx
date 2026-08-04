@@ -109,15 +109,45 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
+  const MAX_TOGGLED_SERVICES = 4;
+
   const handleToggleQuickService = async (service: Service) => {
+    const turningOn = !service.isQuickService;
+    if (turningOn) {
+      const activeCount = services.filter(s => s.isQuickService && s._id !== service._id).length;
+      if (activeCount >= MAX_TOGGLED_SERVICES) {
+        toast.error(`Only ${MAX_TOGGLED_SERVICES} services can be shown on the app home page. Turn one off first.`);
+        return;
+      }
+    }
     try {
       await serviceService.updateService(service._id, {
-        isQuickService: !service.isQuickService
+        isQuickService: turningOn
       });
-      toast.success(`Service ${!service.isQuickService ? 'added to' : 'removed from'} services`);
+      toast.success(`Service ${turningOn ? 'added to' : 'removed from'} services`);
       fetchServices();
-    } catch (error) {
-      toast.error('Failed to update service');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update service');
+    }
+  };
+
+  const handleTogglePremiumService = async (service: Service) => {
+    const turningOn = !service.isPremiumService;
+    if (turningOn) {
+      const activeCount = services.filter(s => s.isPremiumService && s._id !== service._id).length;
+      if (activeCount >= MAX_TOGGLED_SERVICES) {
+        toast.error(`Only ${MAX_TOGGLED_SERVICES} services can be shown under Premium Services. Turn one off first.`);
+        return;
+      }
+    }
+    try {
+      await serviceService.updateService(service._id, {
+        isPremiumService: turningOn
+      });
+      toast.success(`Service ${turningOn ? 'added to' : 'removed from'} premium services`);
+      fetchServices();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update service');
     }
   };
 
@@ -301,6 +331,15 @@ const AdminServicesPage: React.FC = () => {
                           id={`quick-${service._id}`}
                           checked={service.isQuickService}
                           onCheckedChange={() => handleToggleQuickService(service)}
+                          className="scale-75 sm:scale-100"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`premium-${service._id}`} className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Premium</Label>
+                        <Switch
+                          id={`premium-${service._id}`}
+                          checked={service.isPremiumService}
+                          onCheckedChange={() => handleTogglePremiumService(service)}
                           className="scale-75 sm:scale-100"
                         />
                       </div>
@@ -552,6 +591,7 @@ const ServiceModal = ({ service, onClose, onSave }) => {
     image: service?.image || '',
     features: service?.features || [],
     isQuickService: service?.isQuickService || false,
+    isPremiumService: service?.isPremiumService || false,
   });
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -891,7 +931,16 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   checked={formData.isQuickService}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isQuickService: checked }))}
                 />
-                <Label htmlFor="isQuickService" className="font-semibold cursor-pointer">Show in Services</Label>
+                <Label htmlFor="isQuickService" className="font-semibold cursor-pointer">Show in Services (max 4)</Label>
+              </div>
+
+              <div className="md:col-span-2 flex items-center gap-2 py-2">
+                <Switch
+                  id="isPremiumService"
+                  checked={formData.isPremiumService}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPremiumService: checked }))}
+                />
+                <Label htmlFor="isPremiumService" className="font-semibold cursor-pointer">Show in Premium Services (max 4)</Label>
               </div>
 
               <div className="md:col-span-2">

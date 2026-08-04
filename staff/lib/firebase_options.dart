@@ -30,19 +30,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ',
-    appId: '1:879267203995:android:5085f16431f6791236ef3e',
-    messagingSenderId: '879267203995',
-    projectId: 'speshway-3d072',
-    storageBucket: 'speshway-3d072.firebasestorage.app',
+    apiKey: 'AIzaSyA09SBVbovG5LbRqP77Tg7pf4bzWYXRP3g',
+    appId: '1:295776629143:android:d58ef4c4d150a41f9914d2',
+    messagingSenderId: '295776629143',
+    projectId: 'carzzi-a8bf4',
+    storageBucket: 'carzzi-a8bf4.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDCXnjFQQGnFihTiqeUSLG8_HvmWWWHG7k',
-    appId: '1:879267203995:ios:aa261b9f42734e3736ef3e',
-    messagingSenderId: '879267203995',
-    projectId: 'speshway-3d072',
-    storageBucket: 'speshway-3d072.firebasestorage.app',
-    iosBundleId: 'com.speshway.staff',
+    apiKey: 'AIzaSyBGyyQwWj7ir3qZDKz9jXgyoDy1Mt3VGdI',
+    appId: '1:295776629143:ios:97b1f88afbf5c7539914d2',
+    messagingSenderId: '295776629143',
+    projectId: 'carzzi-a8bf4',
+    storageBucket: 'carzzi-a8bf4.firebasestorage.app',
+    iosBundleId: 'com.carzzi.staff',
   );
 }

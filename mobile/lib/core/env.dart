@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class Env {
-  static const bool useProduction = true;  
-   // MUST stay false for testing with rzp_test keys
-  
+  static const bool useProduction = true;
+  // MUST stay false for testing with rzp_test keys
+
   static bool isPhysicalDevice = false;
 
   static String get localBaseUrl {
@@ -13,11 +13,11 @@ class Env {
     if (fromEnv.isNotEmpty) return fromEnv;
     if (!kIsWeb && Platform.isAndroid) {
       if (isPhysicalDevice) {
-        return 'http://localhost:5000'; // Redirects via adb reverse tcp:5000 tcp:5000
+        return 'http://localhost:5001'; // Redirects via adb reverse tcp:5000 tcp:5000
       }
-      return 'http://10.0.2.2:5000';
+      return 'http://10.0.2.2:5001';
     }
-    return 'http://localhost:5000';
+    return 'http://localhost:5001';
   }
 
   static String get productionBaseUrl {
@@ -33,7 +33,6 @@ class Env {
 
   static String get userAgent =>
       'com.speshway.app/1.0.0 (Flutter; Android/iOS)';
-
 }
 
 class ApiEndpoints {

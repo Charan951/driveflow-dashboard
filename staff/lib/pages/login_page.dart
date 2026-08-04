@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 
 class StaffLoginPage extends StatefulWidget {
@@ -69,8 +70,10 @@ class _StaffLoginPageState extends State<StaffLoginPage>
   void _navigateAfterLogin(StaffUser user) {
     final role = user.role.toLowerCase();
     if (role == 'merchant') {
+      NotificationService().requestPermissions();
       Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
     } else if (role == 'staff' || role == 'admin') {
+      NotificationService().requestPermissions();
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
       _authService.logout();

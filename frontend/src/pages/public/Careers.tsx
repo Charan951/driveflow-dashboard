@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Briefcase, MapPin, Clock, ArrowRight, Zap, Heart, Users, DollarSign } from "lucide-react";
+import {
+  Briefcase,
+  MapPin,
+  Clock,
+  ArrowRight,
+  Zap,
+  BriefcaseBusiness,
+  Users,
+  DollarSign,
+} from "lucide-react";
 import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
 import { careerService, Career } from "@/services/careerService";
@@ -9,9 +18,11 @@ import { useNavigate } from "react-router-dom";
 const Careers = () => {
   const navigate = useNavigate();
   const [hero, setHero] = useState({
-    image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=2000",
+    image:
+      "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=2000",
     title: "Build the Future of Vehicle Care",
-    subtitle: "Join a team of passionate individuals revolutionizing how people maintain their cars. We're looking for dreamers, doers, and problem solvers."
+    subtitle:
+      "Join a team of passionate individuals revolutionizing how people maintain their cars. We're looking for dreamers, doers, and problem solvers.",
   });
   const [positions, setPositions] = useState<Career[]>([]);
 
@@ -25,17 +36,17 @@ const Careers = () => {
         heroService.getHeroSettings(),
         careerService.getPublicCareers(),
       ]);
-      const pageHero = heroData.pageHeroes?.['careers'];
+      const pageHero = heroData.pageHeroes?.["careers"];
       if (pageHero) {
         setHero({
           image: pageHero.image || hero.image,
           title: pageHero.title || hero.title,
-          subtitle: pageHero.subtitle || hero.subtitle
+          subtitle: pageHero.subtitle || hero.subtitle,
         });
       }
       setPositions(Array.isArray(careersData) ? careersData : []);
     } catch (error) {
-      console.error('Failed to fetch careers page data', error);
+      console.error("Failed to fetch careers page data", error);
       setPositions([]);
     }
   };
@@ -45,14 +56,14 @@ const Careers = () => {
       {/* Hero Section */}
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img 
-            src={hero.image} 
-            alt="Team meeting" 
+          <img
+            src={hero.image}
+            alt="Team meeting"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         </div>
-        
+
         <div className="container mx-auto px-4 text-center relative z-10 text-white">
           <motion.div
             initial={{ opacity: 0, y: -30 }}
@@ -66,8 +77,12 @@ const Careers = () => {
               {hero.subtitle}
             </p>
             <div className="mt-8">
-              <button 
-                onClick={() => document.getElementById('positions')?.scrollIntoView({ behavior: 'smooth' })}
+              <button
+                onClick={() =>
+                  document
+                    .getElementById("positions")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
                 className="px-8 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full font-medium hover:bg-white/20 transition-all inline-flex items-center gap-2"
               >
                 View Open Roles <ArrowRight className="w-4 h-4" />
@@ -79,7 +94,7 @@ const Careers = () => {
 
       {/* Main Content (Benefits) */}
       <div className="container mx-auto px-4 py-16 -mt-20 relative z-20">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
@@ -87,7 +102,9 @@ const Careers = () => {
         >
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Why Join Carzzi?</h2>
-            <p className="text-muted-foreground">More than just a job, it's a career with purpose.</p>
+            <p className="text-muted-foreground">
+              More than just a job, it's a career with purpose.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -95,23 +112,23 @@ const Careers = () => {
               {
                 icon: Zap,
                 title: "Fast-Paced Growth",
-                desc: "Accelerate your career in a high-growth startup environment."
+                desc: "Accelerate your career in a high-growth startup environment.",
               },
               {
-                icon: Heart,
-                title: "Health & Wellness",
-                desc: "Comprehensive medical, dental, and vision coverage for you and your family."
+                icon: BriefcaseBusiness,
+                title: "Career & Growth",
+                desc: "Explore opportunities to learn, grow, and advance your career with us.",
               },
               {
                 icon: Users,
                 title: "Great Culture",
-                desc: "Collaborative, inclusive, and fun work environment with regular team events."
+                desc: "Collaborative, inclusive, and fun work environment",
               },
               {
                 icon: DollarSign,
                 title: "Competitive Pay",
-                desc: "Market-leading salaries and equity packages for all employees."
-              }
+                desc: "Market-leading salaries and equity packages for all employees.",
+              },
             ].map((benefit, index) => (
               <div
                 key={index}
@@ -134,7 +151,9 @@ const Careers = () => {
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl font-bold mb-2">Open Positions</h2>
-              <p className="text-muted-foreground">Find your next role at Carzzi.</p>
+              <p className="text-muted-foreground">
+                Find your next role at Carzzi.
+              </p>
             </div>
           </div>
 
@@ -143,49 +162,54 @@ const Careers = () => {
               <div className="text-center py-12 bg-background rounded-xl border border-border text-muted-foreground">
                 No open positions right now.
               </div>
-            ) : positions.map((job, index) => (
-              <motion.div
-                key={job._id}
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                onClick={() => navigate(`/careers/${job._id}`)}
-                className="bg-background p-6 rounded-xl border border-border hover:border-primary/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer"
-              >
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold">{job.title}</h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${job.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {job.isActive ? 'Active' : 'Closed'}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Briefcase className="w-4 h-4" /> {job.department}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" /> {job.location}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" /> {job.type}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="text-sm font-semibold">₹</span> {job.salary}
-                    </span>
-                  </div>
-                </div>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/careers/${job._id}`);
-                  }}
-                  className="px-6 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg font-medium transition-colors whitespace-nowrap"
+            ) : (
+              positions.map((job, index) => (
+                <motion.div
+                  key={job._id}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => navigate(`/careers/${job._id}`)}
+                  className="bg-background p-6 rounded-xl border border-border hover:border-primary/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer"
                 >
-                  View Details
-                </button>
-              </motion.div>
-            ))}
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-bold">{job.title}</h3>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${job.isActive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                      >
+                        {job.isActive ? "Active" : "Closed"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Briefcase className="w-4 h-4" /> {job.department}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" /> {job.location}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> {job.type}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-sm font-semibold">₹</span>{" "}
+                        {job.salary}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/careers/${job._id}`);
+                    }}
+                    className="px-6 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg font-medium transition-colors whitespace-nowrap"
+                  >
+                    View Details
+                  </button>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -193,11 +217,14 @@ const Careers = () => {
       {/* CTA */}
       <section className="py-20 bg-primary text-primary-foreground text-center">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Don't see the right fit?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Don't see the right fit?
+          </h2>
           <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-            We're always looking for talented people. Send us your resume and we'll keep you in mind for future openings.
+            We're always looking for talented people. Send us your resume and
+            we'll keep you in mind for future openings.
           </p>
-          <button 
+          <button
             onClick={() => toast.success("Resume upload feature coming soon!")}
             className="px-8 py-3 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors"
           >

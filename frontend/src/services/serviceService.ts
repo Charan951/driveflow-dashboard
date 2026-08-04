@@ -12,15 +12,17 @@ export interface Service {
   image?: string;
   features?: string[];
   isQuickService?: boolean;
+  isPremiumService?: boolean;
 }
 
 export const serviceService = {
-  getServices: async (vehicleType?: string, category?: string, isQuickService?: boolean) => {
+  getServices: async (vehicleType?: string, category?: string, isQuickService?: boolean, isPremiumService?: boolean) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {};
     if (vehicleType) params.vehicleType = vehicleType;
     if (category) params.category = category;
     if (isQuickService !== undefined) params.isQuickService = isQuickService;
+    if (isPremiumService !== undefined) params.isPremiumService = isPremiumService;
     const response = await api.get('/services', { params });
     return response.data;
   },

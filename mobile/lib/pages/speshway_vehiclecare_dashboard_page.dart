@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
-import '../core/app_styles.dart';
 import '../core/form_validation.dart';
 import '../core/storage.dart';
 import '../models/booking.dart';
@@ -132,16 +131,17 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     }
   }
 
-  Future<void> _load({bool isInitial = false}) async {
+  Future<void> _load({bool isInitial = false, bool force = false}) async {
     if (!mounted) return;
     final now = DateTime.now();
     if (!isInitial &&
+        !force &&
         _lastLoadedAt != null &&
         now.difference(_lastLoadedAt!) < const Duration(seconds: 5)) {
       return;
     }
     _lastLoadedAt = now;
-    if (_loading && !isInitial) return;
+    if (_loading && !isInitial && !force) return;
 
     setState(() {
       _loading = true;
@@ -155,7 +155,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         _catalogService.listServices(isQuickService: true),
         _reviewService.getMyReviews(),
         _couponService.getCoupons(),
-        _notificationService.listMyNotifications().catchError((_) => <NotificationItem>[]),
+        _notificationService.listMyNotifications().catchError(
+          (_) => <NotificationItem>[],
+        ),
       ]);
 
       if (!mounted) return;
@@ -669,21 +671,25 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                     platformCommentController.text.trim();
                                 final merchantCommentError =
                                     FormValidation.validateReviewComment(
-                                  merchantComment,
-                                );
+                                      merchantComment,
+                                    );
                                 if (merchantCommentError != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(merchantCommentError)),
+                                    SnackBar(
+                                      content: Text(merchantCommentError),
+                                    ),
                                   );
                                   return;
                                 }
                                 final platformCommentError =
                                     FormValidation.validateReviewComment(
-                                  platformComment,
-                                );
+                                      platformComment,
+                                    );
                                 if (platformCommentError != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(platformCommentError)),
+                                    SnackBar(
+                                      content: Text(platformCommentError),
+                                    ),
                                   );
                                   return;
                                 }
@@ -776,7 +782,6 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     }
     return '\u20B9 ${value.toStringAsFixed(2)}';
   }
-
 
   List<Booking> _getOngoingBookings() {
     final active = _bookings
@@ -877,7 +882,8 @@ class _CarzziDashboardState extends State<CarzziDashboard>
       if (!mounted) return;
       final upcoming = _computeUpcomingBooking(bookings);
       final recent = _computeRecentBookings(bookings, upcoming);
-      final cachedUnreadCount = (map['unreadNotificationsCount'] as num?)?.toInt() ?? 0;
+      final cachedUnreadCount =
+          (map['unreadNotificationsCount'] as num?)?.toInt() ?? 0;
 
       setState(() {
         _vehicles = vehicles;
@@ -980,114 +986,116 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return GlobalSyncRefresh(
       entities: SyncEntities.customerHub,
       onSync: () {
-        if (!_loading && mounted) _load();
+        if (mounted) _load(force: true);
       },
       child: Scaffold(
-      backgroundColor: isDark ? Colors.black : AppColors.backgroundPrimaryLight,
-      body: Stack(
-        children: [
-          if (isDark)
-            Container(color: Colors.black)
-          else
-            Container(color: AppColors.backgroundPrimaryLight),
-          SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Padding(
-                  padding: AppSpacing.edgeInsetsHorizontalDefault,
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppSpacing.verticalSmall,
-                        RepaintBoundary(child: _buildHeader()),
-                        AppSpacing.verticalDefault,
-                        if (_loading &&
-                            _vehicles.isEmpty &&
-                            _bookings.isEmpty &&
-                            _services.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(
-                              top: AppSpacing.section,
-                              bottom: AppSpacing.small,
-                            ),
-                            child: Center(
-                              child: SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.6,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    Color(0xFF38BDF8),
+        backgroundColor: isDark
+            ? Colors.black
+            : AppColors.backgroundPrimaryLight,
+        body: Stack(
+          children: [
+            if (isDark)
+              Container(color: Colors.black)
+            else
+              Container(color: AppColors.backgroundPrimaryLight),
+            SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Padding(
+                    padding: AppSpacing.edgeInsetsHorizontalDefault,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AppSpacing.verticalSmall,
+                          RepaintBoundary(child: _buildHeader()),
+                          AppSpacing.verticalDefault,
+                          if (_loading &&
+                              _vehicles.isEmpty &&
+                              _bookings.isEmpty &&
+                              _services.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(
+                                top: AppSpacing.section,
+                                bottom: AppSpacing.small,
+                              ),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.6,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Color(0xFF38BDF8),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          )
-                        else if (_error != null &&
-                            _vehicles.isEmpty &&
-                            _bookings.isEmpty &&
-                            _services.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: AppSpacing.section,
-                              bottom: AppSpacing.small,
-                            ),
-                            child: _FrostedCard(
-                              borderRadius: 20,
-                              padding: AppSpacing.edgeInsetsAllDefault,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: Colors.amberAccent.shade200,
-                                  ),
-                                  AppSpacing.horizontalMedium,
-                                  Expanded(
-                                    child: Text(
-                                      'Unable to load your dashboard.\nPlease check your internet connection and try again.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.85,
-                                            ),
-                                          ),
+                            )
+                          else if (_error != null &&
+                              _vehicles.isEmpty &&
+                              _bookings.isEmpty &&
+                              _services.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppSpacing.section,
+                                bottom: AppSpacing.small,
+                              ),
+                              child: _FrostedCard(
+                                borderRadius: 20,
+                                padding: AppSpacing.edgeInsetsAllDefault,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Colors.amberAccent.shade200,
                                     ),
-                                  ),
-                                  AppSpacing.horizontalSmall,
-                                  TextButton(
-                                    onPressed: () => _load(isInitial: true),
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
+                                    AppSpacing.horizontalMedium,
+                                    Expanded(
+                                      child: Text(
+                                        'Unable to load your dashboard.\nPlease check your internet connection and try again.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.85,
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                    AppSpacing.horizontalSmall,
+                                    TextButton(
+                                      onPressed: () => _load(isInitial: true),
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        AppSpacing.verticalDefault,
-                        RepaintBoundary(child: _buildUpcomingServiceCard()),
-                        AppSpacing.verticalDefault,
-                        RepaintBoundary(child: _buildCouponBanner()),
-                        AppSpacing.verticalSection,
-                        RepaintBoundary(child: _buildQuickServices()),
-                        AppSpacing.verticalSection,
-                        RepaintBoundary(child: _buildMyVehicles()),
-                        AppSpacing.verticalSection,
-                        RepaintBoundary(child: _buildRecentServices()),
-                      ],
+                          AppSpacing.verticalDefault,
+                          RepaintBoundary(child: _buildUpcomingServiceCard()),
+                          AppSpacing.verticalDefault,
+                          RepaintBoundary(child: _buildCouponBanner()),
+                          AppSpacing.verticalSection,
+                          RepaintBoundary(child: _buildQuickServices()),
+                          AppSpacing.verticalSection,
+                          RepaintBoundary(child: _buildMyVehicles()),
+                          AppSpacing.verticalSection,
+                          RepaintBoundary(child: _buildRecentServices()),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -1476,7 +1484,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return Column(
       children: [
         SizedBox(
-          height: ongoing.any((b) => b.shouldShowCustomerDeliveryOtp) ? 330 : 255,
+          height: ongoing.any((b) => b.shouldShowCustomerDeliveryOtp)
+              ? 330
+              : 255,
           child: PageView.builder(
             controller: _ongoingPageController,
             itemCount: ongoing.length,
@@ -1581,12 +1591,44 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Quick Services',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: isDark ? Colors.white : AppColors.textPrimaryLight,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Quick Services',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                context.read<NavigationProvider>().navigateTo('/services');
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View all',
+                    style: TextStyle(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : AppColors.primaryBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : AppColors.primaryBlue,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         AppSpacing.verticalMedium,
         GridView.builder(
@@ -1594,15 +1636,14 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           physics: const NeverScrollableScrollPhysics(),
           itemCount: items.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
+            crossAxisCount: 2,
             mainAxisSpacing: AppSpacing.medium,
             crossAxisSpacing: AppSpacing.medium,
-            childAspectRatio: 0.58,
+            childAspectRatio: 1.05,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
             final theme = Theme.of(context);
-            final category = item.category?.trim();
             return _AnimatedDashboardCard(
               onTap: item.source == null
                   ? null
@@ -1632,95 +1673,56 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       nav.navigateTo(route, arguments: source);
                     },
               child: _FrostedCard(
-                borderRadius: 16,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                borderRadius: 20,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      height: 18,
-                      child: (category != null && category.isNotEmpty)
-                          ? Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: AppColors.primaryBlue.withValues(
-                                      alpha: 0.3,
-                                    ),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  category.toUpperCase(),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: AppColors.primaryBlue,
-                                    fontSize: 7.5,
-                                    letterSpacing: 0.5,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: Center(
-                        child: ShaderMask(
-                          shaderCallback: (bounds) =>
-                              AppStyles.primaryGradient.createShader(bounds),
-                          child: Icon(item.icon, size: 28, color: Colors.white),
-                        ),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                      ),
+                      child: Icon(
+                        Icons.directions_car_outlined,
+                        size: 28,
+                        color: AppColors.primaryBlue,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          (category?.toUpperCase() == 'WASH' ||
-                                  category?.toUpperCase() == 'CAR WASH' ||
-                                  category?.toUpperCase() == 'DETAILING')
-                              ? item.label.replaceFirst(' (', '\n(')
-                              : item.label,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isDark
-                                ? Colors.white
-                                : AppColors.textPrimaryLight,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 12),
+                    Text(
+                      item.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isDark
+                            ? Colors.white
+                            : AppColors.textPrimaryLight,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (item.price != null && item.price! > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _formatPrice(item.price!),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : AppColors.textSecondaryLight,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      height: 14,
-                      child: (item.price != null && item.price! > 0)
-                          ? Text(
-                              _formatPrice(item.price!),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.textPrimaryLight,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
+                    ],
                   ],
                 ),
               ),
