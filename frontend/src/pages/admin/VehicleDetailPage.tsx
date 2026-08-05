@@ -107,16 +107,8 @@ const VehicleDetailPage: React.FC = () => {
                       <p className="font-medium">{vehicle.type || 'Car'}</p>
                    </div>
                    <div>
-                      <label className="text-xs text-muted-foreground uppercase font-medium">Year</label>
-                      <p className="font-medium">{vehicle.year}</p>
-                   </div>
-                   <div>
                       <label className="text-xs text-muted-foreground uppercase font-medium">Fuel</label>
                       <p className="font-medium">{vehicle.fuelType || 'N/A'}</p>
-                   </div>
-                   <div>
-                      <label className="text-xs text-muted-foreground uppercase font-medium">Color</label>
-                      <p className="font-medium">{vehicle.color || 'N/A'}</p>
                    </div>
                 </div>
 

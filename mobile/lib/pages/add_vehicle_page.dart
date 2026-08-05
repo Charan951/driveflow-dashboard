@@ -15,44 +15,36 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   final _service = VehicleService();
   final _formKey = GlobalKey<FormState>();
 
-  int _step = 1;
   bool _isLoading = false;
-  bool _isFetching = false;
 
   final _licensePlateController = TextEditingController();
-  final _makeController = TextEditingController();
-  final _modelController = TextEditingController();
-  final _variantController = TextEditingController();
-  final _yearController = TextEditingController(
-    text: DateTime.now().year.toString(),
-  );
-  final _colorController = TextEditingController();
   final _frontTyresController = TextEditingController();
   final _rearTyresController = TextEditingController();
   final _batteryDetailsController = TextEditingController();
   final _pickupDropPriceController = TextEditingController();
-  String _type = 'Car';
-  String _fuelType = 'Petrol';
+  final String _type = 'Car';
+  String? _fuelType = 'Petrol';
+
+  static const _fuelTypeOptions = ['Petrol', 'Diesel', 'EV'];
+
+  // Brand → Model → Variant are dropdowns sourced from the Vehicle
+  // Reference Data catalog (admin-managed) instead of free text, so
+  // customers only ever pick models the workshop actually has priced.
+  List<Map<String, dynamic>> _allReferences = [];
+  bool _isLoadingReferences = false;
+  String? _selectedBrand;
+  String? _selectedModel;
+  String? _selectedVariant;
 
   @override
   void initState() {
     super.initState();
-    _makeController.addListener(_onVehicleInfoChanged);
-    _modelController.addListener(_onVehicleInfoChanged);
-    _variantController.addListener(_onVehicleInfoChanged);
+    _loadReferenceCatalog();
   }
 
   @override
   void dispose() {
-    _makeController.removeListener(_onVehicleInfoChanged);
-    _modelController.removeListener(_onVehicleInfoChanged);
-    _variantController.removeListener(_onVehicleInfoChanged);
     _licensePlateController.dispose();
-    _makeController.dispose();
-    _modelController.dispose();
-    _variantController.dispose();
-    _yearController.dispose();
-    _colorController.dispose();
     _frontTyresController.dispose();
     _rearTyresController.dispose();
     _batteryDetailsController.dispose();
@@ -60,127 +52,146 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     super.dispose();
   }
 
-  void _onVehicleInfoChanged() {
-    final make = _makeController.text.trim();
-    final model = _modelController.text.trim();
-    final variant = _variantController.text.trim();
-
-    if (make.isNotEmpty && model.isNotEmpty && variant.isNotEmpty) {
-      // Debounce logic could be added here, but for simplicity:
-      _fetchReferenceData(make, model, variant);
+  Future<void> _loadReferenceCatalog() async {
+    setState(() => _isLoadingReferences = true);
+    try {
+      final refs = await _service.listAllReferences();
+      if (mounted) setState(() => _allReferences = refs);
+    } catch (e) {
+      debugPrint('Failed to load vehicle reference catalog: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingReferences = false);
     }
   }
 
-  bool _isFetchingRef = false;
-  Future<void> _fetchReferenceData(
-    String make,
-    String model,
-    String variant,
-  ) async {
-    if (_isFetchingRef) return;
-    setState(() => _isFetchingRef = true);
-    try {
-      final ref = await _service.searchReference(
-        make: make,
-        model: model,
-        variant: variant.isNotEmpty ? variant : null,
-      );
-      if (ref != null) {
-        if (ref['front_tyres'] != null) {
-          _frontTyresController.text = ref['front_tyres'].toString();
-        }
-        if (ref['rear_tyres'] != null) {
-          _rearTyresController.text = ref['rear_tyres'].toString();
-        }
-        if (ref['battery_details'] != null) {
-          _batteryDetailsController.text = ref['battery_details'].toString();
-        }
-        if (ref['pickup_drop_price'] != null) {
-          _pickupDropPriceController.text = ref['pickup_drop_price'].toString();
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to fetch reference: $e');
-    } finally {
-      if (mounted) setState(() => _isFetchingRef = false);
+  List<String> get _brandOptions {
+    final set = <String>{};
+    for (final r in _allReferences) {
+      final b = (r['brand_name'] ?? '').toString().trim();
+      if (b.isNotEmpty) set.add(b);
     }
+    return set.toList()..sort();
   }
 
-  Future<void> _handleRegNoSubmit() async {
-    final plate = _licensePlateController.text.trim().toUpperCase();
-    final normalized = plate.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    if (!FormValidation.licensePlateCompactRegex.hasMatch(normalized)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Enter a valid registration number (e.g. MH12AB1234)'),
-          ),
-        );
+  List<String> get _modelOptions {
+    if (_selectedBrand == null) return [];
+    final set = <String>{};
+    for (final r in _allReferences) {
+      if ((r['brand_name'] ?? '').toString() == _selectedBrand) {
+        final m = (r['model'] ?? '').toString().trim();
+        if (m.isNotEmpty) set.add(m);
       }
-      return;
     }
+    return set.toList()..sort();
+  }
 
-    setState(() => _isFetching = true);
-    try {
-      final details = await _service.fetchDetails(plate);
-      if (details != null && details['found'] == true) {
-        setState(() {
-          _licensePlateController.text = normalized;
-          _makeController.text = details['make']?.toString() ?? '';
-          _modelController.text = details['model']?.toString() ?? '';
-          _variantController.text = details['variant']?.toString() ?? '';
-          _yearController.text = details['year']?.toString() ?? '';
-          if (details['type'] != null) {
-            _type = details['type'].toString();
-          }
-          if (details['fuelType'] != null) {
-            _fuelType = details['fuelType'].toString();
-          }
-          if (details['color'] != null) {
-            _colorController.text = details['color'].toString();
-          }
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Vehicle details found!')),
-            );
-          }
-        });
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Details not found. Please enter manually.'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Auto-fetch failed. Please enter manually.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isFetching = false;
-          _step = 2;
-        });
+  List<String> get _variantOptions {
+    if (_selectedBrand == null || _selectedModel == null) return [];
+    final set = <String>{};
+    for (final r in _allReferences) {
+      if ((r['brand_name'] ?? '').toString() == _selectedBrand &&
+          (r['model'] ?? '').toString() == _selectedModel) {
+        final v = (r['brand_model'] ?? '').toString().trim();
+        if (v.isNotEmpty) set.add(v);
       }
     }
+    return set.toList()..sort();
+  }
+
+  Map<String, dynamic>? get _matchedReference {
+    if (_selectedBrand == null || _selectedModel == null) return null;
+    for (final r in _allReferences) {
+      final matchesVariant =
+          _selectedVariant == null ||
+          (r['brand_model'] ?? '').toString() == _selectedVariant;
+      if ((r['brand_name'] ?? '').toString() == _selectedBrand &&
+          (r['model'] ?? '').toString() == _selectedModel &&
+          matchesVariant) {
+        return r;
+      }
+    }
+    return null;
+  }
+
+  void _onBrandChanged(String? value) {
+    setState(() {
+      _selectedBrand = value;
+      _selectedModel = null;
+      _selectedVariant = null;
+    });
+  }
+
+  void _onModelChanged(String? value) {
+    setState(() {
+      _selectedModel = value;
+      _selectedVariant = null;
+    });
+    _applyReferenceAutofill();
+  }
+
+  void _onVariantChanged(String? value) {
+    setState(() => _selectedVariant = value);
+    _applyReferenceAutofill();
+  }
+
+  void _applyReferenceAutofill() {
+    final ref = _matchedReference;
+    if (ref == null) return;
+    setState(() {
+      if (ref['front_tyres'] != null) {
+        _frontTyresController.text = ref['front_tyres'].toString();
+      }
+      if (ref['rear_tyres'] != null) {
+        _rearTyresController.text = ref['rear_tyres'].toString();
+      }
+      if (ref['battery_details'] != null) {
+        _batteryDetailsController.text = ref['battery_details'].toString();
+      }
+      if (ref['pickup_drop_price'] != null) {
+        _pickupDropPriceController.text = ref['pickup_drop_price'].toString();
+      }
+      final fuel = _normalizeFuelType(ref['fuel_type']?.toString());
+      if (fuel != null) {
+        _fuelType = fuel;
+      }
+    });
+  }
+
+  String? _normalizeFuelType(String? raw) {
+    final v = (raw ?? '').trim().toLowerCase();
+    if (v == 'petrol') return 'Petrol';
+    if (v == 'diesel') return 'Diesel';
+    if (v == 'ev' || v == 'electric') return 'EV';
+    return null;
+  }
+
+  /// Matches a free-text value (e.g. from RC lookup) against the given
+  /// catalog options case-insensitively, so it can populate a dropdown
+  /// without violating Flutter's "value must be one of items" requirement.
+  String? _matchOption(String? raw, List<String> options) {
+    final v = (raw ?? '').trim();
+    if (v.isEmpty) return null;
+    for (final o in options) {
+      if (o.toLowerCase() == v.toLowerCase()) return o;
+    }
+    return null;
   }
 
   Future<void> _handleFinalSubmit() async {
     if (!_formKey.currentState!.validate()) return;
-    final parsedYear = int.tryParse(_yearController.text);
-    final currentYear = DateTime.now().year;
-    if (parsedYear == null || parsedYear < 1980 || parsedYear > currentYear + 1) {
+    if (_selectedBrand == null ||
+        _selectedModel == null ||
+        _selectedVariant == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Year must be between 1980 and ${currentYear + 1}'),
+        const SnackBar(
+          content: Text('Please select a brand, model and variant'),
         ),
+      );
+      return;
+    }
+    if (_fuelType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a fuel type')),
       );
       return;
     }
@@ -189,11 +200,10 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     try {
       await _service.addVehicle(
         licensePlate: _licensePlateController.text.trim().toUpperCase(),
-        make: _makeController.text.trim(),
-        model: _modelController.text.trim(),
-        year: parsedYear,
+        make: _selectedBrand!,
+        model: _selectedModel!,
+        variant: _selectedVariant,
         type: _type,
-        color: _colorController.text.trim(),
         fuelType: _fuelType,
         frontTyres: _frontTyresController.text.trim(),
         rearTyres: _rearTyresController.text.trim(),
@@ -222,7 +232,9 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
+      backgroundColor: isDark
+          ? AppColors.backgroundPrimary
+          : AppColors.backgroundPrimaryLight,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
@@ -237,176 +249,12 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _buildStepIndicator(),
-            const SizedBox(height: 32),
-            if (_step == 1) _buildStep1() else _buildStep2(),
-          ],
-        ),
+        child: _buildForm(),
       ),
     );
   }
 
-  Widget _buildStepIndicator() {
-    return Row(
-      children: [
-        _indicatorCircle(1, _step >= 1),
-        Expanded(
-          child: Divider(
-            color: _step >= 2 ? AppColors.primaryBlue : AppColors.borderColor,
-            thickness: 2,
-          ),
-        ),
-        _indicatorCircle(2, _step >= 2),
-      ],
-    );
-  }
-
-  Widget _indicatorCircle(int num, bool active) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: active
-            ? const LinearGradient(
-                colors: [AppColors.primaryBlue, AppColors.primaryBlueDark],
-              )
-            : null,
-        color: active ? null : AppColors.backgroundSecondary,
-        border: active ? null : Border.all(color: AppColors.borderColor),
-        boxShadow: active
-            ? [
-                BoxShadow(
-                  color: AppColors.primaryBlue.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: Center(
-        child: Text(
-          num.toString(),
-          style: TextStyle(
-            color: active ? AppColors.textPrimary : AppColors.textSecondary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep1() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Enter Registration Number',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'We will try to fetch your vehicle details automatically.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 32),
-        TextField(
-          controller: _licensePlateController,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s-]')),
-            LengthLimitingTextInputFormatter(13),
-          ],
-          style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
-          decoration: InputDecoration(
-            hintText: 'e.g. MH12AB1234',
-            hintStyle: TextStyle(color: isDark ? AppColors.textMuted : AppColors.textMutedLight),
-            filled: true,
-            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppColors.primaryBlue,
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppColors.primaryBlue,
-                        AppColors.primaryBlueDark,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isFetching ? null : _handleRegNoSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: _isFetching
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: AppColors.textPrimary,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Next',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => setState(() => _step = 2),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? AppColors.textPrimary : Colors.black87,
-                    side: BorderSide(color: isDark ? AppColors.borderColor : Colors.black26),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Manual'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep2() {
+  Widget _buildForm() {
     return Form(
       key: _formKey,
       child: Column(
@@ -424,46 +272,65 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 16),
-          _buildTextField('Brand', _makeController, 'e.g. Toyota'),
-          const SizedBox(height: 16),
-          _buildTextField('Model', _modelController, 'e.g. Camry'),
-          const SizedBox(height: 16),
-          _buildTextField(
-            'Variant/Class (Optional)',
-            _variantController,
-            'e.g. VXI / SUV',
-            required: false,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  'Year',
-                  _yearController,
-                  'e.g. 2022',
-                  keyboardType: TextInputType.number,
+          if (_isLoadingReferences && _allReferences.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextField('Color', _colorController, 'e.g. White'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Additional Info',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+            )
+          else ...[
+            _buildAutocompleteField(
+              key: const ValueKey('brand-field'),
+              label: 'Brand',
+              options: _brandOptions,
+              selectedValue: _selectedBrand,
+              onSelected: _onBrandChanged,
+              hint: 'Type to search brand',
+              required: true,
+            ),
+            const SizedBox(height: 16),
+            _buildAutocompleteField(
+              // Resetting the key when the brand changes forces the field to
+              // rebuild with a fresh internal controller, clearing stale text.
+              key: ValueKey('model-field-$_selectedBrand'),
+              label: 'Model',
+              options: _modelOptions,
+              selectedValue: _selectedModel,
+              onSelected: _onModelChanged,
+              hint: _selectedBrand == null
+                  ? 'Select brand first'
+                  : 'Type to search model',
+              enabled: _selectedBrand != null,
+              required: true,
+            ),
+            const SizedBox(height: 16),
+            _buildAutocompleteField(
+              key: ValueKey('variant-field-$_selectedBrand-$_selectedModel'),
+              label: 'Variant/Class',
+              options: _variantOptions,
+              selectedValue: _selectedVariant,
+              onSelected: _onVariantChanged,
+              hint: _selectedModel == null
+                  ? 'Select model first'
+                  : 'Type to search variant',
+              enabled: _selectedModel != null,
+              required: true,
+            ),
+          ],
           const SizedBox(height: 16),
-          _buildDropdownField('Fuel Type', _fuelType, [
-            'Petrol',
-            'Diesel',
-            'Electric',
-            'Hybrid',
-            'CNG',
-          ], (v) => setState(() => _fuelType = v!)),
+          _buildDropdownField(
+            'Fuel Type',
+            _fuelType,
+            _fuelTypeOptions,
+            (v) => setState(() => _fuelType = v),
+            hint: 'Select fuel type',
+            required: true,
+          ),
           const SizedBox(height: 32),
           Container(
             width: double.infinity,
@@ -526,9 +393,18 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           inputFormatters: keyboardType == TextInputType.number
-              ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)]
-              : [LengthLimitingTextInputFormatter(FormValidation.maxVehicleFieldLength)],
-          style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
+              ? [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ]
+              : [
+                  LengthLimitingTextInputFormatter(
+                    FormValidation.maxVehicleFieldLength,
+                  ),
+                ],
+          style: TextStyle(
+            color: isDark ? AppColors.textPrimary : Colors.black87,
+          ),
           validator: (v) {
             if (label == 'Registration Number') {
               return FormValidation.validateLicensePlate(v);
@@ -536,20 +412,35 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
             if (label == 'Year') {
               return FormValidation.validateVehicleYear(v);
             }
-            return FormValidation.validateVehicleTextField(v, required: required);
+            return FormValidation.validateVehicleTextField(
+              v,
+              required: required,
+            );
           },
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: isDark ? AppColors.textMuted : AppColors.textMutedLight),
+            hintStyle: TextStyle(
+              color: isDark ? AppColors.textMuted : AppColors.textMutedLight,
+            ),
             filled: true,
-            fillColor: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
+            fillColor: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundSecondaryLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
+              borderSide: BorderSide(
+                color: isDark
+                    ? AppColors.borderColor
+                    : AppColors.borderColorLight,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
+              borderSide: BorderSide(
+                color: isDark
+                    ? AppColors.borderColor
+                    : AppColors.borderColorLight,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -568,14 +459,17 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     String label,
     String? value,
     List<String> items,
-    Function(String?) onChanged,
-  ) {
+    Function(String?) onChanged, {
+    String? hint,
+    bool required = false,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = items.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          required ? '$label *' : label,
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -584,22 +478,193 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight,
+            color: isDark
+                ? AppColors.backgroundSecondary
+                : AppColors.backgroundSecondaryLight,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDark ? AppColors.borderColor : AppColors.borderColorLight),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderColor
+                  : AppColors.borderColorLight,
+            ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              dropdownColor: isDark ? AppColors.backgroundSurface : AppColors.backgroundSurfaceLight,
-              style: TextStyle(color: isDark ? AppColors.textPrimary : Colors.black87),
+              hint: Text(
+                hint ?? 'Select',
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.textMuted
+                      : AppColors.textMutedLight,
+                ),
+              ),
+              dropdownColor: isDark
+                  ? AppColors.backgroundSurface
+                  : AppColors.backgroundSurfaceLight,
+              style: TextStyle(
+                color: isDark ? AppColors.textPrimary : Colors.black87,
+              ),
               items: items
                   .map((i) => DropdownMenuItem(value: i, child: Text(i)))
                   .toList(),
-              onChanged: onChanged,
+              onChanged: enabled ? onChanged : null,
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Type-to-search field: filters [options] as the user types and shows a
+  /// suggestion list, instead of requiring an open-then-scroll dropdown.
+  /// Pass a `key` that changes whenever the field should reset (e.g. when
+  /// its parent selection changes), since [Autocomplete] owns its internal
+  /// controller and won't otherwise pick up an external value change.
+  Widget _buildAutocompleteField({
+    Key? key,
+    required String label,
+    required List<String> options,
+    required String? selectedValue,
+    required ValueChanged<String?> onSelected,
+    String? hint,
+    bool required = false,
+    bool enabled = true,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          required ? '$label *' : label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Autocomplete<String>(
+          initialValue: TextEditingValue(text: selectedValue ?? ''),
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            // Only show suggestions once the user has typed something —
+            // tapping into an empty field shouldn't dump the full list.
+            if (!enabled || textEditingValue.text.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            final q = textEditingValue.text.toLowerCase();
+            return options.where((o) => o.toLowerCase().contains(q));
+          },
+          onSelected: onSelected,
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+              style: TextStyle(
+                color: isDark ? AppColors.textPrimary : Colors.black87,
+              ),
+              onChanged: (v) {
+                if (v.trim().isEmpty && selectedValue != null) {
+                  onSelected(null);
+                }
+                // Auto-accept an exact (case-insensitive) match without
+                // forcing the user to tap the suggestion.
+                final match = _matchOption(v, options);
+                if (match != null && match != selectedValue) {
+                  onSelected(match);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: enabled ? (hint ?? 'Type to search') : hint,
+                hintStyle: TextStyle(
+                  color: isDark
+                      ? AppColors.textMuted
+                      : AppColors.textMutedLight,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? AppColors.backgroundSecondary
+                    : AppColors.backgroundSecondaryLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppColors.borderColor
+                        : AppColors.borderColorLight,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppColors.borderColor
+                        : AppColors.borderColorLight,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelectedOption, optionsList) {
+            // A fresh controller per build is fine here — this view is
+            // short-lived (rebuilt on every keystroke) and Scrollbar with
+            // thumbVisibility requires an explicit controller rather than
+            // relying on the PrimaryScrollController.
+            final scrollController = ScrollController();
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                color: isDark
+                    ? AppColors.backgroundSurface
+                    : AppColors.backgroundSurfaceLight,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxHeight: 280,
+                    minWidth: 280,
+                  ),
+                  child: Scrollbar(
+                    controller: scrollController,
+                    thumbVisibility: true,
+                    child: ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      shrinkWrap: true,
+                      itemCount: optionsList.length,
+                      itemBuilder: (context, index) {
+                        final option = optionsList.elementAt(index);
+                        return InkWell(
+                          onTap: () => onSelectedOption(option),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Text(
+                              option,
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppColors.textPrimary
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

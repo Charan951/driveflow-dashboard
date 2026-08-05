@@ -10,6 +10,10 @@ class VehicleService {
   static Future<List<Vehicle>>? _activeFetch;
   static const Duration _cacheDuration = Duration(minutes: 5);
 
+  static List<Map<String, dynamic>>? _cachedReferences;
+  static DateTime? _lastReferencesFetchAt;
+  static Future<List<Map<String, dynamic>>>? _activeReferencesFetch;
+
   Future<List<Vehicle>> listMyVehicles({bool forceRefresh = false}) async {
     final now = DateTime.now();
 
@@ -57,6 +61,50 @@ class VehicleService {
     _activeFetch = null;
   }
 
+  /// Full vehicle reference catalog (brand/model/variant/fuel type/prices),
+  /// used to drive the Brand → Model → Variant → Fuel Type dropdowns on Add
+  /// Vehicle instead of free-text entry.
+  Future<List<Map<String, dynamic>>> listAllReferences({
+    bool forceRefresh = false,
+  }) async {
+    final now = DateTime.now();
+
+    if (!forceRefresh &&
+        _cachedReferences != null &&
+        _lastReferencesFetchAt != null &&
+        now.difference(_lastReferencesFetchAt!) < _cacheDuration) {
+      return _cachedReferences!;
+    }
+
+    if (_activeReferencesFetch != null && !forceRefresh) {
+      return _activeReferencesFetch!;
+    }
+
+    _activeReferencesFetch = _doFetchReferences();
+    try {
+      return await _activeReferencesFetch!;
+    } finally {
+      _activeReferencesFetch = null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _doFetchReferences() async {
+    final res = await _api.getAny(ApiEndpoints.vehicleReference);
+    final items = <Map<String, dynamic>>[];
+    if (res is List) {
+      for (final e in res) {
+        if (e is Map<String, dynamic>) {
+          items.add(e);
+        } else if (e is Map) {
+          items.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+    _cachedReferences = items;
+    _lastReferencesFetchAt = DateTime.now();
+    return items;
+  }
+
   Future<Vehicle> getVehicleById(String id) async {
     final res = await _api.getAny(ApiEndpoints.vehicleById(id));
     if (res is Map<String, dynamic>) return Vehicle.fromJson(res);
@@ -69,7 +117,7 @@ class VehicleService {
     required String make,
     required String model,
     String? variant,
-    required int year,
+    int? year,
     String type = 'Car',
     String? vin,
     num? mileage,

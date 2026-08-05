@@ -158,142 +158,142 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
       entities: SyncEntities.vehicles,
       onSync: _load,
       child: PopScope(
-      canPop: Navigator.of(context).canPop(),
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/customer', (route) => false);
-      },
-      child: Scaffold(
-        backgroundColor: isDark
-            ? AppColors.backgroundPrimary
-            : AppColors.backgroundPrimaryLight,
-        drawer: const CustomerDrawer(currentRouteName: '/vehicles'),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          leading: Builder(
-            builder: (context) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.28)
-                        : Colors.black.withValues(alpha: 0.16),
-                    width: 1.0,
+        canPop: Navigator.of(context).canPop(),
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/customer', (route) => false);
+        },
+        child: Scaffold(
+          backgroundColor: isDark
+              ? AppColors.backgroundPrimary
+              : AppColors.backgroundPrimaryLight,
+          drawer: const CustomerDrawer(currentRouteName: '/vehicles'),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            leading: Builder(
+              builder: (context) => Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
                   ),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.menu,
-                    color: isDark ? Colors.white : Colors.black,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.menu,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
             ),
-          ),
-          title: Text(
-            'My Vehicles',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w700,
+            title: Text(
+              'My Vehicles',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
-        body: RefreshIndicator(
-          onRefresh: _load,
-          child: _loading && _vehicles.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? ListView(
-                  padding: AppSpacing.edgeInsetsAllDefault,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.section),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Failed to load vehicles',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          AppSpacing.verticalSmall,
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          AppSpacing.verticalMedium,
-                          OutlinedButton(
-                            onPressed: _load,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : _vehicles.isEmpty
-              ? ListView(
-                  padding: AppSpacing.edgeInsetsAllDefault,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.section),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.directions_car_outlined,
-                            size: 64,
-                            color: AppColors.textSecondary.withValues(
-                              alpha: 0.5,
+          body: RefreshIndicator(
+            onRefresh: _load,
+            child: _loading && _vehicles.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? ListView(
+                    padding: AppSpacing.edgeInsetsAllDefault,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.section),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Failed to load vehicles',
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                          ),
-                          AppSpacing.verticalMedium,
-                          Text(
-                            'Your garage is empty',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          AppSpacing.verticalSmall,
-                          Text(
-                            'Add your vehicles to get started with services.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          AppSpacing.verticalSection,
-                          ElevatedButton(
-                            onPressed: _openAddVehicleSheet,
-                            child: const Text('Add My First Vehicle'),
-                          ),
-                        ],
+                            AppSpacing.verticalSmall,
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            AppSpacing.verticalMedium,
+                            OutlinedButton(
+                              onPressed: _load,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              : ListView.separated(
-                  padding: AppSpacing.edgeInsetsAllDefault,
-                  itemCount: _vehicles.length,
-                  separatorBuilder: (context, _) => AppSpacing.verticalMedium,
-                  itemBuilder: (context, index) {
-                    final v = _vehicles[index];
-                    return _VehicleCard(
-                      vehicle: v,
-                      onBookService: _showBookServiceDialog,
-                    );
-                  },
-                ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _openAddVehicleSheet,
-          icon: const Icon(Icons.add),
-          label: const Text('Add Vehicle'),
+                    ],
+                  )
+                : _vehicles.isEmpty
+                ? ListView(
+                    padding: AppSpacing.edgeInsetsAllDefault,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.section),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.directions_car_outlined,
+                              size: 64,
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                            AppSpacing.verticalMedium,
+                            Text(
+                              'Your garage is empty',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            AppSpacing.verticalSmall,
+                            Text(
+                              'Add your vehicles to get started with services.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            AppSpacing.verticalSection,
+                            ElevatedButton(
+                              onPressed: _openAddVehicleSheet,
+                              child: const Text('Add My First Vehicle'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    padding: AppSpacing.edgeInsetsAllDefault,
+                    itemCount: _vehicles.length,
+                    separatorBuilder: (context, _) => AppSpacing.verticalMedium,
+                    itemBuilder: (context, index) {
+                      final v = _vehicles[index];
+                      return _VehicleCard(
+                        vehicle: v,
+                        onBookService: _showBookServiceDialog,
+                      );
+                    },
+                  ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _openAddVehicleSheet,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Vehicle'),
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -528,23 +528,6 @@ class _VehicleCardState extends State<_VehicleCard> {
                   AppSpacing.horizontalSmall,
                   Text(
                     v.licensePlate,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark
-                          ? AppColors.textSecondary
-                          : AppColors.textSecondaryLight,
-                    ),
-                  ),
-                  AppSpacing.horizontalMedium,
-                  Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: isDark
-                        ? AppColors.textSecondary
-                        : AppColors.textSecondaryLight,
-                  ),
-                  AppSpacing.horizontalSmall,
-                  Text(
-                    v.year.toString(),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isDark
                           ? AppColors.textSecondary

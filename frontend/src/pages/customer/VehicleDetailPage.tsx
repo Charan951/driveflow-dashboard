@@ -154,16 +154,8 @@ const CustomerVehicleDetailPage: React.FC = () => {
                       <p className="font-semibold text-sm sm:text-base">{vehicle.variant || 'N/A'}</p>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Year</label>
-                      <p className="font-semibold text-sm sm:text-base">{vehicle.year}</p>
-                   </div>
-                   <div className="space-y-1">
                       <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Fuel</label>
                       <p className="font-semibold text-sm sm:text-base">{vehicle.fuelType || 'N/A'}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Color</label>
-                      <p className="font-semibold text-sm sm:text-base">{vehicle.color || 'N/A'}</p>
                    </div>
                 </div>
 

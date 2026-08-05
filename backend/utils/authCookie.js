@@ -1,14 +1,20 @@
+import { WEB_EXPIRES_IN } from './generateToken.js';
+
 const COOKIE_NAME = 'carzzi_auth';
 
 const UNIT_MS = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
 
+// Must track the same expiry the JWT itself is issued with for web
+// (generateToken.js's WEB_EXPIRES_IN) — otherwise the browser drops the
+// cookie before the token inside it actually expires, silently logging
+// the user out early.
 export const getAccessMaxAgeMs = () => {
-  const raw = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+  const raw = WEB_EXPIRES_IN;
   const match = String(raw).match(/^(\d+)([smhd])$/i);
-  if (!match) return 15 * 60_000;
+  if (!match) return 90 * UNIT_MS.d;
   const n = Number.parseInt(match[1], 10);
   const unit = match[2].toLowerCase();
-  return n * (UNIT_MS[unit] || UNIT_MS.m);
+  return n * (UNIT_MS[unit] || UNIT_MS.d);
 };
 
 export const isWebClient = (req) =>

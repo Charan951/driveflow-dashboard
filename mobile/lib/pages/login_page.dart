@@ -227,306 +227,360 @@ class _LoginPageState extends State<LoginPage>
               opacity: _fadeAnimation,
               child: SlideTransition(
                 position: _slideAnimation,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/appicon.png',
-                          width: 220,
-                          color: Colors.white,
-                          fit: BoxFit.contain,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      // Lets the form scroll instead of overflowing when
+                      // the keyboard shrinks the available height.
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                        const SizedBox(height: 5),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFFFFE082), Color(0xFFFFA000)],
-                              ).createShader(bounds),
-                              child: Text(
-                                'Drive Smarter ',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'serif',
-                                  fontSize: 28,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.asset(
+                                  'assets/appicon.png',
+                                  width: 220,
                                   color: Colors.white,
+                                  fit: BoxFit.contain,
                                 ),
-                              ),
-                            ),
-                            Text(
-                              'Manage Easier',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'serif',
-                                fontSize: 28,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Container(
-                          height: 1.5,
-                          width: double.infinity,
-                          margin: const EdgeInsets.symmetric(horizontal: 40),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                const Color(0xFFFFB74D).withValues(alpha: 0.5),
-                                const Color(0xFFFFB74D),
-                                const Color(0xFFFFB74D).withValues(alpha: 0.5),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                _showOtpStep ? 'Verify OTP' : 'Login',
-                                key: const Key('login_title'),
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              if (_showOtpStep) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 32),
-                              if (!_showOtpStep) ...[
-                                _GlassField(
-                                  controller: _emailController,
-                                  hintText: 'Email',
-                                  keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
-                                  prefixIcon: Icons.mail_outline,
-                                  maxLength: FormValidation.maxEmailLength,
-                                  onChanged: (_) => _clearError(),
+                                const SizedBox(height: 5),
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    ShaderMask(
+                                      shaderCallback: (bounds) =>
+                                          const LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              Color(0xFFFFE082),
+                                              Color(0xFFFFA000),
+                                            ],
+                                          ).createShader(bounds),
+                                      child: Text(
+                                        'Drive Smarter ',
+                                        style: theme.textTheme.headlineSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'serif',
+                                              fontSize: 28,
+                                              color: Colors.white,
+                                            ),
+                                      ),
+                                    ),
+                                    Text(
+                                      'Manage Easier',
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'serif',
+                                            fontSize: 28,
+                                            color: Colors.white,
+                                          ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 20),
-                                _GlassField(
-                                  controller: _passwordController,
-                                  hintText: 'Password',
-                                  obscureText: !_showPassword,
-                                  textInputAction: TextInputAction.done,
-                                  prefixIcon: Icons.lock_outline,
-                                  maxLength: 15,
-                                  suffix: IconButton(
-                                    onPressed: () => setState(
-                                      () => _showPassword = !_showPassword,
-                                    ),
-                                    icon: Icon(
-                                      _showPassword
-                                          ? Icons.visibility
-                                          : Icons.visibility_off,
-                                      color: Colors.white38,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  onChanged: (_) => _clearError(),
-                                  onSubmitted: (_) => _handleCredentials(),
-                                ),
-                                const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    key: const Key('forgot_password_button'),
-                                    onPressed: () => Navigator.pushNamed(
-                                      context,
-                                      '/forgot-password',
-                                    ),
-                                    child: const Text(
-                                      'Forgot Password?',
-                                      style: TextStyle(
-                                        color: AppColors.cinematicOrange,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ] else ...[
-                                _GlassField(
-                                  controller: _otpController,
-                                  hintText: '6-digit OTP',
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.done,
-                                  prefixIcon: Icons.sms_outlined,
-                                  maxLength: 6,
-                                  onChanged: (_) => _clearError(),
-                                  onSubmitted: (_) => _handleVerifyOtp(),
-                                ),
-                              ],
-                              if (_error != null) ...[
-                                const SizedBox(height: 16),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                  height: 1.5,
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 40,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.error.withValues(
-                                      alpha: 0.1,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        const Color(
+                                          0xFFFFB74D,
+                                        ).withValues(alpha: 0.5),
+                                        const Color(0xFFFFB74D),
+                                        const Color(
+                                          0xFFFFB74D,
+                                        ).withValues(alpha: 0.5),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
                                     ),
-                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(
+                                ),
+                                const SizedBox(height: 30),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    32,
+                                    24,
+                                    24,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      const Icon(
-                                        Icons.error_outline,
-                                        color: AppColors.error,
-                                        size: 18,
+                                      Text(
+                                        _showOtpStep ? 'Verify OTP' : 'Login',
+                                        key: const Key('login_title'),
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.headlineSmall
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          _error!,
+                                      if (_showOtpStep) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
+                                          textAlign: TextAlign.center,
                                           style: const TextStyle(
-                                            color: AppColors.error,
+                                            color: Colors.white60,
                                             fontSize: 13,
                                           ),
                                         ),
+                                      ],
+                                      const SizedBox(height: 32),
+                                      if (!_showOtpStep) ...[
+                                        _GlassField(
+                                          controller: _emailController,
+                                          hintText: 'Email',
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          textInputAction: TextInputAction.next,
+                                          prefixIcon: Icons.mail_outline,
+                                          maxLength:
+                                              FormValidation.maxEmailLength,
+                                          onChanged: (_) => _clearError(),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        _GlassField(
+                                          controller: _passwordController,
+                                          hintText: 'Password',
+                                          obscureText: !_showPassword,
+                                          textInputAction: TextInputAction.done,
+                                          prefixIcon: Icons.lock_outline,
+                                          maxLength: 15,
+                                          suffix: IconButton(
+                                            onPressed: () => setState(
+                                              () => _showPassword =
+                                                  !_showPassword,
+                                            ),
+                                            icon: Icon(
+                                              _showPassword
+                                                  ? Icons.visibility
+                                                  : Icons.visibility_off,
+                                              color: Colors.white38,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          onChanged: (_) => _clearError(),
+                                          onSubmitted: (_) =>
+                                              _handleCredentials(),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            key: const Key(
+                                              'forgot_password_button',
+                                            ),
+                                            onPressed: () =>
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  '/forgot-password',
+                                                ),
+                                            child: const Text(
+                                              'Forgot Password?',
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.cinematicOrange,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        _GlassField(
+                                          controller: _otpController,
+                                          hintText: '6-digit OTP',
+                                          keyboardType: TextInputType.number,
+                                          textInputAction: TextInputAction.done,
+                                          prefixIcon: Icons.sms_outlined,
+                                          maxLength: 6,
+                                          onChanged: (_) => _clearError(),
+                                          onSubmitted: (_) =>
+                                              _handleVerifyOtp(),
+                                        ),
+                                      ],
+                                      if (_error != null) ...[
+                                        const SizedBox(height: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.error.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.error_outline,
+                                                color: AppColors.error,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _error!,
+                                                  style: const TextStyle(
+                                                    color: AppColors.error,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 5),
+                                      SizedBox(
+                                        height: 56,
+                                        child: ElevatedButton(
+                                          onPressed: _submitting
+                                              ? null
+                                              : (_showOtpStep
+                                                    ? _handleVerifyOtp
+                                                    : _handleCredentials),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppColors.cinematicOrange,
+                                            foregroundColor: Colors.white,
+                                            elevation: 4,
+                                            shadowColor: AppColors
+                                                .cinematicOrange
+                                                .withValues(alpha: 0.4),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            disabledBackgroundColor: AppColors
+                                                .cinematicOrange
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                          child: _submitting
+                                              ? const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child: CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2.5,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
+                                                )
+                                              : Text(
+                                                  _showOtpStep
+                                                      ? 'Verify'
+                                                      : 'Continue',
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 1,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      if (_showOtpStep) ...[
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            TextButton(
+                                              onPressed: _submitting
+                                                  ? null
+                                                  : () => setState(() {
+                                                      _showOtpStep = false;
+                                                      _otpController.clear();
+                                                      _error = null;
+                                                    }),
+                                              child: const Text(
+                                                'Back',
+                                                style: TextStyle(
+                                                  color: Colors.white60,
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: _submitting
+                                                  ? null
+                                                  : _handleResendOtp,
+                                              child: const Text(
+                                                'Resend OTP',
+                                                style: TextStyle(
+                                                  color:
+                                                      AppColors.cinematicOrange,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                      const SizedBox(height: 5),
+                                      Wrap(
+                                        alignment: WrapAlignment.center,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          const Text(
+                                            "Don't have an account? ",
+                                            style: TextStyle(
+                                              color: Colors.white60,
+                                            ),
+                                          ),
+                                          TextButton(
+                                            key: const Key('login_to_register'),
+                                            onPressed: () =>
+                                                Navigator.pushReplacementNamed(
+                                                  context,
+                                                  '/register',
+                                                ),
+                                            child: const Text(
+                                              'Sign Up',
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.cinematicOrange,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
                               ],
-                              const SizedBox(height: 5),
-                              SizedBox(
-                                height: 56,
-                                child: ElevatedButton(
-                                  onPressed: _submitting
-                                      ? null
-                                      : (_showOtpStep
-                                            ? _handleVerifyOtp
-                                            : _handleCredentials),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.cinematicOrange,
-                                    foregroundColor: Colors.white,
-                                    elevation: 4,
-                                    shadowColor: AppColors.cinematicOrange
-                                        .withValues(alpha: 0.4),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    disabledBackgroundColor: AppColors
-                                        .cinematicOrange
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                  child: _submitting
-                                      ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child:
-                                              CircularProgressIndicator.adaptive(
-                                                strokeWidth: 2.5,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
-                                        )
-                                      : Text(
-                                          _showOtpStep ? 'Verify' : 'Continue',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              if (_showOtpStep) ...[
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    TextButton(
-                                      onPressed: _submitting
-                                          ? null
-                                          : () => setState(() {
-                                              _showOtpStep = false;
-                                              _otpController.clear();
-                                              _error = null;
-                                            }),
-                                      child: const Text(
-                                        'Back',
-                                        style: TextStyle(color: Colors.white60),
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: _submitting
-                                          ? null
-                                          : _handleResendOtp,
-                                      child: const Text(
-                                        'Resend OTP',
-                                        style: TextStyle(
-                                          color: AppColors.cinematicOrange,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                              const SizedBox(height: 5),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  const Text(
-                                    "Don't have an account? ",
-                                    style: TextStyle(color: Colors.white60),
-                                  ),
-                                  TextButton(
-                                    key: const Key('login_to_register'),
-                                    onPressed: () =>
-                                        Navigator.pushReplacementNamed(
-                                          context,
-                                          '/register',
-                                        ),
-                                    child: const Text(
-                                      'Sign Up',
-                                      style: TextStyle(
-                                        color: AppColors.cinematicOrange,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

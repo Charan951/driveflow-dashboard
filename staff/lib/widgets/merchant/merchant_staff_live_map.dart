@@ -60,7 +60,7 @@ class MerchantStaffLiveMap extends StatelessWidget {
             TileLayer(
               urlTemplate: Env.mapTileUrlTemplate,
               subdomains: Env.mapTileSubdomains,
-              userAgentPackageName: 'com.speshway.staff',
+              userAgentPackageName: 'com.carzzi.staff',
             ),
             MarkerLayer(
               markers: [

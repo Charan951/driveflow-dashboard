@@ -70,11 +70,12 @@ const compressImage = (file: File): Promise<File> => {
 };
 
 export const uploadService = {
-  uploadFile: async (file: File) => {
+  uploadFile: async (file: File, options?: { skipCompression?: boolean }) => {
     let fileToUpload = file;
-    
-    // Compress if it's an image
-    if (file.type.startsWith('image/')) {
+
+    // Compress if it's an image, unless the caller explicitly opted out
+    // (e.g. hero section images, which must be stored at original quality).
+    if (file.type.startsWith('image/') && !options?.skipCompression) {
       fileToUpload = await compressImage(file);
     }
 

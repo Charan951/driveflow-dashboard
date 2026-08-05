@@ -356,7 +356,8 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (prepared['skipOtp'] == true) {
-        final token = (prepared['accessToken'] ?? prepared['token'])?.toString();
+        final token = (prepared['accessToken'] ?? prepared['token'])
+            ?.toString();
         final user = _userFromAuthResponse(prepared);
         if (token != null && token.isNotEmpty) {
           await AppStorage().setToken(token);
@@ -468,19 +469,14 @@ class AuthProvider extends ChangeNotifier {
       SocketService().trackingProvider?.clear();
       SocketService().disconnect();
 
-      // 2. Clear storage and in-memory session caches
-      await AppStorage().clearToken();
-      await AppStorage().clearUser();
+      // 2. Revoke the token server-side, then clear it locally. Must run
+      // before wiping local storage — AuthService.logout() needs the
+      // still-present token to authenticate the revocation call; it
+      // clears storage itself once that's done (or failed).
+      await _auth.logout();
       await SessionCache.clearForNewSession();
 
-      // 3. Call backend logout (optional, depends on implementation)
-      try {
-        await _auth.logout();
-      } catch (e) {
-        // Ignore backend logout errors
-      }
-
-      // 4. Reset local state
+      // 3. Reset local state
       user = null;
       lastError = null;
     } finally {

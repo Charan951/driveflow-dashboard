@@ -190,64 +190,66 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
         if (!_loading) _load();
       },
       child: Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Vehicle details',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-        actions: const [],
-      ),
-      body: NestedScrollView(
-        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-          return [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: AppSpacing.edgeInsetsAllDefault,
-                child: _buildVehicleSummaryCard(context, isDark),
-              ),
+        backgroundColor: bg,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          title: Text(
+            'Vehicle details',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black,
             ),
-            if (_error != null)
+          ),
+          actions: const [],
+        ),
+        body: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            return [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Text(
-                    _error!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                  padding: AppSpacing.edgeInsetsAllDefault,
+                  child: _buildVehicleSummaryCard(context, isDark),
+                ),
+              ),
+              if (_error != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      _error!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                    ),
+                  ),
+                ),
+              SliverOverlapAbsorber(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
+                ),
+                sliver: SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _VehicleDetailTabsHeaderDelegate(
+                    tabController: _tabController,
+                    isDark: isDark,
+                    backgroundColor: bg,
                   ),
                 ),
               ),
-            SliverOverlapAbsorber(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-              sliver: SliverPersistentHeader(
-                pinned: true,
-                delegate: _VehicleDetailTabsHeaderDelegate(
-                  tabController: _tabController,
-                  isDark: isDark,
-                  backgroundColor: bg,
-                ),
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildNestedServiceHistoryTab(context, isDark),
-            _buildNestedHealthTab(context, isDark),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildNestedServiceHistoryTab(context, isDark),
+              _buildNestedHealthTab(context, isDark),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -1022,11 +1024,6 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
 
   List<_VehicleSpecItem> _vehicleSpecItems(Vehicle v) {
     final list = <_VehicleSpecItem>[];
-    if (v.year > 0) {
-      list.add(
-        _VehicleSpecItem(Icons.calendar_month_outlined, 'Year', '${v.year}'),
-      );
-    }
     if ((v.type ?? '').trim().isNotEmpty) {
       list.add(
         _VehicleSpecItem(Icons.category_outlined, 'Type', v.type!.trim()),
@@ -1039,11 +1036,6 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
           'Fuel',
           v.fuelType!.trim().toUpperCase(),
         ),
-      );
-    }
-    if ((v.color ?? '').trim().isNotEmpty) {
-      list.add(
-        _VehicleSpecItem(Icons.palette_outlined, 'Colour', v.color!.trim()),
       );
     }
     if (v.mileage != null) {

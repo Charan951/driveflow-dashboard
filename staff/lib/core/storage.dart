@@ -10,13 +10,14 @@ class AppStorage {
   static const _tokenKey = 'staff_access_token';
   static const _userKey = 'staff_auth_user';
   static const _themeModeKey = 'theme_mode';
+
   /// Cleared on app uninstall; used to wipe Keychain leftovers on fresh install.
   static const _installMarkerKey = 'staff_install_marker';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
-      sharedPreferencesName: 'speshway_staff_storage',
+      sharedPreferencesName: 'carzzi_staff_storage',
       resetOnError: true,
     ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),

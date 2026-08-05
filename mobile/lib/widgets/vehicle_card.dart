@@ -26,8 +26,12 @@ class VehicleCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? const Color(0xFF1E293B) : AppColors.backgroundSecondaryLight)
-              : (isDark ? AppColors.backgroundSecondary : AppColors.backgroundSecondaryLight),
+              ? (isDark
+                    ? const Color(0xFF1E293B)
+                    : AppColors.backgroundSecondaryLight)
+              : (isDark
+                    ? AppColors.backgroundSecondary
+                    : AppColors.backgroundSecondaryLight),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
@@ -110,27 +114,6 @@ class VehicleCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          vehicle.year.toString(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,

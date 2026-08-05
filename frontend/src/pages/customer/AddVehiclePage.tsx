@@ -1,40 +1,139 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Car, Upload, ChevronRight } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import VehicleCard from '@/components/VehicleCard';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
-import { searchVehicleReference } from '@/services/vehicleReferenceService';
+import { getVehicleReference } from '@/services/vehicleReferenceService';
 import { isValidLicensePlate } from '@/lib/formValidation';
+
+interface ReferenceRecord {
+  brand_name?: string;
+  model?: string;
+  brand_model?: string;
+  fuel_type?: string;
+  front_tyres?: string;
+  rear_tyres?: string;
+  [key: string]: unknown;
+}
+
+/** Type-to-search field: filters `options` as the user types instead of
+ * requiring an open-then-scroll <select>. Only a value from `options` (or
+ * empty) is treated as "selected" — typed text that doesn't match anything
+ * just doesn't fire onSelect until the user picks a suggestion. */
+const AutocompleteField: React.FC<{
+  label: string;
+  value: string;
+  options: string[];
+  onSelect: (value: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+}> = ({ label, value, options, onSelect, placeholder, required, disabled }) => {
+  const [query, setQuery] = useState(value);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Only show suggestions once the user has typed something — focusing an
+  // empty field shouldn't dump the full list.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return options.filter((o) => o.toLowerCase().includes(q));
+  }, [query, options]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-sm font-medium text-foreground mb-2">
+        {label} {required && <span className="text-destructive">*</span>}
+      </label>
+      <input
+        type="text"
+        value={query}
+        disabled={disabled}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          // Auto-accept an exact (case-insensitive) match without forcing
+          // the user to click the suggestion.
+          const exact = options.find((o) => o.toLowerCase() === e.target.value.trim().toLowerCase());
+          onSelect(exact ?? '');
+        }}
+        onFocus={() => setIsOpen(query.trim().length > 0)}
+        placeholder={disabled ? placeholder : placeholder || 'Type to search'}
+        className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+      />
+      {isOpen && !disabled && filtered.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-popover border border-border rounded-xl shadow-lg">
+          {filtered.map((option) => (
+            <button
+              type="button"
+              key={option}
+              onClick={() => {
+                setQuery(option);
+                onSelect(option);
+                setIsOpen(false);
+              }}
+              className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const FUEL_TYPE_OPTIONS = ['Petrol', 'Diesel', 'EV'];
 
 const AddVehiclePage: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
-  const [isFetchingTires, setIsFetchingTires] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
+
+  // Brand → Model → Variant are catalog-driven (Vehicle Reference Data),
+  // same source the admin manages tyre/battery pricing from.
+  const [catalog, setCatalog] = useState<ReferenceRecord[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+
   const [formData, setFormData] = useState({
     licensePlate: '',
     make: '',
     model: '',
     variant: '',
     fuel: '',
-    year: '',
-    color: '',
     frontTyres: '',
     rearTyres: '',
   });
 
   useEffect(() => {
     fetchVehicles();
+    getVehicleReference()
+      .then((data) => setCatalog(Array.isArray(data) ? data : []))
+      .catch(() => setCatalog([]))
+      .finally(() => setIsLoadingCatalog(false));
   }, []);
 
   useEffect(() => {
@@ -43,33 +142,59 @@ const AddVehiclePage: React.FC = () => {
     }
   }, [isLoadingVehicles, vehicles]);
 
-  useEffect(() => {
-    const fetchTireDetails = async () => {
-      if (formData.make && formData.model && formData.variant && formData.variant.trim() !== '') {
-        setIsFetchingTires(true);
-        try {
-          const details = await searchVehicleReference(formData.make, formData.model, formData.variant);
-          if (details) {
-            setFormData(prev => ({
-              ...prev,
-              frontTyres: details.front_tyres || prev.frontTyres,
-              rearTyres: details.rear_tyres || prev.rearTyres,
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to fetch tire details:', error);
-        } finally {
-          setIsFetchingTires(false);
-        }
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      const b = (r.brand_name || '').trim();
+      if (b) set.add(b);
+    });
+    return Array.from(set).sort();
+  }, [catalog]);
+
+  const modelOptions = useMemo(() => {
+    if (!formData.make) return [];
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if ((r.brand_name || '') === formData.make) {
+        const m = (r.model || '').trim();
+        if (m) set.add(m);
       }
-    };
+    });
+    return Array.from(set).sort();
+  }, [catalog, formData.make]);
 
-    const debounceTimer = setTimeout(() => {
-      fetchTireDetails();
-    }, 500);
+  const variantOptions = useMemo(() => {
+    if (!formData.make || !formData.model) return [];
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if ((r.brand_name || '') === formData.make && (r.model || '') === formData.model) {
+        const v = (r.brand_model || '').trim();
+        if (v) set.add(v);
+      }
+    });
+    return Array.from(set).sort();
+  }, [catalog, formData.make, formData.model]);
 
-    return () => clearTimeout(debounceTimer);
-  }, [formData.make, formData.model, formData.variant]);
+  // Auto-fill tyre sizes + fuel type once brand/model (and variant, if
+  // picked) resolve to a specific catalog record.
+  useEffect(() => {
+    if (!formData.make || !formData.model) return;
+    const match = catalog.find(
+      (r) =>
+        (r.brand_name || '') === formData.make &&
+        (r.model || '') === formData.model &&
+        (!formData.variant || (r.brand_model || '') === formData.variant)
+    );
+    if (!match) return;
+    setFormData((prev) => ({
+      ...prev,
+      frontTyres: (match.front_tyres as string) || prev.frontTyres,
+      rearTyres: (match.rear_tyres as string) || prev.rearTyres,
+      fuel: FUEL_TYPE_OPTIONS.includes((match.fuel_type as string) || '')
+        ? (match.fuel_type as string)
+        : prev.fuel,
+    }));
+  }, [catalog, formData.make, formData.model, formData.variant]);
 
   const fetchVehicles = async () => {
     try {
@@ -84,57 +209,8 @@ const AddVehiclePage: React.FC = () => {
     }
   };
 
-  const handleRegNoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isValidLicensePlate(formData.licensePlate)) {
-      toast.error('Please enter a valid registration number');
-      return;
-    }
-    setIsLoading(true);
-    
-    try {
-      const details = await vehicleService.getVehicleRCDetails(formData.licensePlate);
-
-      if (details && details.found) {
-        // Extract year from registration_date (assuming DD-MM-YYYY or YYYY-MM-DD)
-        let extractedYear = '';
-        if (details.registration_date) {
-          const dateParts = details.registration_date.split(/[-/]/);
-          if (dateParts.length === 3) {
-            // Check if year is first or last
-            if (dateParts[0].length === 4) extractedYear = dateParts[0];
-            else if (dateParts[2].length === 4) extractedYear = dateParts[2];
-          }
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          make: details.brand_name || '',
-          model: details.brand_model || '',
-          variant: details.variant || '',
-          fuel: details.fuel_type || '',
-          year: extractedYear || new Date().getFullYear().toString(),
-          color: details.color || '',
-        }));
-        toast.success('Vehicle details found!');
-      } else {
-        const message =
-          (details && (details.message as string)) ||
-          'Vehicle details not found. Please enter manually.';
-        toast.info(message);
-      }
-    } catch (error: any) {
-      console.error('Error fetching vehicle details:', error);
-      const message = error.response?.data?.message || 'Could not auto-fetch details. Please enter manually.';
-      toast.info(message);
-    } finally {
-      setIsLoading(false);
-      setStep(2);
-    }
-  };
-
-  const handleManualEntry = () => {
-    setStep(2);
+  const resetForm = () => {
+    setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', frontTyres: '', rearTyres: '' });
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -144,35 +220,30 @@ const AddVehiclePage: React.FC = () => {
       toast.error('Please enter a valid registration number (e.g. MH 02 AB 1234)');
       return;
     }
-    const year = Number.parseInt(formData.year, 10);
-    const currentYear = new Date().getFullYear();
-    if (!formData.make.trim() || !formData.model.trim()) {
-      toast.error('Brand and model are required');
+    if (!formData.make.trim() || !formData.model.trim() || !formData.variant.trim()) {
+      toast.error('Please select a brand, model and variant from the suggestions');
       return;
     }
-    if (Number.isNaN(year) || year < 1980 || year > currentYear + 1) {
-      toast.error(`Year must be between 1980 and ${currentYear + 1}`);
+    if (!formData.fuel.trim()) {
+      toast.error('Please select a fuel type');
       return;
     }
     setIsLoading(true);
-    
+
     try {
-      await vehicleService.addVehicle({ 
+      await vehicleService.addVehicle({
         licensePlate: plate,
         make: formData.make.trim(),
         model: formData.model.trim(),
         variant: formData.variant.trim(),
-        year,
-        color: formData.color.trim() || undefined,
         fuelType: formData.fuel.trim() || undefined,
         frontTyres: formData.frontTyres,
         rearTyres: formData.rearTyres,
       });
-      
+
       toast.success('Vehicle added successfully!');
       setShowForm(false);
-      setStep(1);
-      setFormData({ licensePlate: '', make: '', model: '', variant: '', fuel: '', year: '', color: '', frontTyres: '', rearTyres: '' });
+      resetForm();
       fetchVehicles(); // Refresh list
     } catch (error: unknown) {
       console.error('Failed to add vehicle:', error);
@@ -188,10 +259,6 @@ const AddVehiclePage: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
   return (
     <div className="w-full h-full py-4 lg:py-6 space-y-4 sm:space-y-6 overflow-hidden">
       {/* Header */}
@@ -201,7 +268,7 @@ const AddVehiclePage: React.FC = () => {
           <p className="text-sm sm:text-base text-muted-foreground">Manage your registered vehicles</p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setStep(1); }}
+          onClick={() => setShowForm(!showForm)}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
@@ -209,7 +276,7 @@ const AddVehiclePage: React.FC = () => {
         </button>
       </div>
 
-      {/* Add Vehicle Form */}
+      {/* Add Vehicle Form — goes straight to manual entry, no registration lookup step */}
       {showForm && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
@@ -218,147 +285,86 @@ const AddVehiclePage: React.FC = () => {
           className="bg-card rounded-2xl border border-border p-4 sm:p-6"
         >
           <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6">Add New Vehicle</h2>
-          
-          {step === 1 ? (
-            <form onSubmit={handleRegNoSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Vehicle Registration Number</label>
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <input
-                    type="text"
-                    name="licensePlate"
-                    value={formData.licensePlate}
-                    onChange={(e) => setFormData({...formData, licensePlate: e.target.value.toUpperCase()})}
-                    placeholder="e.g. MH 02 AB 1234"
-                    required
-                    className="flex-1 px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
-                  />
-                  <div className="flex gap-2 sm:gap-3">
-                    <button
-                      type="submit"
-                      disabled={!formData.licensePlate || isLoading}
-                      className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                    >
-                      {isLoading ? 'Fetching...' : 'Next'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleManualEntry}
-                      className="flex-1 sm:flex-none px-4 sm:px-6 py-3 border border-border rounded-xl font-medium text-foreground hover:bg-muted/80 transition-colors"
-                    >
-                      Manual
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleFinalSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Vehicle Registration Number</label>
-                <input
-                  type="text"
-                  name="licensePlate"
-                  value={formData.licensePlate}
-                  onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
-                  placeholder="e.g. MH 02 AB 1234"
-                  required
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Brand</label>
-                  <input
-                    type="text"
-                    name="make"
-                    value={formData.make}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Model</label>
-                  <input
-                    type="text"
-                    name="model"
-                    value={formData.model}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Variant</label>
-                  <input
-                    type="text"
-                    name="variant"
-                    value={formData.variant}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Fuel Type</label>
-                  <input
-                    type="text"
-                    name="fuel"
-                    value={formData.fuel}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Year (4 digits)</label>
-                  <input
-                    type="number"
-                    name="year"
-                    value={formData.year}
-                    onChange={(e) => {
-                      let value = e.target.value;
-                      if (value.length > 4) {
-                        value = value.slice(0, 4);
-                      }
-                      setFormData({ ...formData, year: value });
-                    }}
-                    required
-                    min={1900}
-                    max={new Date().getFullYear() + 1}
-                    placeholder="e.g. 2024"
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Color</label>
-                  <input
-                    type="text"
-                    name="color"
-                    value={formData.color}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="w-full sm:flex-1 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+          <form onSubmit={handleFinalSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Vehicle Registration Number</label>
+              <input
+                type="text"
+                name="licensePlate"
+                value={formData.licensePlate}
+                onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
+                placeholder="e.g. MH 02 AB 1234"
+                required
+                className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AutocompleteField
+                label="Brand"
+                value={formData.make}
+                options={brandOptions}
+                required
+                disabled={isLoadingCatalog}
+                placeholder={isLoadingCatalog ? 'Loading brands...' : 'Type to search brand'}
+                onSelect={(v) =>
+                  setFormData((prev) => ({ ...prev, make: v, model: '', variant: '' }))
+                }
+              />
+              <AutocompleteField
+                label="Model"
+                value={formData.model}
+                options={modelOptions}
+                required
+                disabled={!formData.make}
+                placeholder={formData.make ? 'Type to search model' : 'Select brand first'}
+                onSelect={(v) => setFormData((prev) => ({ ...prev, model: v, variant: '' }))}
+              />
+              <AutocompleteField
+                label="Variant/Class"
+                value={formData.variant}
+                options={variantOptions}
+                required
+                disabled={!formData.model}
+                placeholder={formData.model ? 'Type to search variant' : 'Select model first'}
+                onSelect={(v) => setFormData((prev) => ({ ...prev, variant: v }))}
+              />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Fuel Type <span className="text-destructive">*</span>
+                </label>
+                <select
+                  name="fuel"
+                  value={formData.fuel}
+                  onChange={(e) => setFormData({ ...formData, fuel: e.target.value })}
+                  required
+                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full sm:flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? 'Adding...' : 'Confirm Vehicle'}
-                </button>
+                  <option value="">Select fuel type</option>
+                  {FUEL_TYPE_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
               </div>
-            </form>
-          )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="w-full sm:flex-1 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full sm:flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isLoading ? 'Adding...' : 'Confirm Vehicle'}
+              </button>
+            </div>
+          </form>
         </motion.div>
       )}
 
@@ -382,7 +388,6 @@ const AddVehiclePage: React.FC = () => {
                 id={vehicle._id}
                 make={vehicle.make}
                 model={vehicle.model}
-                year={vehicle.year}
                 licensePlate={vehicle.licensePlate}
                 variant={vehicle.variant}
                 image={vehicle.image}

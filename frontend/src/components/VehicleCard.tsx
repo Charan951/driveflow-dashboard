@@ -8,7 +8,6 @@ interface VehicleCardProps {
   id: string;
   make: string;
   model: string;
-  year: number;
   licensePlate: string;
   variant?: string;
   image?: string;
@@ -23,7 +22,6 @@ interface VehicleCardProps {
 export const VehicleCard: React.FC<VehicleCardProps> = ({
   make,
   model,
-  year,
   licensePlate,
   variant,
   image,
@@ -57,7 +55,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-foreground truncate">
-            {year} {make} {model} {variant && <span className="text-muted-foreground font-normal">• {variant}</span>}
+            {make} {model} {variant && <span className="text-muted-foreground font-normal">• {variant}</span>}
           </h4>
           <p className="text-sm text-muted-foreground">{licensePlate}</p>
         </div>
@@ -122,8 +120,6 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         </div>
         
         <div className="mt-2.5 flex items-center gap-2">
-          <span className="text-[11px] font-medium text-muted-foreground/60">{year}</span>
-          <span className="text-muted-foreground/30 text-[10px]">•</span>
           <span className="text-[11px] font-mono text-muted-foreground/60 uppercase tracking-wider">{licensePlate}</span>
         </div>
 

@@ -1409,7 +1409,7 @@ class NotificationService {
       } else if (type == 'support') {
         Navigator.pushNamed(context, '/support');
       } else if (type == 'promotion') {
-        Navigator.pushNamed(context, '/speshway-dashboard');
+        Navigator.pushNamed(context, '/carzzi-dashboard');
       } else if (type == 'approval' ||
           type == 'approval_request' ||
           type == 'merchant_approval') {

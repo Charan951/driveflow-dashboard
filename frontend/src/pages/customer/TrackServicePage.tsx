@@ -764,7 +764,7 @@ const TrackServicePage: React.FC = () => {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
-              {vehicle.year} {vehicle.make} {vehicle.model}
+              {vehicle.make} {vehicle.model}
             </h3>
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               {vehicle.variant && (

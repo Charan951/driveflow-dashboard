@@ -31,8 +31,7 @@ class Env {
   static String get apiBaseUrl =>
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
 
-  static String get userAgent =>
-      'com.speshway.app/1.0.0 (Flutter; Android/iOS)';
+  static String get userAgent => 'com.carzzi.user/1.0.0 (Flutter; Android/iOS)';
 }
 
 class ApiEndpoints {
@@ -43,6 +42,7 @@ class ApiEndpoints {
   static const String authSignupSendOtp = '/auth/signup/send-otp';
   static const String authSignupVerifyOtp = '/auth/signup/verify-otp';
   static const String authLogin = '/auth/login';
+  static const String authLogout = '/auth/logout';
   static const String authLoginPrepare = '/auth/login/prepare';
   static const String authLoginSendOtp = '/auth/login/send-otp';
   static const String authLoginVerifyOtp = '/auth/login/verify-otp';
@@ -55,6 +55,7 @@ class ApiEndpoints {
   static String bookingsForVehicle(String vehicleId) =>
       '/bookings/vehicle/$vehicleId';
   static const String fetchVehicleDetails = '/vehicles/fetch-details';
+  static const String vehicleReference = '/vehicle-reference';
   static const String vehicleReferenceSearch = '/vehicle-reference/search';
   static const String bookings = '/bookings';
   static const String myBookings = '/bookings/mybookings';

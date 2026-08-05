@@ -445,7 +445,10 @@ const AdminHeroImagesPage = () => {
 
     setUploading(activeUploadTarget.type === 'home' ? activeUploadTarget.id?.toString() || 'new' : activeUploadTarget.id?.toString() || 'page');
     try {
-      const res = await uploadService.uploadFile(file);
+      // Hero images (home slides / page banners) are stored at original
+      // quality with no compression; only blog images get compressed.
+      const isHeroImage = activeUploadTarget.type === 'home' || activeUploadTarget.type === 'page';
+      const res = await uploadService.uploadFile(file, { skipCompression: isHeroImage });
       if (activeUploadTarget.type === 'home' && activeUploadTarget.id !== undefined) {
         handleUpdateSlide(activeUploadTarget.id, 'image', res.url);
       } else if (activeUploadTarget.type === 'page' && activeUploadTarget.id !== undefined) {

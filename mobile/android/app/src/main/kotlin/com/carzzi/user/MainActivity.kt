@@ -1,4 +1,4 @@
-package com.speshway.app
+package com.carzzi.user
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,7 +11,7 @@ import com.google.android.gms.location.*
 import com.google.android.gms.tasks.Task
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.speshway.app/gps"
+    private val CHANNEL = "com.carzzi.user/gps"
     private val REQUEST_CHECK_SETTINGS = 1001
     private var pendingResult: MethodChannel.Result? = null
 

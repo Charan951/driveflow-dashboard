@@ -14,7 +14,7 @@ import {
   logoutUser,
   getSession,
 } from '../controllers/authController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, optionalAuth } from '../middleware/authMiddleware.js';
 import {
   rejectPrivilegedAuthFields,
   blockLegacyAuthInProduction,
@@ -40,7 +40,7 @@ router.post('/login', blockLegacyAuthInProduction, rejectPrivilegedAuthFields, l
 router.post('/google', rejectPrivilegedAuthFields, googleLogin);
 router.post('/forgot-password', forgotPasswordLimiter, rejectPrivilegedAuthFields, forgotPassword);
 router.post('/reset-password', rejectPrivilegedAuthFields, resetPassword);
-router.post('/logout', logoutUser);
+router.post('/logout', optionalAuth, logoutUser);
 router.get('/session', protect, getSession);
 
 export default router;

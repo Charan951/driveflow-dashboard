@@ -25,7 +25,7 @@ import { serviceService, Service } from '@/services/serviceService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService } from '@/services/bookingService';
 import { calculateOrderTotals, isGeneralServiceItem } from '@/lib/orderPricing';
-import { searchVehicleReference } from '@/services/vehicleReferenceService';
+import { searchVehicleReference, getVehicleReferenceColumns, getVehicleReferenceBuiltinColumns } from '@/services/vehicleReferenceService';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
@@ -227,6 +227,33 @@ const BookServicePage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Admin-added tyre brand columns (e.g. Continental) show up here too, so
+  // customers can actually select them once priced in Vehicle Reference Data.
+  const [dynamicTireBrands, setDynamicTireBrands] = useState<string[]>([]);
+  useEffect(() => {
+    getVehicleReferenceColumns()
+      .then((cols) => {
+        const labels = cols.filter((c) => c.category === 'tyre').map((c) => c.label);
+        setDynamicTireBrands(labels);
+      })
+      .catch(() => setDynamicTireBrands([]));
+  }, []);
+  // Built-in brands an admin has hidden in Vehicle Reference Data shouldn't
+  // be offered here either. Until this loads, nothing is filtered out yet.
+  const [hiddenBuiltinTireBrands, setHiddenBuiltinTireBrands] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    getVehicleReferenceBuiltinColumns()
+      .then((cols) => {
+        const hidden = cols.filter((c) => c.category === 'tyre' && c.hidden).map((c) => c.label);
+        setHiddenBuiltinTireBrands(new Set(hidden));
+      })
+      .catch(() => setHiddenBuiltinTireBrands(new Set()));
+  }, []);
+  const tireBrandOptions = [
+    ...ADMIN_TIRE_BRANDS.filter((brand) => !hiddenBuiltinTireBrands?.has(brand)),
+    ...dynamicTireBrands,
+  ];
 
   useEffect(() => {
     if (location.state?.service) {
@@ -967,8 +994,6 @@ const BookServicePage: React.FC = () => {
                             </p>
                           )}
                           <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
-                            <span>{vehicle.year}</span>
-                            <span>•</span>
                             <span className="font-mono uppercase tracking-wider">{vehicle.licensePlate}</span>
                           </div>
                         </div>
@@ -1186,7 +1211,7 @@ const BookServicePage: React.FC = () => {
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {ADMIN_TIRE_BRANDS.map(brand => (
+                                  {tireBrandOptions.map(brand => (
                                     <button
                                       key={brand}
                                       type="button"
@@ -1453,8 +1478,6 @@ const BookServicePage: React.FC = () => {
                         </p>
                       )}
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
-                        <span>{selectedVehicleData?.year}</span>
-                        <span>•</span>
                         <span className="font-mono uppercase tracking-wider">{selectedVehicleData?.licensePlate}</span>
                       </div>
                     </div>

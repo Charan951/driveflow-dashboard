@@ -78,6 +78,67 @@ export const saveVehicleDataToS3 = async (data) => {
   lastFetchTime = Date.now();
 };
 
+let vehicleColumnsCache = null;
+let lastColumnsFetchTime = 0;
+
+export const getVehicleReferenceColumnsFromS3 = async () => {
+  const now = Date.now();
+  if (vehicleColumnsCache && (now - lastColumnsFetchTime < CACHE_TTL)) {
+    return vehicleColumnsCache;
+  }
+
+  try {
+    const res = await getDataFromS3('vehicle_reference_columns.json');
+    vehicleColumnsCache = res || [];
+    lastColumnsFetchTime = now;
+    return vehicleColumnsCache;
+  } catch (error) {
+    if (vehicleColumnsCache) {
+      console.warn('Error fetching columns from S3, using expired cache:', error);
+      return vehicleColumnsCache;
+    }
+    throw error;
+  }
+};
+
+export const saveVehicleReferenceColumnsToS3 = async (data) => {
+  await saveDataToS3('vehicle_reference_columns.json', data);
+  vehicleColumnsCache = data;
+  lastColumnsFetchTime = Date.now();
+};
+
+let hiddenBuiltinColumnsCache = null;
+let lastHiddenBuiltinFetchTime = 0;
+
+// List of built-in column keys (e.g. 'bridgestone', 'amaron') an admin has
+// chosen to hide from the table. The underlying price data is untouched —
+// hiding is purely a display/selection-list concern, fully reversible.
+export const getHiddenBuiltinColumnsFromS3 = async () => {
+  const now = Date.now();
+  if (hiddenBuiltinColumnsCache && (now - lastHiddenBuiltinFetchTime < CACHE_TTL)) {
+    return hiddenBuiltinColumnsCache;
+  }
+
+  try {
+    const res = await getDataFromS3('vehicle_reference_hidden_builtins.json');
+    hiddenBuiltinColumnsCache = res || [];
+    lastHiddenBuiltinFetchTime = now;
+    return hiddenBuiltinColumnsCache;
+  } catch (error) {
+    if (hiddenBuiltinColumnsCache) {
+      console.warn('Error fetching hidden built-in columns from S3, using expired cache:', error);
+      return hiddenBuiltinColumnsCache;
+    }
+    throw error;
+  }
+};
+
+export const saveHiddenBuiltinColumnsToS3 = async (data) => {
+  await saveDataToS3('vehicle_reference_hidden_builtins.json', data);
+  hiddenBuiltinColumnsCache = data;
+  lastHiddenBuiltinFetchTime = Date.now();
+};
+
 
 const streamToString = (stream) =>
   new Promise((resolve, reject) => {

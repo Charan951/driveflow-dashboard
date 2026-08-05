@@ -78,6 +78,7 @@ class ApiClient {
     final token = await AppStorage().getToken();
     final headers = {
       'Content-Type': 'application/json',
+      'X-Client-Platform': 'staff',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
@@ -100,6 +101,7 @@ class ApiClient {
     final token = await AppStorage().getToken();
     final headers = {
       'Content-Type': 'application/json',
+      'X-Client-Platform': 'staff',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
@@ -117,6 +119,7 @@ class ApiClient {
     final token = await AppStorage().getToken();
     final headers = {
       'Content-Type': 'application/json',
+      'X-Client-Platform': 'staff',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
     final uri = Uri.parse('${Env.apiBaseUrl}$path');
@@ -191,6 +194,7 @@ class ApiClient {
     final token = await AppStorage().getToken();
     final headers = {
       'Content-Type': 'application/json',
+      'X-Client-Platform': 'staff',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
     final uri = Uri.parse('${Env.apiBaseUrl}$path');

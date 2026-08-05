@@ -1,4 +1,4 @@
-package com.speshway.staff
+package com.carzzi.staff
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -9,7 +9,7 @@ const vehicleSchema = new mongoose.Schema({
   make: { type: String, required: true, maxlength: 50 },
   model: { type: String, required: true, maxlength: 50 },
   variant: { type: String, maxlength: 50 },
-  year: { type: Number, required: true },
+  year: { type: Number },
   licensePlate: { type: String, required: true, maxlength: 15 },
   color: { type: String, maxlength: 30 },
   image: { type: String }, // URL

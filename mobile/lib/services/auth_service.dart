@@ -100,10 +100,7 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> sendLoginOtp({required String email}) async {
-    return _api.postJson(
-      ApiEndpoints.authLoginSendOtp,
-      body: {'email': email},
-    );
+    return _api.postJson(ApiEndpoints.authLoginSendOtp, body: {'email': email});
   }
 
   Future<AuthResult> verifyLoginOtp({
@@ -177,6 +174,14 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // Revoke the token server-side first (mobile tokens don't expire on
+    // their own — this is what actually ends the session). Best-effort:
+    // still clear local storage even if the network call fails.
+    try {
+      await _api.postAny(ApiEndpoints.authLogout);
+    } catch (_) {
+      // Ignore — local logout must still proceed.
+    }
     await AppStorage().clearToken();
     await AppStorage().clearUser();
   }

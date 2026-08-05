@@ -1639,7 +1639,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             crossAxisCount: 2,
             mainAxisSpacing: AppSpacing.medium,
             crossAxisSpacing: AppSpacing.medium,
-            childAspectRatio: 1.05,
+            childAspectRatio: 0.92,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
@@ -1676,39 +1676,41 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 borderRadius: 20,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 20,
+                  vertical: 14,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.primaryBlue.withValues(alpha: 0.12),
                       ),
                       child: Icon(
                         Icons.directions_car_outlined,
-                        size: 28,
+                        size: 24,
                         color: AppColors.primaryBlue,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      item.label,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark
-                            ? Colors.white
-                            : AppColors.textPrimaryLight,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
+                    const SizedBox(height: 10),
+                    Flexible(
+                      child: Text(
+                        item.label,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isDark
+                              ? Colors.white
+                              : AppColors.textPrimaryLight,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     if (item.price != null && item.price! > 0) ...[
                       const SizedBox(height: 6),
@@ -1808,9 +1810,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 final v = _vehicles[index];
                 final cardWidth = MediaQuery.sizeOf(context).width * 0.7;
                 final variant = (v.variant ?? '').trim();
-                final yearPlate = v.year > 0
-                    ? '${v.year} · ${v.licensePlate.toUpperCase()}'
-                    : v.licensePlate.toUpperCase();
+                final plateLabel = v.licensePlate.toUpperCase();
                 final statusBadge = _myVehicleStatusBadgeLabel(v.status);
                 final thumbBg = isDark
                     ? Colors.white.withValues(alpha: 0.08)
@@ -1958,7 +1958,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                                 ],
                                 const SizedBox(height: 6),
                                 Text(
-                                  yearPlate,
+                                  plateLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.bodySmall

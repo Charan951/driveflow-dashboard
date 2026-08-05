@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Package, Upload, CheckCircle, FileText, Plus, Edit, Trash2 } from 'lucide-react';
-import { 
-  getVehicleReference, 
+import * as XLSX from 'xlsx';
+import { Search, Filter, Package, FileUp, FileDown, Columns3, CheckCircle, FileText, Plus, Edit, Trash2, X } from 'lucide-react';
+import {
+  getVehicleReference,
   importVehicleReference,
   createVehicleReference,
   updateVehicleReference,
   deleteVehicleReference,
-  deleteAllVehicleReference
+  deleteAllVehicleReference,
+  getVehicleReferenceColumns,
+  addVehicleReferenceColumn,
+  deleteVehicleReferenceColumn,
+  getVehicleReferenceBuiltinColumns,
+  setVehicleReferenceBuiltinColumnHidden,
+  VehicleReferenceColumn,
+  VehicleReferenceBuiltinColumn,
 } from '../../services/vehicleReferenceService';
 import { socketService } from '../../services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
@@ -39,21 +47,32 @@ interface VehicleData {
   car_wash_interior_exterior_price?: string | number;
   car_wash_interior_exterior_underbody_price?: string | number;
   general_service_price?: string | number;
+  fuel_type?: string;
+  // Admin-defined dynamic brand columns (e.g. tyre_price_continental) ride
+  // along under this catch-all instead of being individually declared.
+  [dynamicField: string]: string | number | undefined;
 }
 
 const AdminVehicleDataPage = () => {
   const [vehicleData, setVehicleData] = useState<VehicleData[]>([]);
+  const [columns, setColumns] = useState<VehicleReferenceColumn[]>([]);
+  const [builtinColumns, setBuiltinColumns] = useState<VehicleReferenceBuiltinColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploading, setUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<VehicleData | null>(null);
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [newColumnLabel, setNewColumnLabel] = useState('');
+  const [newColumnCategory, setNewColumnCategory] = useState<'tyre' | 'battery'>('tyre');
+  const [savingColumn, setSavingColumn] = useState(false);
   const [formData, setFormData] = useState({
     brand_name: '',
     model: '',
     brand_model: '',
     front_tyres: '',
     rear_tyres: '',
+    fuel_type: '',
     battery_details: '',
     pickup_drop_price: '',
     tyre_price_bridgestone: '',
@@ -70,10 +89,14 @@ const AdminVehicleDataPage = () => {
     car_wash_interior_exterior_underbody_price: '',
     general_service_price: '',
   });
+  // Admin-defined dynamic brand columns, keyed by fieldName (e.g. tyre_price_continental).
+  const [dynamicFormData, setDynamicFormData] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchVehicleData(true);
+    fetchColumns();
+    fetchBuiltinColumns();
 
     // Socket Setup
     socketService.connect();
@@ -83,6 +106,42 @@ const AdminVehicleDataPage = () => {
       socketService.leaveRoom('admin');
     };
   }, []);
+
+  const fetchBuiltinColumns = async () => {
+    try {
+      const data = await getVehicleReferenceBuiltinColumns();
+      setBuiltinColumns(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load built-in column visibility', error);
+    }
+  };
+
+  const isBuiltinHidden = (key: string) => builtinColumns.some((c) => c.key === key && c.hidden);
+
+  const handleToggleBuiltinHidden = async (key: string, hidden: boolean, label?: string) => {
+    if (hidden) {
+      const name = label || key;
+      if (!window.confirm(`Remove column "${name}"? It can be restored later from Manage Columns; existing price values are not deleted.`)) {
+        return;
+      }
+    }
+    try {
+      await setVehicleReferenceBuiltinColumnHidden(key, hidden);
+      toast.success(hidden ? 'Column removed' : 'Column restored');
+      fetchBuiltinColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update column');
+    }
+  };
+
+  const fetchColumns = async () => {
+    try {
+      const data = await getVehicleReferenceColumns();
+      setColumns(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load dynamic columns', error);
+    }
+  };
 
   const fetchVehicleData = async (forceLoading?: any) => {
     try {
@@ -134,6 +193,7 @@ const AdminVehicleDataPage = () => {
         brand_model: vehicle.brand_model,
         front_tyres: vehicle.front_tyres,
         rear_tyres: vehicle.rear_tyres,
+        fuel_type: vehicle.fuel_type || '',
         battery_details: vehicle.battery_details || '',
         pickup_drop_price: vehicle.pickup_drop_price?.toString() || '',
         tyre_price_bridgestone: vehicle.tyre_price_bridgestone?.toString() || '',
@@ -150,6 +210,11 @@ const AdminVehicleDataPage = () => {
         car_wash_interior_exterior_underbody_price: vehicle.car_wash_interior_exterior_underbody_price?.toString() || '',
         general_service_price: vehicle.general_service_price?.toString() || '',
       });
+      const dynamicValues: Record<string, string> = {};
+      columns.forEach((col) => {
+        dynamicValues[col.fieldName] = vehicle[col.fieldName]?.toString() || '';
+      });
+      setDynamicFormData(dynamicValues);
     } else {
       setEditingVehicle(null);
       setFormData({
@@ -158,6 +223,7 @@ const AdminVehicleDataPage = () => {
         brand_model: '',
         front_tyres: '',
         rear_tyres: '',
+        fuel_type: '',
         battery_details: '',
         pickup_drop_price: '',
         tyre_price_bridgestone: '',
@@ -174,6 +240,11 @@ const AdminVehicleDataPage = () => {
         car_wash_interior_exterior_underbody_price: '',
         general_service_price: '',
       });
+      const dynamicValues: Record<string, string> = {};
+      columns.forEach((col) => {
+        dynamicValues[col.fieldName] = '';
+      });
+      setDynamicFormData(dynamicValues);
     }
     setIsModalOpen(true);
   };
@@ -191,6 +262,7 @@ const AdminVehicleDataPage = () => {
     try {
       const cleaned = {
         ...formData,
+        ...dynamicFormData,
         brand_name: formData.brand_name.trim(),
         model: formData.model.trim(),
         brand_model: formData.brand_model.trim(),
@@ -239,7 +311,103 @@ const AdminVehicleDataPage = () => {
     }
   };
 
-  const filteredData = Array.isArray(vehicleData) ? vehicleData.filter(item => 
+  const handleAddColumn = async () => {
+    const label = newColumnLabel.trim();
+    if (!label) {
+      toast.error('Enter a brand/column name');
+      return;
+    }
+    try {
+      setSavingColumn(true);
+      await addVehicleReferenceColumn(label, newColumnCategory);
+      toast.success(`Column "${label}" added`);
+      setNewColumnLabel('');
+      setIsColumnModalOpen(false);
+      fetchColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to add column');
+    } finally {
+      setSavingColumn(false);
+    }
+  };
+
+  const handleDeleteColumn = async (col: VehicleReferenceColumn) => {
+    if (!window.confirm(`Remove column "${col.label}"? Existing price values for this brand will no longer be shown, but are not deleted.`)) {
+      return;
+    }
+    try {
+      await deleteVehicleReferenceColumn(col.category, col.key);
+      toast.success('Column removed');
+      fetchColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to remove column');
+    }
+  };
+
+  const handleExportExcel = () => {
+    if (vehicleData.length === 0) {
+      toast.error('No vehicle data to export');
+      return;
+    }
+    const rows = vehicleData.map((item) => {
+      const row: Record<string, string | number> = {
+        brand_name: item.brand_name,
+        model: item.model,
+        brand_model: item.brand_model,
+        front_tyres: item.front_tyres,
+        rear_tyres: item.rear_tyres,
+        fuel_type: item.fuel_type ?? '',
+        battery_details: item.battery_details ?? '',
+        pickup_drop_price: item.pickup_drop_price ?? '',
+        tyre_price_bridgestone: item.tyre_price_bridgestone ?? '',
+        tyre_price_yokohama: item.tyre_price_yokohama ?? '',
+        tyre_price_apollo: item.tyre_price_apollo ?? '',
+        tyre_price_michelin: item.tyre_price_michelin ?? '',
+        tyre_price_dummy2: item.tyre_price_dummy2 ?? '',
+        tyre_price_dummy: item.tyre_price_dummy ?? '',
+        battery_price_amaron: item.battery_price_amaron ?? '',
+        battery_price_exide: item.battery_price_exide ?? '',
+        car_wash_exterior_price: item.car_wash_exterior_price ?? '',
+        car_wash_interior_exterior_price: item.car_wash_interior_exterior_price ?? '',
+        car_wash_interior_exterior_underbody_price: item.car_wash_interior_exterior_underbody_price ?? '',
+        general_service_price: item.general_service_price ?? '',
+      };
+      columns.forEach((col) => {
+        row[col.fieldName] = item[col.fieldName] ?? '';
+      });
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Vehicle Reference Data');
+    XLSX.writeFile(workbook, `vehicle_reference_data_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Renders a built-in brand column header, or nothing if the admin has
+  // hidden that column (hide/restore is managed via the Manage Columns
+  // modal). Keep in sync with renderBuiltinCell below — both key off the
+  // same builtin `key`.
+  const renderBuiltinHeader = (key: string, label: string) => {
+    if (isBuiltinHidden(key)) return null;
+    return (
+      <th key={key} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
+        {label}
+      </th>
+    );
+  };
+
+  const renderBuiltinCell = (key: string, fieldName: string, item: VehicleData) => {
+    if (isBuiltinHidden(key)) return null;
+    const value = item[fieldName];
+    return (
+      <td key={fieldName} className="px-6 py-4 text-sm text-gray-600">
+        {value ? `₹${value}` : '-'}
+      </td>
+    );
+  };
+
+  const filteredData = Array.isArray(vehicleData) ? vehicleData.filter(item =>
     item.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.brand_model?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -259,11 +427,11 @@ const AdminVehicleDataPage = () => {
   }
 
   return (
-    <GlobalSyncRefresh entities={['vehicle', 'vehicle_reference']} onSync={fetchVehicleData}>
+    <GlobalSyncRefresh entities={['vehicle', 'vehicle_reference', 'vehicle_reference_column']} onSync={() => { fetchVehicleData(); fetchColumns(); fetchBuiltinColumns(); }}>
     <div className="space-y-4 md:space-y-6 w-full min-w-0 max-w-full overflow-x-hidden pb-24 lg:pb-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800">Vehicle Reference Data</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="file"
             ref={fileInputRef}
@@ -279,12 +447,27 @@ const AdminVehicleDataPage = () => {
             Add New
           </button>
           <button
+            onClick={() => setIsColumnModalOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <Columns3 size={18} />
+            Manage Columns
+          </button>
+          <button
             onClick={handleDeleteAll}
             disabled={loading || uploading || vehicleData.length === 0}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Trash2 size={18} />
             Delete All
+          </button>
+          <button
+            onClick={handleExportExcel}
+            disabled={vehicleData.length === 0}
+            className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <FileUp size={18} />
+            Export Excel
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -294,7 +477,7 @@ const AdminVehicleDataPage = () => {
             {uploading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
             ) : (
-              <Upload size={18} />
+              <FileDown size={18} />
             )}
             {uploading ? 'Importing...' : 'Import Excel'}
           </button>
@@ -399,15 +582,26 @@ const AdminVehicleDataPage = () => {
                 <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Brand</th>
                 <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Model</th>
                 <th className="px-4 lg:px-6 py-4 font-semibold text-gray-700 text-left">Variant</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Fuel Type</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Tyre Size</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Bridgestone</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Yokohama</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Apollo</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Michelin</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Dummy 2</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Dummy</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Amaron</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Exide</th>
+                {renderBuiltinHeader('bridgestone', 'Bridgestone')}
+                {renderBuiltinHeader('yokohama', 'Yokohama')}
+                {renderBuiltinHeader('apollo', 'Apollo')}
+                {renderBuiltinHeader('michelin', 'Michelin')}
+                {renderBuiltinHeader('dummy2', 'Dummy 2')}
+                {renderBuiltinHeader('dummy', 'Dummy')}
+                {columns.filter(c => c.category === 'tyre').map((col) => (
+                  <th key={col.fieldName} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
+                    {col.label}
+                  </th>
+                ))}
+                {renderBuiltinHeader('amaron', 'Amaron')}
+                {renderBuiltinHeader('exide', 'Exide')}
+                {columns.filter(c => c.category === 'battery').map((col) => (
+                  <th key={col.fieldName} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
+                    {col.label}
+                  </th>
+                ))}
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Ext)</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Int+Ext)</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Wash (Full)</th>
@@ -428,6 +622,9 @@ const AdminVehicleDataPage = () => {
                   <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 text-left break-words max-w-[220px]">
                     {item.brand_model}
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {item.fuel_type || '-'}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-600 font-mono">
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-gray-400 uppercase">Front:</span>
@@ -436,30 +633,24 @@ const AdminVehicleDataPage = () => {
                       <span>{item.rear_tyres}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.tyre_price_bridgestone ? `₹${item.tyre_price_bridgestone}` : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.tyre_price_yokohama ? `₹${item.tyre_price_yokohama}` : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.tyre_price_apollo ? `₹${item.tyre_price_apollo}` : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.tyre_price_michelin ? `₹${item.tyre_price_michelin}` : '-'}
+                  {renderBuiltinCell('bridgestone', 'tyre_price_bridgestone', item)}
+                  {renderBuiltinCell('yokohama', 'tyre_price_yokohama', item)}
+                  {renderBuiltinCell('apollo', 'tyre_price_apollo', item)}
+                  {renderBuiltinCell('michelin', 'tyre_price_michelin', item)}
+                  {renderBuiltinCell('dummy2', 'tyre_price_dummy2', item)}
+                  {renderBuiltinCell('dummy', 'tyre_price_dummy', item)}
+                    {columns.filter(c => c.category === 'tyre').map((col) => (
+                      <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
+                        {item[col.fieldName] ? `₹${item[col.fieldName]}` : '-'}
+                      </td>
+                    ))}
+                  {renderBuiltinCell('amaron', 'battery_price_amaron', item)}
+                  {renderBuiltinCell('exide', 'battery_price_exide', item)}
+                  {columns.filter(c => c.category === 'battery').map((col) => (
+                    <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
+                      {item[col.fieldName] ? `₹${item[col.fieldName]}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.tyre_price_dummy2 ? `₹${item.tyre_price_dummy2}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.tyre_price_dummy ? `₹${item.tyre_price_dummy}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.battery_price_amaron ? `₹${item.battery_price_amaron}` : '-'}
-                    </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.battery_price_exide ? `₹${item.battery_price_exide}` : '-'}
-                  </td>
+                  ))}
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {item.car_wash_exterior_price ? `₹${item.car_wash_exterior_price}` : '-'}
                   </td>
@@ -566,10 +757,25 @@ const AdminVehicleDataPage = () => {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="fuel_type">Fuel Type</Label>
+              <select
+                id="fuel_type"
+                value={formData.fuel_type}
+                onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Not set</option>
+                <option value="Petrol">Petrol</option>
+                <option value="Diesel">Diesel</option>
+                <option value="EV">EV</option>
+              </select>
+            </div>
 
             <div className="space-y-3 border-t pt-4">
               <h4 className="font-semibold text-sm text-gray-700">Tyre Prices</h4>
               <div className="grid grid-cols-2 gap-4">
+                {!isBuiltinHidden('bridgestone') && (
                 <div className="space-y-2">
                 <Label htmlFor="tyre_price_bridgestone">Bridgestone</Label>
                 <Input
@@ -580,6 +786,8 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {!isBuiltinHidden('yokohama') && (
               <div className="space-y-2">
                 <Label htmlFor="tyre_price_yokohama">Yokohama</Label>
                 <Input
@@ -590,6 +798,8 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {!isBuiltinHidden('apollo') && (
               <div className="space-y-2">
                 <Label htmlFor="tyre_price_apollo">Apollo</Label>
                 <Input
@@ -600,6 +810,8 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {!isBuiltinHidden('michelin') && (
               <div className="space-y-2">
                 <Label htmlFor="tyre_price_michelin">Michelin</Label>
                 <Input
@@ -610,6 +822,8 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {!isBuiltinHidden('dummy') && (
               <div className="space-y-2">
                 <Label htmlFor="tyre_price_dummy">Tyre Price - Dummy</Label>
                 <Input
@@ -620,6 +834,8 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {!isBuiltinHidden('dummy2') && (
               <div className="space-y-2">
                 <Label htmlFor="tyre_price_dummy2">Tyre Price - Dummy 2</Label>
                 <Input
@@ -630,12 +846,26 @@ const AdminVehicleDataPage = () => {
                   min="0"
                 />
               </div>
+              )}
+              {columns.filter(c => c.category === 'tyre').map((col) => (
+                <div className="space-y-2" key={col.fieldName}>
+                  <Label htmlFor={col.fieldName}>{col.label}</Label>
+                  <Input
+                    id={col.fieldName}
+                    type="number"
+                    value={dynamicFormData[col.fieldName] ?? ''}
+                    onChange={(e) => setDynamicFormData({ ...dynamicFormData, [col.fieldName]: e.target.value })}
+                    min="0"
+                  />
+                </div>
+              ))}
               </div>
             </div>
 
             <div className="space-y-3 border-t pt-4">
               <h4 className="font-semibold text-sm text-gray-700">Battery & Others</h4>
               <div className="grid grid-cols-2 gap-4">
+                {!isBuiltinHidden('amaron') && (
                 <div className="space-y-2">
                   <Label htmlFor="battery_price_amaron">Amaron</Label>
                   <Input
@@ -646,6 +876,8 @@ const AdminVehicleDataPage = () => {
                     min="0"
                   />
                 </div>
+                )}
+                {!isBuiltinHidden('exide') && (
                 <div className="space-y-2">
                   <Label htmlFor="battery_price_exide">Exide</Label>
                   <Input
@@ -656,6 +888,7 @@ const AdminVehicleDataPage = () => {
                     min="0"
                   />
                 </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="car_wash_exterior_price">Car wash-Exterior wash</Label>
                   <Input
@@ -717,6 +950,18 @@ const AdminVehicleDataPage = () => {
                     min="0"
                   />
                 </div>
+                {columns.filter(c => c.category === 'battery').map((col) => (
+                  <div className="space-y-2" key={col.fieldName}>
+                    <Label htmlFor={col.fieldName}>{col.label}</Label>
+                    <Input
+                      id={col.fieldName}
+                      type="number"
+                      value={dynamicFormData[col.fieldName] ?? ''}
+                      onChange={(e) => setDynamicFormData({ ...dynamicFormData, [col.fieldName]: e.target.value })}
+                      min="0"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -739,6 +984,108 @@ const AdminVehicleDataPage = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Columns Modal */}
+      <Dialog open={isColumnModalOpen} onOpenChange={setIsColumnModalOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto px-1">
+            <div className="space-y-2">
+              <Label>Tyre &amp; Battery Brand Columns</Label>
+              <div className="flex flex-col gap-2">
+                {[...builtinColumns.filter((c) => !c.hidden), ...columns].length === 0 && (
+                  <p className="text-sm text-gray-500">No columns yet.</p>
+                )}
+                {builtinColumns.filter((c) => !c.hidden).map((c) => (
+                  <div key={`builtin-${c.key}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-700">{c.label}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-gray-400">{c.category}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBuiltinHidden(c.key, true, c.label)}
+                      className="text-gray-400 hover:text-red-600 transition-colors"
+                      title={`Remove ${c.label} column`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                {columns.map((c) => (
+                  <div key={`dynamic-${c.fieldName}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-700">{c.label}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-gray-400">{c.category}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteColumn(c)}
+                      className="text-gray-400 hover:text-red-600 transition-colors"
+                      title={`Remove ${c.label} column`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {builtinColumns.some((c) => c.hidden) && (
+              <div className="space-y-2 border-t pt-4">
+                <Label>Hidden Columns</Label>
+                <div className="flex flex-col gap-2">
+                  {builtinColumns.filter((c) => c.hidden).map((c) => (
+                    <div key={c.key} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-700">{c.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBuiltinHidden(c.key, false)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 border-t pt-4">
+              <Label>Add New Column</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  id="new_column_category"
+                  value={newColumnCategory}
+                  onChange={(e) => setNewColumnCategory(e.target.value as 'tyre' | 'battery')}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="tyre">Tyre brand</option>
+                  <option value="battery">Battery brand</option>
+                </select>
+                <Input
+                  id="new_column_label"
+                  value={newColumnLabel}
+                  onChange={(e) => setNewColumnLabel(e.target.value)}
+                  placeholder="e.g. Continental"
+                  maxLength={40}
+                />
+              </div>
+              <Button type="button" onClick={handleAddColumn} disabled={savingColumn} className="w-full">
+                <Plus size={16} className="mr-1" />
+                {savingColumn ? 'Adding...' : 'Add Column'}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsColumnModalOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

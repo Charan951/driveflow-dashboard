@@ -2,13 +2,77 @@ import express from 'express';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
 import asyncHandler from 'express-async-handler';
-import { getVehicleDataFromS3, saveVehicleDataToS3 } from '../utils/s3Storage.js';
+import {
+  getVehicleDataFromS3,
+  saveVehicleDataToS3,
+  getVehicleReferenceColumnsFromS3,
+  saveVehicleReferenceColumnsToS3,
+  getHiddenBuiltinColumnsFromS3,
+  saveHiddenBuiltinColumnsToS3,
+} from '../utils/s3Storage.js';
 import crypto from 'crypto';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { emitEntitySync } from '../utils/syncService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Fixed columns that already exist as dedicated fields — dynamic columns
+// may not reuse these keys.
+const RESERVED_PRICE_KEYS = new Set([
+  'bridgestone', 'yokohama', 'apollo', 'michelin', 'dummy2', 'dummy',
+  'amaron', 'exide',
+]);
+
+// Single source of truth for the 8 built-in brand columns, so the "hide
+// built-in column" feature can look one up by key without re-deriving it
+// from field names scattered across the file.
+const BUILTIN_COLUMNS = [
+  { key: 'bridgestone', label: 'Bridgestone', category: 'tyre', fieldName: 'tyre_price_bridgestone' },
+  { key: 'yokohama', label: 'Yokohama', category: 'tyre', fieldName: 'tyre_price_yokohama' },
+  { key: 'apollo', label: 'Apollo', category: 'tyre', fieldName: 'tyre_price_apollo' },
+  { key: 'michelin', label: 'Michelin', category: 'tyre', fieldName: 'tyre_price_michelin' },
+  { key: 'dummy2', label: 'Dummy 2', category: 'tyre', fieldName: 'tyre_price_dummy2' },
+  { key: 'dummy', label: 'Dummy', category: 'tyre', fieldName: 'tyre_price_dummy' },
+  { key: 'amaron', label: 'Amaron', category: 'battery', fieldName: 'battery_price_amaron' },
+  { key: 'exide', label: 'Exide', category: 'battery', fieldName: 'battery_price_exide' },
+];
+
+const CATEGORY_PREFIX = {
+  tyre: 'tyre_price_',
+  battery: 'battery_price_',
+};
+
+const slugifyBrandKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, '');
+
+const fieldNameForColumn = (category, key) => `${CATEGORY_PREFIX[category]}${key}`;
+
+// Only ever merge safe, plain scalar fields into stored records — blocks
+// prototype pollution and any accidental overwrite of internal metadata.
+const RESERVED_RECORD_KEYS = new Set(['_id', 'createdAt', 'updatedAt', '__proto__', 'constructor', 'prototype']);
+const SAFE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/i;
+
+const FUEL_TYPES = ['Petrol', 'Diesel', 'EV'];
+
+const normalizeFuelType = (value) => {
+  const clean = String(value || '').trim().toLowerCase();
+  if (!clean) return '';
+  if (clean === 'ev' || clean === 'electric') return 'EV';
+  const match = FUEL_TYPES.find((f) => f.toLowerCase() === clean);
+  return match || '';
+};
+
+const extractDynamicFields = (body, knownKeys) => {
+  const extra = {};
+  for (const [key, value] of Object.entries(body || {})) {
+    if (knownKeys.has(key)) continue;
+    if (RESERVED_RECORD_KEYS.has(key)) continue;
+    if (!SAFE_KEY_PATTERN.test(key)) continue;
+    if (value != null && typeof value !== 'string' && typeof value !== 'number') continue;
+    extra[key] = value;
+  }
+  return extra;
+};
 
 // @desc    Import vehicle reference data from Excel
 // @route   POST /api/vehicle-reference/import
@@ -57,6 +121,12 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
     const dataRows = rawRows.slice(headerRowIndex + 1);
 
     console.log(`Processing ${dataRows.length} data rows with headers:`, headers);
+
+    // Admin-defined extra brand columns — matched against the sheet by
+    // either their field name (e.g. tyre_price_continental) or their
+    // display label (e.g. "Continental"), same fuzzy normalization as the
+    // built-in columns below.
+    const dynamicColumns = await getVehicleReferenceColumnsFromS3();
 
     const vehicleData = dataRows
       .map((row, idx) => {
@@ -130,6 +200,13 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
             'general service price',
             'generalserviceprice',
           ]) || '',
+          fuel_type: normalizeFuelType(fuzzyMatch(item, ['fueltype', 'fuel_type', 'fuel'])),
+          ...Object.fromEntries(
+            dynamicColumns.map((col) => [
+              col.fieldName,
+              fuzzyMatch(item, [col.fieldName, col.label]) || '',
+            ])
+          ),
         };
       });
 
@@ -188,6 +265,118 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
       error: error.message 
     });
   }
+}));
+
+// @desc    List admin-defined dynamic price columns (extra brands)
+// @route   GET /api/vehicle-reference/columns
+// @access  Public/Private
+router.get('/columns', asyncHandler(async (req, res) => {
+  const columns = await getVehicleReferenceColumnsFromS3();
+  res.json(columns);
+}));
+
+// @desc    Add a new dynamic price column (e.g. a new tyre/battery brand)
+// @route   POST /api/vehicle-reference/columns
+// @access  Private/Admin
+router.post('/columns', protect, admin, asyncHandler(async (req, res) => {
+  const { label, category } = req.body;
+
+  const cleanLabel = String(label || '').trim();
+  const cleanCategory = ['tyre', 'battery'].includes(category) ? category : null;
+
+  if (!cleanLabel || cleanLabel.length > 40) {
+    return res.status(400).json({ message: 'Column name is required (max 40 characters)' });
+  }
+  if (!cleanCategory) {
+    return res.status(400).json({ message: 'Category must be one of: tyre, battery' });
+  }
+
+  const key = slugifyBrandKey(cleanLabel);
+  if (!key || !/^[a-z0-9]+$/.test(key)) {
+    return res.status(400).json({ message: 'Column name must contain letters or numbers' });
+  }
+  if (RESERVED_PRICE_KEYS.has(key)) {
+    return res.status(400).json({ message: 'This brand already exists as a built-in column' });
+  }
+
+  const columns = await getVehicleReferenceColumnsFromS3();
+  const duplicate = columns.find((c) => c.category === cleanCategory && c.key === key);
+  if (duplicate) {
+    return res.status(400).json({ message: 'A column with this name already exists' });
+  }
+
+  const newColumn = {
+    key,
+    label: cleanLabel,
+    category: cleanCategory,
+    fieldName: fieldNameForColumn(cleanCategory, key),
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedColumns = [...columns, newColumn];
+  await saveVehicleReferenceColumnsToS3(updatedColumns);
+  emitEntitySync('vehicle_reference_column', 'created', newColumn);
+
+  res.status(201).json(newColumn);
+}));
+
+// @desc    Remove a dynamic price column definition
+// @route   DELETE /api/vehicle-reference/columns/:category/:key
+// @access  Private/Admin
+router.delete('/columns/:category/:key', protect, admin, asyncHandler(async (req, res) => {
+  const { category, key } = req.params;
+  const columns = await getVehicleReferenceColumnsFromS3();
+  const updatedColumns = columns.filter((c) => !(c.category === category && c.key === key));
+
+  if (updatedColumns.length === columns.length) {
+    return res.status(404).json({ message: 'Column not found' });
+  }
+
+  await saveVehicleReferenceColumnsToS3(updatedColumns);
+  emitEntitySync('vehicle_reference_column', 'deleted', { category, key });
+
+  res.json({ message: 'Column removed' });
+}));
+
+// @desc    List the 8 built-in brand columns with their hidden state
+// @route   GET /api/vehicle-reference/builtin-columns
+// @access  Public/Private
+router.get('/builtin-columns', asyncHandler(async (req, res) => {
+  const hidden = await getHiddenBuiltinColumnsFromS3();
+  const hiddenSet = new Set(hidden);
+  res.json(BUILTIN_COLUMNS.map((col) => ({ ...col, hidden: hiddenSet.has(col.key) })));
+}));
+
+// @desc    Hide or restore a built-in brand column. Purely a
+//          display/selection-list toggle — underlying price data on
+//          existing vehicle records is never touched or deleted.
+// @route   PUT /api/vehicle-reference/builtin-columns/:key
+// @access  Private/Admin
+router.put('/builtin-columns/:key', protect, admin, asyncHandler(async (req, res) => {
+  const { key } = req.params;
+  const { hidden } = req.body;
+
+  const column = BUILTIN_COLUMNS.find((c) => c.key === key);
+  if (!column) {
+    return res.status(404).json({ message: 'Unknown built-in column' });
+  }
+  if (typeof hidden !== 'boolean') {
+    return res.status(400).json({ message: '"hidden" must be true or false' });
+  }
+
+  const current = await getHiddenBuiltinColumnsFromS3();
+  const currentSet = new Set(current);
+  if (hidden) {
+    currentSet.add(key);
+  } else {
+    currentSet.delete(key);
+  }
+  const updated = [...currentSet];
+
+  await saveHiddenBuiltinColumnsToS3(updated);
+  emitEntitySync('vehicle_reference_column', hidden ? 'hidden' : 'restored', { key });
+
+  res.json({ ...column, hidden });
 }));
 
 // @desc    Get all vehicle reference data
@@ -275,16 +464,19 @@ router.get('/search', asyncHandler(async (req, res) => {
 // @route   POST /api/vehicle-reference
 // @access  Private/Admin
 router.post('/', protect, admin, asyncHandler(async (req, res) => {
-  const { 
+  const {
     brand_name, model, brand_model, front_tyres, rear_tyres, battery_details, pickup_drop_price,
     tyre_price_bridgestone, tyre_price_yokohama, tyre_price_apollo, tyre_price_michelin,
     tyre_price_dummy2, tyre_price_dummy, battery_price_amaron, battery_price_exide, car_wash_price,
     car_wash_exterior_price, car_wash_interior_exterior_price, car_wash_interior_exterior_underbody_price,
-    general_service_price
+    general_service_price, fuel_type
   } = req.body;
 
   if (!brand_name || !model || !brand_model) {
     return res.status(400).json({ message: 'Brand, Model, and Brand Model (Variant) are required' });
+  }
+  if (fuel_type && !FUEL_TYPES.includes(fuel_type)) {
+    return res.status(400).json({ message: `Fuel type must be one of: ${FUEL_TYPES.join(', ')}` });
   }
 
   const allData = await getVehicleDataFromS3();
@@ -297,6 +489,18 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
   if (exists) {
     return res.status(400).json({ message: 'Vehicle reference with this brand, model and variant already exists' });
   }
+
+  const knownKeys = new Set([
+    'brand_name', 'model', 'brand_model', 'front_tyres', 'rear_tyres', 'battery_details',
+    'pickup_drop_price', 'tyre_price_bridgestone', 'tyre_price_yokohama', 'tyre_price_apollo',
+    'tyre_price_michelin', 'tyre_price_dummy2', 'tyre_price_dummy', 'battery_price_amaron',
+    'battery_price_exide', 'car_wash_price', 'car_wash_exterior_price',
+    'car_wash_interior_exterior_price', 'car_wash_interior_exterior_underbody_price',
+    'general_service_price', 'fuel_type',
+  ]);
+  // Any additional admin-defined brand columns (e.g. tyre_price_continental)
+  // ride along in the request body and get merged in as-is.
+  const dynamicFields = extractDynamicFields(req.body, knownKeys);
 
   const newVehicle = {
     _id: crypto.randomUUID(),
@@ -320,6 +524,8 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
     car_wash_interior_exterior_price,
     car_wash_interior_exterior_underbody_price,
     general_service_price,
+    fuel_type: fuel_type || '',
+    ...dynamicFields,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -339,6 +545,20 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
   const index = allData.findIndex(item => item._id === req.params.id);
 
   if (index !== -1) {
+    if (req.body.fuel_type && !FUEL_TYPES.includes(req.body.fuel_type)) {
+      return res.status(400).json({ message: `Fuel type must be one of: ${FUEL_TYPES.join(', ')}` });
+    }
+
+    const updateKnownKeys = new Set([
+      'brand_name', 'model', 'brand_model', 'front_tyres', 'rear_tyres', 'battery_details',
+      'pickup_drop_price', 'tyre_price_bridgestone', 'tyre_price_yokohama', 'tyre_price_apollo',
+      'tyre_price_michelin', 'tyre_price_dummy2', 'tyre_price_dummy', 'battery_price_amaron',
+      'battery_price_exide', 'car_wash_price', 'car_wash_exterior_price',
+      'car_wash_interior_exterior_price', 'car_wash_interior_exterior_underbody_price',
+      'general_service_price', 'fuel_type',
+    ]);
+    const dynamicFields = extractDynamicFields(req.body, updateKnownKeys);
+
     const updatedVehicle = {
       ...allData[index],
       brand_name: req.body.brand_name || allData[index].brand_name,
@@ -361,6 +581,8 @@ router.put('/:id', protect, admin, asyncHandler(async (req, res) => {
       car_wash_interior_exterior_price: req.body.car_wash_interior_exterior_price !== undefined ? req.body.car_wash_interior_exterior_price : allData[index].car_wash_interior_exterior_price,
       car_wash_interior_exterior_underbody_price: req.body.car_wash_interior_exterior_underbody_price !== undefined ? req.body.car_wash_interior_exterior_underbody_price : allData[index].car_wash_interior_exterior_underbody_price,
       general_service_price: req.body.general_service_price !== undefined ? req.body.general_service_price : allData[index].general_service_price,
+      fuel_type: req.body.fuel_type !== undefined ? req.body.fuel_type : allData[index].fuel_type,
+      ...dynamicFields,
       updatedAt: new Date().toISOString()
     };
 

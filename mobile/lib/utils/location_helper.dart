@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../core/app_colors.dart';
 
 class LocationHelper {
-  static const MethodChannel _gpsChannel = MethodChannel('com.speshway.app/gps');
+  static const MethodChannel _gpsChannel = MethodChannel('com.carzzi.user/gps');
 
   /// Entry point to ensure both location services (GPS) are active and
   /// location permissions are granted.
@@ -66,7 +66,9 @@ class LocationHelper {
   /// Ensures that location permissions are granted.
   /// If denied, requests them.
   /// If deniedForever, prompts the user with a dialog to open App Settings.
-  static Future<bool> ensureLocationPermissionGranted(BuildContext context) async {
+  static Future<bool> ensureLocationPermissionGranted(
+    BuildContext context,
+  ) async {
     var permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.always ||
@@ -210,7 +212,9 @@ class LocationPromptBottomSheet extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
-                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                          color: isDark
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade300,
                         ),
                       ),
                     ),
@@ -219,7 +223,9 @@ class LocationPromptBottomSheet extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.textSecondary : Colors.grey.shade700,
+                        color: isDark
+                            ? AppColors.textSecondary
+                            : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -363,7 +369,9 @@ class PermissionDeniedBottomSheet extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
-                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                          color: isDark
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade300,
                         ),
                       ),
                     ),
@@ -372,7 +380,9 @@ class PermissionDeniedBottomSheet extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.textSecondary : Colors.grey.shade700,
+                        color: isDark
+                            ? AppColors.textSecondary
+                            : Colors.grey.shade700,
                       ),
                     ),
                   ),

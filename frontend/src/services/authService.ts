@@ -131,11 +131,16 @@ export const authService = {
         return response.data;
     },
     logout: async () => {
-        clearMemoryAccessToken();
+        // Revoke the token server-side first — bumps tokenVersion so this
+        // token (and any other still-cached copy of it) is rejected from
+        // here on. Clear the in-memory token only after, so the request
+        // above still authenticates even if the httpOnly cookie is ever
+        // unavailable for some reason.
         try {
             await api.post('/auth/logout');
         } catch {
             // Cookie may already be cleared or session expired
         }
+        clearMemoryAccessToken();
     },
 };

@@ -138,7 +138,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final visible = catalog
         .where((slot) => !_isSlotInPastForToday(slot))
         .toList();
-    final serverBooked = visible.where((slot) => _bookedSlots.contains(slot) || _blockedSlots.contains(slot)).length;
+    final serverBooked = visible
+        .where(
+          (slot) => _bookedSlots.contains(slot) || _blockedSlots.contains(slot),
+        )
+        .length;
     final serverAvailable = visible
         .where(
           (slot) =>
@@ -834,7 +838,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       await _socketService.init(context.read<AuthProvider>().user);
     });
 
-    if (widget.initialCategory == 'Tyres' ||
+    if (widget.initialCategory == 'Battery') {
+      _activeSubCategory = 'Battery';
+    } else if (widget.initialCategory == 'Tyres' ||
         widget.initialCategory == 'Tyre & Battery') {
       _activeSubCategory = 'Tyres'; // Default to Tyres
     } else {
@@ -858,6 +864,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       'Essentials': 1,
       'Wash': 3,
       'Tyres': 4,
+      'Battery': 5,
     };
     if (tabMapping[widget.initialCategory] == nav.selectedIndex) {
       _checkArguments();
@@ -874,8 +881,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         _selectedServiceIds = [service.id];
         _currentStep = 0; // Start at vehicle selection step
 
-        // Auto-set subcategory for Tyres flow
+        // Auto-set subcategory for Tyres/Battery flow
         if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Battery' ||
             widget.initialCategory == 'Tyre & Battery') {
           if (service.category?.toLowerCase().contains('battery') == true) {
             _activeSubCategory = 'Battery';
@@ -1182,7 +1190,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                              color: AppColors.primaryBlue.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -1345,6 +1355,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       'Essentials': 1,
       'Wash': 3,
       'Tyres': 4,
+      'Battery': 5,
     };
 
     if (tabMapping[widget.initialCategory] == currentIdx) {
@@ -1390,6 +1401,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             title: Text(
               () {
                 final cat = widget.initialCategory;
+                if (cat == 'Battery') {
+                  return 'Book a Battery Service';
+                }
                 if (cat == 'Tyres' || cat == 'Tyre & Battery') {
                   return 'Book a Tires & Battery Service';
                 }
@@ -1631,6 +1645,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     if (_currentStep > 0) {
       setState(() {
         if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Battery' ||
             widget.initialCategory == 'Tyre & Battery') {
           _activeSubCategory = null;
           _selectedServiceIds = [];
@@ -1808,6 +1823,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
         // Category-specific tabs for Tyre & Battery
         if (widget.initialCategory == 'Tyres' ||
+            widget.initialCategory == 'Battery' ||
             widget.initialCategory == 'Tyre & Battery')
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
@@ -1874,6 +1890,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
         if (_activeSubCategory == null &&
             (widget.initialCategory == 'Tyres' ||
+                widget.initialCategory == 'Battery' ||
                 widget.initialCategory == 'Tyre & Battery'))
           Container(
             width: double.infinity,
@@ -1922,6 +1939,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             List<ServiceItem> services;
 
             if (widget.initialCategory == 'Tyres' ||
+                widget.initialCategory == 'Battery' ||
                 widget.initialCategory == 'Tyre & Battery') {
               services = _allServices.where((s) {
                 final cat = s.category?.toLowerCase() ?? '';
@@ -2129,7 +2147,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                         .textSecondaryLight,
                                             ),
                                           ),
-                                          if (!isGeneralServiceItem(service)) ...[
+                                          if (!isGeneralServiceItem(
+                                            service,
+                                          )) ...[
                                             const SizedBox(width: 8),
                                             Text(
                                               '• Time: ${service.estimatedMinutes} mins',
@@ -2544,7 +2564,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                               fontSize: 12,
                                               color: isDark
                                                   ? AppColors.textSecondary
-                                                  : AppColors.textSecondaryLight,
+                                                  : AppColors
+                                                        .textSecondaryLight,
                                             ),
                                           ),
                                         ],
@@ -3377,10 +3398,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 children: [
                   const Text(
                     'Subtotal',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   Text(
                     '₹${formatInrAmount(checkoutTotals.subtotal)}',

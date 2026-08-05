@@ -50,3 +50,44 @@ export const deleteAllVehicleReference = async () => {
   const response = await api.delete('/vehicle-reference/all');
   return response.data;
 };
+
+export interface VehicleReferenceColumn {
+  key: string;
+  label: string;
+  category: 'tyre' | 'battery';
+  fieldName: string;
+  createdAt?: string;
+}
+
+export const getVehicleReferenceColumns = async (): Promise<VehicleReferenceColumn[]> => {
+  const response = await api.get('/vehicle-reference/columns');
+  return response.data;
+};
+
+export const addVehicleReferenceColumn = async (label: string, category: 'tyre' | 'battery') => {
+  const response = await api.post('/vehicle-reference/columns', { label, category });
+  return response.data as VehicleReferenceColumn;
+};
+
+export const deleteVehicleReferenceColumn = async (category: string, key: string) => {
+  const response = await api.delete(`/vehicle-reference/columns/${category}/${key}`);
+  return response.data;
+};
+
+export interface VehicleReferenceBuiltinColumn {
+  key: string;
+  label: string;
+  category: 'tyre' | 'battery';
+  fieldName: string;
+  hidden: boolean;
+}
+
+export const getVehicleReferenceBuiltinColumns = async (): Promise<VehicleReferenceBuiltinColumn[]> => {
+  const response = await api.get('/vehicle-reference/builtin-columns');
+  return response.data;
+};
+
+export const setVehicleReferenceBuiltinColumnHidden = async (key: string, hidden: boolean) => {
+  const response = await api.put(`/vehicle-reference/builtin-columns/${key}`, { hidden });
+  return response.data as VehicleReferenceBuiltinColumn;
+};

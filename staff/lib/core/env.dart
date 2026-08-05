@@ -31,11 +31,12 @@ class Env {
       baseUrl.endsWith('/api') ? baseUrl : '$baseUrl/api';
 
   static String get userAgent =>
-      'com.speshway.staff/1.0.0 (Flutter; Android/iOS)';
+      'com.carzzi.staff/1.0.0 (Flutter; Android/iOS)';
 }
 
 class ApiEndpoints {
   static const String authLogin = '/auth/login';
+  static const String authLogout = '/auth/logout';
   static const String authLoginPrepare = '/auth/login/prepare';
   static const String authLoginSendOtp = '/auth/login/send-otp';
   static const String authLoginVerifyOtp = '/auth/login/verify-otp';

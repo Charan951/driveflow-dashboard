@@ -70,8 +70,10 @@ const userAuthFields = (user) => ({
   isOnline: user.isOnline,
 });
 
+const clientPlatform = (req) => req.headers['x-client-platform'];
+
 const sendAuthResponse = (req, res, user, extras = {}, statusCode = 200) => {
-  const token = generateToken(user._id, user.role, user.tokenVersion || 0);
+  const token = generateToken(user._id, user.role, user.tokenVersion || 0, clientPlatform(req));
   setAuthCookie(res, token);
 
   const payload = {
@@ -83,9 +85,9 @@ const sendAuthResponse = (req, res, user, extras = {}, statusCode = 200) => {
   return res.status(statusCode).json(payload);
 };
 
-const buildAuthUserPayload = (user, extras = {}) => ({
+const buildAuthUserPayload = (req, user, extras = {}) => ({
   ...userAuthFields(user),
-  token: generateToken(user._id, user.role, user.tokenVersion || 0),
+  token: generateToken(user._id, user.role, user.tokenVersion || 0, clientPlatform(req)),
   ...extras,
 });
 
@@ -570,6 +572,16 @@ export const googleLogin = async (req, res) => {
 
 export const logoutUser = async (req, res) => {
   clearAuthCookie(res);
+
+  // Revoke the token server-side (mobile/staff tokens don't expire on
+  // their own, so this is what actually ends the session — bumping
+  // tokenVersion makes every previously issued token fail the check in
+  // authMiddleware.loadUserFromToken).
+  if (req.user) {
+    req.user.tokenVersion = (req.user.tokenVersion || 0) + 1;
+    await req.user.save({ validateBeforeSave: false });
+  }
+
   res.json({ message: 'Logged out successfully' });
 };
 

@@ -155,6 +155,15 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // Revoke the token server-side first (staff tokens don't expire on
+    // their own — this is what actually ends the session). Must run
+    // before clearing local storage, since it needs the still-present
+    // token to authenticate. Best-effort: local logout proceeds regardless.
+    try {
+      await _api.postAny(ApiEndpoints.authLogout);
+    } catch (_) {
+      // Ignore — local logout must still proceed.
+    }
     await _clearSession();
     await SocketService().reconnect();
   }
